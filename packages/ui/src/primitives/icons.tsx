@@ -177,23 +177,36 @@ export function StarIcon({ tone = 'color', ...props }: IconProps) {
  */
 /**
  * Where the pointing hand's fingertip is drawn, as fractions of its box (the finger's rounded end,
- * x 20 and y 6.5 of the 48-unit path; `down` is the same path flipped). Placement code and tests
- * share these, so "on the target" means the drawn fingertip.
+ * x 20 and y 6.5 of the 48-unit path; `down` is the same path flipped, `left` and `right` it
+ * turned a quarter about the centre). Placement code and tests share these, so "on the target"
+ * means the drawn fingertip.
  */
 export const HAND_POINTER_TIP = {
   up: { x: 20 / 48, y: 6.5 / 48 },
   down: { x: 20 / 48, y: 41.5 / 48 },
+  left: { x: 6.5 / 48, y: 28 / 48 },
+  right: { x: 41.5 / 48, y: 20 / 48 },
 } as const;
 
 export interface HandPointerIconProps extends IconProps {
-  /** Which way the finger points: `down` (default) onto something below, `up` at something above. */
-  direction?: 'down' | 'up';
+  /**
+   * Which way the finger points: `down` (default) onto something below, `up` at something above,
+   * `left` / `right` at something beside it.
+   */
+  direction?: 'down' | 'up' | 'left' | 'right';
 }
+
+const HAND_TRANSFORM = {
+  up: undefined,
+  down: 'matrix(1 0 0 -1 0 48)',
+  left: 'rotate(-90 24 24)',
+  right: 'rotate(90 24 24)',
+} as const;
 
 export function HandPointerIcon({ direction = 'down', ...props }: HandPointerIconProps) {
   return (
     <Svg data-direction={direction} {...props}>
-      <g transform={direction === 'up' ? undefined : 'matrix(1 0 0 -1 0 48)'}>
+      <g transform={HAND_TRANSFORM[direction]}>
         <path
           d="M20 6.5a3.5 3.5 0 0 1 3.5 3.5v12.2l1-.2a3.3 3.3 0 0 1 3.9 2.3l.3-.1a3.3 3.3 0 0 1 4 2.4 3.3 3.3 0 0 1 4.3 3.2v5.5c0 5.7-4.6 10.2-10.3 10.2h-1.8c-3.2 0-6.2-1.5-8.1-4.1l-6.4-8.6a3.3 3.3 0 0 1 4.9-4.4l1.2 1.2V10A3.5 3.5 0 0 1 20 6.5Z"
           fill="#fff"

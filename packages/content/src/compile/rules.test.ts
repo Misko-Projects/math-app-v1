@@ -1787,9 +1787,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // subtraction (K01) added 15 skills, 56 templates, MC.place-swap, MC.face-value and
       // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
       // among them), 41 templates and 5 misconceptions; fractions, sharing, time, data, patterns
-      // and puzzles (K01) added 18 skills, 63 templates and six misconceptions.
+      // and puzzles (K01) added 18 skills, 62 templates and six misconceptions.
       skills: 115,
-      templates: 430,
+      templates: 429,
       misconceptions: 25,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

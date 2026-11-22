@@ -26,9 +26,11 @@ tp.FRA.07.t5.prompt:
   text: "The two sides have {a} and {b}. How many must move to make it fair?"
 tp.FRA.08.t1.prompt:
   text: "Which piece is bigger? They may be the same size."
-tp.FRA.08.t3.prompt:
-  text: "Which piece of pie is bigger? They may be the same size."
 tp.FRA.08.t2.prompt:
-  text: "Cut it into {den} equal parts. More parts make smaller pieces!"
-tp.FRA.08.t4.prompt:
+  text: "Which piece of pie is bigger? They may be the same size."
+tp.FRA.08.t3.prompt:
   text: "Put them in order. Start with the biggest piece."
+tp.FRA.08.t4.prompt:
+  # The order holds only because the wholes are the same size and each is cut into equal parts,
+  # so the prompt says both (PR #84 review round 3).
+  text: "Same size strips, cut into equal parts. The number says how many; biggest pieces first."

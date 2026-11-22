@@ -69,7 +69,7 @@ templates:
     difficulty: { base: -1.1 }
     narration:
       prompt: tp.PUZ.02.t2.prompt
-      hints: [h.puzzle.bond-corners, h.puzzle.side-add]
+      hints: [h.puzzle.bond-corners, h.puzzle.bond-middle]
 
   - id: PUZ.02.t3
     skillId: PUZ.02

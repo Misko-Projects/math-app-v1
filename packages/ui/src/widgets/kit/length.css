@@ -1,0 +1,141 @@
+/* LengthViews: objects, units, a ruler and a string, drawn to scale (outlines inside the ends). */
+
+.ni-len,
+.ni-unit,
+.ni-ruler,
+.ni-string {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.ni-len__plank,
+.ni-len__log,
+.ni-len__stick {
+  fill: var(--color-wood);
+  stroke: var(--color-wood-deep);
+  stroke-width: 3px;
+}
+.ni-len__log {
+  fill: var(--color-wood-deep);
+  stroke: var(--color-ink-soft);
+}
+.ni-len__log-end {
+  fill: var(--color-sand-deep);
+  stroke: var(--color-wood-deep);
+  stroke-width: 3px;
+}
+.ni-len__log-ring {
+  fill: none;
+  stroke: var(--color-wood-deep);
+  stroke-width: 2px;
+}
+.ni-len__bark,
+.ni-len__grain {
+  fill: none;
+  stroke: var(--color-wood-deep);
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+.ni-len__bark {
+  stroke: var(--color-ink);
+}
+.ni-len__rope-edge {
+  stroke: var(--color-wood-deep);
+  stroke-linecap: round;
+}
+.ni-len__rope {
+  stroke: var(--color-wood);
+  stroke-linecap: round;
+}
+.ni-len__rope-sheen {
+  stroke: var(--color-sunshine-light);
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+.ni-len__rope-knot {
+  fill: var(--color-wood);
+  stroke: var(--color-wood-deep);
+}
+.ni-len__ribbon {
+  fill: var(--color-coral);
+}
+.ni-len__ribbon-line {
+  stroke: var(--color-coral-deep);
+  stroke-width: 2px;
+  stroke-dasharray: 6 5;
+}
+.ni-len__vine {
+  fill: none;
+  stroke: var(--color-leaf-deep);
+  stroke-width: 4px;
+  stroke-linecap: round;
+}
+.ni-len__leaf {
+  fill: var(--color-leaf);
+  stroke: var(--color-leaf-deep);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+
+.ni-len__cube {
+  fill: var(--color-sunshine);
+  stroke: var(--color-sunshine-deep);
+  stroke-width: 3px;
+}
+.ni-len__cube-shine {
+  stroke: var(--color-cloud);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+.ni-len__shell {
+  fill: var(--color-coral);
+  stroke: var(--color-coral-deep);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.ni-len__shell-rib {
+  stroke: var(--color-coral-deep);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+.ni-ruler__body {
+  fill: var(--color-sunshine-light);
+  stroke: var(--color-sunshine-deep);
+  stroke-width: 3px;
+}
+.ni-ruler__tick {
+  stroke: var(--color-ink);
+  stroke-width: 2.5px;
+}
+.ni-ruler__numeral {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.ni-ruler__unit {
+  fill: var(--color-ink-soft);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.ni-ruler__mark {
+  fill: var(--color-coral-deep);
+  stroke: var(--color-ink);
+  stroke-width: 2px;
+}
+
+/* A laid string: a 6 px cord with clear end beads (evidence review). */
+.ni-string__cord {
+  stroke: var(--color-ink-soft);
+  stroke-width: 6px;
+  stroke-linecap: round;
+}
+.ni-string__end {
+  fill: var(--color-coral);
+  stroke: var(--color-ink);
+  stroke-width: 2.5px;
+}

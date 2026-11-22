@@ -22,6 +22,7 @@ import { groupsEqual } from './groups.equal';
 import { jumpsReach } from './jumps.reach';
 import { patternTokens } from './pattern.tokens';
 import { puzzleSatisfies } from './puzzle.satisfies';
+import { rectPerimeterArea } from './rect.perimeterArea';
 import { rekenrekTotal } from './rekenrek.total';
 import { selectExactSet } from './select.exactSet';
 import { setCount } from './set.count';
@@ -33,6 +34,9 @@ import { tilesCover } from './tiles.cover';
 import { tradeResult } from './trade.result';
 import type { StateChecker } from './types';
 import { unitsIterate } from './units.iterate';
+
+/** Found by `pnpm bundle-size` to prove this module is not in the initial JS (02 §6a, #95). */
+export const CHECKERS_CHUNK_MARK = 'number-island:item-core/state-checkers';
 
 const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'set.count': setCount,
@@ -51,6 +55,8 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'units.iterate': unitsIterate,
   'chart.values': chartValues, // K01 data (bar-graph-build)
   'clock.time': clockTime, // K01 time (clock-set)
+  'coins.total': coinsTotal, // K01 money (coin-pay)
+  'coins.fewest': coinsFewest, // K01 money (coin-pay, make-change)
   'fraction.cut': fractionCut, // K01 fractions (fraction-cut)
   'fraction.partition': fractionPartition, // K01 fractions (fraction-line partition)
   'pattern.tokens': patternTokens, // K01 patterns (pattern-extend extend, fill)
@@ -65,9 +71,8 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'tiles.cover': tilesCover,
   // K01 (#11): balance make-equal (the balance format has no model yet, U04)
   'balance.equal': balanceEqual,
-  // U05 (#14)
-  'coins.total': coinsTotal,
-  'coins.fewest': coinsFewest,
+  // U05 (#14): perimeter-walk design
+  'rect.perimeterArea': rectPerimeterArea,
 };
 
 export function stateChecker(id: StateCheckerId): StateChecker | undefined {

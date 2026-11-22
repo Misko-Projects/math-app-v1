@@ -13,6 +13,7 @@ import {
   type Pt,
   polygonInfo,
 } from '../../check/state/grid.polygon';
+import { SC_GRID_COLS_MAX, SC_GRID_ROWS_MAX } from '../../formats/shape-compose';
 import { asNum, asStr, correctFromAnswer, finish, pickVars, sampleAll } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 import { distinctKinds, NEAR_MISS, SHAPE_PROPS, shapeCard } from './shapes';
@@ -34,7 +35,57 @@ const KINDS = [
 /** Lattice polygons the worked solution can draw (corners in drawing order, x right, y down). */
 const EXAMPLES: Pt[][] = [
   // Ordered so a request gets its own shape first (a rectangle request draws a rectangle, not a
-  // square, although a square is one too).
+  // square, although a square is one too). The three-row shapes come first: K and G1 grids are
+  // 3 rows high (wide grids: dot targets 80 px apart need the width, not the height).
+  [
+    [0, 0],
+    [4, 0],
+    [1, 2],
+  ], // triangle, no square corner (3 rows)
+  [
+    [0, 0],
+    [3, 0],
+    [0, 2],
+  ], // right triangle (3 rows)
+  [
+    [0, 0],
+    [4, 0],
+    [4, 2],
+    [0, 2],
+  ], // rectangle (3 rows)
+  [
+    [0, 0],
+    [4, 0],
+    [2, 2],
+    [0, 2],
+  ], // two square corners (3 rows)
+  [
+    [1, 0],
+    [3, 0],
+    [3, 2],
+    [1, 2],
+  ], // square (3 rows)
+  [
+    [1, 1],
+    [2, 0],
+    [4, 1],
+    [2, 2],
+  ], // kite (3 rows)
+  [
+    [1, 0],
+    [3, 0],
+    [4, 1],
+    [2, 2],
+    [0, 1],
+  ], // pentagon (3 rows)
+  [
+    [1, 0],
+    [3, 0],
+    [4, 1],
+    [3, 2],
+    [1, 2],
+    [0, 1],
+  ], // hexagon (3 rows)
   [
     [0, 0],
     [4, 0],
@@ -132,12 +183,34 @@ export function requirementOf(p: Record<string, unknown>): PolygonRequire {
   return req;
 }
 
-/** The first example polygon that meets the requirement and fits the grid. */
-export function examplePolygon(req: PolygonRequire, grid: number): Pt[] | undefined {
+/**
+ * The first example polygon that meets the requirement and fits a `cols` × `rows` dot grid
+ * (`rows` defaults to `cols`: a square grid).
+ */
+export function examplePolygon(
+  req: PolygonRequire,
+  cols: number,
+  rows: number = cols,
+): Pt[] | undefined {
   return EXAMPLES.find((pts) => {
     const info = polygonInfo(pts);
-    return info && pts.every(([x, y]) => x < grid && y < grid) && meetsRequire(info, req);
+    return info && pts.every(([x, y]) => x < cols && y < rows) && meetsRequire(info, req);
   });
+}
+
+/**
+ * A dot grid's size from the params: `cols` and `rows`; either one missing or 0 takes `grid` (the
+ * older square-grid param, kept for back-compat), else the wide grid every dot target fits:
+ * 6 columns × 3 rows.
+ */
+export function gridOf(p: Record<string, unknown>): { cols: number; rows: number } {
+  const grid = asNum(p.grid as number, 0);
+  const cols = asNum(p.cols as number, 0);
+  const rows = asNum(p.rows as number, 0);
+  return {
+    cols: cols > 0 ? cols : grid > 0 ? grid : SC_GRID_COLS_MAX,
+    rows: rows > 0 ? rows : grid > 0 ? grid : SC_GRID_ROWS_MAX,
+  };
 }
 
 /** A card meets the requirement (closed, and its kind's typical attributes match). */
@@ -191,8 +264,18 @@ export const geoDraw: GeneratorDef = {
     },
     grid: {
       type: 'int',
-      default: { kind: 'const', value: 5 },
-      doc: 'dots per row and column (4–7)',
+      default: { kind: 'const', value: 0 },
+      doc: 'older square-grid size (0 = none: 6 × 3); `cols` / `rows` override it (a square grid of 4 or more rows is refused: see `rows`)',
+    },
+    cols: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'dots per row (3–6; 0 = `grid`). Grids are wide (3 rows × 6) so every dot is a full target',
+    },
+    rows: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'dots per column (3: all the smallest widget area holds at full target size; 0 = `grid`)',
     },
     cards: { type: 'int', default: { kind: 'const', value: 5 }, doc: 'shape-sort: cards shown' },
     hits: {
@@ -229,8 +312,10 @@ export const geoDraw: GeneratorDef = {
   accepts(p, t) {
     const req = requirementOf(p);
     if (Object.keys(req).length === 0) return false;
-    const grid = asNum(p.grid, 5);
-    if (grid < 4 || grid > 7) return false;
+    const { cols, rows } = gridOf(p);
+    // The shape-compose model's supported grid (every dot a full touch target): 3–6 × 3. The
+    // shape-sort cards are drawn from examples on the same grid.
+    if (cols < 3 || cols > SC_GRID_COLS_MAX || rows < 3 || rows > SC_GRID_ROWS_MAX) return false;
     if (t.format === 'shape-sort') {
       const cards = asNum(p.cards, 5);
       const hits = asNum(p.hits, 2);
@@ -241,7 +326,7 @@ export const geoDraw: GeneratorDef = {
         CARD_KINDS.some((k) => !cardMeets(k, req))
       );
     }
-    return examplePolygon(req, grid) !== undefined;
+    return examplePolygon(req, cols, rows) !== undefined;
   },
   build(ctx: BuildContext): GeneratorOutput {
     const { params, template: t, rng } = ctx;
@@ -258,9 +343,9 @@ export const geoDraw: GeneratorDef = {
     };
     const vars = pickVars(t, { kind, one: 1, sides, ra: req.rightAngles ?? 0 });
     if (t.format === 'shape-compose') {
-      const grid = asNum(params.grid, 5);
+      const { cols, rows } = gridOf(params);
       const sticks = params.tool === 'sticks';
-      const example = examplePolygon(req, grid) as Pt[];
+      const example = examplePolygon(req, cols, rows) as Pt[];
       return finish(geoDraw, ctx, {
         params,
         vars,
@@ -276,14 +361,14 @@ export const geoDraw: GeneratorDef = {
               }
             : {}),
           showOutlineLines: false,
-          grid: { cols: grid, rows: grid },
+          grid: { cols, rows },
           require: req,
           rotationStep: 90,
         },
         answer: {
           kind: 'state',
           checker: 'grid.polygon',
-          target: { require: req, grid: { cols: grid, rows: grid } },
+          target: { require: req, grid: { cols, rows } },
         },
         math,
         highlight: [{ op: 'draw-edge', args: { from: example[0], to: example[1] } }],
@@ -328,10 +413,10 @@ export const geoDraw: GeneratorDef = {
     if (a.kind !== 'state') return correctFromAnswer(a);
     if (a.checker === 'select.exactSet')
       return { kind: 'state', value: { ids: [...(a.target.ids as string[])] } };
-    const grid = (a.target.grid as { cols: number }).cols;
+    const g = a.target.grid as { cols: number; rows: number };
     return {
       kind: 'state',
-      value: { points: examplePolygon(a.target.require as PolygonRequire, grid) ?? [] },
+      value: { points: examplePolygon(a.target.require as PolygonRequire, g.cols, g.rows) ?? [] },
     };
   },
   solution(out): LessonStep[] {
@@ -345,8 +430,8 @@ export const geoDraw: GeneratorDef = {
       ];
     }
     if (w.format === 'shape-compose' && a.kind === 'state') {
-      const grid = (a.target.grid as { cols: number }).cols;
-      const pts = examplePolygon(a.target.require as PolygonRequire, grid) ?? [];
+      const g = a.target.grid as { cols: number; rows: number };
+      const pts = examplePolygon(a.target.require as PolygonRequire, g.cols, g.rows) ?? [];
       return pts.map((from, i) => {
         const to = pts[(i + 1) % pts.length] as Pt;
         const key =

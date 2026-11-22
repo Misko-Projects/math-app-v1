@@ -34,13 +34,20 @@ const makeSet: ConfigFor<'make-set'> = {
   showRunningCount: true,
 };
 
-const clockSet: ConfigFor<'clock-set'> = {
-  format: 'clock-set',
-  target: { h: 3, m: 0 },
-  start: { h: 12, m: 0 },
-  precision: 60,
-  showDigital: false,
-  prompt: 'spoken',
+// A format whose widget is not registered yet (the bar graphs are the last ones owed).
+const unregistered: ConfigFor<'bar-graph-read'> = {
+  format: 'bar-graph-read',
+  chart: {
+    kind: 'bar',
+    orientation: 'vertical',
+    categories: [
+      { id: 'fish', label: 'word.fish', value: 4 },
+      { id: 'crab', label: 'word.crab', value: 2 },
+    ],
+    scale: 1,
+    axisMax: 10,
+  },
+  question: { type: 'difference', categories: ['fish', 'crab'] },
 };
 
 const meta = {
@@ -356,11 +363,11 @@ export const Disabled: Story = {
 
 /** A format with no registered widget shows the placeholder; "next" answers `skip`. */
 export const UnregisteredFormat: Story = {
-  args: { config: clockSet as WidgetConfig },
+  args: { config: unregistered as WidgetConfig },
   play: async ({ canvasElement, args }) => {
     const host = canvasElement.querySelector('.ni-widget');
     await expect(host).toHaveAttribute('data-registered', 'false');
-    await expect(host).toHaveAttribute('data-format', 'clock-set');
+    await expect(host).toHaveAttribute('data-format', 'bar-graph-read');
     await userEvent.click(within(canvasElement).getByRole('button', { name: 'Next' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'skip' });
   },
@@ -369,7 +376,7 @@ export const UnregisteredFormat: Story = {
 /** The placeholder in K mode: Pip's line is spoken (tap the bubble), not printed. */
 export const UnregisteredFormatK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: clockSet as WidgetConfig },
+  args: { config: unregistered as WidgetConfig },
 };
 
 function NextItemDemo(args: WidgetHostProps) {

@@ -12,11 +12,15 @@ import type {
 import { describe, expect, it } from 'vitest';
 import { constraintHolds } from '../src/content/expr';
 import { render } from '../src/content/render';
+import { patternGiven } from '../src/formats/hundred-chart';
 import { registry } from '../src/generators';
 import { specDomain } from '../src/generators/common';
-import { SORT_KINDS } from '../src/generators/data/sort';
+import { groupSizes, SORT_KINDS } from '../src/generators/data/sort';
 import { SHARE_SPRITES } from '../src/generators/div/share';
+import { itemDens, pieceSize } from '../src/generators/frac/compare';
+import { pathOrder, triangleOrder } from '../src/generators/puzzle/grid';
 import { hourClass } from '../src/generators/time/clock';
+import { isConstructedTemplate } from '../src/items/answer-kind';
 import { checkResponse, retryFeedback } from '../src/items/check';
 import {
   generateItem,
@@ -33,14 +37,19 @@ const SEEDS = 200;
 const items = (t: ItemTemplate, n = SEEDS): GeneratedItem[] =>
   Array.from({ length: n }, (_, k) => generateItem(t, k + 1));
 
-/** Every accepted param combination of a template's domain, with its built item. */
-function domain(t: ItemTemplate): { params: ParamValues; item: GeneratedItem }[] {
+/**
+ * Every accepted param combination of a template's domain, with its built item. With `ownOnly`,
+ * only the template's own params vary; the generator's other params (unused by the template's
+ * variant) take the first value of their default domain.
+ */
+function domain(t: ItemTemplate, ownOnly = false): { params: ParamValues; item: GeneratedItem }[] {
   const g = registry.get(t.generator);
   if (!g) throw new Error(t.generator);
   const spec = mergedSpec(t, g);
   let combos: ParamValues[] = [{}];
   for (const [name, s] of Object.entries(spec)) {
-    const values = specDomain(s as ParamSpec);
+    const all = specDomain(s as ParamSpec);
+    const values = ownOnly && !(name in t.params) ? all.slice(0, 1) : all;
     combos = combos.flatMap((c) => values.map((v) => ({ ...c, [name]: v })));
     if (combos.length > 50_000) throw new Error(`${t.id}: domain too large`);
   }
@@ -57,186 +66,85 @@ const key = (item: GeneratedItem): string => {
   return item.answer.id;
 };
 
-// ---------- what the UI draws today (copied; keep in step with the files named) ----------
+// ---------- what the UI draws today ----------
 
 /**
- * The stimulus kinds packages/ui/src/widgets/kit/StimulusView.tsx has a `case` for. Any other kind
- * draws a neutral placeholder card.
+ * The stimulus kinds StimulusView draws a real picture for, from the kit's typed table
+ * (packages/ui/src/widgets/kit/stimulusKinds.ts, which StimulusView's exhaustive switch and
+ * stimulusKinds.test.tsx hold to the drawing). Any other kind draws a neutral placeholder card.
+ * The table is loaded as a module at run time (the engine package never imports the UI, and its
+ * tsconfig has no reference to it), so only what the kit really exports counts: when a widget
+ * issue draws a kind, the pinned list below goes stale and its test fails until the entry goes.
  */
-const STIMULUS_VIEW_KINDS = new Set([
-  'none',
-  'objects',
-  'dots',
-  'ten-frame',
-  'rekenrek',
-  'number-line',
-  'number-bond',
-  'expression',
-  'groups',
-  'array',
-  'base-ten',
-  'scene',
-]);
+const KIT_KINDS_FILE = new URL('../../ui/src/widgets/kit/stimulusKinds.ts', import.meta.url).href;
+const kit = (await import(/* @vite-ignore */ KIT_KINDS_FILE)) as {
+  STIMULUS_KINDS: Readonly<Record<StimulusSpec['kind'], 'drawn' | 'placeholder'>>;
+};
+const STIMULUS_VIEW_KINDS: ReadonlySet<string> = new Set(
+  Object.entries(kit.STIMULUS_KINDS).flatMap(([kind, how]) => (how === 'drawn' ? [kind] : [])),
+);
 
 /**
- * The formats with a widget in packages/ui/src/widgets/registry.ts; both draw their `stimulus`
- * (and numeral-pick its options' `stimulus`) through StimulusView. A format's later widget issue
- * adds the kinds it needs to StimulusView with it.
+ * The formats with a widget in packages/ui/src/widgets/registry.ts that draw pictures through
+ * StimulusView: number-pad its `stimulus`, numeral-pick also its options' `stimulus`, compare its
+ * two sides and order its cards (both through kit/FitPicture.tsx, which hands every kind it does
+ * not lay out itself to StimulusView). A format's later widget issue adds the kinds it needs to
+ * StimulusView with it.
  */
-const STIMULUS_VIEW_FORMATS = new Set(['number-pad', 'numeral-pick']);
+const STIMULUS_VIEW_FORMATS = new Set(['number-pad', 'numeral-pick', 'compare', 'order']);
 
 /**
- * Stimulus kinds on those formats that StimulusView does not draw yet, by template. All are on
- * origin/main and owned by later widget issues (bar models U04, shapes U05); pinned so the list
- * can only shrink, and no new template may join it.
+ * Stimulus kinds on those formats that StimulusView does not draw yet, by template, each owned by
+ * a later widget issue (bar models U04). Pinned so the list can only shrink, and no
+ * new template may join it.
+ *
+ * The K01 part 7 compare and order templates (DAT.02.t4's bar charts, FRA.08.t1–t3's fraction
+ * pictures) left this list when the kit drew `chart` and `fraction` (#98), and the six `shape`
+ * templates (GEO.01.t3, GEO.06.t2, GEO.07.t2, GEO.08.t3, GEO.10.t3, GEO.11.t3) when it drew
+ * `shape` (U05 part 1, #14).
  */
 const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
   'ADD.09.t2': 'bar-model',
   'ADD.11.t3': 'bar-model',
   'ADD.12.t2': 'bar-model',
   'ADD.21.t3': 'bar-model',
-  'GEO.01.t3': 'shape',
-  'GEO.06.t2': 'shape',
-  'GEO.07.t2': 'shape',
-  'GEO.10.t3': 'shape',
-  'GEO.11.t3': 'shape',
 };
-
-/** The DRAWINGS keys of packages/ui/src/widgets/kit/sprites.tsx; any other id draws a pebble. */
-const DRAWN_SPRITES = new Set([
-  'shell',
-  'fish',
-  'starfish',
-  'crab',
-  'leaf',
-  'stone',
-  'pebble',
-  'stick',
-  'plank',
-  'firefly',
-  'counter',
-]);
 
 /**
- * Sprite ids the catalog emits that sprites.tsx does not draw yet, by template. The origin/main
+ * The sprite ids with their own drawing: the kit's `SPRITE_IDS` (the keys of the DRAWINGS registry
+ * in packages/ui/src/widgets/kit/sprites.tsx), loaded as a module like the stimulus kinds above.
+ * Any other id draws a pebble.
+ */
+const KIT_SPRITES_FILE = new URL('../../ui/src/widgets/kit/sprites.tsx', import.meta.url).href;
+const DRAWN_SPRITES: ReadonlySet<string> = new Set(
+  ((await import(/* @vite-ignore */ KIT_SPRITES_FILE)) as { SPRITE_IDS: readonly string[] })
+    .SPRITE_IDS,
+);
+
+/**
+ * Sprite ids the catalog emits that sprites.tsx does not draw yet, by template, exactly: the list
+ * can only shrink (a drawn id must leave it) and no other sprite id may appear. The origin/main
  * templates predate this check (story, geometry and measurement objects the art kit has not
- * drawn). Two K01 part 7 families need art no drawn sprite can stand in for: daily events
- * (TIM.08 order cards) and coloured shape units (the shapes representation of ALG.01 and
- * ALG.04). Pinned so the list can only shrink; any other new sprite id fails.
+ * drawn). One K01 part 7 family needs art no drawn sprite can stand in for: coloured shape units
+ * (the shapes representation of ALG.01 and ALG.04). The daily events of TIM.08 are drawn (#89).
  */
 const UNDRAWN_SPRITES: Readonly<Record<string, readonly string[]>> = {
-  'ADD.12.t1': ['lantern'],
-  'ADD.20.t3': ['lantern'],
-  'ADD.21.t2': ['lantern'],
-  'ADD.25.t2': ['lantern'],
   'ALG.01.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
   'ALG.04.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
-  'CMP.01.t4': ['dot'],
-  'CMP.01.t5': ['dot'],
-  'CMP.05.t3': ['dot'],
-  'CMP.13.t5': ['dot'],
   'CPS.01.t2': ['finger'],
-  'GEO.05.t1': ['apple', 'bun', 'crate', 'jug', 'kite', 'lantern', 'pallet', 'sack'],
-  'GEO.05.t3': ['apple', 'bun', 'crate', 'jug', 'kite', 'lantern', 'pallet', 'sack'],
-  'GEO.07.t1': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
-  'GEO.07.t3': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
-  'MEA.01.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.01.t2': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.01.t4': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.02.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.02.t2': ['cube'],
-  'MEA.07.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.07.t2': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.15.t1': [
-    'anchor',
-    'balloon',
-    'barrel',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-  ],
-  'MEA.15.t2': [
-    'anchor',
-    'balloon',
-    'barrel',
-    'bucket',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'jug',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-    'tub',
-  ],
-  'MEA.15.t3': [
-    'anchor',
-    'balloon',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-  ],
-  'MEA.15.t4': [
-    'anchor',
-    'balloon',
-    'barrel',
-    'bucket',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'jug',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-    'tub',
-  ],
-  'MEA.16.t1': ['apple', 'brick', 'coconut', 'feather', 'melon', 'pumpkin', 'rock'],
-  'MEA.16.t2': ['apple', 'brick', 'coconut', 'feather', 'melon', 'pumpkin', 'rock'],
-  'MEA.16.t3': ['apple', 'brick', 'feather', 'melon', 'pumpkin'],
-  'MEA.16.t4': ['brick', 'coconut', 'feather', 'melon', 'pumpkin', 'rock'],
-  'MEA.22.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.22.t2': ['cube'],
-  'MEA.22.t3': ['log', 'ribbon', 'rope', 'vine'],
   'SUB.02.t1': ['finger'],
   'SUB.05.t1': ['finger'],
-  'TIM.08.t2': ['event-bedtime', 'event-breakfast', 'event-dinner', 'event-lunch', 'event-wake-up'], // K01 part 7: needs art
-  'TIM.08.t3': ['event-bedtime', 'event-breakfast', 'event-dinner', 'event-lunch', 'event-wake-up'], // K01 part 7: needs art
 };
 
-/** The stimuli a StimulusView-drawn format shows: its stimulus and its options' pictures. */
+/**
+ * The stimuli a StimulusView-drawn format shows: its stimulus and its options' pictures, the two
+ * sides of a compare, the cards of an order.
+ */
 function viewStimuli(item: GeneratedItem): StimulusSpec[] {
   const w = item.widget;
   if (w.format === 'number-pad') return [w.stimulus];
+  if (w.format === 'compare') return [w.left, w.right];
+  if (w.format === 'order') return w.items.flatMap((i) => (i.stimulus ? [i.stimulus] : []));
   if (w.format === 'numeral-pick') {
     return [w.stimulus, ...w.options.flatMap((o) => (o.stimulus ? [o.stimulus] : []))].filter(
       (s): s is StimulusSpec => s !== undefined,
@@ -275,7 +183,7 @@ const catalog = fixture.templates.map((t) => ({ t, items: items(t, 120) }));
 describe('PR #84 review (1): the DAT.02.t5 number pad shows its picture graph', () => {
   const t = fixtureTemplate('DAT.02.t5');
 
-  it('every item draws one row of pictures per category as a scene, totalling the answer', () => {
+  it('every item draws one group of pictures per category as a scene, totalling the answer', () => {
     for (const item of items(t)) {
       if (item.widget.format !== 'number-pad') throw new Error('number-pad');
       const s = item.widget.stimulus;
@@ -297,7 +205,28 @@ describe('PR #84 review (1): the DAT.02.t5 number pad shows its picture graph', 
     expect(g?.accepts?.({ ...base, kind: 'picture' }, t)).toBe(true);
   });
 
-  it('catalog: number-pad and numeral-pick only show stimulus kinds StimulusView draws', () => {
+  it('reads the kinds StimulusView draws from the kit', () => {
+    // The table covers every kind the catalog can emit, and each is drawn or a placeholder.
+    for (const how of Object.values(kit.STIMULUS_KINDS)) {
+      expect(['drawn', 'placeholder']).toContain(how);
+    }
+    for (const { items: its } of catalog) {
+      for (const item of its) {
+        for (const s of viewStimuli(item)) expect(kit.STIMULUS_KINDS[s.kind], s.kind).toBeDefined();
+      }
+    }
+    // The kinds every drawn format has relied on since U03, and the two K01 part 7 needs (#98).
+    for (const kind of ['none', 'objects', 'dots', 'number-line', 'expression', 'scene']) {
+      expect(STIMULUS_VIEW_KINDS.has(kind), kind).toBe(true);
+    }
+    expect(STIMULUS_VIEW_KINDS.has('chart')).toBe(true);
+    expect(STIMULUS_VIEW_KINDS.has('fraction')).toBe(true);
+    // Shapes and gauges are drawn since U05 part 1 (#14).
+    expect(STIMULUS_VIEW_KINDS.has('shape')).toBe(true);
+    expect(STIMULUS_VIEW_KINDS.has('gauge')).toBe(true);
+  });
+
+  it('catalog: formats StimulusView draws for show only kinds it draws, or are pinned', () => {
     const seen = new Map<string, Set<string>>();
     for (const { t: tt, items: its } of catalog) {
       for (const item of its) {
@@ -331,11 +260,14 @@ describe('PR #84 review (2): K01 generators emit only sprites the art kit draws'
       }
     }
     const got = Object.fromEntries([...seen].map(([id, s]) => [id, [...s].sort()]));
-    for (const [id, sprites] of Object.entries(got)) {
-      const pinned = new Set(UNDRAWN_SPRITES[id] ?? []);
-      for (const s of sprites) expect(pinned.has(s), `${id} emits ${s}`).toBe(true);
-    }
-    for (const id of Object.keys(UNDRAWN_SPRITES)) expect(got[id], `${id} is stale`).toBeDefined();
+    expect(got).toEqual(UNDRAWN_SPRITES);
+    // The daily-event cards (TIM.08) are real drawings: none may fall back to a pebble.
+    const events = catalog
+      .filter(({ t: tt }) => tt.id.startsWith('TIM.08.'))
+      .flatMap(({ items: its }) => its.flatMap((i) => [...spriteIds(i.widget, new Set())]))
+      .filter((s) => s.startsWith('event-'));
+    expect(new Set(events).size).toBe(5);
+    for (const s of events) expect(DRAWN_SPRITES.has(s), s).toBe(true);
   });
 });
 
@@ -468,12 +400,8 @@ describe('PR #84 review (5): MUL.12 assesses dealing, never a count in one baske
   });
 });
 
-describe('PR #84 review (6): the DAT.10.t1 prompt asks only what sort.byRule checks', () => {
-  it('DAT.10.t1 asks to sort, not to count', () => {
-    const item = generateItem(fixtureTemplate('DAT.10.t1'), 1);
-    expect(item.prompt.text).not.toMatch(/count|how many/i);
-  });
-
+describe('PR #84 review (6): a sort.byRule prompt asks only what sort.byRule checks', () => {
+  // Round 2 dropped the sort-only DAT.10.t1 altogether (see round 2 (1) below).
   it('catalog: no sort.byRule item asks the child to count', () => {
     for (const { t: tt, items: its } of catalog) {
       for (const item of its.slice(0, 20)) {
@@ -484,10 +412,11 @@ describe('PR #84 review (6): the DAT.10.t1 prompt asks only what sort.byRule che
     }
   });
 
-  it('the DAT.10 lesson plays the picture-graph count (t2), a template of the skill', () => {
+  it('the DAT.10 lesson plays the picture-graph count (t1), a template of the skill', () => {
     const lesson = fixture.skills.find((s) => s.id === 'DAT.10')?.lesson;
-    expect(lesson?.templateId).toBe('DAT.10.t2');
-    expect(fixtureTemplate('DAT.10.t2').skillId).toBe('DAT.10');
+    expect(lesson?.templateId).toBe('DAT.10.t1');
+    expect(fixtureTemplate('DAT.10.t1').skillId).toBe('DAT.10');
+    expect(fixtureTemplate('DAT.10.t1').format).toBe('bar-graph-read');
   });
 });
 
@@ -595,10 +524,15 @@ describe('PR #84 review (8): time hints hold for every time a template draws', (
 describe('PR #84 review (9): an order retry line points the way the order goes', () => {
   const first = (id: string) => generateItem(fixtureTemplate(id), 1);
 
-  it('descending FRA.08.t4 finds the biggest first; ascending DAT.10.t4 the smallest', () => {
-    expect(retryFeedback(first('FRA.08.t4'))).toBe('fb.order.retry-desc');
+  it('descending FRA.08 orders find the biggest pieces first; ascending DAT.10.t3 the smallest', () => {
+    // Round 2: fraction pieces have their own line, since on a part-count card (FRA.08.t4) the
+    // biggest number is the smallest piece.
+    for (const id of ['FRA.08.t3', 'FRA.08.t4']) {
+      expect(retryFeedback(first(id))).toBe('fb.order.retry-pieces');
+    }
+    expect(render('fb.order.retry-pieces')).toMatch(/biggest pieces/);
     expect(render('fb.order.retry-desc')).toMatch(/biggest/);
-    expect(retryFeedback(first('DAT.10.t4'))).toBe('fb.order.retry');
+    expect(retryFeedback(first('DAT.10.t3'))).toBe('fb.order.retry');
     expect(render('fb.order.retry')).toMatch(/smallest/);
   });
 
@@ -612,7 +546,7 @@ describe('PR #84 review (9): an order retry line points the way the order goes',
   });
 
   it('checkResponse uses it for a wrong order no misconception explains', () => {
-    const item = first('DAT.10.t4');
+    const item = first('DAT.10.t3');
     if (item.answer.kind !== 'numbers') throw new Error('numbers');
     const v = item.answer.values;
     const wrong: ResponseValue = { kind: 'numbers', values: [...v.slice(1), v[0] as number] };
@@ -671,7 +605,7 @@ describe('PR #84 review: class sweep', () => {
       for (const [set, ks] of keys) expect([...ks].sort().join(' | '), `${t.id}: ${set}`).toBe(set);
       if (keys.size > 0) checked += 1;
     }
-    // TIM.09.t3, FRA.01.t3 and the most / least reads DAT.02.t3, DAT.09.t3 and DAT.10.t3.
+    // TIM.09.t3, FRA.01.t3 and the most / least reads DAT.02.t3, DAT.09.t3 and DAT.10.t2.
     expect(checked).toBe(5);
   });
 
@@ -726,5 +660,428 @@ describe('PR #84 review (7b): MC.pattern-restart skips "make the next repeat" or
     expect(items(fixtureTemplate('ALG.01.t3'), 30).every((i) => patternRestart.applies?.(i))).toBe(
       true,
     );
+  });
+});
+
+// ---------- review round 2 ----------
+
+/** A skill's evidence templates: its constructed-answer ones (04 §7a, V27). */
+const evidence = (skillId: string): ItemTemplate[] =>
+  fixture.templates.filter((t) => t.skillId === skillId && isConstructedTemplate(t));
+
+/** The 04 §3 standard variety rule (V27) on a set of evidence templates. */
+const meetsStandardVariety = (ev: ItemTemplate[]): boolean =>
+  (new Set(ev.map((t) => t.format)).size >= 2 || new Set(ev.map((t) => t.tier)).size >= 2) &&
+  ev.some((t) => t.tier !== 'concrete');
+
+/**
+ * Skills whose constructed practice includes a sort (`sort.byRule`): each one's skill is sorting or
+ * classifying (by kind or attribute, shape names, flat or solid, sides and corners, what can be
+ * measured, heavier or lighter than a named object, morning or night), so a sort is evidence of
+ * it. Pinned, so a sort cannot become evidence for a counting or ordering skill again.
+ */
+const SORTING_SKILLS = [
+  'DAT.01',
+  'GEO.01',
+  'GEO.06',
+  'GEO.07',
+  'GEO.08',
+  'MEA.15',
+  'MEA.16',
+  'TIM.08',
+];
+
+describe('PR #84 review round 2 (1): every DAT.10 evidence item counts or orders the groups', () => {
+  const ev = evidence('DAT.10');
+
+  it('each constructed DAT.10 item answers a group count or the counts in order, never a sort', () => {
+    expect(ev.map((t) => t.id)).toEqual(['DAT.10.t1', 'DAT.10.t3']);
+    for (const t of ev) {
+      for (const item of items(t, 150)) {
+        const a = item.answer;
+        expect(a.kind === 'state' && a.checker === 'sort.byRule', t.id).toBe(false);
+        if (a.kind === 'number') {
+          expect(a.value, t.id).toBe(Number(item.params.a));
+        } else if (a.kind === 'numbers') {
+          expect(a.ordered, t.id).toBe(true);
+          expect(a.values, t.id).toEqual(groupSizes(item.params).sort((x, y) => x - y));
+        } else {
+          throw new Error(`${t.id}: ${a.kind}`);
+        }
+      }
+    }
+  });
+
+  it('DAT.10 has no shape-sort, and its counts and orders alone meet V27', () => {
+    const all = fixture.templates.filter((t) => t.skillId === 'DAT.10');
+    expect(all.map((t) => t.format)).not.toContain('shape-sort');
+    expect(meetsStandardVariety(ev)).toBe(true);
+    const lesson = fixture.skills.find((s) => s.id === 'DAT.10')?.lesson;
+    expect(lesson?.testOut.templateIds).toEqual(['DAT.10.t1', 'DAT.10.t3']);
+  });
+
+  it('catalog: a sort is evidence only for a sorting skill', () => {
+    const skills = new Set<string>();
+    for (const { t, items: its } of catalog) {
+      const a = its[0]?.answer;
+      if (isConstructedTemplate(t) && a?.kind === 'state' && a.checker === 'sort.byRule') {
+        skills.add(t.skillId);
+      }
+    }
+    expect([...skills].sort()).toEqual(SORTING_SKILLS);
+  });
+});
+
+describe('PR #84 review round 2 (2): every FRA.08 evidence item compares differently cut wholes', () => {
+  const ev = evidence('FRA.08');
+  /** The part count an order card shows: its fraction picture's parts, or its label. */
+  const cardParts = (card: { stimulus?: StimulusSpec; label?: string }): number =>
+    card.stimulus?.kind === 'fraction' ? card.stimulus.parts : Number(card.label);
+
+  it('each constructed FRA.08 item orders 2–3 wholes cut into different part counts', () => {
+    expect(ev.map((t) => t.id)).toEqual(['FRA.08.t3', 'FRA.08.t4']);
+    for (const t of ev) {
+      for (const { params, item } of domain(t)) {
+        if (item.widget.format !== 'order' || item.answer.kind !== 'numbers') {
+          throw new Error(`${t.id}: not an order`);
+        }
+        const dens = itemDens(params);
+        expect(dens.length, t.id).toBeGreaterThanOrEqual(2);
+        expect(new Set(dens).size, t.id).toBe(dens.length);
+        const shown = item.widget.items.map(cardParts).sort((x, y) => x - y);
+        expect(shown, t.id).toEqual([...dens].sort((x, y) => x - y));
+        expect(item.answer.values, t.id).toEqual(dens.map(pieceSize).sort((x, y) => y - x));
+      }
+    }
+  });
+
+  it('no FRA.08 template cuts one shape; its compares are choices; the orders alone meet V27', () => {
+    const all = fixture.templates.filter((t) => t.skillId === 'FRA.08');
+    expect(all.map((t) => t.format)).not.toContain('fraction-cut');
+    for (const t of all.filter((x) => x.format === 'compare')) {
+      expect(isConstructedTemplate(t), t.id).toBe(false);
+    }
+    expect(new Set(ev.map((t) => t.tier))).toEqual(new Set(['pictorial', 'abstract']));
+    expect(meetsStandardVariety(ev)).toBe(true);
+  });
+
+  it('the abstract cards (t4) show only the part count; the strips (t3) only pictures', () => {
+    for (const item of items(fixtureTemplate('FRA.08.t4'), 60)) {
+      if (item.widget.format !== 'order') throw new Error('order');
+      for (const c of item.widget.items) {
+        expect(c.stimulus).toBeUndefined();
+        expect(c.label).toMatch(/^[2-8]$/);
+      }
+    }
+    for (const item of items(fixtureTemplate('FRA.08.t3'), 60)) {
+      if (item.widget.format !== 'order') throw new Error('order');
+      for (const c of item.widget.items) {
+        expect(c.label).toBeUndefined();
+        expect(c.stimulus?.kind).toBe('fraction');
+      }
+    }
+  });
+
+  it('the lesson is the auto choice (the concrete compare); the test-out is both orders', () => {
+    const lesson = fixture.skills.find((s) => s.id === 'FRA.08')?.lesson;
+    expect(lesson?.templateId).toBe('FRA.08.t1');
+    expect(fixtureTemplate('FRA.08.t1').tier).toBe('concrete');
+    expect(lesson?.testOut.templateIds).toEqual(['FRA.08.t3', 'FRA.08.t4']);
+  });
+});
+
+/** A puzzle-grid item's response grid with only its givens filled. */
+function givenGrid(item: GeneratedItem): (number | '')[][] {
+  const w = item.widget;
+  if (w.format !== 'puzzle-grid') throw new Error('puzzle-grid');
+  const g: (number | '')[][] = Array.from({ length: w.rows }, () =>
+    new Array<number | ''>(w.cols).fill(''),
+  );
+  for (const c of w.cells)
+    if (!c.blank && typeof c.given === 'number') (g[c.r] as unknown[])[c.c] = c.given;
+  return g;
+}
+
+type FillArgs = { r: number; c: number; value: number };
+const isBlankCell = (g: (number | '')[][], r: number, c: number) => g[r]?.[c] === '';
+
+describe('PR #84 review round 2 (3): puzzle solutions fill in dependency order', () => {
+  const puzzles = fixture.templates.filter(
+    (t) => t.generator === 'puzzle.grid' && t.format === 'puzzle-grid',
+  );
+  const ofVariant = (v: string) =>
+    puzzles.filter((t) => {
+      const w = generateItem(t, 1).widget;
+      return w.format === 'puzzle-grid' && w.variant === v;
+    });
+
+  it('sum triangles: every fill follows a step naming a side with exactly that one cell open', () => {
+    const triangles = ofVariant('sum-triangle');
+    expect(triangles.map((t) => t.id)).toEqual(['PUZ.02.t1', 'PUZ.02.t3']);
+    let chains = 0;
+    for (const t of triangles) {
+      for (const { item } of domain(t, true)) {
+        const w = item.widget;
+        if (w.format !== 'puzzle-grid') throw new Error('puzzle-grid');
+        const g = givenGrid(item);
+        const steps = itemSolution(item);
+        let named: number | null = null;
+        steps.forEach((s, k) => {
+          if (s.action?.op === 'check-line') {
+            const index = (s.action.args as { index: number }).index;
+            const line = w.constraints[index];
+            if (line?.kind !== 'line-sum') throw new Error(`${t.id}: line ${index}`);
+            const open = line.cells.filter(([r, c]) => isBlankCell(g, r, c));
+            expect(open.length, `${t.id} step ${k}`).toBe(1);
+            named = index;
+            return;
+          }
+          if (s.action?.op !== 'fill') return;
+          const { r, c, value } = s.action.args as FillArgs;
+          expect(named, `${t.id} step ${k}: a fill with no side named first`).not.toBeNull();
+          const line = w.constraints[named ?? -1];
+          if (line?.kind !== 'line-sum') throw new Error('line-sum');
+          expect(line.cells.some(([lr, lc]) => lr === r && lc === c)).toBe(true);
+          expect(isBlankCell(g, r, c)).toBe(true);
+          // The side's sum less the numbers it already shows is exactly this cell.
+          const known = line.cells
+            .filter(([lr, lc]) => lr !== r || lc !== c)
+            .reduce((sum, [lr, lc]) => sum + Number(g[lr]?.[lc]), 0);
+          expect(value, `${t.id} step ${k}`).toBe(line.sum - known);
+          (g[r] as (number | '')[])[c] = value;
+          named = null;
+          // Only the last step completes the grid (no earlier step gives the answer away).
+          const open = w.cells.filter((x) => isBlankCell(g, x.r, x.c)).length;
+          expect(open === 0, `${t.id} step ${k}`).toBe(k === steps.length - 1);
+        });
+        const r = checkResponse(item, { kind: 'state', value: { fill: g } });
+        expect(r.correct, `${t.id} ${JSON.stringify(item.params)}`).toBe(true);
+        if (item.params.blankSet === 'chain' || item.params.blankSet === 'corner-middle')
+          chains += 1;
+      }
+    }
+    expect(chains).toBeGreaterThan(0);
+    // The sweep covers the whole parameter domain of both templates (thousands of expectations).
+    // It ran 5.2 s on a loaded CI runner, over the default 5 s limit, so it gets its own budget.
+  }, 30_000);
+
+  it('the PUZ.02.t3 chain finds the corner from its solved side before the side it completes', () => {
+    // chain: T, L, B blank. The left side (T, L, BL) has two open, so the right side (T, R, BR)
+    // gives T first; then the left side has one open and gives L; the bottom side gives B. Filling
+    // in cell order (T, L, B) filled T while the side that explains it was never shown.
+    expect(triangleOrder(['T', 'L', 'B'])).toEqual([
+      { side: 1, spot: 'T' },
+      { side: 0, spot: 'L' },
+      { side: 2, spot: 'B' },
+    ]);
+    expect(triangleOrder(['T', 'B'])).toEqual([
+      { side: 0, spot: 'T' },
+      { side: 2, spot: 'B' },
+    ]);
+    const chain = domain(fixtureTemplate('PUZ.02.t3'), true).find(
+      (d) => d.params.blankSet === 'chain',
+    );
+    if (!chain) throw new Error('PUZ.02.t3 draws no chain');
+    const ops = itemSolution(chain.item).map((s) => s.action?.op);
+    expect(ops[0]).toBe('check-line');
+    expect(ops.filter((op) => op === 'check-line')).toHaveLength(3);
+    expect(ops.at(-1)).toBe('fill');
+  });
+
+  it('number paths: every fill is next to a known cell on the path and one step from it', () => {
+    const paths = ofVariant('number-path');
+    expect(paths.map((t) => t.id)).toEqual(['PUZ.01.t1']);
+    for (const item of items(paths[0] as ItemTemplate, 400)) {
+      if (item.answer.kind !== 'state') throw new Error('state');
+      const path = item.answer.target.cells as [number, number][];
+      const g = givenGrid(item);
+      const steps = itemSolution(item);
+      steps.forEach((s, k) => {
+        if (s.action?.op !== 'fill') return;
+        const { r, c, value } = s.action.args as FillArgs;
+        const i = path.findIndex(([pr, pc]) => pr === r && pc === c);
+        const near = [path[i - 1], path[i + 1]].filter(
+          (p): p is [number, number] => p !== undefined && !isBlankCell(g, p[0], p[1]),
+        );
+        expect(near.length, `seed ${item.seed} step ${k}`).toBeGreaterThan(0);
+        for (const [pr, pc] of near) expect(Math.abs(Number(g[pr]?.[pc]) - value)).toBe(1);
+        (g[r] as (number | '')[])[c] = value;
+      });
+      expect(checkResponse(item, { kind: 'state', value: { fill: g } }).correct).toBe(true);
+    }
+  });
+
+  it('pathOrder counts on after a given and back before the first one', () => {
+    // blanks at 0, 1, 4, 5; givens at 2, 3
+    expect(pathOrder([true, true, false, false, true, true])).toEqual([4, 5, 1, 0]);
+    expect(pathOrder([false, true, true])).toEqual([1, 2]);
+  });
+
+  it('every puzzle-grid number solution replays to a correct grid', () => {
+    for (const t of puzzles) {
+      for (const item of items(t, 60)) {
+        const w = item.widget;
+        if (w.format !== 'puzzle-grid' || w.variant === 'shape-fill') continue;
+        const g = givenGrid(item);
+        for (const s of itemSolution(item)) {
+          if (s.action?.op !== 'fill') continue;
+          const { r, c, value } = s.action.args as FillArgs;
+          (g[r] as (number | '')[])[c] = value;
+        }
+        expect(checkResponse(item, { kind: 'state', value: { fill: g } }).correct, t.id).toBe(true);
+      }
+    }
+  });
+});
+
+describe('PR #84 review round 2 (4): picture-graph number pads name groups, not rows', () => {
+  it('no DAT number-pad hint names a row', () => {
+    const pads = fixture.templates.filter(
+      (t) => t.skillId.startsWith('DAT.') && t.format === 'number-pad',
+    );
+    expect(pads.length).toBeGreaterThan(0);
+    for (const t of pads) {
+      for (const item of items(t, 20)) {
+        for (const h of t.narration.hints) {
+          expect(render(h, item.prompt.vars), `${t.id} ${h}`).not.toMatch(/\brows?\b/i);
+        }
+      }
+    }
+  });
+
+  it('catalog: no number pad drawn as a scene (wrapped groups) has a row hint', () => {
+    let scenes = 0;
+    for (const { t, items: its } of catalog) {
+      const item = its[0];
+      if (item?.widget.format !== 'number-pad' || item.widget.stimulus.kind !== 'scene') continue;
+      scenes += 1;
+      for (const h of t.narration.hints) {
+        expect(render(h, item.prompt.vars), `${t.id} ${h}`).not.toMatch(/\brows?\b/i);
+      }
+    }
+    expect(scenes).toBeGreaterThan(0);
+  });
+});
+
+describe('PR #84 review round 2: class sweep', () => {
+  it('a fraction-cut with the cut-middle hint cuts the middle first, then each half', () => {
+    // Sweep (solution order): FRA.01.t2 cut a strip into fourths at line 0, 1, 2 while its hint
+    // said to cut down the middle first.
+    let checked = 0;
+    for (const t of fixture.templates.filter(
+      (x) => x.format === 'fraction-cut' && x.narration.hints.includes('h.frac.cut-middle'),
+    )) {
+      for (const item of items(t, 60)) {
+        const steps = itemSolution(item).filter((s) => s.action?.op === 'cut');
+        expect(steps[0]?.say, t.id).toBe('gen.frac.partition.cut-middle');
+        if (item.widget.format === 'fraction-cut' && item.widget.shape === 'bar') {
+          const lines = steps.map((s) => (s.action?.args as { line?: number } | undefined)?.line);
+          // A strip's lines run left to right: the middle of n − 1 lines is line (n − 2) / 2.
+          expect(lines[0], t.id).toBe((item.widget.parts - 2) / 2);
+          expect([...lines].sort()).toEqual(lines.map((_, i) => i));
+        }
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('K01 part 7 difficulty: every template median is within ±0.15 of 0 (rule 8)', () => {
+    // Sweep: ALG.04.t3 sat at −0.6 and DAT.10.t3 at 0.16. PUZ.03.t2 (−0.4) is on origin/main.
+    const ON_MAIN = new Set(['PUZ.03.t1', 'PUZ.03.t2']);
+    for (const { t, items: its } of catalog) {
+      if (!PART7.test(t.id) || ON_MAIN.has(t.id)) continue;
+      const d = its.map((i) => i.difficulty).sort((a, b) => a - b);
+      const median = d[Math.floor(d.length / 2)] as number;
+      expect(Math.abs(median), `${t.id} median ${median}`).toBeLessThanOrEqual(0.15 + 1e-9);
+    }
+  });
+});
+
+describe('PR #84 review round 3: the abstract FRA.08 order states what makes it unique', () => {
+  it('the part-count prompt says the strips are the same size and cut into equal parts', () => {
+    // A number alone settles the order only for same-size wholes cut into equal parts: a long
+    // strip's fourths can be bigger than a short strip's halves.
+    const t = fixtureTemplate('FRA.08.t4');
+    const text = fixture.narration[t.narration.prompt]?.text ?? '';
+    expect(text).toMatch(/same size/i);
+    expect(text).toMatch(/equal parts/i);
+    expect(text).toMatch(/how many/i);
+  });
+
+  it('every FRA.08.t4 item is cards of part counts, ordered biggest piece first', () => {
+    const t = fixtureTemplate('FRA.08.t4');
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const item = generateItemFromParams(t, generateItem(t, seed).params);
+      if (item.widget.format !== 'order') throw new Error('order');
+      expect(item.widget.direction, t.id).toBe('desc');
+    }
+  });
+});
+
+describe('PR #84 review, fresh round 1: no line claims a picture the widget does not draw', () => {
+  const lines = (t: ItemTemplate, item: GeneratedItem): string[] => [
+    item.prompt.text,
+    ...t.narration.hints.map((h) => render(h, item.prompt.vars)),
+  ];
+
+  // The hundred chart now gives a pattern's terms (`patternShown`), so the prompt may say so:
+  // the chart must give exactly the terms the prompt names, and none of the asked ones.
+  it('ALG.02.t1 says the chart shows its three terms, and the chart gives exactly those', () => {
+    const t = fixtureTemplate('ALG.02.t1');
+    for (const item of items(t)) {
+      const w = item.widget;
+      if (w.format !== 'hundred-chart') throw new Error('hundred-chart');
+      const start = Number(w.patternStart);
+      const step = Number(w.patternStep);
+      const terms = [start, start + step, start + 2 * step];
+      expect(patternGiven(w)).toEqual(terms);
+      expect(item.prompt.text).toMatch(
+        new RegExp(
+          `^The chart shows ${terms.join(', ')}\\. Tap the next \\d numbers in the pattern\\.$`,
+        ),
+      );
+      const a = item.answer;
+      if (a.kind !== 'state') throw new Error('state');
+      const asked = a.target.values as number[];
+      expect(asked.filter((v) => terms.includes(v))).toEqual([]);
+      expect(asked[0]).toBe(start + 3 * step);
+    }
+  });
+
+  it('catalog: a line says a pattern chart shows terms only when the chart gives terms', () => {
+    let seen = 0;
+    let claimed = 0;
+    for (const { t, items: its } of catalog) {
+      for (const item of its) {
+        if (item.widget.format !== 'hundred-chart' || item.widget.mode !== 'pattern') continue;
+        seen += 1;
+        const given = patternGiven(item.widget);
+        for (const line of lines(t, item)) {
+          if (!/chart shows|shaded|colou?red|marked|ringed/i.test(line)) continue;
+          claimed += 1;
+          expect(given.length, t.id).toBeGreaterThan(0);
+        }
+        // Every given term is named in the prompt: the chart and the words say the same thing.
+        for (const g of given) expect(item.prompt.text, t.id).toMatch(new RegExp(`\\b${g}\\b`));
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+    expect(claimed).toBeGreaterThan(0);
+  });
+
+  it('catalog: a number bond draws a whole and two parts, so no line points at a drawn side', () => {
+    let seen = 0;
+    for (const { t, items: its } of catalog) {
+      if (t.format !== 'number-bond') continue;
+      for (const item of its) {
+        seen += 1;
+        for (const line of lines(t, item)) {
+          expect(line, t.id).not.toMatch(/this side|that side|you see on/i);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+    expect(fixtureTemplate('PUZ.02.t2').narration.hints).not.toContain('h.puzzle.side-add');
   });
 });

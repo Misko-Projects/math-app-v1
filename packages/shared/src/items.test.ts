@@ -424,7 +424,12 @@ const SAMPLES: { [F in ItemFormat]: WidgetConfigOf<F> } = {
   },
   'bar-graph-build': {
     format: 'bar-graph-build',
-    chart: { ...chart, kind: 'line-plot', lineScale: { min: 0, max: 5, step: 0.5 } },
+    chart: {
+      ...chart,
+      kind: 'line-plot',
+      categories: [{ id: '1.5', label: 'word.fish', value: 2 }],
+      lineScale: { min: 0, max: 5, step: 0.5 },
+    },
     data: { kind: 'measurements', values: [1, 1.5, 3] },
     mode: 'xs',
   },

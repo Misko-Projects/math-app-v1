@@ -85,6 +85,14 @@ function workspacePackageOf(specifier, fromFile, root) {
   return null;
 }
 
+/** Whether a relative specifier resolves into the `src/` directory of the given package. */
+function intoSourceOf(target, specifier, fromFile, root) {
+  if (!specifier.startsWith('.') || !fromFile) return false;
+  const path = resolve(dirname(fromFile), specifier.split('?')[0] ?? specifier);
+  const rel = relative(root, path).split(sep).join('/');
+  return rel.startsWith(`${RULES[target].dir}/src/`);
+}
+
 /** Which package directory contains this absolute path. */
 export function packageOfPath(absPath, root) {
   const rel = relative(root, absPath).split(sep).join('/');
@@ -121,6 +129,15 @@ export function checkSource(pkg, fileName, source, root, opts = {}) {
 
   const checkSpecifier = (specifier, node) => {
     const target = workspacePackageOf(specifier, fileName, root);
+    if (target && target !== pkg && intoSourceOf(target, specifier, fileName, root)) {
+      // A relative path into another package's src/ skips that package's entries. For the engine
+      // that would also skip its loading boundary: a deep import of one generator or checker puts
+      // it in the importer's chunk, where the item-core markers cannot see it (02 §6a). Data files
+      // outside src/ (a YAML source, a recorded log) may still be imported by path.
+      violations.push(
+        `${where(node)} ${pkg} must import ${target} through its package entry (${SCOPE}${target}), not by relative path ("${specifier}") (02 §2, §6a)`,
+      );
+    }
     if (target && target !== pkg && !rule.allowed.includes(target)) {
       violations.push(
         `${where(node)} ${pkg} must not import ${target} ("${specifier}"); allowed: ${rule.allowed.join(', ') || 'nothing'} (02 §2)`,

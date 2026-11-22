@@ -35,10 +35,15 @@ export interface CheckButtonProps {
   disabled?: boolean;
   /** Pulse under the demo hand (03 §6.3 invite). */
   invited?: boolean;
+  /**
+   * Icon only, whatever the text mode (its label is still its accessible name and is spoken on
+   * tap): for a short room where the word would cost a widget's controls their full size.
+   */
+  compact?: boolean;
 }
 
 /** The widget's "check" button: debounced ≥ 400 ms (06 §4), icon-only with a spoken label in K. */
-export function CheckButton({ onPress, disabled, invited }: CheckButtonProps) {
+export function CheckButton({ onPress, disabled, invited, compact }: CheckButtonProps) {
   return (
     <BigButton
       label="ui.btn.check"
@@ -47,7 +52,12 @@ export function CheckButton({ onPress, disabled, invited }: CheckButtonProps) {
       debounceMs={CHECK_DEBOUNCE_MS}
       disabled={disabled}
       onPress={onPress}
-      className={invited ? 'ni-invite' : undefined}
+      showLabel={compact ? false : undefined}
+      className={
+        [compact ? 'ni-check--compact' : '', invited ? 'ni-invite' : '']
+          .filter(Boolean)
+          .join(' ') || undefined
+      }
     />
   );
 }
@@ -281,6 +291,13 @@ export interface NumberPadKeysProps {
   highlighted?: PadKey | null;
   /** Speak a digit when its key is tapped (06 §5). Defaults to the child's speakOnTap. */
   speak?: boolean;
+  /**
+   * `'3x4'` (default): the phone-style 3 columns × 4 rows. `'4x3'`: 4 columns × 3 rows (1–4, 5–8,
+   * 9 0 ⌫), still twelve large keys, for a room too short for four rows of full-size keys. The
+   * key size is `--pad-key` (default `--target-big`); a short room may set it down to
+   * `--target-min`, never below.
+   */
+  shape?: '3x4' | '4x3';
 }
 
 const ROWS: (PadKey | null)[][] = [
@@ -329,6 +346,7 @@ export function NumberPadKeys({
   captureKeyboard = true,
   highlighted = null,
   speak,
+  shape = '3x4',
 }: NumberPadKeysProps) {
   const t = useNarrationText();
   const prefs = useUiPreferences();
@@ -341,6 +359,9 @@ export function NumberPadKeys({
     if (!captureKeyboard) return;
     const onKeyDown = (e: KeyboardEvent) => {
       const l = latest.current;
+      // A key a focused control already handled (Backspace taking a laid unit back) is not also
+      // typed into the answer.
+      if (e.defaultPrevented) return;
       if (l.disabled || e.altKey || e.ctrlKey || e.metaKey) return;
       const el = e.target as HTMLElement | null;
       if (el?.closest('input, textarea, select, [contenteditable="true"]')) return;
@@ -365,20 +386,28 @@ export function NumberPadKeys({
   }, [captureKeyboard]);
 
   return (
-    <fieldset className="ni-pad" aria-label={t('ui.widget.pad')} disabled={disabled}>
-      {ROWS.flat().map((key, i) => {
-        if (key === '.' && !allowDecimal) {
-          // biome-ignore lint/suspicious/noArrayIndexKey: an empty pad cell keeps the 3 × 4 grid
-          return <span key={`gap${i}`} className="ni-pad__gap" aria-hidden="true" />;
-        }
-        if (key === null) return null;
+    <fieldset
+      className="ni-pad"
+      data-shape={shape}
+      aria-label={t('ui.widget.pad')}
+      disabled={disabled}
+    >
+      {ROWS.flat().map((key) => {
+        // Without a decimal key the bottom row is a wide 0 (two columns) and backspace: the grid
+        // stays 3 × 4 with no empty cell (an empty cell reads as a missing key).
+        if (key === null || (key === '.' && !allowDecimal)) return null;
+        const wide = key === '0' && !allowDecimal;
         const label =
           key === 'back' ? t('ui.widget.key.back') : key === '.' ? t('ui.widget.key.point') : key;
         return (
           <button
             key={key}
             type="button"
-            className={['ni-pad__key', highlighted === key ? 'ni-invite' : '']
+            className={[
+              'ni-pad__key',
+              wide ? 'ni-pad__key--wide' : '',
+              highlighted === key ? 'ni-invite' : '',
+            ]
               .filter(Boolean)
               .join(' ')}
             data-key={key}

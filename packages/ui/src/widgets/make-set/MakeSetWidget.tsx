@@ -39,6 +39,7 @@ import {
   CONTAINER_PAD_TIGHT,
   ContainerArt,
   type ContainerKind,
+  TenBundle,
 } from './containers';
 import { HEAP_COLS, HEAP_COLS_K, type HeapCell, heapCells, heapRows } from './heap';
 import './make-set.css';
@@ -69,8 +70,9 @@ import { besideFrame, pageAfter, shownPage, type TenPage } from './tens';
  * response on "check": `{ count, removed, parts?, bundles? }` (packages/engine/README.md).
  *
  * Demo ops (03 §5.5): `drag {count, hand?}`, `remove {count, hand?}`, `count-aloud`, `bundle`,
- * `close-container`, plus `answer {value}`, which drags or removes until the container holds
- * `value` (the model has no answer op for make-set; check is the answer control).
+ * `close-container`, plus the generic `answer {value}`: the model's answer op gives the end state
+ * (the container holds `value`, every full ten bundled with groupsOf 10), and the widget drags or
+ * removes one object at a time until it gets there.
  */
 
 const OPS = ['drag', 'remove', 'count-aloud', 'bundle', 'close-container', 'answer'] as const;
@@ -89,6 +91,13 @@ const PILE_EDGE = 2 * (22 + 3);
 const STACK_HEAP_COLS = SUPPLY_VISIBLE / 2;
 /** A pile's padding (26) and border (3) top and bottom, as in make-set.css. */
 const PILE_EDGE_Y = 2 * (26 + 3);
+/** The supply crate's taller top (44 px padding): its tag sits on the floor, under the rim. */
+const CRATE_TAG_Y = 44 - 26;
+/**
+ * Under a drag invite the crate's bottom padding grows from 26 to 80 px: Pip's hand hangs ~52 px
+ * below the invited object (with its tap bob), and stays ≥ 12 px above the 11 px rim.
+ */
+const HAND_ROOM = 80 - 26;
 /**
  * A compact pile (short areas, where the normal one shows fewer objects): 6 px padding and the
  * 3 px border on every side (`data-tray="compact"` in make-set.css), so the tray hugs its objects.
@@ -108,20 +117,53 @@ const SIDE_GAP = 24;
 const PROBE_PX = 100_000;
 /**
  * One ten-frame at a time: the small frame beside the shown one (the tied ten, or the ones), as in
- * make-set.css `.ni-mset__tens-frame`: 2 × 5 pieces of 32 px, 12 px between the columns (the
- * band's gap, as in a bundled ten-frame) and 2 px between rows, 6 px padding and a 4 px border:
- * 96 × 188, 90 % of a K ten-frame's height (208).
+ * make-set.css `.ni-mset__tens-frame`: 2 × 5 cells of 42 × 38 px (an object drawn 35 × 33 px in
+ * each), 2 px between them, 2 px padding and a 3 px border: 96 × 208, as tall as a K ten-frame
+ * (208). These are tokens at a smaller scale than the working frame (06 §2, one-frame mode): the
+ * waiting ones are drawn ≥ 32 px, the tied ten's objects ≥ 40 px.
  */
-const TENS_PIECE = 32;
-const TENS_W = 2 * TENS_PIECE + 12 + 2 * (6 + 4);
-const TENS_H = 5 * TENS_PIECE + 4 * 2 + 2 * (6 + 4);
+const TENS_CELL = { w: 42, h: 38 };
+const TENS_W = 2 * TENS_CELL.w + 2 + 2 * (2 + 3);
+const TENS_H = 5 * TENS_CELL.h + 4 * 2 + 2 * (2 + 3);
 /** The tied ten's "10" tag under it (`.ni-mset__tens-tag`: 34 px numeral, 2 px border) and gap. */
 const TENS_TAG = 2 + 34 + 2;
 const TENS_TAG_GAP = 2;
-/** The tied ten with its tag. */
-const BUNDLE_H = TENS_H + TENS_TAG_GAP + TENS_TAG;
-/** Between the shown frame and the small frame beside it. */
-const TENS_GAP = 12;
+/**
+ * The tied ten drawn as ONE bundle (containers.tsx `TenBundle`): ten objects drawn ≥ 40 px in two
+ * columns of five (rows 32 px apart), the rope down the gap between them and a bow at the middle.
+ * 96 × 168 (TENS_W wide).
+ */
+const BUNDLE_ART_H = 168;
+/** The tied ten: the bundle, its "10" tag, and a 10 px strip under the tag for Pip's fingertip. */
+const BUNDLE_H = BUNDLE_ART_H + TENS_TAG_GAP + TENS_TAG + 10;
+/**
+ * Between the shown frame and the token beside it (a token keeps ≥ 16 px from the working
+ * frame). The invite rings on both sit inside their own boxes (make-set.css), so they stay
+ * ≥ 12 px clear of each other.
+ */
+const TENS_GAP = 24;
+/**
+ * With groupsOf 10 the ten's frame can be bundled while the small frame of ones sits beside it:
+ * its bow's ink reaches 29 px past the frame's edge (12 px out, the 17 px knot), so the gap holds
+ * it and 12 px more (and the 4 px of a bundled frame's thicker border).
+ */
+const TENS_GAP_BOW = 29 + 12 + 4;
+/**
+ * One ten-frame at a time, the frames sit 4 px lower in the tight chrome, so an invite ring on
+ * them or on the thing beside them (drawn inside their boxes) keeps ≥ 12 px below the boat's top
+ * edge (the hull's top is 10 px down; the tight top margin is 18).
+ */
+const ONE_FRAME_TOP = 4;
+/**
+ * A bundled frame's bow sits ≥ 12 px outside its right edge and spans 17 px (the knot, 7 px plus
+ * its outline): with 12 px to the container's edge, a container with groupsOf 10 needs this much
+ * room right of its frames (4 px more: a bundled frame's border is 2 px thicker a side; 8 px more:
+ * a drawn wall, the basket's, lies up to 8 px inside the container's box; 12 px more: the basket's
+ * wall slants inwards, so at the knot's height it is further in still).
+ */
+const BOW_ROOM = 12 + 17 + 12 + 4 + 8 + 12;
+/** The frame's slide when the ten is tied or untied (make-set.css `.ni-mset__frames`). */
+const SLIDE_MS = 320;
 
 type Layout = 'row' | 'stack' | 'column' | 'side';
 type Chrome = 'normal' | 'tight';
@@ -192,6 +234,17 @@ interface Flight {
 }
 
 const ID = (i: number): ItemId => `set-${i}`;
+
+/** The "count" cue on Pip's hand: three counting dots in a row. */
+function CountDots() {
+  return (
+    <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" focusable="false">
+      {[4, 12, 20].map((cx) => (
+        <circle key={cx} cx={cx} cy="12" r="3.2" fill="var(--color-sea-deep)" />
+      ))}
+    </svg>
+  );
+}
 
 export function MakeSetWidget({
   config,
@@ -275,12 +328,34 @@ export function MakeSetWidget({
   const [flight, setFlight] = useState<Flight | null>(null);
   const [flyingId, setFlyingId] = useState<ItemId | null>(null);
   const [counting, setCounting] = useState<number | null>(null);
+  /**
+   * After Pip counts aloud, the count marks stay up to the last object counted, and so does the
+   * view counting used (a ten counted one by one stays in its frame, every object loose and
+   * marked), until anything changes.
+   */
+  const [countedTo, setCountedTo] = useState<number | null>(null);
+  const markTo = counting ?? countedTo;
   const [closed, setClosed] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const interactive = tier === 'concrete' && !disabled && !demoBusy;
+  /** Between the shown frame and the thing beside it (TENS_GAP, or room for a bow). */
+  const tensGap = config.groupsOf === 10 ? TENS_GAP_BOW : TENS_GAP;
+  /**
+   * A drag invite points at the last object of the supply crate (its bottom row): Pip's hand hangs
+   * below it, so the crate keeps room under its objects for the hand while the invite shows
+   * (≥ 12 px above the crate's rim; `data-hand-room` in make-set.css, HAND_ROOM in the plans).
+   */
+  const dragInvite =
+    config.container !== 'hands' &&
+    interactive &&
+    (invite?.op === 'drag' ||
+      (invite?.op === 'answer' &&
+        Number.isFinite(Number(invite.args?.value)) &&
+        Number(invite.args?.value) > view(stateRef.current).count));
 
   /** Moves one object into the container (from the pile or supply). False when it can't. */
   const moveIn = (id: ItemId): boolean => {
+    setCountedTo(null);
     const l = listsRef.current;
     if (l.inside.includes(id) || l.inside.length >= capacity) return false;
     const before = view(stateRef.current).count;
@@ -300,6 +375,7 @@ export function MakeSetWidget({
 
   /** Takes one object out of the container onto the pile. */
   const moveOut = (id: ItemId): boolean => {
+    setCountedTo(null);
     const l = listsRef.current;
     if (!l.inside.includes(id)) return false;
     apply({ op: 'remove', args: { count: 1 } });
@@ -367,6 +443,7 @@ export function MakeSetWidget({
     if (!interactive || !canBundle) return;
     trace('tap', 'bundle');
     setInvite(null);
+    setCountedTo(null);
     apply({ op: 'bundle' });
     sfx('fuse');
   };
@@ -466,6 +543,7 @@ export function MakeSetWidget({
     play: async (action) => {
       setDemoBusy(true);
       setInvite(null);
+      setCountedTo(null);
       try {
         switch (action.op) {
           case 'drag':
@@ -479,13 +557,35 @@ export function MakeSetWidget({
             }
             break;
           case 'count-aloud': {
-            const n = view(stateRef.current).count;
-            for (let i = 0; i < n; i++) {
+            const now = view(stateRef.current);
+            const n = now.count;
+            // One ten-frame at a time with the first ten beside the ones. Pip counts it as one
+            // ten ("ten", on it; the K teen-number idea) only where it really is a ten: tied in
+            // the model (groupsOf 10, bundled), or an item with no bundling, where the tie is just
+            // how one frame shows a full ten. A ten still to be bundled (CNT.19 / PV.09: "count
+            // out ten ones") is counted one by one: its frame is shown for 1–10, then the ones
+            // beside it, and that view stays, every object loose and marked (`countedTo`).
+            let from = 0;
+            if (!hands && oneFrame && beside === 'bundle' && n >= 10) {
+              if (!config.groupsOf || (now.bundles ?? 0) >= 1) {
+                setCounting(9);
+                sayNumber(10);
+                await pause(COUNT_MS);
+                if (!alive.current) return;
+                from = 10;
+              } else {
+                setTenPage(0);
+                await pause(SLIDE_MS);
+                if (!alive.current) return;
+              }
+            }
+            for (let i = from; i < n; i++) {
               setCounting(i);
               sayNumber(i + 1);
               await pause(COUNT_MS);
               if (!alive.current) return;
             }
+            if (n > 0) setCountedTo(n - 1);
             break;
           }
           case 'bundle':
@@ -499,13 +599,21 @@ export function MakeSetWidget({
             await pause(COUNT_MS);
             break;
           case 'answer': {
-            const want = Number(action.args?.value);
-            if (!Number.isFinite(want)) break;
+            // The model decides the answer's end state (03 §6.3); the widget animates towards it
+            // one object at a time, then bundles the tens the model bundled.
+            if (!model || !stateRef.current) break;
+            const end = model.apply(stateRef.current, action);
+            const want = view(end).count;
             for (let guard = 0; guard < MAX_OBJECTS; guard++) {
               const count = view(stateRef.current).count;
               if (count === want) break;
               const ok = count < want ? await demoDragOne(null) : await demoRemoveOne(null);
               if (!ok || !alive.current) break;
+            }
+            if (alive.current && (view(end).bundles ?? 0) > (view(stateRef.current).bundles ?? 0)) {
+              apply({ op: 'bundle' });
+              sfx('fuse');
+              await pause(COUNT_MS);
             }
             break;
           }
@@ -546,9 +654,14 @@ export function MakeSetWidget({
     const frameGap = tight ? 4 : 18;
     const shown = oneFrame ? 1 : frames;
     const gridH = shown * (frameH + edge) + (shown - 1) * frameGap;
-    const pad = (tight ? CONTAINER_PAD_TIGHT : CONTAINER_PAD)[kind];
+    const base = (tight ? CONTAINER_PAD_TIGHT : CONTAINER_PAD)[kind];
+    const pad = {
+      ...base,
+      top: base.top + (oneFrame && tight ? ONE_FRAME_TOP : 0),
+      right: config.groupsOf === 10 ? Math.max(base.right, BOW_ROOM) : base.right,
+    };
     const innerH = oneFrame ? Math.max(gridH, BUNDLE_H) : gridH;
-    const innerW = frameW + edge + (oneFrame ? TENS_GAP + TENS_W : 0);
+    const innerW = frameW + edge + (oneFrame ? tensGap + TENS_W : 0);
     return {
       w: innerW + pad.left + pad.right,
       h: innerH + pad.top + pad.bottom,
@@ -662,7 +775,12 @@ export function MakeSetWidget({
       const awayH = takeAway
         ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) + edgeY + (side ? 0 : AWAY_HEAD)
         : 0;
-      const supplyH = (rows: number) => (showSupply ? rowsH(rows) + edgeY : 0);
+      const supplyH = (rows: number) =>
+        showSupply
+          ? rowsH(rows) +
+            edgeY +
+            (tray === 'compact' ? 0 : CRATE_TAG_Y + (dragInvite && !takeAway ? HAND_ROOM : 0))
+          : 0;
       const fits = (rows: number) => {
         const s = supplyH(rows);
         const [w, h] =
@@ -753,9 +871,22 @@ export function MakeSetWidget({
   /** The frame shown: the first ten, or the ones with the ten tied beside them (tens.ts). */
   const page = shownPage(tenPage, insideCount);
   const beside = oneFrame ? besideFrame(tenPage, insideCount) : null;
+  /**
+   * A ten still to be bundled (groupsOf 10, nothing bundled) is counted one by one, each crab in
+   * its own slot (see `count-aloud`). Counting that started with both frames in view can land in
+   * one-frame mode on the ones page (the host shrinks while Pip counts): the ten's frame comes back
+   * before the next paint, so no number is spoken over the loose sheaf as a whole, and the view
+   * stays as when counting starts in one frame.
+   */
+  const looseTenCounted =
+    counting !== null && beside === 'bundle' && Boolean(config.groupsOf) && bundles < 1;
+  useLayoutEffect(() => {
+    if (looseTenCounted) setTenPage(0);
+  }, [looseTenCounted]);
   /** Untie the ten (it shows in the frame again, so objects can come out) or tie it again. */
   const toggleTen = () => {
     if (!interactive || beside === null) return;
+    setCountedTo(null);
     // Keyboard (or a focused tap): the replacement button takes the focus.
     refocusTens.current = tensRef.current !== null && document.activeElement === tensRef.current;
     if (beside === 'bundle') {
@@ -807,12 +938,20 @@ export function MakeSetWidget({
       ? null
       : (handArg(invite) ??
         (inviteStep === 'drag' ? (handParts[0] < 5 ? 0 : 1) : handParts[1] > 0 ? 1 : 0));
-  const invitedCount = cue && invite?.op === 'count-aloud';
+  /**
+   * count-aloud invites the thing counting starts on: the frames, or, with one ten-frame at a time
+   * and the ten tied beside the ones, the tied ten (counted first, as "ten").
+   */
+  const invitedCountTens = cue && invite?.op === 'count-aloud' && oneFrame && beside === 'bundle';
+  const invitedCount = cue && invite?.op === 'count-aloud' && !invitedCountTens;
+  /** An `answer` invite whose count is reached: what is left is tying full tens, then Check. */
+  const answerCounted =
+    Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null;
+  // The model's `answer` ends with every full ten tied (groupsOf 10), and `set.count` checks the
+  // bundles too: with a full ten still loose the invite goes on "Make a ten" first, Check after.
+  const invitedBundle = cue && canBundle && (invite?.op === 'bundle' || answerCounted);
   const invitedCheck =
-    canCheck &&
-    (invite?.op === 'close-container' ||
-      (Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null));
-  const invitedBundle = cue && canBundle && invite?.op === 'bundle';
+    canCheck && (invite?.op === 'close-container' || (answerCounted && !canBundle));
 
   // ---------- the heap's layout ----------
 
@@ -848,17 +987,35 @@ export function MakeSetWidget({
         : '.ni-mset__frames'
       : invitedHand !== null && invitedFinger(invitedHand)
         ? `.ni-mset__handbox:nth-child(${invitedHand + 1}) [data-ctl="${invitedFinger(invitedHand)}"] .ni-btn`
-        : invitedTens
+        : invitedTens || invitedCountTens
           ? '.ni-mset__tens'
           : invitedBundle
             ? '.ni-mset__action.ni-invite .ni-btn'
             : invitedCheck
               ? '.ni-mset__action .ni-btn.ni-invite'
               : null;
+  /**
+   * What Pip's hand asks for, on its wrist (kit `useInviteHand` cue), so a remove invite never
+   * looks like a count invite on the same thing: "take one out" (an arrow up, out of the
+   * container) or "count" (three counting dots).
+   */
+  const handCue: 'take' | 'count' | null =
+    inviteStep === 'remove' && (invitedItem !== null || invitedTens)
+      ? 'take'
+      : invitedCount || invitedCountTens
+        ? 'count'
+        : null;
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) => (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
-    handTarget ?? '',
+    handTarget ? `${handTarget}|${handCue ?? ''}` : '',
+    // The kit picks the hand's side (below, or beside or above when below would cover a target).
+    undefined,
+    handCue === null ? undefined : (
+      <span className="ni-mset__cue" data-cue={handCue}>
+        {handCue === 'take' ? <ArrowIcon className="ni-mset__arrow-up" /> : <CountDots />}
+      </span>
+    ),
   );
 
   const renderItem = (
@@ -884,7 +1041,7 @@ export function MakeSetWidget({
         data-counting={place === 'inside' && counting === index ? 'true' : undefined}
       >
         <ObjectSprite sprite={sprite} />
-        {place === 'inside' && counting !== null && index <= counting ? (
+        {place === 'inside' && markTo !== null && index <= markTo ? (
           <span className="ni-mset__mark" aria-hidden="true">
             {index + 1}
           </span>
@@ -906,6 +1063,7 @@ export function MakeSetWidget({
         className="ni-mset__pile"
         data-area={isTarget ? 'pile' : 'supply'}
         data-kind={which}
+        data-hand-room={which === 'supply' && dragInvite && !takeAway ? 'true' : undefined}
         style={sideGap(which)}
       >
         {targetProps ? (
@@ -915,7 +1073,16 @@ export function MakeSetWidget({
           <span className="ni-mset__away-icon" aria-hidden="true">
             <ArrowIcon />
           </span>
-        ) : null}
+        ) : (
+          // The supply crate's tag: an arrow towards the container ("from here, into there").
+          <span className="ni-mset__supply-icon" aria-hidden="true">
+            <ArrowIcon
+              className={
+                layout === 'stack' || layout === 'column' ? 'ni-mset__arrow-down' : undefined
+              }
+            />
+          </span>
+        )}
         <div className="ni-mset__heapbox" style={heapBox(Math.min(most, total))}>
           <fieldset
             className="ni-mset__heap"
@@ -948,45 +1115,76 @@ export function MakeSetWidget({
    * the ten untied, the ten's frame first and the small frame of ones after it (right).
    */
   const bundleFirst = beside === 'bundle';
-  const framesLeft = box.pad.left + (bundleFirst ? TENS_W + TENS_GAP : 0);
+  const framesLeft = box.pad.left + (bundleFirst ? TENS_W + tensGap : 0);
+  /**
+   * The ten beside the ones is drawn tied (the rope band and bow) only when it is one: bundled in
+   * the model (groupsOf 10), or in an item with no bundling. A ten the child still has to bundle is
+   * the same sheaf of ten, untied.
+   */
+  const tenTied = bundleFirst && (!config.groupsOf || bundles >= 1);
+  /**
+   * count-aloud with one ten-frame at a time: the objects not in the shown frame are counted on the
+   * thing beside it. A tied ten is counted as one ten ("ten", step 9: the whole small frame is
+   * highlighted), then the ones in view; with the first ten shown, each one after it is counted on
+   * its own cell of the small frame (steps 10 and up), the running number under that frame.
+   * Any step on an object the tied ten holds lights the ten, not only step 9: the layout can
+   * change while Pip counts (the host shrinks to one frame after "one"), and a spoken number must
+   * never be left without its highlight. Only a tied ten is lit as a whole: a ten still to be
+   * bundled is counted crab by crab in its own frame (`looseTenCounted` above brings it back).
+   */
+  const tensCounting = counting !== null && tenTied && counting <= 9;
+  /** Counting on the small frame of ones: the last one counted so far (marks stay after). */
+  const onesCounting = beside === 'ones' && markTo !== null && markTo >= 10 ? markTo : null;
   const tensBeside =
     beside === null ? null : (
       <button
         key={beside}
         ref={tensRef}
         type="button"
-        className={['ni-mset__tens', invitedTens ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+        className={['ni-mset__tens', invitedTens || invitedCountTens ? 'ni-invite' : '']
+          .filter(Boolean)
+          .join(' ')}
         data-tens={beside}
-        aria-label={String(bundleFirst ? 10 : onesShown)}
+        data-counting={tensCounting ? 'true' : undefined}
+        // Named by the number it shows: the tied ten's tag, the ones it holds, or (while the
+        // count-aloud mark is on it) the running count on that mark, so name and text agree.
+        aria-label={String(bundleFirst ? 10 : onesCounting !== null ? onesCounting + 1 : onesShown)}
         disabled={!interactive}
         onClick={toggleTen}
         style={{
-          left: bundleFirst ? box.pad.left : box.pad.left + box.frameOuterW + TENS_GAP,
+          left: bundleFirst ? box.pad.left : box.pad.left + box.frameOuterW + tensGap,
           top: bundleFirst ? box.bundleTop : box.onesTop,
           ...(reduced ? { animation: 'none' } : {}),
         }}
       >
-        <span className="ni-mset__tens-frame">
-          <span className="ni-mset__tens-grid">
-            {Array.from({ length: 10 }, (_, k) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
-              <span key={k} className="ni-mset__tens-cell">
-                {bundleFirst || k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
-              </span>
-            ))}
-          </span>
-          {bundleFirst ? (
-            <BundleBand
-              width={TENS_W - 2 * (6 + 4)}
-              height={TENS_H - 2 * (6 + 4)}
-              vertical
-              bow={false}
-            />
-          ) : null}
-        </span>
         {bundleFirst ? (
-          <span className="ni-mset__tens-tag" aria-hidden="true">
+          <TenBundle sprite={<ObjectSprite sprite={sprite} />} tied={tenTied} />
+        ) : (
+          <span className="ni-mset__tens-frame">
+            <span className="ni-mset__tens-grid">
+              {Array.from({ length: 10 }, (_, k) => (
+                <span
+                  // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
+                  key={k}
+                  className="ni-mset__tens-cell"
+                  data-counting={
+                    onesCounting !== null && 10 + k <= onesCounting ? 'true' : undefined
+                  }
+                >
+                  {k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
+                </span>
+              ))}
+            </span>
+          </span>
+        )}
+        {bundleFirst ? (
+          <span className="ni-mset__tens-tag" aria-hidden="true" data-invite-glyph="">
             10
+          </span>
+        ) : null}
+        {onesCounting !== null ? (
+          <span key={onesCounting} className="ni-mset__mark ni-mset__tens-count" aria-hidden="true">
+            {onesCounting + 1}
           </span>
         ) : null}
       </button>
@@ -1034,7 +1232,14 @@ export function MakeSetWidget({
                 </div>
               );
             })}
-            {f < bundles ? <BundleBand width={frameW} height={frameH} /> : null}
+            {f < bundles ? (
+              // The bow just outside the frame's right edge (its padding and border, make-set.css).
+              <BundleBand
+                width={frameW}
+                height={frameH}
+                edge={chrome === 'tight' ? 6 + 2 : 14 + 6}
+              />
+            ) : null}
           </div>
         ))}
       </div>
@@ -1137,9 +1342,11 @@ export function MakeSetWidget({
       data-mode={config.mode}
       data-container={config.container}
       data-disabled={disabled ? 'true' : undefined}
+      data-idle={interactive ? undefined : 'true'}
       data-layout={hands ? undefined : layout}
       data-chrome={chrome === 'tight' ? 'tight' : undefined}
       data-one-frame={oneFrame ? 'true' : undefined}
+      data-bundling={config.groupsOf === 10 ? 'true' : undefined}
       data-tray={tray === 'compact' ? 'compact' : undefined}
       style={
         {

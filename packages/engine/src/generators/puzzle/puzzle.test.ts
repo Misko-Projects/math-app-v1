@@ -11,7 +11,15 @@ import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { gapWays } from '../bond/parts';
-import { BLANKS, pieceCells, puzzleGrid, solvesBySides } from './grid';
+import {
+  BLANKS,
+  pathOrder,
+  pieceCells,
+  puzzleGrid,
+  solvesBySides,
+  TRIANGLE,
+  triangleOrder,
+} from './grid';
 
 let nextId = 0;
 function tpl(
@@ -119,6 +127,12 @@ describe('number-path (puzzle-grid)', () => {
     }
   });
 
+  it('fills each blank next to a known cell: on after a given, back before the first one', () => {
+    expect(pathOrder([true, false, true, true])).toEqual([2, 3, 0]);
+    expect(pathOrder([true, true, false])).toEqual([1, 0]);
+    expect(() => pathOrder([true, true])).toThrow();
+  });
+
   it('rejects a wrong number and a given changed', () => {
     const { item, ex } = build(t, {
       variant: 'number-path',
@@ -164,6 +178,19 @@ describe('sum-triangle', () => {
     const fill = fillOf(ex).map((row) => [...row]);
     for (const [r, c] of blanks) (fill[r] as (number | '')[])[c] = 0;
     expect(solutions(item.answer.target, fill, blanks, values)).toBe(1);
+  });
+
+  it.each(Object.keys(BLANKS))('%s: the solution names each side before its fill', (blankSet) => {
+    const t = tpl('puzzle.grid', 'puzzle-grid', 'pictorial', 'number-bond');
+    const { item } = build(t, { variant: 'sum-triangle', a: 2, b: 3, c: 4, sum: 10, blankSet });
+    const order = triangleOrder(BLANKS[blankSet] ?? []);
+    const steps = itemSolution(item, t);
+    expect(steps.map((s) => s.action?.op)).toEqual(order.flatMap(() => ['check-line', 'fill']));
+    order.forEach(({ side, spot }, k) => {
+      expect(steps[2 * k]?.action?.args).toEqual({ index: side });
+      const [r, c] = TRIANGLE[spot];
+      expect(steps[2 * k + 1]?.action?.args).toMatchObject({ r, c });
+    });
   });
 
   it('rejects draws whose middles leave 1–9, and a set two sides cannot solve', () => {

@@ -1,0 +1,78 @@
+/* NumberEntry: answer boxes over the number pad. */
+
+.ni-boxentry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.ni-boxentry__boxes {
+  display: flex;
+  gap: var(--target-gap);
+}
+.ni-boxentry__box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-width: calc(var(--target-min) * 1.3);
+  min-height: var(--target-min);
+  padding: 4px 14px;
+  border: 3px dashed var(--color-ink-soft);
+  border-radius: var(--radius-pebble);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 44px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ni-boxentry__box:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+/* The box being typed into: solid ink border (two boxes only), never colour alone. */
+.ni-boxentry__box--active {
+  border-style: solid;
+  border-color: var(--color-ink);
+  box-shadow: inset 0 0 0 3px var(--color-ink); /* inside: boxes stay 12 px apart */
+}
+.ni-boxentry__text[data-empty="true"] {
+  color: var(--color-ink-soft);
+}
+.ni-boxentry__unit {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+}
+/* Compact (the smallest landscape area): the boxes beside a 6 × 2 pad at the target size. */
+.ni-boxentry[data-compact="true"] {
+  flex-direction: row;
+  gap: 16px;
+}
+.ni-boxentry[data-compact="true"] .ni-boxentry__boxes {
+  flex-direction: column;
+}
+.ni-boxentry[data-compact="true"] .ni-pad {
+  grid-template-columns: repeat(6, var(--target-min));
+  grid-auto-rows: var(--target-min);
+}
+.ni-boxentry[data-compact="true"] .ni-pad__key {
+  margin-bottom: 0;
+}
+/* The answer box is tapped (it picks the box to type into): the full target size (evidence
+   review: compact boxes were 4 px short, 76 in K and 60 in G1+). */
+.ni-boxentry[data-compact="true"] .ni-boxentry__box {
+  min-height: var(--target-min);
+  font-size: 40px;
+}
+/* The demo invite on an answer box: one ring, inside the box (12 px gaps kept), no pulse. */
+.ni-boxentry .ni-boxentry__box.ni-invite {
+  outline-offset: -5px;
+  animation: none;
+}
+.ni-boxentry[data-compact="true"][data-shape="tall"] .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+}

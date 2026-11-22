@@ -1,0 +1,128 @@
+/* fraction-pick widget (U05, #14): the picture on the left, the choices and "check" beside it. */
+
+.ni-fpick {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 24px 40px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 8px 16px;
+  container-type: inline-size;
+}
+.ni-fpick[data-compact="true"] {
+  gap: 16px 28px;
+  padding: 4px 8px;
+}
+.ni-fpick__stimulus {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-fpick[data-compact="true"] .ni-fpick__stimulus {
+  padding: 8px;
+}
+.ni-fpick__stimulus.ni-invite {
+  outline-offset: 6px;
+  border-radius: var(--radius-card);
+}
+.ni-fpick__answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 20px 32px;
+  min-width: 0;
+}
+/* Pictures only (pick-picture): the cards in a row, "check" under them. */
+.ni-fpick__answer[data-stacked="true"] {
+  flex-direction: column;
+  /* The invite ring around a card (10 px) stays 12 px clear of Check. */
+  gap: 24px;
+}
+.ni-fpick[data-mode="fair-or-not"] .ni-fpick__answer {
+  flex-direction: column;
+}
+.ni-fpick__options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--target-gap) * 2);
+  max-width: 100%;
+  margin: 0;
+  padding: 6px;
+  border: 0;
+  min-width: 0;
+}
+.ni-fpick__slot {
+  position: relative;
+  display: flex;
+}
+.ni-fpick__options .ni-pick {
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: calc(var(--target-min) * 1.4);
+}
+.ni-fpick__options .ni-pick[data-variant="picture"] {
+  padding: 10px 14px;
+}
+.ni-fpick__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ni-fpick__card[data-symbols-first="true"] {
+  flex-direction: row;
+  gap: 14px;
+}
+.ni-fpick__word {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.ni-fpick__yesno {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: calc(var(--target-min) * 1.2);
+}
+.ni-fpick__yesno-icon {
+  display: block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+}
+.ni-fpick__yesno-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.ni-fpick__entry {
+  display: flex;
+  align-items: center;
+}
+.ni-fpick[data-compact="true"] .ni-fpick__answer {
+  gap: 16px 20px;
+}
+.ni-fpick[data-compact="true"] .ni-fentry {
+  gap: 20px;
+}
+/* The tablet area has room: bigger yes / no answers. */
+.ni-fpick:not([data-compact="true"]) .ni-fpick__options[data-kind="yes-no"] .ni-pick {
+  min-width: calc(var(--target-min) * 1.9);
+  min-height: calc(var(--target-min) * 1.7);
+}
+.ni-fpick:not([data-compact="true"]) .ni-fpick__yesno .ni-fpick__word {
+  font-size: 2.25rem;
+}

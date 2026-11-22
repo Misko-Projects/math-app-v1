@@ -2,20 +2,27 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { ChartView } from './ChartView';
 import { ClockView } from './ClockView';
 import { CoinsView } from './CoinsView';
+import { FractionView } from './FractionView';
+import { shapeFrame } from './fractionShapes';
+import { GaugeView } from './GaugeView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
+import { ShapeSetView } from './ShapeView';
 import { ObjectSprite } from './sprites';
+import { STIMULUS_KINDS } from './stimulusKinds';
 import './kit.css';
 
 /**
  * Static pictures for `StimulusSpec` (03 §5.1): what many formats show above their answer control
- * (numeral-pick, number-pad, dot-flash, compare, …). Each kind has one renderer below. Kinds that
- * belong to later widget issues (clock, coins, fractions, gauges, charts, shapes, bar models) are
- * added here by those issues, one `case` each; until then they draw a neutral card (and a dev tag),
- * so an item never breaks.
+ * (numeral-pick, number-pad, dot-flash, compare, order, …). Each kind has one renderer below, and
+ * the switch is exhaustive: a kind added to `StimulusSpec` does not compile here, or in
+ * `STIMULUS_KINDS` (stimulusKinds.ts), until someone decides how it is drawn. The kinds a later
+ * widget issue still owes (`placeholder` in that table: bar models)
+ * are listed by name and draw a neutral card (and a dev tag), so an item never breaks.
  *
  * A stimulus is a picture, not an answer: its accessible name says what it is ("Look at the
  * picture"), never the quantity the child is asked for.
@@ -30,6 +37,8 @@ export interface StimulusViewProps {
   minCell?: number;
   /** Renders a blank token of an expression stimulus (number-pad draws its entry slots here). */
   renderBlank?: (id: string) => ReactNode;
+  /** Shapes: px per shape unit, so several pictures share one scale (default: fit the box). */
+  shapeUnitPx?: number;
   /** Accessible name; defaults to the generic "picture" label. */
   label?: string;
   className?: string;
@@ -41,6 +50,7 @@ export function StimulusView({
   maxHeight = 300,
   minCell,
   renderBlank,
+  shapeUnitPx,
   label,
   className,
 }: StimulusViewProps) {
@@ -172,6 +182,66 @@ export function StimulusView({
           />
         </div>
       );
+    case 'scene':
+      return (
+        <div className={cls} data-kind="scene" role="img" aria-label={name}>
+          {spec.sprites.map((s) => (
+            <ObjectSetView
+              key={s.sprite}
+              layout={objectSetLayout({
+                count: s.count,
+                sprite: s.sprite,
+                layout: 'line',
+                layoutSeed: 1,
+              })}
+              maxWidth={maxWidth}
+              maxHeight={maxHeight / Math.max(1, spec.sprites.length)}
+            />
+          ))}
+        </div>
+      );
+    case 'fraction': {
+      // Drawn at the whole's own size, never above it: two wholes of one shape are one size, so
+      // only the cuts and the filled parts differ (FitPicture scales the pictures alike).
+      const frame = shapeFrame(spec.shape);
+      return (
+        <div className={cls} data-kind="fraction">
+          <FractionView
+            shape={spec.shape}
+            parts={spec.parts}
+            shaded={spec.shaded}
+            equalParts={spec.equalParts}
+            maxWidth={Math.min(maxWidth, frame.width)}
+            maxHeight={Math.min(maxHeight, frame.height)}
+            label={name}
+          />
+        </div>
+      );
+    }
+    case 'chart':
+      return (
+        <div className={cls} data-kind="chart">
+          <ChartView chart={spec.chart} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
+        </div>
+      );
+    case 'shape':
+      return (
+        <div className={cls} data-kind="shape">
+          <ShapeSetView
+            shapes={spec.shapes}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
+            unitPx={shapeUnitPx}
+            label={name}
+          />
+        </div>
+      );
+    case 'gauge':
+      return (
+        <div className={cls} data-kind="gauge">
+          <GaugeView spec={spec} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
+        </div>
+      );
     case 'clock':
       return (
         <div className={cls} data-kind="clock">
@@ -197,43 +267,46 @@ export function StimulusView({
           />
         </div>
       );
-    case 'scene':
+    case 'bar-model':
+      return <PlaceholderCard kind={spec.kind} className={cls} label={name} />;
+    default: {
+      // Unreachable while the switch is exhaustive: a new kind fails to compile on the next line.
+      // Data that skipped the schema still gets the card at run time, never a crash.
+      const unknown: never = spec;
       return (
-        <div className={cls} data-kind="scene" role="img" aria-label={name}>
-          {spec.sprites.map((s) => (
-            <ObjectSetView
-              key={s.sprite}
-              layout={objectSetLayout({
-                count: s.count,
-                sprite: s.sprite,
-                layout: 'line',
-                layoutSeed: 1,
-              })}
-              maxWidth={maxWidth}
-              maxHeight={maxHeight / Math.max(1, spec.sprites.length)}
-            />
-          ))}
-        </div>
+        <PlaceholderCard kind={(unknown as { kind: string }).kind} className={cls} label={name} />
       );
-    default:
-      // Kinds a later widget issue renders (U04/U05). A neutral card, never a crash.
-      return (
-        <div
-          className={cls}
-          data-kind={spec.kind}
-          data-unsupported="true"
-          role="img"
-          aria-label={name}
-        >
-          <ObjectSprite sprite="pebble" />
-          {import.meta.env?.DEV ? (
-            <code className="ni-stimulus__dev" aria-hidden="true">
-              {spec.kind}
-            </code>
-          ) : null}
-        </div>
-      );
+    }
   }
+}
+
+/** The neutral card of a kind that has no drawing yet (`placeholder` in `STIMULUS_KINDS`). */
+function PlaceholderCard({
+  kind,
+  className,
+  label,
+}: {
+  kind: string;
+  className: string;
+  label: string;
+}) {
+  return (
+    <div
+      className={className}
+      data-kind={kind}
+      data-unsupported="true"
+      data-status={(STIMULUS_KINDS as Record<string, string>)[kind] ?? 'unknown'}
+      role="img"
+      aria-label={label}
+    >
+      <ObjectSprite sprite="pebble" />
+      {import.meta.env?.DEV ? (
+        <code className="ni-stimulus__dev" aria-hidden="true">
+          {kind}
+        </code>
+      ) : null}
+    </div>
+  );
 }
 
 // ---------- fingers ----------
@@ -628,6 +701,9 @@ export function ExpressionView({
 
 // ---------- base ten (simple picture; base-ten widgets live in U04) ----------
 
+/** The ones column's width in px: two 14 px cubes across (4 px apart), one cube, or none. */
+export const baseTenOnesWidth = (ones: number) => (ones >= 2 ? 32 : ones === 1 ? 14 : 0);
+
 export function BaseTenView({
   thousands,
   hundreds,
@@ -659,15 +735,19 @@ export function BaseTenView({
       />,
     );
   });
+  // The ones column is as wide as its cubes (two across, one, or none), so the drawn picture is
+  // exactly the box that gets centred: a lone one never leaves an empty half-column beside it.
   return (
     <div className="ni-baseten" {...pictureProps(label)}>
       {items}
-      <span className="ni-baseten__ones" style={{ width: unit * 2 + 4 }}>
-        {groupIndexes(ones).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: unit cubes are positional
-          <span key={i} className="ni-baseten__unit" style={{ width: unit, height: unit }} />
-        ))}
-      </span>
+      {ones > 0 ? (
+        <span className="ni-baseten__ones" style={{ width: baseTenOnesWidth(ones) }}>
+          {groupIndexes(ones).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: unit cubes are positional
+            <span key={i} className="ni-baseten__unit" style={{ width: unit, height: unit }} />
+          ))}
+        </span>
+      ) : null}
     </div>
   );
 }

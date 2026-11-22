@@ -1,0 +1,315 @@
+/* compare-length widget (U05): objects in lanes from one start line, on one scale. */
+
+.ni-clen {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 8px 28px;
+}
+.ni-clen__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+.ni-clen__lanes {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--target-gap);
+}
+.ni-clen__lane {
+  position: relative;
+  border-radius: 16px;
+  background: var(--color-horizon);
+  box-shadow: inset 0 -4px 0 var(--color-sand-shadow);
+}
+.ni-clen[data-tier="pictorial"] .ni-clen__lane {
+  background: var(--color-paper);
+  box-shadow: inset 0 0 0 2px var(--color-sand-deep);
+}
+/* The start line every left end is measured from. */
+.ni-clen__line {
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  z-index: 1;
+  width: 0;
+  margin-left: -2px;
+  border-left: 4px dashed var(--color-ink-soft);
+  pointer-events: none;
+}
+/* Unit ticks under the lanes (pictorial tier, how-much-longer): their own strip, 12 px under the
+   last lane and 12+ px above the keys; ink ticks, 3 px every fifth unit, 2 px between. */
+.ni-clen__ticks {
+  position: relative;
+  display: block;
+  flex: none;
+  margin-bottom: 4px;
+  pointer-events: none;
+}
+.ni-clen__ticks svg {
+  display: block;
+  overflow: visible;
+}
+.ni-clen__tick-base,
+.ni-clen__tick {
+  stroke: var(--color-ink);
+  stroke-width: 2px;
+}
+.ni-clen__tick-base {
+  stroke-width: 3px;
+}
+.ni-clen__tick--major {
+  stroke-width: 3px;
+}
+.ni-clen__pad {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+}
+.ni-clen__obj {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-clen__obj:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: -6px; /* inside the object: lanes stay 12 px apart */
+  border-radius: 12px;
+}
+.ni-clen__obj--slides {
+  touch-action: none;
+  cursor: grab;
+}
+.ni-clen__art {
+  position: relative;
+  display: block;
+  pointer-events: none;
+}
+/* Picked: a thick ink ring around the whole object, never colour alone; invited: the demo ring in
+   the same place. It lies 6 px inside the lane and 6 px clear of the drawing on every side
+   (evidence review); its zone (4 px round it) is what Pip's hand keeps clear of. */
+.ni-clen__ring-zone {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+.ni-clen__ring {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 14px;
+}
+.ni-clen__ring--picked {
+  border: 5px solid var(--color-ink);
+}
+/* Order: where a lane's badge goes, until one is placed: an empty numbered-badge outline. */
+.ni-clen__slot {
+  display: block;
+  box-sizing: border-box;
+  width: calc(var(--target-min) + 8px);
+  height: calc(var(--target-min) + 8px);
+  border: 4px dashed var(--color-ink-soft);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.5);
+}
+.ni-clen__laid {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+/* The part of the longer object that sticks out past the shorter one. */
+.ni-clen__diff {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 3px dashed var(--color-coral-deep);
+  border-radius: 10px;
+  background: repeating-linear-gradient(45deg, rgb(231 111 81 / 0.28) 0 6px, transparent 6px 12px);
+  pointer-events: none;
+}
+
+/* Badges (order): numbered tokens dragged onto the objects. */
+.ni-clen__placed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ni-clen__badge-slot,
+.ni-clen__spool-slot {
+  position: relative;
+  display: flex;
+}
+.ni-clen__badge {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 4px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-sunshine-light);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* 24 px between the side's controls: Check's 8 px focus ring stays 16 px clear (06 §4). */
+.ni-clen__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.ni-clen__badges {
+  position: relative;
+  padding: 10px;
+}
+.ni-clen__tray {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 3px dashed var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-sand);
+}
+.ni-clen__badge-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, var(--target-min));
+  gap: var(--target-gap);
+  pointer-events: none;
+}
+.ni-clen__badge-grid > * {
+  pointer-events: auto;
+}
+/* Where a placed badge came from: a faint numbered dent. */
+.ni-clen__badge-gap {
+  display: grid;
+  place-items: center;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 3px dashed var(--color-sand-deep);
+  border-radius: 50%;
+  color: var(--color-sand-deep);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 34px;
+  pointer-events: none;
+}
+
+/* The string (indirect). */
+.ni-clen__spool {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  padding: 8px;
+  border: 3px solid var(--color-wood-deep);
+  border-radius: 20px;
+  background: var(--color-horizon);
+}
+.ni-clen__strings {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 0;
+  border-radius: 16px;
+  background: var(--color-paper);
+  box-shadow: inset 0 0 0 2px var(--color-sand-deep);
+}
+.ni-clen__string-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* An object's tag (indirect), at the left of its lane and of its string row, same place. */
+.ni-clen__tag {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  z-index: 2;
+  display: block;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ni-clen__tag svg {
+  display: block;
+}
+
+/* Drop targets (a lane taking a badge or the string; the badge tray): their rings lie inside, in
+   every state (the kit ring fades out over a transition), so lanes 12 px apart never meet. */
+.ni-clen .ni-clen__pad.ni-drop-target,
+.ni-clen .ni-clen__tray.ni-drop-target {
+  outline-offset: -8px;
+}
+.ni-clen .ni-clen__pad.ni-drop-target[data-over="true"],
+.ni-clen .ni-clen__tray.ni-drop-target[data-over="true"] {
+  transform: none;
+  box-shadow: inset 0 0 0 12px rgb(42 157 143 / 0.18);
+}
+
+/* The demo invite: one ring, inside the invited control (12 px gaps kept), no pulse. */
+.ni-clen .ni-clen__ring.ni-invite {
+  position: absolute;
+  outline-offset: -5px;
+  border-radius: 14px;
+  animation: none;
+}
+.ni-clen .ni-clen__badge.ni-invite {
+  outline-offset: -5px;
+  border-radius: 50%;
+  animation: none;
+}
+.ni-clen .ni-clen__spool.ni-invite {
+  outline-offset: -5px;
+  border-radius: 20px;
+  animation: none;
+}
+.ni-clen__entry {
+  align-self: center;
+}
+.ni-clen[data-compact="true"] {
+  gap: 16px;
+  padding: 2px 4px 4px;
+}
+.ni-clen[data-compact="true"] .ni-clen__main {
+  gap: 10px;
+}
+/* Where Pip's hand points in an invited object: its box above the lane's 4 px bottom border. */
+.ni-clen__hand-anchor {
+  position: absolute;
+  inset: 0 0 4px;
+  pointer-events: none;
+}

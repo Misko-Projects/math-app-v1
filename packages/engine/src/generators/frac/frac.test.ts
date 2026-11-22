@@ -223,6 +223,13 @@ const CASES: Case[] = [
     answer: { kind: 'numbers', values: [8, 4], ordered: true },
     lastOp: 'drag',
   },
+  {
+    name: 'order (symbols): part-count cards, biggest piece first',
+    t: tpl('frac.compare', 'order', { tier: 'abstract', representation: 'symbols' }),
+    params: { shape: 'bar', den: 6, den2: 2, den3: 3 },
+    answer: { kind: 'numbers', values: [12, 8, 4], ordered: true },
+    lastOp: 'drag',
+  },
 ];
 
 describe('div.share, frac.partition, frac.compare: fixed params', () => {
@@ -316,6 +323,20 @@ describe('frac.partition details', () => {
     const t = tpl('frac.partition', 'fraction-cut');
     const steps = itemSolution(build(t, { mode: 'cut', shape: 'bar', den: 4, num: 1 }), t);
     expect(steps.map((s) => s.action?.op)).toEqual(['cut', 'cut', 'cut', 'shade']);
+    // A strip into fourths halves first (its middle line is line 1), then each half.
+    expect(
+      steps.slice(0, 3).map((s) => (s.action?.args as { line?: number } | undefined)?.line),
+    ).toEqual([1, 0, 2]);
+    expect(steps.slice(0, 3).map((s) => s.say)).toEqual([
+      'gen.frac.partition.cut-middle',
+      'gen.frac.partition.cut-half',
+      'gen.frac.partition.cut-other',
+    ]);
+    const circle = itemSolution(build(t, { mode: 'cut', shape: 'circle', den: 4, num: 0 }), t);
+    expect(circle.map((s) => s.say)).toEqual([
+      'gen.frac.partition.cut-middle',
+      'gen.frac.partition.cut-again',
+    ]);
   });
   it('asks pick items in words and shows three different pictures', () => {
     expect(pickWord('name', 2)).toBe('halves');
@@ -385,6 +406,23 @@ describe('frac.compare details', () => {
       equal: 1,
       ratio: 0,
     });
+  });
+  it('symbols order cards show the part count and no picture; strips show no label', () => {
+    const symbols = tpl('frac.compare', 'order', { tier: 'abstract', representation: 'symbols' });
+    const cards = build(symbols, { shape: 'bar', den: 8, den2: 2, den3: 4 }).widget;
+    if (cards.format !== 'order') throw new Error('order');
+    expect(cards.items.map((x) => [x.label, x.value]).sort()).toEqual([
+      ['2', 12],
+      ['4', 6],
+      ['8', 3],
+    ]);
+    expect(cards.items.every((x) => x.stimulus === undefined)).toBe(true);
+    const strips = tpl('frac.compare', 'order', { tier: 'pictorial' });
+    const pics = build(strips, { shape: 'bar', den: 8, den2: 2, den3: 4 }).widget;
+    if (pics.format !== 'order') throw new Error('order');
+    expect(pics.items.every((x) => x.label === undefined && x.stimulus?.kind === 'fraction')).toBe(
+      true,
+    );
   });
   it('order strips are all cut differently', () => {
     const t = tpl('frac.compare', 'order', { tier: 'pictorial' });

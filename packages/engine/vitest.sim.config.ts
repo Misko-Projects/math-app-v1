@@ -6,6 +6,8 @@ export default defineProject({
     name: 'engine-sim',
     environment: 'node',
     include: ['test/sim/**/*.sim.test.ts'],
+    // The item core the learner model needs (02 §6a), as in vitest.config.ts.
+    setupFiles: ['./test/setup-item-core.ts'],
     testTimeout: 60_000,
     // The harness prints its metrics table; show console output of passing tests too.
     silent: false,

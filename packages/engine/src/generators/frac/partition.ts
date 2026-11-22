@@ -1,6 +1,6 @@
 // frac.partition (03 §5.6): cut a whole into `den` equal parts, or judge whether parts are equal.
 // Formats (K01): fraction-cut, fraction-pick, fraction-line. `mode`:
-// - `cut` (fraction-cut, FRA.01, FRA.07, FRA.08): cut the `shape` into `den` equal parts and shade
+// - `cut` (fraction-cut, FRA.01, FRA.07): cut the `shape` into `den` equal parts and shade
 //   `num` of them (0: no shading). Answer `fraction.cut`.
 // - `fair-or-not` (fraction-pick, FRA.07): one shape cut into `den` parts, equal when
 //   `equalParts`; the child answers `yes` | `no`.
@@ -122,6 +122,8 @@ export const fracPartition: GeneratorDef = {
   narration: [
     'gen.frac.partition.cut-middle',
     'gen.frac.partition.cut-again',
+    'gen.frac.partition.cut-half',
+    'gen.frac.partition.cut-other',
     'gen.frac.partition.cut-same',
     'gen.frac.partition.shade',
     'gen.frac.partition.look-parts',
@@ -285,18 +287,29 @@ export const fracPartition: GeneratorDef = {
     const den = asNum(out.params.den);
     if (w.format === 'fraction-cut') {
       const lines = cutLines(w.shape, den);
-      const halving = den === 2 || (den === 4 && w.shape !== 'bar');
-      const steps: LessonStep[] = Array.from({ length: lines }, (_, i) =>
-        say(
-          halving
-            ? i === 0
-              ? 'gen.frac.partition.cut-middle'
-              : 'gen.frac.partition.cut-again'
-            : 'gen.frac.partition.cut-same',
-          {},
-          { op: 'cut', args: { line: i } },
-        ),
-      );
+      let steps: LessonStep[];
+      if (w.shape === 'bar' && den === 4) {
+        // A strip's lines run left to right, so line 1 is the middle: halve it first, then each
+        // half, as the cut-middle hint says (PR #84 review round 2: the cuts went 0, 1, 2).
+        steps = [
+          say('gen.frac.partition.cut-middle', {}, { op: 'cut', args: { line: 1 } }),
+          say('gen.frac.partition.cut-half', {}, { op: 'cut', args: { line: 0 } }),
+          say('gen.frac.partition.cut-other', {}, { op: 'cut', args: { line: 2 } }),
+        ];
+      } else {
+        const halving = den === 2 || den === 4;
+        steps = Array.from({ length: lines }, (_, i) =>
+          say(
+            halving
+              ? i === 0
+                ? 'gen.frac.partition.cut-middle'
+                : 'gen.frac.partition.cut-again'
+              : 'gen.frac.partition.cut-same',
+            {},
+            { op: 'cut', args: { line: i } },
+          ),
+        );
+      }
       for (let i = 0; i < (w.shade ?? 0); i += 1) {
         steps.push(say('gen.frac.partition.shade', {}, { op: 'shade', args: { part: i } }));
       }

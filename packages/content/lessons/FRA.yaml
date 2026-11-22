@@ -27,3 +27,17 @@ lessons:
       - { seed: 2606336397, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [FRA.07.t5] }
+
+  # FRA.08 plays the auto lesson (the concrete compare, t1). The auto test-out would take only the
+  # abstract part-count order (t4); a grade-1 child tests out on both orders, the strips (t3) and
+  # the part counts (t4), each a comparison of differently cut wholes (PR #84 review round 2).
+  - skillId: FRA.08
+    mode: authored
+    templateId: FRA.08.t1
+    worked:
+      - { seed: 2556003538, target: easy }
+    faded:
+      - { seed: 2556003539, target: typical, childSteps: 1 }
+      - { seed: 2556003540, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.08.t3, FRA.08.t4] }

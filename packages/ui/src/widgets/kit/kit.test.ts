@@ -1,3 +1,4 @@
+import { lineTicks } from '@number-island/engine';
 import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,7 +10,7 @@ import {
   trayGrid,
 } from './controls';
 import { dicePattern, dotsLayout, groupIndexes, minObjectStep, objectSetLayout } from './layout';
-import { stepsBetween } from './NumberLineView';
+import { numberLineViewScale, numeralText, stepsBetween } from './NumberLineView';
 
 const set = (over: Partial<ObjectSet>): ObjectSet => ({
   count: 7,
@@ -149,6 +150,41 @@ describe('number line steps', () => {
     expect(stepsBetween(0, 1, 0.1)).toHaveLength(11);
     expect(stepsBetween(0, 1, 0.1).at(-1)).toBe(1);
     expect(stepsBetween(0, 10, null)).toEqual([]);
+    // Numerals below zero print a real minus sign (U+2212).
+    expect(numeralText(-3)).toBe('\u22123');
+    expect(numeralText(0.5)).toBe('0.5');
+    // 0.07 / 0.01 is 7.000000000000001 in floating point: the line still starts at 0.07, and the
+    // kit draws exactly the ticks the number-line model snaps to.
+    expect(stepsBetween(0.07, 0.1, 0.01)).toEqual([0.07, 0.08, 0.09, 0.1]);
+    // Never past the end of the line (review r2 F2).
+    expect(stepsBetween(0, 19.999999, 10)).toEqual([0, 10]);
+    expect(stepsBetween(0.07, 0.1, 0.01)).toEqual(
+      lineTicks({ min: 0.07, max: 0.1, ticksEvery: 0.01 } as Parameters<typeof lineTicks>[0]),
+    );
+    // Review r3 F1/F2: exact at the step precision, no slack, and a line too fine to step gets
+    // its two ends; the kit draws exactly what the model snaps to in every case.
+    expect(stepsBetween(0, 19.999999995, 10)).toEqual([0, 10]);
+    expect(stepsBetween(1e-7, 2e-7, 1e-24)).toEqual([1e-7, 2e-7]);
+    for (const [min, max, ticksEvery] of [
+      [0, 19.999999995, 10],
+      [1e-7, 2e-7, 1e-24],
+      [0, 1, 0.1],
+    ] as const) {
+      expect(stepsBetween(min, max, ticksEvery)).toEqual(
+        lineTicks({ min, max, ticksEvery } as Parameters<typeof lineTicks>[0]),
+      );
+    }
+  });
+
+  it('numberLineViewScale matches the view: end padding for the widest numeral', () => {
+    const s = numberLineViewScale({ min: 0, max: 10, width: 500, headroom: 120 });
+    expect(s.lineY).toBe(120);
+    expect(s.pad).toBe(40);
+    expect(s.x(0)).toBe(40);
+    expect(s.x(10)).toBe(460);
+    expect(s.value(250)).toBe(5);
+    const wide = numberLineViewScale({ min: 0, max: 1000, width: 500, headroom: 96 });
+    expect(wide.pad).toBe(Math.max(40, (4 * 24 + 8) / 2 + 8));
   });
 });
 

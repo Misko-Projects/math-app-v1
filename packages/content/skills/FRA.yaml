@@ -27,4 +27,5 @@ skills:
     standards: { ccss: [1.G.A.3] }
     prerequisites: [FRA.01]
     gateway: false
-    representations: [fraction-shape, fraction-strip]
+    # symbols: the abstract order cards name each strip's part count (FRA.08.t4).
+    representations: [fraction-shape, fraction-strip, symbols]

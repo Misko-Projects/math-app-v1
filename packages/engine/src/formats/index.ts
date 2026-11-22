@@ -4,25 +4,38 @@
 import type { AnswerSpec, ItemFormat, WidgetConfig } from '@number-island/shared';
 import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
+import { balance } from './balance';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
 import { clockRead } from './clock-read';
 import { clockSet } from './clock-set';
 import { coinCount } from './coin-count';
 import { coinPay } from './coin-pay';
+import { compare } from './compare';
+import { compareLength } from './compare-length';
 import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
 import { expandedForm } from './expanded-form';
+import { fractionCut } from './fraction-cut';
+import { fractionLine } from './fraction-line';
+import { fractionPick } from './fraction-pick';
 import { hundredChart } from './hundred-chart';
 import { makeChange } from './make-change';
 import { makeSet } from './make-set';
+import { measureLength } from './measure-length';
 import { numberBond } from './number-bond';
 import { numberLineJump } from './number-line-jump';
+import { numberLinePlace } from './number-line-place';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
+import { perimeterWalk } from './perimeter-walk';
+import { puzzleGrid } from './puzzle-grid';
 import { rekenrek } from './rekenrek';
+import { shapeCompose } from './shape-compose';
+import { shapeSort } from './shape-sort';
+import { storyProblem } from './story-problem';
 import { tapCount } from './tap-count';
 import { tenframeFill } from './tenframe-fill';
 import type { FormatModel, FormatState } from './types';
@@ -37,12 +50,14 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'dot-flash': dotFlash,
   'numeral-pick': numeralPick,
   'number-pad': numberPad,
+  compare,
   order,
   'tenframe-fill': tenframeFill,
   'number-bond': numberBond,
   rekenrek,
   'number-line-jump': numberLineJump,
   'hundred-chart': hundredChart,
+  'number-line-place': numberLinePlace,
   // U04 (#13)
   'base-ten-build': baseTenBuild,
   'base-ten-trade': baseTenTrade,
@@ -51,7 +66,21 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'equal-groups': equalGroups,
   'equal-share': equalShare,
   'area-tiles': areaTiles,
-  // U05 (#14)
+  // U04 (#13): equality, stories and puzzles
+  'story-problem': storyProblem,
+  balance,
+  'puzzle-grid': puzzleGrid,
+  // U05 (#14) measurement and geometry
+  'measure-length': measureLength,
+  'compare-length': compareLength,
+  'perimeter-walk': perimeterWalk,
+  'shape-compose': shapeCompose,
+  'shape-sort': shapeSort,
+  // U05 (#14) fractions
+  'fraction-cut': fractionCut,
+  'fraction-pick': fractionPick,
+  'fraction-line': fractionLine,
+  // U05 (#14) time and money
   'coin-pay': coinPay,
   'coin-count': coinCount,
   'make-change': makeChange,

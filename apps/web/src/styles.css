@@ -48,3 +48,27 @@
   transform-box: fill-box;
   transform-origin: 0% 50%;
 }
+
+/* The picture-password slots sway gently after a wrong try (never a buzzer or a red X, 06 §6). */
+@keyframes ni-wiggle {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-8px);
+  }
+  75% {
+    transform: translateX(8px);
+  }
+}
+
+/* The sunset sinks slowly behind the sea at the end of a session (reduced motion: no movement). */
+@keyframes ni-sunset {
+  from {
+    transform: translateY(-40px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

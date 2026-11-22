@@ -63,11 +63,94 @@ function cardsLeft(c: Config, placed: readonly number[], v: number): number {
   return have - placed.filter((x) => x === v).length;
 }
 
-const configSchema = expandedFormConfigSchema.superRefine((c, ctx) => {
-  if (!Number.isInteger(c.target) || c.target < 1) {
-    ctx.addIssue({ code: 'custom', path: ['target'], message: 'target is a positive integer' });
-    return;
+/**
+ * The supported domain (PR #74), well above shipped content (targets to 99) and what the widget's
+ * stress stories draw at 1280 × 800: a four-digit number, seven cards, four blanks, four word
+ * cards.
+ */
+export const EF_TARGET_MAX = 9999;
+/**
+ * pv.number deals a target's four terms and three near misses. Seven cards fit the tray even when
+ * each carries the biggest picture of its place (the widget's StressSevenWideCards story).
+ */
+export const EF_CARDS_MAX = 7;
+/** A card may be one place too far (pv.number's near miss for 1111 is 10000): five digits. */
+export const EF_CARD_MAX = 90_000;
+export const EF_BLANKS_MAX = 4;
+/**
+ * Three bracketed pairs, as mda.addsub groups a three-digit sum by place:
+ * `(300 + 200) + (40 + 30) + (7 + 2)`. A four-blank fill (`□ + □ + □ + □ = 9999`) has nine.
+ */
+export const EF_TOKENS_MAX = 17;
+export const EF_WORD_OPTIONS_MAX = 4;
+const EF_TOKEN_KINDS: readonly string[] = ['num', 'op', 'rel', 'blank', 'paren'];
+
+/** Where a config leaves the supported domain: every number and every list has a bound. */
+export function domainIssues(c: Config): { path: (string | number)[]; message: string }[] {
+  const out: { path: (string | number)[]; message: string }[] = [];
+  const whole = (v: number, lo: number) => Number.isInteger(v) && v >= lo && v <= EF_TARGET_MAX;
+  if (!whole(c.target, 1)) {
+    out.push({
+      path: ['target'],
+      message: `target is a whole number from 1 to ${EF_TARGET_MAX}; got ${c.target}`,
+    });
   }
+  const cards = c.cards ?? [];
+  if (cards.length > EF_CARDS_MAX) {
+    out.push({
+      path: ['cards'],
+      message: `at most ${EF_CARDS_MAX} cards fit the tray; got ${cards.length}`,
+    });
+  }
+  cards.forEach((v, i) => {
+    if (!(Number.isInteger(v) && v >= 1 && v <= EF_CARD_MAX)) {
+      out.push({
+        path: ['cards', i],
+        message: `a card is a whole number from 1 to ${EF_CARD_MAX}; got ${v}`,
+      });
+    }
+  });
+  const tokens = c.expression?.tokens ?? [];
+  if (tokens.length > EF_TOKENS_MAX) {
+    out.push({
+      path: ['expression', 'tokens'],
+      message: `at most ${EF_TOKENS_MAX} expression tokens fit; got ${tokens.length}`,
+    });
+  }
+  tokens.forEach((t, i) => {
+    if (!EF_TOKEN_KINDS.includes(t.t)) {
+      out.push({
+        path: ['expression', 'tokens', i],
+        message: `an expanded expression has numbers, signs, brackets and blanks only; got a ${t.t} token`,
+      });
+    } else if (t.t === 'num' && !whole(t.v, 0)) {
+      out.push({
+        path: ['expression', 'tokens', i, 'v'],
+        message: `a term is a whole number from 0 to ${EF_TARGET_MAX}; got ${t.v}`,
+      });
+    }
+  });
+  const blanks = blankIds(c).length;
+  if (blanks > EF_BLANKS_MAX) {
+    out.push({
+      path: ['expression', 'tokens'],
+      message: `at most ${EF_BLANKS_MAX} blanks (one a place); got ${blanks}`,
+    });
+  }
+  const options = c.wordOptions?.length ?? 0;
+  if (options > EF_WORD_OPTIONS_MAX) {
+    out.push({
+      path: ['wordOptions'],
+      message: `at most ${EF_WORD_OPTIONS_MAX} word cards fit; got ${options}`,
+    });
+  }
+  return out;
+}
+
+const configSchema = expandedFormConfigSchema.superRefine((c, ctx) => {
+  const domain = domainIssues(c);
+  for (const d of domain) ctx.addIssue({ code: 'custom', ...d });
+  if (domain.length > 0) return;
   if (c.mode === 'build' && !(c.cards && cardsReach(c.cards, c.target))) {
     ctx.addIssue({
       code: 'custom',
