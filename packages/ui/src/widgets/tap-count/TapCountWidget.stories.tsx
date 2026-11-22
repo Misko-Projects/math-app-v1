@@ -1875,6 +1875,78 @@ export const CountTwentyNineThenAnswerTablet: Story = {
   },
 };
 
+/** CNT.19.t2 seed 1: 24 crabs on two full plates and a plate of four. */
+const twentyFour: ConfigFor<'tap-count'> = {
+  ...groupsOfTen,
+  set: { ...groupsOfTen.set, count: 24, groups: [10, 10, 4] },
+};
+
+/**
+ * CNT.19.t2 seed 1 on the tablet area (review of #106): the plates alone fit, but the 0–30 tray
+ * that comes with the last count would not fit under them, and the arrangement is chosen once.
+ * So the tray's height counts from the start: the item is count-then-answer from its first
+ * layout, and the answer step shows every numeral card with Back and Check.
+ */
+export const CountTwentyFourThenAnswerTablet: Story = {
+  args: { config: twentyFour },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expectInHost(root, objects(root), 'g1-up');
+    for (let i = 0; i < 24; i++) await userEvent.click(obj(root, i));
+    await goNext(root);
+    await expect(root.querySelectorAll('.ni-tapc__asktray .ni-pick')).toHaveLength(31);
+    await expectInHost(root, answerControls(root), 'g1-up');
+    await userEvent.click(within(root).getByRole('button', { name: '24' }));
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 24 });
+  },
+};
+
+/**
+ * CNT.19.t2 with 29 crabs in the pier's area at 960 × 600 in Grade 1 (858 × 358; review of
+ * #106): no tray of 31 cards fits an answer step there, so the item stays on one screen, as it
+ * was before the steps existed. It scrolls (the template is on the fit allowlist), from its
+ * top-left corner: no numeral card lies left of or above where the area can scroll to, and Check
+ * is reachable.
+ */
+export const TwentyNineOneScreenPierG1: Story = {
+  args: { config: groupsOfTen },
+  parameters: { area: { w: 858, h: 358 } },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settle(root);
+    await expect(root).not.toHaveAttribute('data-step');
+    for (let i = 0; i < 29; i++) await userEvent.click(obj(root, i));
+    await expect(tray(root)).toHaveAttribute('data-shown', 'true');
+    await expect(root).not.toHaveAttribute('data-step');
+    await expect(root.querySelector('.ni-tapc__asktray')).toBeNull();
+    const host = root.closest('.story-host-box') as HTMLElement;
+    host.scrollTop = 0;
+    host.scrollLeft = 0;
+    const origin = host.getBoundingClientRect();
+    const reachable = [...tray(root).querySelectorAll('.ni-pick'), checkButton(root)];
+    await expect(reachable).toHaveLength(32);
+    for (const el of reachable) {
+      const r = el.getBoundingClientRect();
+      await expect(r.left, 'not left of the scroll origin').toBeGreaterThanOrEqual(origin.left);
+      await expect(r.top, 'not above the scroll origin').toBeGreaterThanOrEqual(origin.top);
+      await expect(r.right - origin.left, 'within the scrollable width').toBeLessThanOrEqual(
+        host.scrollWidth,
+      );
+      await expect(r.bottom - origin.top, 'within the scrollable height').toBeLessThanOrEqual(
+        host.scrollHeight,
+      );
+    }
+    await userEvent.click(within(root).getByRole('button', { name: '29' }));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 29 });
+  },
+};
+
 /** On the tablet area the same seven leaves stay on one screen, tray and all (no steps). */
 export const CountOneScreenTabletK: Story = {
   globals: { ageMode: 'k' },

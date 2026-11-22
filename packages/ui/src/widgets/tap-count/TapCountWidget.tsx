@@ -551,9 +551,18 @@ export function TapCountWidget({
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el || split !== null || !Number.isFinite(hostH) || widgetW === null) return;
-    const tall = el.getBoundingClientRect().height > hostH + 1;
+    // Equal groups mount their tray only with the last count (`collapseTray`), under the picture:
+    // its height counts now, so the answer never arrives below the fold of an item that began
+    // on one screen.
+    const trayToCome =
+      collapseTray && !trayShown
+        ? 16 + Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30
+        : 0;
+    const tall = el.getBoundingClientRect().height + trayToCome > hostH + 1;
     const wide = el.scrollWidth > el.clientWidth + 1;
-    setSplit(canSplit && (tall || wide));
+    // A set above 20 needs its own tray in the answer step: where none fits, one screen (as before
+    // the steps existed), which scrolls from its top-left corner with everything reachable.
+    setSplit(canSplit && (tall || wide) && (!ownTray || ownTrayFits));
   });
   const actRef = useRef<HTMLDivElement | null>(null);
   const unzoomed = useRef(1);
@@ -1210,10 +1219,13 @@ export function TapCountWidget({
           }),
         }))
     : [];
+  const ownTrayFits = ownTrayPlans.some((c) => c.plan.fits);
+  // The steps are chosen only where one of these fits; in a room that shrank afterwards, the
+  // narrowest (it overflows downwards, where the area scrolls).
   const ownTrayPick =
     ownTrayPlans.find((c) => c.plan.fits && c.plan.picture) ??
     ownTrayPlans.find((c) => c.plan.fits) ??
-    ownTrayPlans[0];
+    ownTrayPlans.at(-1);
   const askPlan = ownTrayPick?.plan ?? planAsk({ ...askInput, trayOnly: true });
   const stepActions = (
     <StepActions

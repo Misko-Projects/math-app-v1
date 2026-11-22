@@ -63,6 +63,10 @@
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
 }
+/* The picture's box is its drawn size (kit `Scaled`); the larger box it is laid out in stays inside. */
+.ni-flash__picture {
+  overflow: clip;
+}
 .ni-flash__picture .ni-stimulus {
   border: 0;
   box-shadow: none;
