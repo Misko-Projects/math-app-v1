@@ -1214,6 +1214,8 @@ export function MakeSetWidget({
     const cols = which === 'away' ? awayCols : heapCols;
     // The take-away pile shows the latest objects taken; the heap its first ones.
     const shown = which === 'away' ? items.slice(-most) : items.slice(0, most);
+    /** Taken away but not in view (a short area): shown as "+N" on the pile, never dropped. */
+    const hidden = which === 'away' ? items.length - shown.length : 0;
     const label = which === 'away' ? t('ui.set.away') : t('ui.set.supply');
     const targetProps = isTarget ? dnd.targetProps('pile', { label }) : null;
     const cells = heapCells(shown.length, cols);
@@ -1242,6 +1244,11 @@ export function MakeSetWidget({
             />
           </span>
         )}
+        {hidden > 0 ? (
+          <span className="ni-mset__more" data-more={hidden}>
+            +{hidden}
+          </span>
+        ) : null}
         <div className="ni-mset__heapbox" style={heapBox(Math.min(most, total), cols)}>
           <fieldset
             className="ni-mset__heap"

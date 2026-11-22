@@ -2124,14 +2124,18 @@ export const TakeAwaySupplyKPier: Story = {
       await userEvent.click(pilePad(root));
       await waitFor(() => expect(inside(root)).toHaveLength(7 - i));
     }
-    // Seven taken, six in view (two columns of three rows); nothing scrolls.
+    // Seven taken, six in view (two columns of three rows) and "+1" on the pile; nothing scrolls.
     await expect(pile()).toHaveLength(6);
+    const more = () => pileArea(root).querySelector('.ni-mset__more');
+    await expect(more()).toHaveTextContent('+1');
+    await expect(Number.parseFloat(getComputedStyle(more() as Element).fontSize)).toBe(32);
     await expectFitsArea(root, areaBox(canvasElement), 'k');
     // One back into the boat: the seventh comes into view again.
     await userEvent.click(pile()[0] as HTMLElement);
     await userEvent.click(containerPad(root));
     await waitFor(() => expect(inside(root)).toHaveLength(2));
     await expect(pile()).toHaveLength(6);
+    await expect(more()).toBeNull();
     await expectCheckTaps(root);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',

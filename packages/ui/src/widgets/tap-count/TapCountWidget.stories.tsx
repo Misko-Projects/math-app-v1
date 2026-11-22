@@ -1810,6 +1810,29 @@ export const CountTwelveThenAnswerPierK: Story = {
   },
 };
 
+/**
+ * The arrangement is chosen once, when the item is first laid out: a room that shrinks mid-item
+ * (a rotation, a resize) scrolls rather than swap the child's screen for the two steps.
+ */
+export const ArrangementKeptOnResize: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settle(root);
+    await userEvent.click(obj(root, 0));
+    const host = root.closest('.story-host-box') as HTMLElement;
+    host.style.width = `${MIN_INNER.w}px`;
+    host.style.height = `${MIN_INNER.h}px`;
+    await settle(root);
+    await waitFor(() => expect(host.scrollHeight).toBeGreaterThan(host.clientHeight));
+    await expect(root).not.toHaveAttribute('data-step');
+    await expect(tray(root)).not.toBeNull();
+    await expect(marks(root)).toEqual([1]);
+  },
+};
+
 /** On the tablet area the same seven leaves stay on one screen, tray and all (no steps). */
 export const CountOneScreenTabletK: Story = {
   globals: { ageMode: 'k' },

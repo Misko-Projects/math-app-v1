@@ -169,6 +169,28 @@
   border-radius: var(--radius-card);
   background: var(--color-horizon);
 }
+/*
+ * "+N": objects taken away that the pile has no room to show (short areas). A sticker on the
+ * pile's top corner, over its edge, clear of the objects; the numeral is 32 px (05 §11).
+ */
+.ni-mset__more {
+  position: absolute;
+  top: -14px;
+  right: -10px;
+  z-index: 3;
+  min-width: 48px;
+  padding: 2px 8px 0;
+  border: 3px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-sunshine-light);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: none;
+}
 .ni-mset__pad {
   position: absolute;
   inset: 0;

@@ -531,10 +531,12 @@ export function TapCountWidget({
    * together with the numeral tray, the tray gets a step of its own: the child counts with the
    * whole area, a Next arrow comes once every object is counted, and the answer step shows the
    * picture small beside the numerals, with Back to count again. Decided from the widget as laid
-   * out (the effect below), for the room it was laid out in; a new room starts on one screen.
+   * out (the effect below), once: when the item is first laid out in a room with a set height.
+   * The arrangement then stays for the item, whatever the room does later (a resize or a rotation
+   * never swaps the child's screen mid-item; a room that got smaller scrolls instead).
    */
-  const [split, setSplit] = useState<{ w: number | null; h: number } | null>(null);
-  const splitSteps = split !== null && split.w === widgetW && split.h === hostH;
+  const [split, setSplit] = useState<boolean | null>(null);
+  const splitSteps = split === true;
   const canSplit = concrete && !ordinal && config.input === 'auto';
   const two = useTwoStep(rootRef, {
     interactive,
@@ -545,10 +547,10 @@ export function TapCountWidget({
   const stepOnly = splitSteps && two.step === 'build';
   useLayoutEffect(() => {
     const el = rootRef.current;
-    if (!el || !canSplit || splitSteps || !Number.isFinite(hostH)) return;
+    if (!el || split !== null || !Number.isFinite(hostH) || widgetW === null) return;
     const tall = el.getBoundingClientRect().height > hostH + 1;
     const wide = el.scrollWidth > el.clientWidth + 1;
-    if (tall || wide) setSplit({ w: widgetW, h: hostH });
+    setSplit(canSplit && (tall || wide));
   });
   const actRef = useRef<HTMLDivElement | null>(null);
   const unzoomed = useRef(1);
