@@ -853,7 +853,7 @@ describe('equal-groups', () => {
       act('add-group'),
       act('fill-group', { index: 0, count: 500 }),
     ]);
-    expect(s.groups).toEqual([100, 0]);
+    expect(s.groups).toEqual([10, 0]);
   });
 
   it('read shows the groups and answers the typed number', () => {
@@ -871,8 +871,8 @@ describe('equal-groups', () => {
   });
 
   it('rejects groups beyond maxGroups', () => {
-    expect(issuePaths(equalGroups, { ...size, groups: 7 })).toEqual(['maxGroups']);
-    expect(issuePaths(equalGroups, { ...size, perGroup: 0 })).toEqual(['groups']);
+    expect(issuePaths(equalGroups, { ...size, groups: 5, maxGroups: 4 })).toEqual(['maxGroups']);
+    expect(issuePaths(equalGroups, { ...size, perGroup: 0 })).toEqual(['perGroup']);
   });
 
   it('feature values at the extremes', () => {

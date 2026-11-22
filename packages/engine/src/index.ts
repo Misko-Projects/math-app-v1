@@ -117,8 +117,30 @@ export {
   closeness,
   startOf,
 } from './formats/compare-length';
-export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
-export { type EqualShareState, shareChoices } from './formats/equal-share';
+export {
+  type EqualGroupsState,
+  GROUP_CAPACITY,
+  GROUPS_MAX,
+  GROUPS_PILE_MAX,
+  GROUPS_PILE_MAX_MANY,
+  GROUPS_PILE_WIDE,
+  groupsAnswerMax,
+  groupsPileMax,
+  groupsPlaces,
+  groupsSupply,
+  groupsUnknown,
+} from './formats/equal-groups';
+export {
+  type EqualShareState,
+  SHARE_ITEMS_MAX,
+  SHARE_RECIPIENTS_MAX,
+  SHARE_ZONE_MAX,
+  SHARE_ZONE_MAX_MANY,
+  shareCapacity,
+  shareChoices,
+  sharesEqual,
+  shareZoneMax,
+} from './formats/equal-share';
 export {
   blankIds,
   EF_BLANKS_MAX,

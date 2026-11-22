@@ -1051,3 +1051,155 @@ ui.widget.pattern.biggest:
 ui.widget.chart.full:
   text: "{n} is the most here."
   level: K
+# U04 equal-groups widget (packages/ui/src/widgets/equal-groups): keys under ui.widget.eg.*
+ui.widget.eg.container.raft:
+  text: "Raft"
+  level: K
+ui.widget.eg.container.basket:
+  text: "Basket"
+  level: K
+ui.widget.eg.container.plate:
+  text: "Plate"
+  level: K
+ui.widget.eg.container.nest:
+  text: "Nest"
+  level: K
+ui.widget.eg.add.raft:
+  text: "Add a raft"
+  level: K
+ui.widget.eg.add.basket:
+  text: "Add a basket"
+  level: K
+ui.widget.eg.add.plate:
+  text: "Add a plate"
+  level: K
+ui.widget.eg.add.nest:
+  text: "Add a nest"
+  level: K
+ui.widget.eg.supply:
+  text: "Put it back here"
+  level: K
+ui.widget.eg.rod:
+  text: "A stick of ten"
+  level: K
+ui.widget.eg.region.supply:
+  text: "Take from here"
+  level: K
+ui.widget.eg.count.group:
+  text: "{name} {i} has {n}"
+  level: K
+ui.widget.eg.note.full:
+  text: "This one is full"
+  level: K
+ui.widget.eg.note.empty:
+  text: "There are no more"
+  level: K
+ui.widget.eg.note.most:
+  text: "You can not add more"
+  level: K
+ui.widget.eg.task.total:
+  text: "{n} in all"
+  level: K
+ui.widget.eg.task.each.raft:
+  text: "{n} on each raft"
+  level: K
+ui.widget.eg.task.each.basket:
+  text: "{n} in each basket"
+  level: K
+ui.widget.eg.task.each.plate:
+  text: "{n} on each plate"
+  level: K
+ui.widget.eg.task.each.nest:
+  text: "{n} in each nest"
+  level: K
+ui.widget.eg.word.total:
+  text: "in all"
+  level: K
+ui.widget.eg.word.each.raft:
+  text: "on each raft"
+  level: K
+ui.widget.eg.word.each.basket:
+  text: "in each basket"
+  level: K
+ui.widget.eg.word.each.plate:
+  text: "on each plate"
+  level: K
+ui.widget.eg.word.each.nest:
+  text: "in each nest"
+  level: K
+# end equal-groups
+
+# U04 equal-share widget (packages/ui/src/widgets/equal-share): keys under ui.widget.es.*
+ui.widget.es.kind.pebbling:
+  text: "Pebbling"
+  level: K
+ui.widget.es.kind.plate:
+  text: "Plate"
+  level: K
+ui.widget.es.region.pebbling:
+  text: "Pebblings"
+  level: K
+ui.widget.es.region.plate:
+  text: "Plates"
+  level: K
+ui.widget.es.region.basket:
+  text: "Basket"
+  level: K
+ui.widget.es.basket:
+  text: "Put it back in the basket"
+  level: K
+ui.widget.es.seagull:
+  text: "Seagull"
+  level: K
+ui.widget.es.deal-round:
+  text: "Give one to each"
+  level: K
+ui.widget.es.give-rest:
+  text: "Give the seagull what is left"
+  level: K
+ui.widget.es.why.unequal:
+  text: "They do not have the same"
+  level: K
+ui.widget.es.why.round:
+  text: "Each one can have more"
+  level: K
+ui.widget.es.why.empty:
+  text: "The basket is empty"
+  level: K
+ui.widget.es.count.share:
+  text: "{name} {i} has {n}"
+  level: K
+ui.widget.es.count.basket:
+  text: "The basket has {n}"
+  level: K
+ui.widget.es.count.seagull:
+  text: "The seagull has {n}"
+  level: K
+ui.widget.es.note.full:
+  text: "This one is full"
+  level: K
+ui.widget.es.ask.each:
+  text: "How many for each?"
+  level: K
+ui.widget.es.ask.leftover:
+  text: "How many are left over?"
+  level: K
+ui.widget.es.ask.fair:
+  text: "Is it fair?"
+  level: "1"
+ui.widget.es.ask.even-odd:
+  text: "Even or odd?"
+  level: "2"
+ui.widget.es.opt.yes:
+  text: "Fair"
+  level: "1"
+ui.widget.es.opt.no:
+  text: "Not fair"
+  level: "1"
+ui.widget.es.opt.even:
+  text: "Even"
+  level: "2"
+ui.widget.es.opt.odd:
+  text: "Odd"
+  level: "2"
+# end equal-share

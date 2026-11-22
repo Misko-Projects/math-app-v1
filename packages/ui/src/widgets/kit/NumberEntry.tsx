@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { TraceRecorder } from '../../interaction/trace';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { type AgeMode, MIN_TARGET_PX, TARGET_GAP_PX, TARGET_PX } from '../../tokens/tokens';
@@ -79,6 +79,11 @@ export interface EntryLayout {
   compact: boolean;
   /** Pad: the entered number above the keys or beside them. */
   padLayout: 'above' | 'beside';
+}
+
+/** The pad's two parts for answers 0 … max: the entered number and the keys. */
+export function padParts(max: number, compact: boolean, ageMode: AgeMode) {
+  return { display: displaySize(max, ageMode), keys: keysSize(ageMode, compact), gap: PAD_GAP };
 }
 
 /** The entry's box for answers 0 … max in `layout` (matches kit.css). */
@@ -162,6 +167,11 @@ export interface NumberEntryProps extends EntryLayout {
   /** Listen for desktop digit keys (pad only; default on). */
   captureKeyboard?: boolean;
   className?: string;
+  /**
+   * Pad `beside` only: controls drawn under the entered number, beside the keys (a two-step
+   * widget's Back and Check in a short room; kit `planAsk` act `aside`).
+   */
+  aside?: ReactNode;
 }
 
 export function NumberEntry({
@@ -178,6 +188,7 @@ export function NumberEntry({
   padLayout,
   captureKeyboard = true,
   className,
+  aside,
 }: NumberEntryProps) {
   const cls = ['ni-entry', className].filter(Boolean).join(' ');
   if (kind === 'tray') {
@@ -224,14 +235,28 @@ export function NumberEntry({
       data-compact={compact ? 'true' : undefined}
       style={{ '--entry-display-em': displayEm(digits) } as CSSProperties}
     >
-      <NumberDisplay
-        value={value}
-        digits={digits}
-        size="lg"
-        state={disabled ? 'idle' : 'active'}
-        label="ui.widget.answer"
-        className="ni-entry__display"
-      />
+      {aside && padLayout === 'beside' ? (
+        <div className="ni-entry__aside">
+          <NumberDisplay
+            value={value}
+            digits={digits}
+            size="lg"
+            state={disabled ? 'idle' : 'active'}
+            label="ui.widget.answer"
+            className="ni-entry__display"
+          />
+          {aside}
+        </div>
+      ) : (
+        <NumberDisplay
+          value={value}
+          digits={digits}
+          size="lg"
+          state={disabled ? 'idle' : 'active'}
+          label="ui.widget.answer"
+          className="ni-entry__display"
+        />
+      )}
       <NumberPadKeys
         onKey={onKey}
         onEnter={onEnter}
