@@ -123,6 +123,41 @@ export {
   symbolParts,
   tallyGroups,
 } from './formats/chart';
+// U05 (#14) time
+export {
+  clockText,
+  hourAngle,
+  minuteAngle,
+  onFace,
+  snapTime,
+  timeOf,
+  turnMinuteHand,
+} from './formats/clock';
+export {
+  AMPM_SCENES,
+  type AmPmScene,
+  type ClockReadState,
+  isAmPmScene,
+  isDaylight,
+  isHourPick,
+  readChoiceIds,
+} from './formats/clock-read';
+export type { ClockHand, ClockSetState } from './formats/clock-set';
+// U05 (#14) money
+export { coinAnswerIssues, coinAnswerSpec } from './formats/coin-answer';
+export {
+  type CoinCountState,
+  type CountPiece,
+  type CountSide,
+  runningTotal,
+  shownPieces,
+} from './formats/coin-count';
+export {
+  type CoinPayState,
+  payTrayCapacity,
+  trayAnswers,
+  trayOf,
+} from './formats/coin-pay';
 export {
   CL_END_MAX,
   CL_LENGTH_MAX,
@@ -195,6 +230,13 @@ export {
 } from './formats/fraction-pick';
 export { PATTERN_SHOWN_MAX, patternGiven } from './formats/hundred-chart';
 export {
+  changeOwed,
+  changeTrayCapacity,
+  countUpPath,
+  countUpStops,
+  type MakeChangeState,
+} from './formats/make-change';
+export {
   isNonStandard,
   type LaidUnit,
   type LengthUnit,
@@ -209,6 +251,16 @@ export {
   SIXTEENTHS,
   UNIT_SIZE,
 } from './formats/measure-length';
+export {
+  PIECE_CENTS,
+  type Purse,
+  type PurseKind,
+  parseTrayKey,
+  purseLimit,
+  type Tray,
+  trayCents,
+  trayKey,
+} from './formats/money';
 export {
   lineLabels,
   lineSteps,

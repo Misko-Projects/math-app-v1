@@ -29,6 +29,33 @@ export {
   chartBox,
   useMeasuredBox,
 } from './ChartView';
+export {
+  CLOCK,
+  ClockFace,
+  type ClockFaceProps,
+  ClockView,
+  clockHandAt,
+  DigitalClock,
+  faceTime,
+  HAND_GRAB,
+  polarPoint,
+} from './ClockView';
+export {
+  BillArt,
+  type BillArtProps,
+  COIN_CENTS,
+  COIN_CONTRAST_PAIRS,
+  COIN_PAINT,
+  CoinArt,
+  type CoinArtProps,
+  coinPx,
+  coinRadius,
+  type MoneyPiece,
+  moneyNameKey,
+  moneyText,
+  useMoneySpeech,
+} from './CoinArt';
+export { CoinsView, type CoinsViewProps, coinsCentsOf, pictureQuarterPx } from './CoinsView';
 export { type ChartGeometry, chartGeometry, type SlotGeometry } from './chartLayout';
 export { useCommitBarrier } from './commit';
 export {
@@ -156,6 +183,16 @@ export {
   type PlacedObject,
 } from './layout';
 export {
+  type BoardItem,
+  type BoardTarget,
+  MoneyBoard,
+  type MoneyBoardProps,
+  MoneyTag,
+  PIECE_ORDER,
+  pieceCents,
+  purseLimits,
+} from './MoneyBoard';
+export {
   commitWaiters,
   DEMO_KEY_MS,
   DEMO_PICK_MS,
@@ -188,7 +225,16 @@ export {
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
+export {
+  applyBoxKey,
+  type PadBox,
+  PadBoxView,
+  type PadBoxViewProps,
+  padBoxValue,
+  usePadEntry,
+} from './PadEntry';
 export { useWidgetRoom, type WidgetRoom } from './room';
+export { isRoomy, ROOMY_HEIGHT_PX, ROOMY_WIDTH_PX, useRoomy } from './roomy';
 export {
   countedParts,
   equalSideGroups,

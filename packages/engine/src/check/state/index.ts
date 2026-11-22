@@ -11,6 +11,8 @@ import { bondNewWay } from './bond.newWay';
 import { bondSplit } from './bond.split';
 import { chartValues } from './chart.values';
 import { clockTime } from './clock.time';
+import { coinsFewest } from './coins.fewest';
+import { coinsTotal } from './coins.total';
 import { composeFill } from './compose.fill';
 import { composeRelative } from './compose.relative';
 import { fractionCut } from './fraction.cut';
@@ -54,6 +56,8 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'units.iterate': unitsIterate,
   'chart.values': chartValues, // K01 data (bar-graph-build)
   'clock.time': clockTime, // K01 time (clock-set)
+  'coins.total': coinsTotal, // K01 money (coin-pay)
+  'coins.fewest': coinsFewest, // K01 money (coin-pay, make-change)
   'fraction.cut': fractionCut, // K01 fractions (fraction-cut)
   'fraction.partition': fractionPartition, // K01 fractions (fraction-line partition)
   'pattern.tokens': patternTokens, // K01 patterns (pattern-extend extend, fill)

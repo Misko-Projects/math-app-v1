@@ -1835,8 +1835,10 @@ describe('format registry', () => {
   });
 
   it('has nothing for formats without a model yet', () => {
-    expect(unmodelled.length).toBeGreaterThan(0);
-    for (const f of unmodelled) {
+    // With the time and money and the patterns and data groups (#14) every format has a model,
+    // so the fallback is exercised with an id that is not a format.
+    const missing = [...unmodelled, 'not-built-yet' as ItemFormat];
+    for (const f of missing) {
       expect(formatModel(f)).toBeUndefined();
       expect(formatFeatures(f)).toEqual({});
       // Only `format` is read before the lookup misses.

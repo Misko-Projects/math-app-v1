@@ -341,6 +341,17 @@ export const COIN_KINDS = [
   'quarter',
 ] as const satisfies readonly CoinKind[];
 export const coinKindSchema = z.enum(COIN_KINDS);
+/** The most pieces a purse or a coins picture shows, in coin slots; a bill takes `BILL_SLOTS`. */
+export const COIN_SLOTS_MAX = 12;
+export const BILL_SLOTS = 3;
+/** The bills a purse or a picture can show, in dollars. */
+export const BILL_DOLLARS: readonly number[] = [1, 2, 5, 10, 20];
+export const billSchema = z
+  .number()
+  .refine((b) => BILL_DOLLARS.includes(b), `bills are ${BILL_DOLLARS.join(', ')} dollars`);
+/** The coin slots a set of coins and bills takes. */
+export const coinSlots = (side: { coins: readonly unknown[]; bills?: readonly unknown[] }) =>
+  side.coins.length + BILL_SLOTS * (side.bills?.length ?? 0);
 assertType<Equals<z.infer<typeof coinKindSchema>, CoinKind>>(true);
 
 export type ShapeKind =
@@ -735,16 +746,30 @@ export const stimulusSpecSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('clock'),
-    h: z.number().int(),
-    m: z.number().int(),
+    h: z.number().int().min(0).max(23),
+    m: z.number().int().min(0).max(59),
     numerals: z.boolean(),
     digital: z.boolean().optional(),
   }),
-  z.object({
-    kind: z.literal('coins'),
-    coins: z.array(coinKindSchema),
-    bills: z.array(z.number()).optional(),
-  }),
+  z
+    .object({
+      kind: z.literal('coins'),
+      coins: z.array(coinKindSchema).max(COIN_SLOTS_MAX),
+      bills: z
+        .array(billSchema)
+        .max(COIN_SLOTS_MAX / BILL_SLOTS)
+        .optional(),
+    })
+    .superRefine((s, ctx) => {
+      const slots = coinSlots(s);
+      if (slots < 1 || slots > COIN_SLOTS_MAX) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['coins'],
+          message: `a coins picture shows 1 to ${COIN_SLOTS_MAX} coins (a bill takes ${BILL_SLOTS})`,
+        });
+      }
+    }),
   z.object({ kind: z.literal('shape'), shapes: z.array(shapeCardSchema) }),
   z.object({ kind: z.literal('chart'), chart: chartSpecSchema }).superRefine((s, ctx) => {
     const add = (path: string[], message: string) =>

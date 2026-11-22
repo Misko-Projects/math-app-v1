@@ -1,0 +1,53 @@
+/* The clock (kit/ClockView.tsx, U05 #14). Tokens only. */
+
+.ni-clock {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+.ni-clock__numerals text {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+/* count-fives: the part of the face counted so far, and a dot on each five-minute mark passed. */
+.ni-clock__sweep {
+  fill: var(--color-sunshine-light);
+  opacity: 0.75;
+}
+.ni-clock__five {
+  fill: var(--color-sun-deep);
+  stroke: var(--color-ink);
+  stroke-width: 1;
+}
+.ni-clockview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+/* The digital readout: light numerals on the dark sea screen (≥ 4.5:1), ≥ 32 px. */
+.ni-digital {
+  display: inline-flex;
+  padding: 6px;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-sand-deep);
+  box-shadow: var(--shadow-soft);
+}
+.ni-digital__screen {
+  min-width: 3.4ch;
+  padding: 4px 16px 0;
+  border-radius: 12px;
+  background: var(--color-sea-dark);
+  color: var(--color-foam);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}

@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { assertType, type Equals } from '../internal/type-assert';
 import {
+  BILL_SLOTS,
+  billSchema,
   type ChartSpec,
+  COIN_SLOTS_MAX,
   type CoinKind,
   type ContextId,
   chartSpecSchema,
@@ -30,7 +33,11 @@ import {
 const count = z.number().int().min(0);
 const posInt = z.number().int().min(1);
 const vars = z.record(z.string(), z.union([z.string(), z.number()]));
-const hm = z.object({ h: z.number().int(), m: z.number().int() });
+/** A time of day a clock config can hold: whole hours 0–23 and whole minutes 0–59. */
+const hm = z.object({
+  h: z.number().int().min(0).max(23),
+  m: z.number().int().min(0).max(59),
+});
 const htoSchema = z.object({ hundreds: count, tens: count, ones: count });
 const pair = z.tuple([z.number(), z.number()]);
 
@@ -636,6 +643,16 @@ export const fractionLineConfigSchema = z.object({
 });
 assertType<Equals<z.infer<typeof fractionLineConfigSchema>, FractionLineConfig>>(true);
 
+/**
+ * The longest stretch a clock-set `elapsed` prompt adds, in minutes: under one turn of the short
+ * hand (12 hours), so the start time and the minutes name one face time and never the start again.
+ */
+export const CLOCK_ELAPSED_MAX = 719;
+/** The most options a clock-read pick shows: two rows of two beside the clock at 906 × 373. */
+export const CLOCK_READ_OPTIONS_MAX = 4;
+/** The longest printed label of a clock-read option ("12:45" is 5). */
+export const CLOCK_READ_LABEL_MAX = 8;
+
 // 03 §5.5 clock-set
 export interface ClockSetConfig extends WidgetBase {
   format: 'clock-set';
@@ -654,7 +671,7 @@ export const clockSetConfigSchema = z.object({
   precision: z.literal([60, 30, 15, 5, 1]),
   showDigital: z.boolean(),
   prompt: z.enum(['digital', 'spoken', 'elapsed']),
-  elapsed: z.object({ from: hm, minutes: z.number().int() }).optional(),
+  elapsed: z.object({ from: hm, minutes: posInt.max(CLOCK_ELAPSED_MAX) }).optional(),
 });
 assertType<Equals<z.infer<typeof clockSetConfigSchema>, ClockSetConfig>>(true);
 
@@ -674,7 +691,14 @@ export const clockReadConfigSchema = z.object({
   numerals: z.boolean(),
   input: z.enum(['digital-pad', 'pick']),
   options: z
-    .array(z.object({ id: z.string(), label: z.string(), speak: narrationKeySchema.optional() }))
+    .array(
+      z.object({
+        id: z.string().min(1),
+        label: z.string().min(1).max(CLOCK_READ_LABEL_MAX),
+        speak: narrationKeySchema.optional(),
+      }),
+    )
+    .max(CLOCK_READ_OPTIONS_MAX)
     .optional(),
   ampm: z.object({ scene: contextIdSchema, isPm: z.boolean() }).optional(),
 });
@@ -690,18 +714,53 @@ export interface CoinPayConfig extends WidgetBase {
   found?: string[];
   showRunningTotal: boolean;
 }
+/** The most a money item asks for, pays or counts: $10.00, in cents. */
+export const MONEY_CENTS_MAX = 1000;
+/**
+ * The most pieces of one kind a purse lists by number (more than that is `'unlimited'`, drawn as a
+ * heap): a counted stack draws every piece.
+ */
+export const PURSE_COUNT_MAX = 12;
+/**
+ * The most pieces the tray of coin-pay and make-change holds: every piece is drawn, in at most
+ * five piles, and still reads as coins at 906 × 373. An item's answer always fits.
+ */
+export const TRAY_PIECES_MAX = 12;
+/**
+ * The widest purse a narrow money board shows, in stack units (a coin kind is 1, the dollar bill
+ * 2). make-change (beside its tags and count-up line) and coin-pay `new-way` (beside the ways found) leave
+ * the board about 417 px at 906 × 373: one row of four coin stacks, or of the bill and two, at
+ * the K target size, so the purse is never two rows over a tray of two.
+ */
+export const PURSE_NARROW_UNITS_MAX = 4;
+/**
+ * The most pieces the tray of a narrow money board holds (make-change, with or without its
+ * count-up line; coin-pay `new-way` beside the ways found): one row of piles under a one-row purse, each piece
+ * showing, at the K target size in 906 × 373. An item's answer always fits.
+ */
+export const TRAY_NARROW_PIECES_MAX = 5;
+/**
+ * The most ways a coin-pay `new-way` item lists as found (with a five-piece tray an amount has
+ * about four ways, so three found leave one to find).
+ */
+export const COIN_FOUND_MAX = 3;
+/**
+ * The most pieces of one found way: the list draws every piece of a way on one line, and a way
+ * was made in the tray, so it is never longer than the tray (`TRAY_NARROW_PIECES_MAX`).
+ */
+export const COIN_FOUND_WAY_PIECES_MAX = 5;
 const purseSchema = z.partialRecord(
   z.enum(['penny', 'nickel', 'dime', 'quarter', 'dollar']),
-  z.union([count, z.literal('unlimited')]),
+  z.union([count.max(PURSE_COUNT_MAX), z.literal('unlimited')]),
 );
 export const coinPayConfigSchema = z.object({
   format: z.literal('coin-pay'),
   ...base,
-  target: count,
+  target: posInt.max(MONEY_CENTS_MAX),
   purse: purseSchema,
   requireFewest: z.boolean(),
   mode: z.enum(['pay', 'new-way']),
-  found: z.array(z.string()).optional(),
+  found: z.array(z.string()).max(COIN_FOUND_MAX).optional(),
   showRunningTotal: z.boolean(),
 });
 assertType<Equals<z.infer<typeof coinPayConfigSchema>, CoinPayConfig>>(true);
@@ -718,11 +777,16 @@ export interface CoinCountConfig extends WidgetBase {
 export const coinCountConfigSchema = z.object({
   format: z.literal('coin-count'),
   ...base,
-  coins: z.array(coinKindSchema),
-  bills: z.array(z.number()),
+  coins: z.array(coinKindSchema).max(COIN_SLOTS_MAX),
+  bills: z.array(billSchema).max(COIN_SLOTS_MAX / BILL_SLOTS),
   arrangement: z.enum(['sorted', 'mixed']),
   answerUnit: z.enum(['cents', 'dollars-cents']),
-  compareWith: z.object({ coins: z.array(coinKindSchema), bills: z.array(z.number()) }).optional(),
+  compareWith: z
+    .object({
+      coins: z.array(coinKindSchema).max(COIN_SLOTS_MAX),
+      bills: z.array(billSchema).max(COIN_SLOTS_MAX / BILL_SLOTS),
+    })
+    .optional(),
 });
 assertType<Equals<z.infer<typeof coinCountConfigSchema>, CoinCountConfig>>(true);
 
@@ -737,8 +801,8 @@ export interface MakeChangeConfig extends WidgetBase {
 export const makeChangeConfigSchema = z.object({
   format: z.literal('make-change'),
   ...base,
-  price: count,
-  paid: count,
+  price: posInt.max(MONEY_CENTS_MAX - 1),
+  paid: posInt.max(MONEY_CENTS_MAX),
   purse: purseSchema,
   countUpLine: z.boolean(),
 });

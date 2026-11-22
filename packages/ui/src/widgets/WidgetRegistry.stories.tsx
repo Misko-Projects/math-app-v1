@@ -34,14 +34,10 @@ const makeSet: ConfigFor<'make-set'> = {
   showRunningCount: true,
 };
 
-const clockSet: ConfigFor<'clock-set'> = {
-  format: 'clock-set',
-  target: { h: 3, m: 0 },
-  start: { h: 12, m: 0 },
-  precision: 60,
-  showDigital: false,
-  prompt: 'spoken',
-};
+// A format id no widget is registered for. Made up on purpose: every real format gets its widget
+// sooner or later (clock-set and the bar graphs did), and this story is about the host's
+// fallback, not about any one of them.
+const unregistered = { format: 'not-built-yet' } as unknown as WidgetConfig;
 
 const meta = {
   title: 'Widgets/Registry',
@@ -356,11 +352,11 @@ export const Disabled: Story = {
 
 /** A format with no registered widget shows the placeholder; "next" answers `skip`. */
 export const UnregisteredFormat: Story = {
-  args: { config: clockSet as WidgetConfig },
+  args: { config: unregistered },
   play: async ({ canvasElement, args }) => {
     const host = canvasElement.querySelector('.ni-widget');
     await expect(host).toHaveAttribute('data-registered', 'false');
-    await expect(host).toHaveAttribute('data-format', 'clock-set');
+    await expect(host).toHaveAttribute('data-format', 'not-built-yet');
     await userEvent.click(within(canvasElement).getByRole('button', { name: 'Next' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'skip' });
   },
@@ -369,7 +365,7 @@ export const UnregisteredFormat: Story = {
 /** The placeholder in K mode: Pip's line is spoken (tap the bubble), not printed. */
 export const UnregisteredFormatK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: clockSet as WidgetConfig },
+  args: { config: unregistered },
 };
 
 function NextItemDemo(args: WidgetHostProps) {

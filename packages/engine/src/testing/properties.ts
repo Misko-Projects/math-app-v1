@@ -17,8 +17,9 @@ import { boundNarration } from '../content/binding';
 import { constraintHolds } from '../content/expr';
 import { lineSlots, renderForms } from '../content/render';
 import { formatFeatures, formatModel } from '../formats';
+import { coinAnswerIssues } from '../formats/coin-answer';
 import { optionNumber } from '../formats/numeral-pick';
-import { misplacedCharts } from '../formats/pictures';
+import { misplacedCharts, misplacedTimeMoneyPictures } from '../formats/pictures';
 import { inDomain } from '../generators/common';
 import { attemptDifficulty } from '../items/attempt-difficulty';
 import { checkResponse } from '../items/check';
@@ -603,6 +604,21 @@ export function runTemplateProperties(
     // layout proven to keep the numerals at 32 px.
     for (const at of misplacedCharts(item)) {
       fail(seed, '3.chart', `${at}: a chart stimulus is shown only on a compare side`);
+    }
+    // No layout is proven to hold a clock or coins stimulus yet (formats/pictures.ts).
+    for (const at of misplacedTimeMoneyPictures(item)) {
+      fail(
+        seed,
+        '3.picture',
+        `${at}: a clock or coins stimulus is not shown in any format yet (use clock-read, clock-set or the coin formats)`,
+      );
+    }
+    // A coin item's answer is the one its config implies (formats/coin-answer.ts): the widget's
+    // full-tray note and Check then judge a tray against one purse.
+    if (item.widget.format === 'coin-pay' || item.widget.format === 'make-change') {
+      for (const issue of coinAnswerIssues(item.widget, item.answer)) {
+        fail(seed, '3.coins', `answer: ${issue}`);
+      }
     }
     if (item.widget.format !== t.format)
       fail(seed, '3.format', 'widget.format differs from template.format');

@@ -23,6 +23,12 @@ export const widgetRegistry: WidgetRegistry = {
   'fraction-pick': () => import('./fraction-pick/FractionPickWidget'),
   'fraction-cut': () => import('./fraction-cut/FractionCutWidget'),
   'fraction-line': () => import('./fraction-line/FractionLineWidget'),
+  // U05 (#14) time and money
+  'coin-count': () => import('./coin-count/CoinCountWidget'),
+  'coin-pay': () => import('./coin-pay/CoinPayWidget'),
+  'make-change': () => import('./make-change/MakeChangeWidget'),
+  'clock-set': () => import('./clock-set/ClockSetWidget'),
+  'clock-read': () => import('./clock-read/ClockReadWidget'),
   // U05 (#14) patterns and data
   'pattern-extend': () => import('./pattern-extend/PatternExtendWidget'),
   'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),

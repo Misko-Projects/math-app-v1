@@ -1107,9 +1107,11 @@ export type WidgetConfig = TapCountConfig | MakeSetConfig | DotFlashConfig | Num
   | StoryProblemConfig | PuzzleGridConfig;      // each has `format` as its discriminant (§5.5)
 ```
 
-**Supported picture ranges.** The schemas enforce the ranges the widget kit can draw exactly, so a `fraction` or `chart` stimulus that validates is always a true picture (constants in `packages/shared/src/items/core.ts`):
+**Supported picture ranges.** The schemas enforce the ranges the widget kit can draw exactly, so a `fraction`, `chart`, `clock` or `coins` stimulus that validates is always a true picture (constants in `packages/shared/src/items/core.ts`):
 
 - `fraction`: `parts` 1–12 (`FRACTION_PARTS_MAX`), `shaded` 0–`parts`.
+- `clock`: a time of day, whole `h` 0–23 and whole `m` 0–59, drawn on a 12-hour face with geared hands (the digital readout prints the face hour, 1–12). A face with numbers is at least 280 px across, and no format's layout is proven to hold one in the smallest area, so a `clock` (and a `coins`) stimulus is not yet shown in any generated item (content-check 3.picture): the clock and coin formats draw their own.
+- `coins`: 1–12 coin slots (`COIN_SLOTS_MAX`; a bill takes 3, `BILL_SLOTS`), bills of 1, 2, 5, 10 or 20 dollars (`BILL_DOLLARS`). The time and money formats' own bounds (purse counts and kinds, the 12-piece tray and the 5-piece tray of the narrow boards, amounts to $10.00, elapsed minutes, the a.m./p.m. clue) are listed in `packages/engine/README.md`, "Time and money".
 - A `chart` stimulus is a vertical bar graph (`kind: 'bar'`, `orientation: 'vertical'`) of 1 or 2 categories (`CHART_STIMULUS_CATEGORIES_MAX`), the widest chart that keeps 32 px numerals in a compare side of the smallest widget area. Picture graphs, tally charts, tables, line plots, horizontal graphs and graphs of 3–6 categories are shown by the bar-graph formats, which give the chart the whole widget. A chart stimulus sits only on the sides of a `compare` whose ask is `more` or `fewer`, with a chart on both sides (the side-pick layout keeps a chart's height); in any other ask, format or hint overlay content-check fails the item (rule `3.chart`).
 - `ChartSpec` (every use: the `chart` stimulus and both bar-graph formats): category ids are distinct; `axisMax` > 0 and the axis has at most 20 steps of `scale` (`CHART_AXIS_STEPS_MAX`: up to 20 at scale 1, 200 at scale 10); every `value` is 0–`axisMax`, a whole number unless the chart is a bar graph, and a whole or half symbol of `scale` on a picture graph; tally charts and tables use scale 1; picture graphs, bar graphs, tally charts and tables have 1–6 categories (`CHART_CATEGORIES_MAX`); a line plot has a `lineScale` with step 1, 0.5 or 0.25, `min` and `max` whole numbers with `max` > `min`, at most 25 positions (`CHART_LINE_POSITIONS_MAX`), and each category id is a position on it, written as the number (`"1"`, `"1.5"`; never `"1.0"`).
 - Pictures shown together in `compare` and `order` share one scale (05 §11): `fraction` pictures are wholes of one `shape`; `chart` pictures share `kind`, `orientation`, `scale`, axis top and number of categories. An `order` card never shows a `chart` (a card cannot keep its numerals at 32 px); charts are compared in `compare` or read in the bar-graph formats.
@@ -1570,7 +1572,7 @@ interface ClockReadConfig extends WidgetBase { format: 'clock-read'; time: { h: 
 interface CoinPayConfig extends WidgetBase { format: 'coin-pay'; target: number; purse: Partial<Record<CoinKind | 'dollar', number | 'unlimited'>>;
   requireFewest: boolean; mode: 'pay' | 'new-way'; found?: string[]; showRunningTotal: boolean }
 ```
-- **Answer:** `state` / `coins.total` `{cents}` (any combination totalling `target` cents), or `coins.fewest` `{cents}` when `requireFewest`. `new-way` (`PUZ.09`): the multiset (encoded as `"q1d0n0p0"`) must not be in `found`.
+- **Answer:** `state` / `coins.total` `{cents, purse}` (any combination from the purse totalling `target` cents), or `coins.fewest` `{cents, purse}` when `requireFewest`. `new-way` (`PUZ.09`): `{cents, purse, found}`; the tray's multiset (encoded as `"q1d0n0p0"`) must not be in `found`. The target is the one the config implies and nothing else (content-check 3.coins): `cents` is `target`, `purse` is the config's `purse` (never left out: without it the checker allows every coin and no bills), and `found` is the config's `found`, a list of key strings. Example: `{ kind: 'state', checker: 'coins.fewest', target: { cents: 300, purse: { dollar: 3, quarter: 12 } } }`.
 - **Features:** `target` (per 25¢; 0.3), `kinds` (coin kinds available − 1; 0.3), `fewest` (0.5), `runningTotal.off` (0.4), `dollars` (0.4).
 - **Tiers:** C. **Ops:** `drop {coin}`, `count-up {coin}`, `say-total`.
 
@@ -1588,7 +1590,7 @@ interface CoinCountConfig extends WidgetBase { format: 'coin-count'; coins: Coin
 interface MakeChangeConfig extends WidgetBase { format: 'make-change'; price: number; paid: number;
   purse: CoinPayConfig['purse']; countUpLine: boolean }
 ```
-- **Answer:** `state` / `coins.total` `{cents: paid − price}`. `countUpLine` shows an open number line from price to paid.
+- **Answer:** `state` / `coins.total` `{cents: paid − price, purse}`, with `purse` the config's `purse` (required, as coin-pay; content-check 3.coins). Example: `{ kind: 'state', checker: 'coins.total', target: { cents: 35, purse: { quarter: 'unlimited', dime: 'unlimited', nickel: 'unlimited', penny: 'unlimited' } } }`. `countUpLine` shows an open number line from price to paid.
 - **Features:** `change` (per 25¢; 0.4), `crossDollar` (0.5), `countUpLine.off` (0.3).
 - **Tiers:** C. **Ops:** `drop {coin}`, `count-up {to}`.
 

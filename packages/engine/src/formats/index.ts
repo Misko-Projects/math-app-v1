@@ -9,6 +9,10 @@ import { barGraphBuild } from './bar-graph-build';
 import { barGraphRead } from './bar-graph-read';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
+import { clockRead } from './clock-read';
+import { clockSet } from './clock-set';
+import { coinCount } from './coin-count';
+import { coinPay } from './coin-pay';
 import { compare } from './compare';
 import { compareLength } from './compare-length';
 import { dotFlash } from './dot-flash';
@@ -19,6 +23,7 @@ import { fractionCut } from './fraction-cut';
 import { fractionLine } from './fraction-line';
 import { fractionPick } from './fraction-pick';
 import { hundredChart } from './hundred-chart';
+import { makeChange } from './make-change';
 import { makeSet } from './make-set';
 import { measureLength } from './measure-length';
 import { numberBond } from './number-bond';
@@ -78,6 +83,12 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'fraction-cut': fractionCut,
   'fraction-pick': fractionPick,
   'fraction-line': fractionLine,
+  // U05 (#14) time and money
+  'coin-pay': coinPay,
+  'coin-count': coinCount,
+  'make-change': makeChange,
+  'clock-set': clockSet,
+  'clock-read': clockRead,
   // U05 (#14) patterns and data
   'pattern-extend': patternExtend,
   'bar-graph-read': barGraphRead,

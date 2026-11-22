@@ -1,0 +1,76 @@
+/* clock-read widget (U05 #14): the clock, the answer (boxes or choices) and check, the pad. */
+
+.ni-cread {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px 36px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 2px 12px;
+}
+/* A roomy area (kit `useRoomy`): the larger clock and the answer side spread across it. */
+.ni-cread[data-roomy="true"] {
+  justify-content: space-around;
+}
+.ni-cread__face {
+  position: relative;
+  flex: none;
+}
+.ni-cread__answer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+/* The a.m. / p.m. clue: what is happening (the scene) and the sky then; pictures, no action. */
+.ni-cread__clue {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.ni-cread__scene {
+  flex: none;
+  display: block;
+  width: 96px;
+  height: 96px;
+  box-sizing: border-box;
+  padding: 6px;
+  border: 3px solid var(--color-ink);
+  border-radius: 14px;
+  background: var(--color-paper);
+}
+.ni-cread__sky {
+  flex: none;
+  display: block;
+}
+.ni-cread__boxes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ni-cread__options {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 2), max-content);
+  justify-content: center;
+  /* 24 px both ways: an invite ring (5 + 5 px) stays 12 px clear of the next card. */
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.ni-cread__slot {
+  position: relative;
+  display: flex;
+}
+.ni-cread__options .ni-pick {
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: var(--target-min);
+}
+.ni-cread__options .ni-pick[data-variant="word"] .ni-pick__face {
+  font-size: 1.75rem;
+}

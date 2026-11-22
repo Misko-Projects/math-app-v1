@@ -1,0 +1,38 @@
+/* Typed boxes (kit/PadEntry.tsx, U05 #14): the coin-count and clock-read answer boxes. */
+
+.ni-padbox__wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ni-padbox {
+  min-height: var(--target-min);
+  padding-inline: 18px;
+  font-size: var(--text-numeral);
+}
+.ni-padbox[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-padbox:disabled {
+  cursor: default;
+}
+.ni-padbox.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+/* A unit or separator printed beside the boxes ($, ¢, the decimal point, the clock's colon). */
+.ni-padbox__sep {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+}
+/*
+ * The pad keys at the age mode's minimum target (plus the key's 4 px ledge), so the pad fits the
+ * smallest landscape widget area (373 px tall) beside the picture.
+ */
+.ni-padarea--compact .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}

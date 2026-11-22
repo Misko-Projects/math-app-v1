@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
 import { ChartView } from './ChartView';
+import { ClockView } from './ClockView';
+import { CoinsView } from './CoinsView';
 import { FractionView } from './FractionView';
 import { shapeFrame } from './fractionShapes';
 import { GaugeView } from './GaugeView';
@@ -19,7 +21,7 @@ import './kit.css';
  * (numeral-pick, number-pad, dot-flash, compare, order, …). Each kind has one renderer below, and
  * the switch is exhaustive: a kind added to `StimulusSpec` does not compile here, or in
  * `STIMULUS_KINDS` (stimulusKinds.ts), until someone decides how it is drawn. The kinds a later
- * widget issue still owes (`placeholder` in that table: bar models, clocks, coins)
+ * widget issue still owes (`placeholder` in that table: bar models)
  * are listed by name and draw a neutral card (and a dev tag), so an item never breaks.
  *
  * A stimulus is a picture, not an answer: its accessible name says what it is ("Look at the
@@ -240,9 +242,33 @@ export function StimulusView({
           <GaugeView spec={spec} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
         </div>
       );
-    case 'bar-model':
     case 'clock':
+      return (
+        <div className={cls} data-kind="clock">
+          <ClockView
+            h={spec.h}
+            m={spec.m}
+            numerals={spec.numerals}
+            digital={spec.digital}
+            label={name}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
+          />
+        </div>
+      );
     case 'coins':
+      return (
+        <div className={cls} data-kind="coins">
+          <CoinsView
+            coins={spec.coins}
+            bills={spec.bills}
+            label={name}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
+          />
+        </div>
+      );
+    case 'bar-model':
       return <PlaceholderCard kind={spec.kind} className={cls} label={name} />;
     default: {
       // Unreachable while the switch is exhaustive: a new kind fails to compile on the next line.

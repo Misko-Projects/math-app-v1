@@ -1,0 +1,73 @@
+/* make-change widget (U05 #14): price, paid, count-up line and check beside the money board. */
+
+.ni-mchange {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 24px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 2px 12px;
+}
+.ni-mchange__info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.ni-mchange__tags {
+  display: flex;
+  gap: 14px;
+}
+.ni-mchange__check {
+  display: inline-flex;
+  border-radius: var(--radius-pill);
+}
+.ni-mchange__check.ni-invite {
+  outline-offset: 4px;
+}
+
+/* The count-up line: ink axis and stops, coral hops (with the coin on each hop), money numerals. */
+.ni-mchange__line {
+  display: block;
+  overflow: visible;
+}
+.ni-mchange__axis {
+  stroke: var(--color-ink);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.ni-mchange__tick {
+  stroke: var(--color-ink);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.ni-mchange__arc {
+  fill: none;
+  stroke: var(--color-coral-deep);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+/* Joins a paid amount printed clear of the price to its mark. */
+.ni-mchange__leader {
+  stroke: var(--color-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.ni-mchange__stop {
+  fill: var(--color-coral-deep);
+  stroke: var(--color-cloud);
+  stroke-width: 2;
+}
+.ni-mchange__bill {
+  fill: var(--color-leaf-light);
+  stroke: var(--color-leaf-deep);
+  stroke-width: 2;
+}
+.ni-mchange__numeral {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+}

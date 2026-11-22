@@ -1,0 +1,202 @@
+/* Money pictures (U05 #14): coins and bills (kit/CoinArt.tsx, kit/CoinsView.tsx). Tokens only. */
+
+.ni-coins {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+}
+.ni-coin-art,
+.ni-bill-art {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+/* ---------- the money board (kit/MoneyBoard.tsx): purse above, tray below ---------- */
+
+.ni-money {
+  display: flex;
+  flex-direction: column;
+  /* Wide enough that an invite ring (3 + 5 px) on the tray stays 12 px clear of the purse. */
+  gap: 20px;
+  min-width: 0;
+  max-width: 100%;
+}
+.ni-money__row {
+  display: flex;
+  align-items: center;
+  gap: 16px 24px;
+  min-width: 0;
+}
+.ni-money__zone {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: calc(var(--target-min) + 28px);
+  padding: 12px 18px;
+  box-sizing: border-box;
+}
+/* The drop target is a pad behind the pieces, never their parent (axe nested-interactive). */
+.ni-money__pad {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-card);
+}
+.ni-money__zone[data-zone="purse"] > .ni-money__pad {
+  border: 3px solid var(--color-wood-deep);
+  background: var(--color-sand-shadow);
+  box-shadow: var(--shadow-soft);
+}
+.ni-money__zone[data-zone="tray"] > .ni-money__pad {
+  border: 3px dashed var(--color-ink-soft);
+  background: var(--color-paper);
+}
+.ni-money__zone[data-zone="tray"] {
+  min-height: calc(var(--target-min) + 52px);
+}
+.ni-money__stacks,
+.ni-money__piles {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  /* 20 px both ways: an invite ring (3 + 5 px) stays 12 px clear of the next piece. */
+  gap: 20px;
+  min-width: 0;
+  /* The pad behind takes taps between the pieces. */
+  pointer-events: none;
+}
+.ni-money__stack,
+.ni-money__pile {
+  position: relative;
+  flex: none;
+}
+.ni-money__under,
+.ni-money__piece,
+.ni-money__empty {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+.ni-money__piece {
+  pointer-events: auto;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+/*
+ * A chosen piece arms the other zone: all of that zone places it, so the pieces lying there (each
+ * one the target that takes it back) let the tap through to the pad. Keyboard focus is unchanged.
+ */
+.ni-money[data-armed-for="tray"] [data-zone="tray"] .ni-money__piece,
+.ni-money[data-armed-for="purse"] [data-zone="purse"] .ni-money__piece {
+  pointer-events: none;
+}
+/*
+ * Why the purse is off: a note over the dimmed purse while the tray is full and the amount is not
+ * made ("The tray is full. Take a coin back."). Opaque, so the words are clear of the coins.
+ */
+.ni-money__note {
+  position: absolute;
+  /* Centred in the purse, as wide as its words up to the purse's own width. */
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: fit-content;
+  margin-inline: auto;
+  z-index: 2;
+  box-sizing: border-box;
+  padding: 4px 14px;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--ni-tm-label, 1.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+}
+/* A full tray takes no more: the purse dims until a piece comes back. */
+.ni-money[data-full="true"] [data-zone="purse"] .ni-money__stack {
+  opacity: 0.45;
+}
+/*
+ * The target a piece is: a soft plate the size of its hit area (the age mode's minimum, 64 or
+ * 80 px), under the coin, so a small coin (a dime) still shows how big its target is.
+ */
+.ni-money__piece::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(38 70 83 / 0.08);
+  box-shadow: inset 0 0 0 2px rgb(38 70 83 / 0.3);
+  z-index: -1;
+}
+.ni-money__piece {
+  isolation: isolate;
+}
+.ni-money__piece[data-piece="dollar"],
+.ni-money__empty[data-piece="dollar"] {
+  border-radius: 12px;
+}
+.ni-money__piece:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 2px;
+}
+/* Nothing left of a kind: a dashed outline where its stack was (shape, not colour). */
+.ni-money__empty {
+  border: 3px dashed var(--color-pebble-deep);
+  border-radius: 50%;
+}
+/* Invite rings hug their piece or pad (3 px out), clear of the neighbours 20 px away. */
+.ni-money .ni-invite {
+  outline-offset: 3px;
+}
+
+/* A tag beside the purse or tray: a label and an amount (≥ 32 px numerals). */
+.ni-money__tag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 120px;
+  padding: 6px 18px 8px;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-soft);
+}
+/* Words a child reads in a time or money widget: 24 px, 28 px in K (one size for all five). */
+[data-age-mode="k"] {
+  --ni-tm-label: 1.75rem;
+}
+.ni-money__tag-label {
+  font-family: var(--font-body);
+  font-size: var(--ni-tm-label, 1.5rem);
+  line-height: 1.15;
+  font-weight: 700;
+}
+.ni-money__amount {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.ni-money__tag[data-kind="price"] {
+  background: var(--color-sunshine-light);
+}
+.ni-money__tag[data-hidden="true"] .ni-money__amount {
+  visibility: hidden;
+}
