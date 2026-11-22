@@ -13,6 +13,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import { type AppContent, loadContent } from '@/app/boot/content';
+// The app's own faces, as `main.tsx` loads them: without them the layout is measured in whatever
+// fallback fonts the machine has, and differs from machine to machine.
+import '@fontsource/andika/latin-400.css';
+import '@fontsource/andika/latin-700.css';
+import '@fontsource/baloo-2/latin-700.css';
+import '@fontsource/baloo-2/latin-800.css';
 import '@/styles.css';
 import { PierItemScreen } from './PierScreen';
 import {
