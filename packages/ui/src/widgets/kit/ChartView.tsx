@@ -131,8 +131,11 @@ export function CategoryLabel({
 }) {
   const t = useNarrationText();
   const box = slot.labelBox ?? { x: 0, y: 0, w: 64, h: 64 };
+  // With no name beside it the picture has the whole cell.
   const sprite = Math.round(
-    Math.min(orientation === 'vertical' ? box.h * 0.5 : box.h * 0.6, box.w * 0.45, 52),
+    names
+      ? Math.min(orientation === 'vertical' ? box.h * 0.5 : box.h * 0.6, box.w * 0.45, 52)
+      : Math.min(box.h * 0.8, box.w * 0.8, 52),
   );
   return (
     <span className="ni-chart__labelface" data-orientation={orientation}>

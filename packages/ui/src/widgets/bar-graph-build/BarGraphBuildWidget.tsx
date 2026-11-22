@@ -51,6 +51,9 @@ import './bar-graph-build.css';
  * Every mark goes through the engine model, and Check sends its response `{ values }`
  * (chart.values): what the chart shows is exactly what is answered.
  *
+ * An invite (`invite(op)`) puts its one cue on the first thing to touch: the supply while nothing
+ * is picked up, then the invited row.
+ *
  * Demo ops: `raise-bar {id, to}`, `add-picture {id, count?}`, `add-x {at, count?}`,
  * `tally {id, count?}` (marks appear one by one, counted aloud), plus `answer {values}`.
  */
@@ -91,17 +94,17 @@ export function formatLength(v: number): string {
   return whole === 0 && glyph ? glyph : `${whole}${glyph}`;
 }
 
-/** Deterministic scatter cells for the objects to count (no Math.random: same item, same picture). */
+/**
+ * The objects to count in a deterministic shuffled order with a small jitter each (no
+ * Math.random: same item, same picture); the board lays them on the grid that fits it best.
+ */
 export function objectCells(values: readonly number[], ids: readonly string[]) {
   const all = values.flatMap((n, c) => Array.from({ length: n }, () => ids[c] ?? 'pebble'));
   const rand = seededRandom(hashSeed(...values, all.length));
   const order = all.map((sprite, i) => ({ sprite, i, k: rand() }));
   order.sort((a, b) => a.k - b.k);
-  const cols = Math.max(3, Math.ceil(Math.sqrt(all.length * 1.6)));
-  return order.map((o, j) => ({
+  return order.map((o) => ({
     sprite: o.sprite,
-    col: j % cols,
-    row: Math.floor(j / cols),
     dx: (rand() - 0.5) * 0.3,
     dy: (rand() - 0.5) * 0.3,
     tilt: Math.round((rand() - 0.5) * 24),
@@ -127,9 +130,13 @@ function DataObjects({
       ),
     [config],
   );
-  const cols = Math.max(1, ...cells.map((c) => c.col + 1));
-  const rows = Math.max(1, ...cells.map((c) => c.row + 1));
-  const cell = Math.max(28, Math.min(64, (width - 24) / cols, (height - 24) / rows));
+  // The scatter takes the grid (three columns or more) that draws the objects largest in the box.
+  const fit = (n: number) =>
+    Math.min(64, (width - 24) / n, (height - 24) / Math.ceil(cells.length / n));
+  let cols = 3;
+  for (let n = 4; n <= Math.max(3, cells.length); n += 1) if (fit(n) > fit(cols)) cols = n;
+  const rows = Math.max(1, Math.ceil(cells.length / cols));
+  const cell = Math.max(28, fit(cols));
   return (
     <div
       className="ni-bgb__objects"
@@ -138,25 +145,28 @@ function DataObjects({
       data-count={cells.length}
       style={{ width: cols * cell + 24, height: rows * cell + 24 }}
     >
-      {cells.map((c, k) => (
-        <span
-          // biome-ignore lint/suspicious/noArrayIndexKey: the scatter is fixed for the item
-          key={k}
-          className="ni-bgb__object"
-          data-sprite={c.sprite}
-          style={
-            {
-              left: 12 + (c.col + 0.1 + c.dx) * cell,
-              top: 12 + (c.row + 0.1 + c.dy) * cell,
-              width: cell * 0.8,
-              height: cell * 0.8,
-              '--tilt': `${c.tilt}deg`,
-            } as CSSProperties
-          }
-        >
-          <ObjectSprite sprite={c.sprite} />
-        </span>
-      ))}
+      {cells.map((o, k) => {
+        const c = { ...o, col: k % cols, row: Math.floor(k / cols) };
+        return (
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: the scatter is fixed for the item
+            key={k}
+            className="ni-bgb__object"
+            data-sprite={c.sprite}
+            style={
+              {
+                left: 12 + (c.col + 0.1 + c.dx) * cell,
+                top: 12 + (c.row + 0.1 + c.dy) * cell,
+                width: cell * 0.8,
+                height: cell * 0.8,
+                '--tilt': `${c.tilt}deg`,
+              } as CSSProperties
+            }
+          >
+            <ObjectSprite sprite={c.sprite} />
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -435,18 +445,24 @@ export function BarGraphBuildWidget({
 
   const invitedSlot = invite && invite.op !== 'answer' ? slotOfAction(invite) : -1;
   const invitedId = slots[invitedSlot]?.id ?? null;
-  // Pip's up-pointing hand hangs below the invited row (kit `useInviteHand`).
+  // The cue is on the first thing to touch: the supply while nothing is picked up (an invited row
+  // or a tap on an empty one), then the invited row once the mark is in hand.
+  const inviteOnSupply = invitedId !== null && place.selected === null;
+  const cueOnSupply = inviteOnSupply || nudge;
+  // The demonstration hand hangs below the invited control (kit `useInviteHand`).
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) =>
       invitedId === null
         ? null
-        : root.querySelector<HTMLElement>(`.ni-bgb__lane[data-slot="${CSS.escape(invitedId)}"]`),
-    invitedId === null ? '' : `slot-${invitedId}`,
+        : inviteOnSupply
+          ? root.querySelector<HTMLElement>('.ni-bgb__chip[data-item="mark"]')
+          : root.querySelector<HTMLElement>(`.ni-bgb__lane[data-slot="${CSS.escape(invitedId)}"]`),
+    invitedId === null ? '' : inviteOnSupply ? 'supply' : `slot-${invitedId}`,
   );
   const pad = 6;
   const GAP = 16;
-  /** A board's caption line ("Count each one", "Your graph"). */
+  /** A board's caption line ("Count them", "Your graph"). */
   const CAPTION = 28;
   /**
    * The data board's share of the room beside the tools; the child's graph takes the rest. A list
@@ -500,7 +516,7 @@ export function BarGraphBuildWidget({
           base.onKeyDown(e);
         },
       };
-      const invited = invitedSlot === i;
+      const invited = invitedSlot === i && !inviteOnSupply;
       return (
         <span key={s.id} className="ni-bgb__laneslot" style={laneStyle(s)}>
           <span
@@ -623,7 +639,7 @@ export function BarGraphBuildWidget({
                   className={[
                     p.className,
                     'ni-bgb__chip',
-                    nudge && item === 'mark' ? 'ni-invite' : '',
+                    cueOnSupply && item === 'mark' ? 'ni-invite' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}

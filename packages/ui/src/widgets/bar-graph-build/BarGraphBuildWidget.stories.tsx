@@ -423,14 +423,41 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
 /** The child's turn: Pip's hand points at the row to mark. */
 export const Invite: Story = {
   args: { config: tableTally, demo: inviteController, tier: 'pictorial' },
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await inviteController.invite({ op: 'tally', args: { id: 'crab', count: 1 } });
+    // Nothing is picked up yet: the one cue is on the supply, the first thing to touch.
+    await waitFor(() => expect(chip(root)).toHaveClass('ni-invite'));
+    await expect(lane(root, 'crab')).not.toHaveClass('ni-invite');
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, chip(root), root);
+    // One invited control, one ring inside it; the story ends with the hand visible under it.
+    await expectOneInvite(root);
+  },
+};
+
+const rowInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** With the mark picked up, the one cue moves to the invited row; placing the mark clears it. */
+export const InviteMovesToTheRow: Story = {
+  args: { config: tableTally, demo: rowInvite, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await rowInvite.invite({ op: 'tally', args: { id: 'crab', count: 1 } });
+    await waitFor(() => expect(chip(root)).toHaveClass('ni-invite'));
+    // A tap on an empty row does not add a second cue.
+    await userEvent.click(lane(root, 'crab'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await userEvent.click(chip(root));
     const row = lane(root, 'crab');
     await waitFor(() => expect(row).toHaveClass('ni-invite'));
-    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, row, root);
-    // One invited control, one ring inside it; the story ends with Pip's hand visible under it.
+    await expect(chip(root)).not.toHaveClass('ni-invite');
+    await waitFor(() => expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, row, root));
     await expectOneInvite(root);
+    await userEvent.click(row);
+    await expectChartShows(built(root), { shell: 0, crab: 1, fish: 0 });
+    await expect(root.querySelector('.ni-invite')).toBeNull();
   },
 };
 
@@ -566,7 +593,7 @@ export const UndoOnTheRow: Story = {
 /**
  * A full row is a state the child can read and leave (K, 960 × 600): the shells row holds 5 of 5;
  * one more is refused, the graph's caption says "That one is full." (spoken too) and the one cue
- * is on "Take one back". Taking one back restores the caption and removes the cue.
+ * is on "Take one back" (`FullRowTakeBack` leaves the state).
  */
 export const FullRowKLandscapeMin: Story = {
   globals: { ageMode: 'k' },
@@ -593,13 +620,31 @@ export const FullRowKLandscapeMin: Story = {
       'k',
       [...boards(root), caption()],
     );
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toContain(
+      'tap:full-shell',
+    );
+  },
+};
+
+/** Leaving a full row: "Take one back" restores the caption and removes the cue; so does a tap on the row. */
+export const FullRowTakeBack: Story = {
+  args: { config: tableTally, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const caption = () => root.querySelector('.ni-bgb__title[data-board="build"]') as HTMLElement;
+    for (let i = 0; i < 6; i += 1) await pointerDrag(chip(root), center(lane(root, 'shell')));
+    await expectChartShows(built(root), { shell: 5, crab: 0, fish: 0 });
+    await expect(caption()).toHaveTextContent('That one is full.');
     await userEvent.click(back(root));
     await expectChartShows(built(root), { shell: 4, crab: 0, fish: 0 });
     await expect(caption()).toHaveTextContent('Your graph');
     await expect(root.querySelector('.ni-invite')).toBeNull();
-    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toContain(
-      'tap:full-shell',
-    );
+    for (let i = 0; i < 2; i += 1) await pointerDrag(chip(root), center(lane(root, 'shell')));
+    await expect(caption()).toHaveTextContent('That one is full.');
+    await userEvent.click(lane(root, 'shell'));
+    await expectChartShows(built(root), { shell: 4, crab: 0, fish: 0 });
+    await expect(caption()).toHaveTextContent('Your graph');
+    await expect(root.querySelector('.ni-invite')).toBeNull();
   },
 };
 

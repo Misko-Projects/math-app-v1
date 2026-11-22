@@ -209,42 +209,6 @@
   background: var(--color-sky-light);
 }
 
-/* Tables: In | Out, numerals ≥ 32 px; the missing outputs are typed blanks. */
-.ni-pattern__table {
-  border-collapse: separate;
-  border-spacing: 0;
-  border: 3px solid var(--color-sand-deep);
-  border-radius: var(--radius-card);
-  background: var(--color-paper);
-  box-shadow: var(--shadow-soft);
-  overflow: hidden;
-}
-.ni-pattern__table th {
-  padding: 8px 24px;
-  border-bottom: 3px solid var(--color-sand-deep);
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 24px;
-  font-weight: 700;
-}
-.ni-pattern__table td {
-  /* Every row one height, shown or blank. */
-  height: calc(var(--cell) + 4px);
-  padding: 2px 24px;
-  text-align: center;
-  color: var(--color-ink);
-}
-.ni-pattern__table td + td,
-.ni-pattern__table th + th {
-  border-left: 3px solid var(--color-sand-deep);
-}
-.ni-pattern__table td > .ni-pattern__slot {
-  display: inline-flex;
-}
-.ni-pattern__table tr[data-flash="true"] td {
-  background: var(--color-sky-light);
-}
-
 /* Controls: the pieces in a tray with "check" (picture patterns), or the pad and "check". */
 .ni-pattern__controls {
   display: flex;
@@ -324,9 +288,4 @@
   .ni-pattern[data-typed="true"] .ni-pattern__controls {
     flex-wrap: wrap;
   }
-}
-
-/* The label style of the graph and pattern widgets: 24 px, 28 px in kindergarten mode. */
-[data-age-mode="k"] .ni-pattern__table th {
-  font-size: 28px;
 }

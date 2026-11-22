@@ -508,6 +508,7 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
 /** The child's turn (faded example): Pip's hand points at the category to tap. */
 export const Invite: Story = {
   args: { config: pictureLeast, demo: inviteController },
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await inviteController.invite({ op: 'answer', args: { id: 'shell' } });

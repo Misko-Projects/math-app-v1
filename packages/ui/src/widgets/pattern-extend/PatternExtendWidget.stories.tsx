@@ -567,6 +567,7 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
 /** The child's turn: Pip's hand points at the blank to fill (and the piece rings). */
 export const Invite: Story = {
   args: { config: shapesFill, demo: inviteController, tier: 'pictorial' },
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await inviteController.invite({ op: 'place-token', args: { index: 5, token: ySquare } });
@@ -820,8 +821,8 @@ const tallestTiles: Config = {
 
 /**
  * Stress at the bound, K, 960 × 600: the tallest stack (20 tiles). Reaching it is a state the
- * child can read and leave: "That is the tallest stack." is shown and spoken, one-more is off and
- * the one cue is on one-less; one-less takes the line and the cue away.
+ * child can read and leave: "That is the tallest one." is shown and spoken, one-more is off and
+ * the one cue is on one-less (`TallestTilesLeave` takes one off again).
  */
 export const StressTallestTilesKLandscapeMin: Story = {
   globals: { ageMode: 'k' },
@@ -838,7 +839,7 @@ export const StressTallestTilesKLandscapeMin: Story = {
     await expect(cell(root, 3).querySelectorAll('.ni-pattern__tile')).toHaveLength(20);
     await expect(more).toBeDisabled();
     const note = () => root.querySelector<HTMLElement>('.ni-pattern__note');
-    await expect(note()).toHaveTextContent('That is the tallest stack.');
+    await expect(note()).toHaveTextContent('That is the tallest one.');
     await expect(note()).toHaveAttribute('role', 'status');
     await expect(audio.say).toHaveBeenCalledWith('ui.widget.pattern.tallest', undefined);
     await expect([...root.querySelectorAll('.ni-invite')]).toEqual([less]);
@@ -854,8 +855,22 @@ export const StressTallestTilesKLandscapeMin: Story = {
       kind: 'state',
       value: { tokens: [{ tiles: 20 }] },
     });
+  },
+};
+
+/** Leaving the tallest stack: one-less takes the line and the cue away, and one-more is back. */
+export const TallestTilesLeave: Story = {
+  args: { config: tallestTiles, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const more = within(root).getByRole('button', { name: 'One more' });
+    const less = within(root).getByRole('button', { name: 'One less' });
+    for (let i = 0; i < 20; i += 1) await userEvent.click(more);
+    await expect(root.querySelector('.ni-pattern__note')).not.toBeNull();
     await userEvent.click(less);
-    await expect(note()).toBeNull();
+    await expect(cell(root, 3).querySelectorAll('.ni-pattern__tile')).toHaveLength(19);
+    await expect(root.querySelector('.ni-pattern__note')).toBeNull();
     await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(more).toBeEnabled();
   },
 };

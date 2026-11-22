@@ -1013,7 +1013,7 @@ ui.widget.chart.mark.x:
   text: "Mark"
   level: K
 ui.widget.chart.data-title:
-  text: "Count each one"
+  text: "Count them"
   level: K
 ui.widget.chart.build-title:
   text: "Your graph"
@@ -1042,17 +1042,11 @@ ui.widget.pattern.place:
 ui.widget.pattern.squares:
   text: "{n} squares"
   level: K
-ui.widget.pattern.in:
-  text: "In"
-  level: K
-ui.widget.pattern.out:
-  text: "Out"
-  level: K
 ui.widget.pattern.jump:
   text: "How big is each jump?"
   level: K
 ui.widget.pattern.tallest:
-  text: "That is the tallest stack."
+  text: "That is the tallest one."
   level: K
 ui.widget.chart.full:
   text: "That one is full."
