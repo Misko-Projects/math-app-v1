@@ -208,3 +208,7 @@
 [data-age-mode="k"] .ni-bgb__title {
   font-size: 28px;
 }
+/* The full-row note sits 6 px higher, its line box clear of the row outline under it. */
+.ni-bgb__title[data-full="true"] {
+  transform: translateY(-6px);
+}

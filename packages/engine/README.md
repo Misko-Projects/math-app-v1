@@ -230,13 +230,14 @@ The three models state and enforce the domain their widgets support. Every bound
 | pattern-extend | places in a pattern | 2 to 12 (`PATTERN_LENGTH_MAX`); numbers or tile stacks 6 (`PATTERN_TYPED_LENGTH_MAX`); `translate` 6 (`PATTERN_TRANSLATE_LENGTH_MAX`) |
 | | blanks (`extend`, `fill`) | 1 to 4 (`PATTERN_BLANKS_MAX`) |
 | | different units: shown, palette, `translateTo` | at most 4 (`PATTERN_UNITS_MAX`); a picture palette has at least 2 |
-| | numbers | whole, 0 to 999 (`PATTERN_NUMBER_MAX`, three digits on the pad); a number pattern has no palette |
+| | numbers | whole, 0 to 999 (`PATTERN_NUMBER_MAX`, three digits on the pad); a number pattern has no palette; where the shown numbers go on by one steady step, every missing term is 0 to 999 too |
 | | tile stacks | 1 to 20 tiles (`MAX_TILES`) |
 | | `rule` | the shown numbers grow by one whole step of 1 or more |
 | | `table` | not supported yet: the schema refuses the mode (the widget has no table layout for the smallest area; the model keeps the ops) |
 | bar-graph-read, bar-graph-build | rows of a picture graph, tally chart or table | at most 3 (`GRAPH_ROWS_MAX`); only bars stand upright |
 | | rows of horizontal bars, or of a picture graph with a key (scale above 1) | at most 2 (`GRAPH_BAR_ROWS_MAX`) |
-| | columns of vertical bars | at most 3 (`GRAPH_COLUMNS_MAX`); the top the axis draws (the cap rounded up to a whole step) at most 99 (`GRAPH_VERTICAL_TOP_MAX`) |
+| | bar graph axis | at most 10 steps of the scale (`GRAPH_BAR_STEPS_MAX`): the widget draws the axis to a labelled line at or above the tallest bar and labels every step, every second or every fifth, so a bar is read from a labelled line plus at most 4 steps |
+| | columns of vertical bars | at most 3 (`GRAPH_COLUMNS_MAX`); the top as drawn (the steps rounded up to five, times the scale) at most 99 (`GRAPH_VERTICAL_TOP_MAX`): tens stop at 50 |
 | | picture graph top | a whole number of pictures (`axisMax` a multiple of `scale`) |
 | | line plot scale | starts at 0 or above |
 | | category name | one word of at most 9 letters (`GRAPH_LABEL_CHARS_MAX`; `labelIssues`, property 3.label) |

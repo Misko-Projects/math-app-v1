@@ -16,7 +16,16 @@ export const GRAPH_COLUMNS_MAX = 3;
  * because the number axis or the key takes a row's height.
  */
 export const GRAPH_BAR_ROWS_MAX = 2;
-/** The axis top of vertical bars: two-digit numerals, so three named columns keep their width. */
+/**
+ * Steps on a bar graph's axis (the top ÷ scale): at most 10, so the widget labels every step,
+ * every second or every fifth one and a bar is read from a labelled line plus at most 4 steps.
+ */
+export const GRAPH_BAR_STEPS_MAX = 10;
+/**
+ * The axis top of vertical bars, as drawn: two-digit numerals, so three named columns keep their
+ * width. The widget may extend the axis to its next labelled line (a multiple of five steps at
+ * most), so the top rounded up to five steps is the one that must stay within the bound.
+ */
 export const GRAPH_VERTICAL_TOP_MAX = 99;
 /** Symbols in one row or column of a picture graph (the axis top ÷ scale). */
 export const GRAPH_PICTURES_MAX = 10;
@@ -113,8 +122,16 @@ export function graphIssues(chart: ChartSpec, purpose: 'read' | 'build', add: Ad
   if (chart.kind === 'bar' && purpose === 'build' && chart.axisMax > BUILD_BAR_MAX) {
     add(['axisMax'], `a bar the child builds has at most ${BUILD_BAR_MAX} blocks`);
   }
-  // The top the axis draws (the cap rounded up to a whole step), not the raw cap.
-  if (chart.kind === 'bar' && !across && axisTop(chart) > GRAPH_VERTICAL_TOP_MAX) {
+  const steps = Math.round(axisTop(chart) / chart.scale);
+  if (chart.kind === 'bar' && steps > GRAPH_BAR_STEPS_MAX) {
+    add(['axisMax'], `a bar graph's axis has at most ${GRAPH_BAR_STEPS_MAX} steps of its scale`);
+  }
+  // The top the axis may draw (the cap rounded up to its next labelled line), not the raw cap.
+  if (
+    chart.kind === 'bar' &&
+    !across &&
+    Math.ceil(steps / 5) * 5 * chart.scale > GRAPH_VERTICAL_TOP_MAX
+  ) {
     add(['axisMax'], `vertical bars count to at most ${GRAPH_VERTICAL_TOP_MAX}`);
   }
   if (chart.kind === 'bar' && !Number.isInteger(chart.axisMax)) {

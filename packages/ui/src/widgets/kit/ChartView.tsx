@@ -337,6 +337,12 @@ export function ChartView({
               className="ni-chart__tally"
               data-slot={s.id}
               data-marks={s.value}
+              // Short strokes (a narrow data board) are drawn thinner, so the gaps stay open.
+              style={
+                widgetLabels
+                  ? ({ '--tally-stroke': Math.max(3, Math.min(5, g.mark * 0.12)) } as CSSProperties)
+                  : undefined
+              }
             >
               {s.tally.map((group, gi) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: a tally group's place is its identity

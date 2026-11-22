@@ -65,7 +65,7 @@
 }
 .ni-chart__stroke {
   stroke: var(--color-ink);
-  stroke-width: 5;
+  stroke-width: var(--tally-stroke, 5);
   stroke-linecap: round;
 }
 .ni-chart__stroke[data-counted="true"],

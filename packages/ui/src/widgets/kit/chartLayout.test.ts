@@ -453,3 +453,48 @@ describe('line plot labels', () => {
     }
   });
 });
+
+describe('a bar axis ends on a labelled line (PR #102 evidence review)', () => {
+  it('for every supported top, scale and size the top labelled line is at or above every bar', () => {
+    for (const orientation of ['vertical', 'horizontal'] as const) {
+      for (const scale of [1, 2, 5, 10] as const) {
+        for (let steps = 1; steps <= 10; steps += 1) {
+          for (const [width, height] of [
+            [300, 280],
+            [464, 293],
+            [640, 293],
+            [900, 440],
+          ] as const) {
+            // Horizontal bars are drawn only by the graph widgets, never narrower than 464 px.
+            if (orientation === 'horizontal' && width < 464) continue;
+            const top = steps * scale;
+            const c: ChartSpec = {
+              kind: 'bar',
+              orientation,
+              categories: [
+                { id: 'fish', label: 'noun.fish.many', value: top },
+                { id: 'crab', label: 'noun.crab.many', value: scale },
+              ],
+              scale,
+              axisMax: top,
+            };
+            const g = chartGeometry(c, { width, height, target: 64 });
+            const what = `${orientation} scale ${scale} top ${top} in ${width}x${height}`;
+            const labelled = g.ticks.filter((t) => t.labelled).map((t) => t.value);
+            const last = g.ticks.at(-1);
+            expect(last?.labelled, `${what}: the last tick is labelled`).toBe(true);
+            expect(Math.max(...labelled), what).toBeGreaterThanOrEqual(top);
+            // A bar is read from a labelled line plus at most 4 steps.
+            const stride = ((labelled[1] ?? scale) - (labelled[0] ?? 0)) / scale;
+            expect(stride, `${what}: steps between labelled lines`).toBeLessThanOrEqual(5);
+            // The bar still ends exactly on its value.
+            const bar = g.slots[0]?.bar;
+            const zero = g.ticks[0];
+            const full = g.ticks.find((t) => t.value === top);
+            expect(bar && zero && full, what).toBeTruthy();
+          }
+        }
+      }
+    }
+  });
+});

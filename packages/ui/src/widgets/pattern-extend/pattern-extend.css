@@ -237,8 +237,9 @@
 }
 /* Typed patterns: the pad in two rows of six keys (1–6; 7, 8, 9, the wide 0, ⌫) under the
    strip, so the strip keeps the full width and the keys their age-mode size in a short area. */
+/* 24 px between the pad and Check, so Check's own outline stays 12 px clear of the keys. */
 .ni-pattern[data-typed="true"] .ni-pattern__controls {
-  gap: 16px;
+  gap: 24px;
 }
 .ni-pattern[data-typed="true"] .ni-pad {
   grid-template-columns: repeat(6, var(--target-min));
@@ -247,12 +248,7 @@
 .ni-pattern__rule {
   flex-direction: column;
 }
-/* The cue of the tallest stack sits on one-less: the ring inside the key's own box. */
-.ni-pattern .ni-stepper__key.ni-invite {
-  outline-offset: -9px;
-  animation: none;
-}
-/* The tallest tile stack: a line beside the counter (role="status"), in the label style. */
+/* The biggest tile stack: a line beside the counter (role="status"), in the label style. */
 .ni-pattern__note {
   max-width: 220px;
   margin: 0;

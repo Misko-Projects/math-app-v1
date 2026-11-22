@@ -17,6 +17,7 @@ import {
   BUILD_PICTURES_MAX,
   GRAPH_ANSWER_MAX,
   GRAPH_BAR_ROWS_MAX,
+  GRAPH_BAR_STEPS_MAX,
   GRAPH_COLUMNS_MAX,
   GRAPH_LABEL_CHARS_MAX,
   GRAPH_LINE_POSITIONS_MAX,
@@ -120,7 +121,18 @@ describe('pattern-extend: the supported domain', () => {
   });
 
   it('numbers are whole, 0 to PATTERN_NUMBER_MAX, and have no palette', () => {
-    expect(issues(patternExtend, numbers([0, PATTERN_NUMBER_MAX, null]))).toEqual([]);
+    expect(issues(patternExtend, numbers([0, PATTERN_NUMBER_MAX, 0, null]))).toEqual([]);
+    // A pattern that goes on by one steady step asks only for terms the pad can type.
+    expect(issues(patternExtend, numbers([997, 998, null]))).toEqual([]);
+    expect(
+      refuses(
+        issues(patternExtend, numbers([800, 900, null, null])),
+        'the missing term 1000 cannot be typed',
+      ),
+    ).toBe(true);
+    expect(
+      refuses(issues(patternExtend, numbers([20, 10, null, null])), 'the missing term -10'),
+    ).toBe(true);
     for (const n of [PATTERN_NUMBER_MAX + 1, -1, 2.5]) {
       expect(refuses(issues(patternExtend, numbers([1, n, null])), 'whole, 0–999'), `${n}`).toBe(
         true,
@@ -336,17 +348,30 @@ describe('bar-graph-read: the supported domain', () => {
     expect(
       refuses(issues(barGraphRead, read(bars(GRAPH_COLUMNS_MAX + 1))), 'reads upward has at most'),
     ).toBe(true);
-    expect(issues(barGraphRead, read(bars(2, { scale: 5, axisMax: 95 })))).toEqual([]);
-    expect(GRAPH_VERTICAL_TOP_MAX).toBe(99);
+    // At most GRAPH_BAR_STEPS_MAX steps of the scale, upright or across.
+    expect(GRAPH_BAR_STEPS_MAX).toBe(10);
+    expect(issues(barGraphRead, read(bars(2, { scale: 5, axisMax: 50 })))).toEqual([]);
     expect(
       refuses(
-        issues(barGraphRead, read(bars(2, { scale: 5, axisMax: 100 }))),
+        issues(barGraphRead, read(bars(2, { scale: 5, axisMax: 55 }))),
+        'at most 10 steps of its scale',
+      ),
+    ).toBe(true);
+    const across = (axisMax: number) =>
+      chartOf({ kind: 'bar', orientation: 'horizontal', scale: 10, axisMax }, [50, 30]);
+    expect(issues(barGraphRead, read(across(100)))).toEqual([]);
+    expect(refuses(issues(barGraphRead, read(across(110))), 'at most 10 steps of its scale')).toBe(
+      true,
+    );
+    // Upright, the top as drawn keeps two digits: tens stop at 50 (60 would be drawn to 100).
+    expect(GRAPH_VERTICAL_TOP_MAX).toBe(99);
+    expect(issues(barGraphRead, read(bars(2, { scale: 10, axisMax: 50 })))).toEqual([]);
+    expect(
+      refuses(
+        issues(barGraphRead, read(bars(2, { scale: 10, axisMax: 60 }))),
         'vertical bars count to at most 99',
       ),
     ).toBe(true);
-    // Horizontal bars keep the long axis: 20 steps of 10.
-    const across = chartOf({ kind: 'bar', orientation: 'horizontal', scale: 10 }, [200, 130]);
-    expect(issues(barGraphRead, read(across))).toEqual([]);
   });
 
   it('a picture row has at most GRAPH_PICTURES_MAX pictures', () => {
@@ -396,16 +421,16 @@ describe('bar-graph-read: the supported domain', () => {
   it('values are whole and the answer is 0 to GRAPH_ANSWER_MAX', () => {
     const half = chartOf({ kind: 'bar', axisMax: 5 }, [2.5, 4]);
     expect(refuses(issues(barGraphRead, read(half)), 'shows whole numbers')).toBe(true);
-    const bars = chartOf({ kind: 'bar', orientation: 'horizontal', scale: 10 }, [200, 130]);
+    const bars = chartOf({ kind: 'bar', orientation: 'horizontal', scale: 10 }, [100, 70]);
     const two = (extra: number): Read =>
       read(bars, { type: 'two-step', categories: ['fish', 'crab'], extra });
-    expect(issues(barGraphRead, two(GRAPH_ANSWER_MAX - 330))).toEqual([]);
+    expect(issues(barGraphRead, two(GRAPH_ANSWER_MAX - 170))).toEqual([]);
     expect(
-      refuses(issues(barGraphRead, two(GRAPH_ANSWER_MAX - 329)), 'the answer is 0 to 999'),
+      refuses(issues(barGraphRead, two(GRAPH_ANSWER_MAX - 169)), 'the answer is 0 to 999'),
     ).toBe(true);
-    expect(refuses(issues(barGraphRead, two(-331)), 'the answer is 0 to 999')).toBe(true);
+    expect(refuses(issues(barGraphRead, two(-171)), 'the answer is 0 to 999')).toBe(true);
     expect(refuses(issues(barGraphRead, two(0.5)), 'extra is whole')).toBe(true);
-    expect(readAnswerMax(two(100))).toBe(430);
+    expect(readAnswerMax(two(100))).toBe(270);
   });
 });
 
@@ -664,8 +689,9 @@ describe('review round 1 (PR #102)', () => {
 
   it('the vertical bound is the top the axis draws, not the raw cap', () => {
     const bars = (axisMax: number) => read(chartOf({ kind: 'bar', scale: 10, axisMax }, [50, 20]));
-    expect(issues(barGraphRead, bars(90))).toEqual([]);
-    // 99 at scale 10 draws an axis to 100.
+    expect(issues(barGraphRead, bars(50))).toEqual([]);
+    // 51 at scale 10 is six steps, which the axis may draw to 100.
+    expect(refuses(issues(barGraphRead, bars(51)), 'vertical bars count to at most 99')).toBe(true);
     expect(refuses(issues(barGraphRead, bars(99)), 'vertical bars count to at most 99')).toBe(true);
   });
 

@@ -342,6 +342,26 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
     if (c.palette.findIndex((u) => sameToken(u, t)) !== i)
       add(['palette', i], 'the palette repeats a unit');
   });
+  // A number pattern that goes on by one steady step: the terms asked for can be typed.
+  if (family === 'n' && (c.mode === 'extend' || c.mode === 'fill') && blanks.length > 0) {
+    const step = firstStep(c.sequence);
+    const at = c.sequence.findIndex((t) => t !== null);
+    const first = tokenNumber(c.sequence[at] ?? null);
+    const steady =
+      step !== null &&
+      first !== null &&
+      c.sequence.every((t, i) => t === null || tokenNumber(t) === first + (i - at) * step);
+    if (steady && step !== null && first !== null) {
+      blanks.forEach((i) => {
+        if (!isPatternNumber(first + (i - at) * step)) {
+          add(
+            ['sequence', i],
+            `the missing term ${first + (i - at) * step} cannot be typed (0–${PATTERN_NUMBER_MAX})`,
+          );
+        }
+      });
+    }
+  }
   if (family === 'n' && c.palette.length > 0) {
     add(['palette'], 'a number pattern is typed: it has no palette');
   }

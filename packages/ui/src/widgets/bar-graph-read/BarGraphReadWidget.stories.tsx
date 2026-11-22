@@ -543,29 +543,29 @@ export const InviteCleared: Story = {
 
 /**
  * The bound of vertical bars: three bars (GRAPH_COLUMNS_MAX), one at the top of the longest axis
- * (19 steps of 5 to 95, GRAPH_VERTICAL_TOP_MAX), under the longest category name ("fireflies").
+ * (GRAPH_BAR_STEPS_MAX steps of 5, to 50), under the longest category name ("fireflies").
  */
 const barsAtMax: Config = {
   format: 'bar-graph-read',
   chart: {
     kind: 'bar',
     orientation: 'vertical',
-    categories: [cat('firefly', 95), cat('crab', 60), cat('shell', 35)],
+    categories: [cat('firefly', 50), cat('crab', 35), cat('shell', 20)],
     scale: 5,
-    axisMax: 95,
+    axisMax: 50,
   },
   question: { type: 'difference', categories: ['firefly', 'shell'] },
 };
 
-/** The bound of horizontal bars: two rows (GRAPH_BAR_ROWS_MAX) on the longest axis, 20 steps of 10. */
+/** The bound of horizontal bars: two rows (GRAPH_BAR_ROWS_MAX) on the longest axis, 10 steps of 10. */
 const rowsAtMax: Config = {
   format: 'bar-graph-read',
   chart: {
     kind: 'bar',
     orientation: 'horizontal',
-    categories: [cat('firefly', 200), cat('crab', 130)],
+    categories: [cat('firefly', 100), cat('crab', 70)],
     scale: 10,
-    axisMax: 200,
+    axisMax: 100,
   },
   question: { type: 'difference', categories: ['firefly', 'crab'] },
 };
@@ -632,6 +632,7 @@ const stressRead =
     await expectChartShows(root, values);
     await expectNumeralsReadable(root);
     if (config.chart.kind === 'picture') await expectSymbolsOneSize(root);
+    if (config.chart.kind === 'bar') await expectAxisReachesBars(root, config);
     const controls = [
       ...labels(root),
       ...padKeys(root),
@@ -643,41 +644,41 @@ const stressRead =
     ]);
   };
 
-/** Stress at the bound: three bars up to 95 at the tablet area. */
+/** Stress at the bound: three bars up to 50 at the tablet area. */
 export const StressBarsAtMaxTablet: Story = {
   args: { config: barsAtMax },
   render: inArea('tablet'),
-  play: stressRead(barsAtMax, { firefly: 95, crab: 60, shell: 35 }, 'g1-up'),
+  play: stressRead(barsAtMax, { firefly: 50, crab: 35, shell: 20 }, 'g1-up'),
 };
 
-/** Stress at the bound: three bars up to 95 at the 960 × 600 minimum. */
+/** Stress at the bound: three bars up to 50 at the 960 × 600 minimum. */
 export const StressBarsAtMaxLandscapeMin: Story = {
   args: { config: barsAtMax },
   render: inArea('landscapeMin'),
-  play: stressRead(barsAtMax, { firefly: 95, crab: 60, shell: 35 }, 'g1-up'),
+  play: stressRead(barsAtMax, { firefly: 50, crab: 35, shell: 20 }, 'g1-up'),
 };
 
-/** Stress at the bound, K: three bars up to 95 at the 960 × 600 minimum. */
+/** Stress at the bound, K: three bars up to 50 at the 960 × 600 minimum. */
 export const StressBarsAtMaxKLandscapeMin: Story = {
   globals: { ageMode: 'k' },
   args: { config: barsAtMax },
   render: inArea('landscapeMin'),
-  play: stressRead(barsAtMax, { firefly: 95, crab: 60, shell: 35 }, 'k'),
+  play: stressRead(barsAtMax, { firefly: 50, crab: 35, shell: 20 }, 'k'),
 };
 
-/** Stress at the bound, K: two horizontal bars up to 200 at the 960 × 600 minimum. */
+/** Stress at the bound, K: two horizontal bars up to 100 at the 960 × 600 minimum. */
 export const StressRowsAtMaxKLandscapeMin: Story = {
   globals: { ageMode: 'k' },
   args: { config: rowsAtMax },
   render: inArea('landscapeMin'),
-  play: stressRead(rowsAtMax, { firefly: 200, crab: 130 }, 'k'),
+  play: stressRead(rowsAtMax, { firefly: 100, crab: 70 }, 'k'),
 };
 
-/** Stress at the bound: two horizontal bars up to 200 at the 960 × 600 minimum. */
+/** Stress at the bound: two horizontal bars up to 100 at the 960 × 600 minimum. */
 export const StressRowsAtMaxLandscapeMin: Story = {
   args: { config: rowsAtMax },
   render: inArea('landscapeMin'),
-  play: stressRead(rowsAtMax, { firefly: 200, crab: 130 }, 'g1-up'),
+  play: stressRead(rowsAtMax, { firefly: 100, crab: 70 }, 'g1-up'),
 };
 
 /** Stress at the bound, K: a row of 10 pictures at the tablet area. */
@@ -809,5 +810,42 @@ export const InviteStepperK: Story = {
     await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, more, root);
     await expectOneInvite(root);
+  },
+};
+
+/**
+ * A bar graph's axis ends on a labelled line at or above its tallest bar, in 32 px numerals, so
+ * every bar is read from a labelled line (evidence review of PR #102).
+ */
+async function expectAxisReachesBars(root: HTMLElement, config: Config) {
+  const numerals = [...root.querySelectorAll<HTMLElement>('.ni-chart__numeral')];
+  const values = numerals.map((n) => Number(n.textContent));
+  const tallest = Math.max(...config.chart.categories.map((c) => c.value));
+  await expect(Math.max(...values), 'the top labelled line').toBeGreaterThanOrEqual(tallest);
+  await expect(values, 'the axis starts at zero').toContain(0);
+  for (const n of numerals) {
+    await expect(Number.parseFloat(getComputedStyle(n).fontSize)).toBeGreaterThanOrEqual(32);
+  }
+}
+
+/**
+ * A picture graph with a key at the 960 × 600 minimum: each picture is 2 (the key says so beside
+ * the first row's picture), 7 crabs are three pictures and a half, 10 fish are five.
+ */
+export const ScaledPictureKeyLandscapeMin: Story = {
+  args: { config: scaledPicture },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectChartShows(root, { crab: 7, fish: 10 }, 2);
+    const key = root.querySelector('.ni-chart__key') as HTMLElement;
+    await expect(key.textContent).toBe('= 2');
+    await expectSymbolsOneSize(root);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...labels(root), ...padKeys(root), check(root)],
+      'g1-up',
+      [root.querySelector('.ni-chart') as HTMLElement, key],
+    );
   },
 };

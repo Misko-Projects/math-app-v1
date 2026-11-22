@@ -133,6 +133,20 @@ export function labelStride(spacing: number, min: number): number {
   return 100;
 }
 
+/**
+ * The top a bar axis draws: `base` (the chart's own top) rounded up to the next labelled tick, so
+ * the top labelled gridline is at or above every bar and a bar is read from a labelled line plus
+ * at most `stride − 1` minor steps. `plot` is the axis length in px, `minSpacing` the room one
+ * numeral needs; the stride found here is the one `ticksFor` labels with.
+ */
+export function labelledTop(base: number, scale: number, plot: number, minSpacing: number): number {
+  for (const k of [1, 2, 5, 10, 20, 50]) {
+    const top = Math.ceil(base / (k * scale) - 1e-9) * k * scale;
+    if ((plot / (top / scale)) * k >= minSpacing) return top;
+  }
+  return base;
+}
+
 function ticksFor(
   chart: Pick<ChartSpec, 'axisMax' | 'scale'>,
   toPos: (v: number) => number,
@@ -325,7 +339,9 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const symRowW = chart.kind === 'picture' ? symCols * MARK_MIN_PX + (symCols - 1) * sgap : 0;
     const plot = { x: plotX, y: y0, w: Math.max(40, symRowW, plotR - plotX), h: rowsH };
     const width = Math.max(o.width, plot.x + plot.w + (o.width - plotR));
-    const unit = plot.w / top;
+    // Bars: the axis runs to a labelled tick (the last numeral is centred on the plot's end).
+    const barTop = chart.kind === 'bar' ? labelledTop(top, scale, plot.w, numW + 10) : top;
+    const unit = plot.w / barTop;
     const toPos = (v: number) => plot.x + v * unit;
     const sym = Math.max(
       MARK_MIN_PX,
@@ -368,7 +384,8 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
           return { ...base, cell: { x: plot.x, y, w: tableW, h: rowH } };
       }
     });
-    const ticks = chart.kind === 'bar' ? ticksFor(chart, toPos, numW + 10) : [];
+    const ticks =
+      chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, numW + 10) : [];
     const axisY = y0 + rowsH + 6;
     return {
       kind: chart.kind,
@@ -409,7 +426,9 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
       : Math.max(60, symColH, o.height - topPad - labelH - o.gap - PAD);
   const baseY = topPad + plotH;
   const plot = { x: x0, y: topPad, w: colsW, h: plotH };
-  const unit = plotH / top;
+  // Bars: the axis runs to a labelled tick, so the top labelled gridline is at or above every bar.
+  const barTop = chart.kind === 'bar' ? labelledTop(top, scale, plotH, NUMERAL_PX * 0.9) : top;
+  const unit = plotH / barTop;
   const toPos = (v: number) => baseY - v * unit;
   const sym = Math.max(
     MARK_MIN_PX,
@@ -465,7 +484,8 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
         : Math.max(o.height, baseY + o.gap + labelH + PAD),
     plot,
     slots: geo,
-    ticks: chart.kind === 'bar' ? ticksFor(chart, toPos, NUMERAL_PX * 0.9) : [],
+    ticks:
+      chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, NUMERAL_PX * 0.9) : [],
     axisLine: chart.kind === 'bar' ? [x0 - 6, baseY, x0 + colsW + 6, baseY] : null,
     valueToPos: toPos,
     mark: chart.kind === 'picture' ? sym : stroke,

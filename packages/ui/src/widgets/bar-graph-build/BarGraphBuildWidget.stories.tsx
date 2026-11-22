@@ -593,7 +593,7 @@ export const UndoOnTheRow: Story = {
 
 /**
  * A full row is a state the child can read and leave (K, 960 × 600): the shells row holds 5 of 5;
- * one more is refused, the graph's caption says "That one is full." (spoken too) and the one cue
+ * one more is refused, the graph's caption says "5 is the most here." (spoken too) and the one cue
  * is on "Take one back" (`FullRowTakeBack` leaves the state).
  */
 export const FullRowKLandscapeMin: Story = {
@@ -611,9 +611,15 @@ export const FullRowKLandscapeMin: Story = {
     clearSpies(audio);
     await userEvent.click(lane(root, 'shell'));
     await expectChartShows(built(root), { shell: 5, crab: 0, fish: 0 });
-    await expect(caption()).toHaveTextContent('That one is full.');
+    await expect(caption()).toHaveTextContent('5 is the most here.');
     await expect(caption()).toHaveAttribute('role', 'status');
-    await expect(audio.say).toHaveBeenCalledWith('ui.widget.chart.full', undefined);
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.chart.full', { n: '5' });
+    // The note is clear of the row outline under it.
+    const noteText = document.createRange();
+    noteText.selectNodeContents(caption());
+    await expect(noteText.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      lane(root, 'shell').getBoundingClientRect().top,
+    );
     await expect([...root.querySelectorAll('.ni-invite')]).toEqual([back(root)]);
     await expectFitsArea(
       areaBox(canvasElement),
@@ -635,13 +641,13 @@ export const FullRowTakeBack: Story = {
     const caption = () => root.querySelector('.ni-bgb__title[data-board="build"]') as HTMLElement;
     for (let i = 0; i < 6; i += 1) await pointerDrag(chip(root), center(lane(root, 'shell')));
     await expectChartShows(built(root), { shell: 5, crab: 0, fish: 0 });
-    await expect(caption()).toHaveTextContent('That one is full.');
+    await expect(caption()).toHaveTextContent('5 is the most here.');
     await userEvent.click(back(root));
     await expectChartShows(built(root), { shell: 4, crab: 0, fish: 0 });
     await expect(caption()).toHaveTextContent('Your graph');
     await expect(root.querySelector('.ni-invite')).toBeNull();
     for (let i = 0; i < 2; i += 1) await pointerDrag(chip(root), center(lane(root, 'shell')));
-    await expect(caption()).toHaveTextContent('That one is full.');
+    await expect(caption()).toHaveTextContent('5 is the most here.');
     await userEvent.click(lane(root, 'shell'));
     await expectChartShows(built(root), { shell: 4, crab: 0, fish: 0 });
     await expect(caption()).toHaveTextContent('Your graph');
@@ -896,7 +902,7 @@ export const PictureThatDoesNotFit: Story = {
     await userEvent.click(chip(root));
     await userEvent.click(lane(root, 'apple'));
     await expectChartShows(built(root), { apple: 5, fish: 0 }, 2);
-    await expect(caption()).toHaveTextContent('That one is full.');
+    await expect(caption()).toHaveTextContent('6 is the most here.');
     await userEvent.click(back(root));
     await expectChartShows(built(root), { apple: 4, fish: 0 }, 2);
     await expect(caption()).toHaveTextContent('Your graph');
@@ -915,5 +921,37 @@ export const DemoPicturesSettle: Story = {
     // One more whole picture does not fit: the op changes nothing and returns.
     await fitDemo.play({ op: 'add-picture', args: { id: 'apple', count: 1 } });
     await expectChartShows(built(root), { apple: 5, fish: 0 }, 2);
+  },
+};
+
+/**
+ * The rest state at the 960 × 600 minimum, G1: the tally data (3, 5, 2), the empty graph with its
+ * 0–8 axis, nothing picked up and no cue. Raising a bar takes one tap or drag for each block.
+ */
+export const RestLandscapeMin: Story = {
+  args: { config: tallyBars, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectChartShows(root.querySelector('.ni-bgb__data') as HTMLElement, {
+      fish: 3,
+      shell: 5,
+      crab: 2,
+    });
+    await expectChartShows(built(root), { fish: 0, shell: 0, crab: 0 });
+    await expect(root.querySelector('.ni-invite, [data-armed="true"]')).toBeNull();
+    await expect(check(root)).toBeDisabled();
+    await expectTallyCountable(root.querySelector('.ni-bgb__data') as HTMLElement);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...lanes(root), chip(root), back(root), check(root)],
+      'g1-up',
+      boards(root),
+    );
+    // One tap adds one block: a bar is never driven to the top by a single gesture.
+    await pointerDrag(chip(root), center(lane(root, 'shell')));
+    await expectChartShows(built(root), { fish: 0, shell: 1, crab: 0 });
+    await userEvent.click(back(root));
+    await expectChartShows(built(root), { fish: 0, shell: 0, crab: 0 });
   },
 };

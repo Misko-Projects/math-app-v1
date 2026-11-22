@@ -46,7 +46,8 @@ import './bar-graph-build.css';
  * with nothing picked up points at the supply.
  *
  * A full row (its count at the axis top) is a state the child can read and leave: the graph's
- * caption says "That one is full." (spoken too) and the one cue is on "Take one back".
+ * caption says how many a row holds ("5 is the most here.", spoken too) and the one cue is on
+ * "Take one back".
  *
  * Every mark goes through the engine model, and Check sends its response `{ values }`
  * (chart.values): what the chart shows is exactly what is answered.
@@ -323,7 +324,7 @@ export function BarGraphBuildWidget({
         // The row is at the axis top: say so, show it, and point at the way out.
         trace('tap', `full-${id}`);
         setFull(id);
-        say('ui.widget.chart.full');
+        say('ui.widget.chart.full', { n: formatLength(config.chart.axisMax) });
       }
       // The supply stays picked up after a tap or key placement, so each tap on a row adds one.
       if (via !== 'drag') place.select(item);
@@ -614,7 +615,9 @@ export function BarGraphBuildWidget({
                 data-full={full === null ? undefined : 'true'}
                 role="status"
               >
-                {t(full === null ? 'ui.widget.chart.build-title' : 'ui.widget.chart.full')}
+                {full === null
+                  ? t('ui.widget.chart.build-title')
+                  : t('ui.widget.chart.full', { n: formatLength(config.chart.axisMax) })}
               </span>
               <ChartView
                 chart={config.chart}

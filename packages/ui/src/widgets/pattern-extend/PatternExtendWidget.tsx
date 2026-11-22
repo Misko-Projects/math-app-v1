@@ -48,7 +48,8 @@ import './pattern-extend.css';
  *   or the keyboard). A filled blank gives its unit back when it is tapped with no piece picked
  *   up (Enter, Backspace or Delete on the keyboard); the unit is named and the undo traced.
  *   Number blanks are typed on the pad (tap a blank to choose it); tile blanks are built with
- *   one-more / one-less, and the tallest stack says so and points at one-less.
+ *   one-more / one-less; the biggest stack the counter builds says so in a line (and carries no
+ *   cue: that stack may be the answer, so nothing steers the child off it).
  * - `core`: tap where the repeating part starts and where it ends (or drag across it); a band
  *   marks the part, and a tap on the band takes it off. `translate`: rebuild the pattern below
  *   with the new units.
@@ -650,12 +651,14 @@ export function PatternExtendWidget({
     const p = active === null ? null : state.placed[active];
     return p && 'tiles' in p ? p.tiles : null;
   })();
-  /** The tallest stack is a state the child can read and leave: a line, and the cue on one-less. */
+  /**
+   * The biggest stack is a state the child can read: one-more goes off and a line says why. No cue
+   * is shown, because the biggest stack can be the right answer; one-less and Check both stay live.
+   */
   const tallest = tiles && activeTiles !== null && activeTiles >= MAX_TILES;
   const tilesControl =
     tiles && active !== null ? (
       <Stepper
-        highlighted={tallest ? 'less' : null}
         value={activeTiles}
         max={MAX_TILES}
         min={1}
@@ -666,7 +669,7 @@ export function PatternExtendWidget({
         onChange={(v) => {
           setInvite(null);
           apply({ op: 'place-token', args: { index: active, token: { tiles: v } } });
-          if (v >= MAX_TILES) say('ui.widget.pattern.tallest');
+          if (v >= MAX_TILES) say('ui.widget.pattern.biggest');
         }}
       />
     ) : null;
@@ -724,7 +727,7 @@ export function PatternExtendWidget({
           {tilesControl}
           {tallest ? (
             <p className="ni-pattern__note" role="status">
-              {t('ui.widget.pattern.tallest')}
+              {t('ui.widget.pattern.biggest')}
             </p>
           ) : null}
           {typed ? (

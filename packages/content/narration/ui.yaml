@@ -1045,9 +1045,9 @@ ui.widget.pattern.squares:
 ui.widget.pattern.jump:
   text: "How big is each jump?"
   level: K
-ui.widget.pattern.tallest:
-  text: "That is the tallest one."
+ui.widget.pattern.biggest:
+  text: "That is the biggest one."
   level: K
 ui.widget.chart.full:
-  text: "That one is full."
+  text: "{n} is the most here."
   level: K

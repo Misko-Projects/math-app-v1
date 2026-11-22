@@ -709,29 +709,32 @@ export const StressLongestExtendKLandscapeMin: Story = {
 /** The longest number pattern with the largest numbers: six places of three digits. */
 const longestNumbers: Config = {
   format: 'pattern-extend',
-  sequence: [{ n: 500 }, { n: 600 }, { n: 700 }, { n: 800 }, null, null],
+  sequence: [{ n: 400 }, { n: 500 }, { n: 600 }, { n: 700 }, null, null],
   palette: [],
   mode: 'extend',
   kind: 'number',
 };
 
-/** Stress at the bound, K, 960 × 600: six three-digit places above the two-row pad. */
-export const StressLongestNumbersKLandscapeMin: Story = {
-  globals: { ageMode: 'k' },
-  args: { config: longestNumbers, tier: 'abstract' },
-  render: inArea('landscapeMin'),
-  play: async ({ canvasElement, args }) => {
+/** Six three-digit places and the two typed terms stay inside their cells and the area. */
+const typeTheTerms =
+  (config: Config, typed: [number, number], age: 'k' | 'g1-up') =>
+  async ({
+    canvasElement,
+    args,
+  }: {
+    canvasElement: HTMLElement;
+    args: { onResponse: unknown };
+  }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectShowsSequence(root, longestNumbers.sequence);
-    await userEvent.keyboard('900');
+    await expectShowsSequence(root, config.sequence);
+    await userEvent.keyboard(String(typed[0]));
     await userEvent.click(cell(root, 5));
-    await userEvent.keyboard('999');
+    await userEvent.keyboard(String(typed[1]));
     await expectFitsArea(
       areaBox(canvasElement),
       [...shownCells(root), ...blanks(root), ...padKeys(root), check(root)],
-      'k',
+      age,
     );
-    // Three digits stay inside their cell.
     for (const n of root.querySelectorAll<HTMLElement>('.ni-pattern__numeral')) {
       const box = (n.closest('.ni-pattern__cell') as HTMLElement).getBoundingClientRect();
       const text = n.getBoundingClientRect();
@@ -741,9 +744,35 @@ export const StressLongestNumbersKLandscapeMin: Story = {
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
-      value: { tokens: [{ n: 900 }, { n: 999 }] },
+      value: { tokens: [{ n: typed[0] }, { n: typed[1] }] },
     });
-  },
+  };
+
+/**
+ * Stress at the bound, 960 × 600: six three-digit places above the two-row pad; the next terms
+ * (800, 900) are typed and are the right ones.
+ */
+export const StressLongestNumbersLandscapeMin: Story = {
+  args: { config: longestNumbers, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: typeTheTerms(longestNumbers, [800, 900], 'g1-up'),
+};
+
+/** Kindergarten numbers at the same bound: 5, 6, 7, 8 and the next two (9, 10). */
+const countOn: Config = {
+  format: 'pattern-extend',
+  sequence: [{ n: 5 }, { n: 6 }, { n: 7 }, { n: 8 }, null, null],
+  palette: [],
+  mode: 'extend',
+  kind: 'number',
+};
+
+/** K, 960 × 600: six places of counting numbers above the two-row pad at kindergarten sizes. */
+export const CountOnKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: countOn, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: typeTheTerms(countOn, [9, 10], 'k'),
 };
 
 /** The longest rule pattern: six numbers growing by 150. */
@@ -755,9 +784,8 @@ const longestRule: Config = {
   kind: 'number',
 };
 
-/** Stress at the bound, K, 960 × 600: the rule's answer box sits beside the two-row pad. */
-export const StressLongestRuleKLandscapeMin: Story = {
-  globals: { ageMode: 'k' },
+/** Stress at the bound, 960 × 600: the rule's answer box sits beside the two-row pad. */
+export const StressLongestRuleLandscapeMin: Story = {
   args: { config: longestRule, tier: 'abstract' },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
@@ -767,7 +795,7 @@ export const StressLongestRuleKLandscapeMin: Story = {
     await expectFitsArea(
       areaBox(canvasElement),
       [...shownCells(root), ...padKeys(root), check(root)],
-      'k',
+      'g1-up',
       [root.querySelector('.ni-pattern__answer') as HTMLElement],
     );
     await userEvent.click(check(root));
@@ -810,7 +838,7 @@ export const StressLongestTranslateKLandscapeMin: Story = {
   },
 };
 
-/** The tallest stacks: 5, 10, 15 tiles → build 20 (MAX_TILES). */
+/** The biggest stacks: 5, 10, 15 tiles → build 20 (MAX_TILES). */
 const tallestTiles: Config = {
   format: 'pattern-extend',
   sequence: [{ tiles: 5 }, { tiles: 10 }, { tiles: 15 }, null],
@@ -820,11 +848,12 @@ const tallestTiles: Config = {
 };
 
 /**
- * Stress at the bound, K, 960 × 600: the tallest stack (20 tiles). Reaching it is a state the
- * child can read and leave: "That is the tallest one." is shown and spoken, one-more is off and
- * the one cue is on one-less (`TallestTilesLeave` takes one off again).
+ * Stress at the bound, K, 960 × 600: the biggest stack (20 tiles), which is also this pattern's
+ * answer. Reaching it is a state the child can read: one-more goes off and "That is the biggest
+ * one." is shown and spoken. Nothing is ringed (a cue on one-less would steer the child off the
+ * answer); one-less and Check stay live (`BiggestTilesLeave` takes one off again).
  */
-export const StressTallestTilesKLandscapeMin: Story = {
+export const StressBiggestTilesKLandscapeMin: Story = {
   globals: { ageMode: 'k' },
   args: { config: tallestTiles, tier: 'pictorial' },
   parameters: { ui: { audio: spyAudio() } },
@@ -839,14 +868,16 @@ export const StressTallestTilesKLandscapeMin: Story = {
     await expect(cell(root, 3).querySelectorAll('.ni-pattern__tile')).toHaveLength(20);
     await expect(more).toBeDisabled();
     const note = () => root.querySelector<HTMLElement>('.ni-pattern__note');
-    await expect(note()).toHaveTextContent('That is the tallest one.');
+    await expect(note()).toHaveTextContent('That is the biggest one.');
     await expect(note()).toHaveAttribute('role', 'status');
-    await expect(audio.say).toHaveBeenCalledWith('ui.widget.pattern.tallest', undefined);
-    await expect([...root.querySelectorAll('.ni-invite')]).toEqual([less]);
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.pattern.biggest', undefined);
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(less).toBeEnabled();
+    await expect(check(root)).toBeEnabled();
     await expectFitsArea(areaBox(canvasElement), [...shownCells(root), less, check(root)], 'k', [
       note() as HTMLElement,
     ]);
-    // Every tile of the tallest stack can be seen and counted (at least 8 px each).
+    // Every tile of the biggest stack can be seen and counted (at least 8 px each).
     for (const tile of cell(root, 3).querySelectorAll('.ni-pattern__tile')) {
       await expect(tile.getBoundingClientRect().width).toBeGreaterThanOrEqual(8);
     }
@@ -858,8 +889,8 @@ export const StressTallestTilesKLandscapeMin: Story = {
   },
 };
 
-/** Leaving the tallest stack: one-less takes the line and the cue away, and one-more is back. */
-export const TallestTilesLeave: Story = {
+/** Leaving the biggest stack: one-less takes the line away, and one-more is back. */
+export const BiggestTilesLeave: Story = {
   args: { config: tallestTiles, tier: 'pictorial' },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
