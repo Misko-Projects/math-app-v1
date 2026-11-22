@@ -51,6 +51,8 @@ export const widgetRegistry: WidgetRegistry = {
   // U04 (#13): operations
   'equal-groups': () => import('./equal-groups/EqualGroupsWidget'),
   'equal-share': () => import('./equal-share/EqualShareWidget'),
+  'array-build': () => import('./array-build/ArrayBuildWidget'),
+  'area-tiles': () => import('./area-tiles/AreaTilesWidget'),
 };
 
 /** Formats that have a registered widget. */

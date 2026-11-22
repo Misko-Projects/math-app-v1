@@ -1,0 +1,161 @@
+/*
+ * area-tiles widget (U04, 03 §5.5). Build: the kit's work panel (arrows, the mode's actions, a
+ * limit note), the region and the action beside it. Ask: the region as a static picture, the kit
+ * NumberEntry and the actions (kit twoStep). Every unit square is one size; a tile covers its
+ * square exactly. Sizes come from layout.ts; nothing here sets a part's size.
+ */
+
+.ni-atw {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  /* Safe centring in the host; the root's width is the room, never its content's (kit room.ts). */
+  margin: auto;
+  contain: inline-size;
+}
+.ni-atw__build {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* kit STEP_GAP */
+  gap: 24px;
+}
+
+/* ---------- the region: one surface for a finger; its squares are a picture ---------- */
+
+.ni-atw__board {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.ni-atw__board[data-live="true"] {
+  cursor: pointer;
+  touch-action: none;
+}
+.ni-atw .ni-atw__board.ni-invite {
+  outline-offset: -5px;
+  animation: none;
+}
+.ni-atw__inner {
+  position: relative;
+  flex: none;
+  pointer-events: none;
+}
+.ni-atw__svg {
+  position: absolute;
+  display: block;
+  overflow: visible;
+}
+
+/* A square of the region with no tile on it: bare sand. */
+.ni-atw__cell {
+  fill: var(--color-sand);
+}
+/* A tile: it fills its square; its face is drawn inside. */
+.ni-atw__tile {
+  fill: var(--color-sea-deep);
+}
+.ni-atw__face {
+  fill: var(--color-sky-light);
+}
+.ni-atw__gridline {
+  stroke: var(--color-wood-deep);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.ni-atw__outline {
+  stroke: var(--color-ink);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+/* The decimal grid's one whole: every hundredth is drawn, the region's are filled. */
+.ni-atw__whole {
+  fill: var(--color-paper);
+}
+.ni-atw__wholeline {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 4;
+}
+/* A split line the child drew. */
+.ni-atw__split {
+  stroke: var(--color-ink);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+/*
+ * The cursors: one square, or one grid line. The line cursor is a sunshine band under the line;
+ * the line itself is dashed until it is drawn, and solid (a split) once it is.
+ */
+.ni-atw__cursor {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 4;
+  stroke-dasharray: 8 6;
+}
+.ni-atw__cursorline {
+  stroke: var(--color-sunshine);
+  stroke-width: 18;
+  stroke-linecap: round;
+}
+.ni-atw__cursordash {
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 10 10;
+}
+
+/* ---------- side lengths ---------- */
+
+.ni-atw__side {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+.ni-atw__side[data-side="left"] {
+  flex-direction: column;
+  gap: 0;
+  padding-right: 6px;
+}
+.ni-atw__side[data-side="top"] {
+  padding-bottom: 4px;
+}
+.ni-atw__len {
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+}
+.ni-atw__unit {
+  font-family: var(--font-body);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+[data-age-mode="k"] .ni-atw__unit {
+  font-size: 28px;
+}
+.ni-atw__side[data-lit="true"] .ni-atw__len {
+  box-shadow: inset 0 -6px 0 var(--color-sunshine);
+}
+
+.ni-atw__entry {
+  display: block;
+}
+.ni-atw .ni-invite {
+  outline-offset: -5px;
+}

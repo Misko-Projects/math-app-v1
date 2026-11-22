@@ -142,6 +142,26 @@ export {
 } from './GaugeView';
 export { useGrabUnderFinger } from './grab';
 export {
+  cellAt,
+  lineAt,
+  NOTE_LINE_H,
+  NOTE_LINES,
+  PANEL_GAP,
+  PANEL_HEAD_H,
+  PadArrowIcon,
+  type PadButton,
+  padBox,
+  panelBox,
+  planWork,
+  type SurfacePoint,
+  type SurfacePointerOptions,
+  useSurfacePointer,
+  type WorkInput,
+  WorkPanel,
+  type WorkPanelProps,
+  type WorkPlan,
+} from './gridWork';
+export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
   INVITE_TARGET_SELECTOR,
@@ -172,6 +192,13 @@ export {
   pieceCents,
   purseLimits,
 } from './MoneyBoard';
+export {
+  commitWaiters,
+  DEMO_KEY_MS,
+  DEMO_PICK_MS,
+  demoEnterAnswer,
+  useModelState,
+} from './modelState';
 export { type FlyOptions, flyFrom } from './motion';
 export {
   type EntryKind,

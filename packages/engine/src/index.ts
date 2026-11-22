@@ -35,14 +35,29 @@ export type { FormatModel, FormatState } from './formats';
 export { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './formats';
 // U04 (#13) format state types and the helpers their widgets render from.
 export {
+  AREA_SIDE_MAX,
+  AREA_WORK_H_MAX,
+  AREA_WORK_W_MAX,
   type AreaTilesState,
+  areaAnswerIssues,
+  areaAnswerMax,
+  areaWorked,
+  fillsBox,
   isRectangle,
   isRectPiece,
   maskArea,
   regionPieces,
   type Split,
 } from './formats/area-tiles';
-export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
+export {
+  ARRAY_FOUND_MAX,
+  ARRAY_SIDE_MAX,
+  type ArrayBuildState,
+  alreadyFound,
+  arrayAnswerIssues,
+  arrayAnswerMax,
+  rectanglesOf,
+} from './formats/array-build';
 export {
   type BalanceState,
   type BalanceTerm,
