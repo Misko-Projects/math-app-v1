@@ -506,6 +506,12 @@ const AREA = {
    * two K ten-frames still don't fit, so a groupsOf item shows one ten-frame at a time here.
    */
   shortLandscape: widgetArea(960, 720),
+  /**
+   * The Practice Pier's workshop area at 960 × 600 in K, as measured (#12): 858 × 366 inside the
+   * card's padding and border. Taller than the 06 §2 minimum above, which the pier's short top
+   * row gives back to the widget.
+   */
+  pierMinK: { width: 858 + 2 * 27, height: 366 + 2 * 27 },
 } as const;
 
 /**
@@ -2019,3 +2025,158 @@ async function expectKnotOffBorder(root: HTMLElement) {
     }
   }
 }
+
+// ---------- #12: the arrangements that did not fit the Practice Pier ----------
+
+/**
+ * SUB.05.t1 (K) in the smallest area: the two hands, their finger buttons and Check under them
+ * need 556 px; here the hands are drawn to the height the buttons leave, with Check beside them.
+ */
+export const HandsKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: hands },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-hands', 'tight'));
+    const box = areaBox(canvasElement);
+    await expect(box.scrollHeight).toBeLessThanOrEqual(box.clientHeight + 1);
+    await expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth + 1);
+    const inner = contentBox(box);
+    const controls = [...root.querySelectorAll<HTMLElement>('.ni-mset__hand-btn, .ni-btn')];
+    await expect(controls).toHaveLength(7);
+    for (const el of controls) {
+      await expectInside(el.getBoundingClientRect(), inner, 0, el.getAttribute('aria-label') ?? '');
+      await expectTargetSize(el, 'k');
+    }
+    await expectTargetGaps(controls);
+    // The same task: seven fingers up, check, the same response.
+    const up = [...root.querySelectorAll<HTMLElement>('[data-ctl="up"] .ni-btn')];
+    for (let i = 0; i < 5; i++) await userEvent.click(up[0] as HTMLElement);
+    for (let i = 0; i < 2; i++) await userEvent.click(up[1] as HTMLElement);
+    await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { count: 7, removed: 0, parts: [5, 2] },
+    });
+  },
+};
+
+/** ADD.20.t2 seed 1 (K): seven shells in the basket, take away until four are left. */
+const takeAwayK: ConfigFor<'make-set'> = {
+  ...takeAway,
+  target: 4,
+  start: 7,
+  container: 'basket',
+};
+
+/**
+ * Take-away in K in the smallest area: seven 80 px objects cannot stand in a column beside the
+ * basket with Check, so the pile gets a column of its own (`split`), with Check under it.
+ */
+export const TakeAwayKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: takeAwayK },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'split'));
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+    for (let i = 0; i < 3; i++) {
+      await userEvent.click(inside(root).at(-1) as HTMLElement);
+      await userEvent.click(pilePad(root));
+      await waitFor(() => expect(heap(root)).toHaveLength(i + 1));
+    }
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+    for (const el of heap(root)) await expectTargetSize(el, 'k');
+    await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { count: 4, removed: 3, parts: [4, 3] },
+    });
+  },
+};
+
+/** ADD.24.t1 seed 1 (K): eight starfish in the boat, three more in the crate, leave six. */
+const takeAwaySupplyK: ConfigFor<'make-set'> = {
+  ...takeAway,
+  target: 6,
+  start: 8,
+  source: { sprite: 'starfish', supply: 3 },
+};
+
+/**
+ * Take-away with a crate in K in the pier's area at 960 × 600 (858 × 366 inside): the crate and
+ * Check under the boat, the pile beside them. The pile shows the latest objects taken (here six
+ * at once); the ones before come back into view as objects go back, and the response counts all.
+ */
+export const TakeAwaySupplyKPier: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: takeAwaySupplyK },
+  render: inArea('pierMinK'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'split'));
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+    const pile = () => [...pileArea(root).querySelectorAll('.ni-mset__item')];
+    for (let i = 0; i < 7; i++) {
+      await userEvent.click(inside(root).at(-1) as HTMLElement);
+      await userEvent.click(pilePad(root));
+      await waitFor(() => expect(inside(root)).toHaveLength(7 - i));
+    }
+    // Seven taken, six in view (two columns of three rows); nothing scrolls.
+    await expect(pile()).toHaveLength(6);
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+    // One back into the boat: the seventh comes into view again.
+    await userEvent.click(pile()[0] as HTMLElement);
+    await userEvent.click(containerPad(root));
+    await waitFor(() => expect(inside(root)).toHaveLength(2));
+    await expect(pile()).toHaveLength(6);
+    await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { count: 2, removed: 6, parts: [2, 6] },
+    });
+  },
+};
+
+/** PV.09.t1 seed 1: 37 crabs in a boat of 40, to bundle by tens. */
+const forty: ConfigFor<'make-set'> = {
+  format: 'make-set',
+  target: 37,
+  mode: 'make',
+  start: 37,
+  source: { sprite: 'crab', supply: 0 },
+  container: 'boat',
+  capacity: 40,
+  showRunningCount: false,
+  groupsOf: 10,
+};
+
+/**
+ * A boat of 40 on the tablet area: four ten-frames in a column are 624 px tall, so they stand two
+ * by two, and the actions go icon-only where their words would not leave the boat its width.
+ */
+export const FortyTablet: Story = {
+  args: { config: forty },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root.querySelectorAll('.ni-mset__frame')).toHaveLength(4));
+    const box = areaBox(canvasElement);
+    await waitFor(() => expect(box.scrollHeight).toBeLessThanOrEqual(box.clientHeight + 1));
+    await expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth + 1);
+    const frames = [...root.querySelectorAll('.ni-mset__frame')].map((f) =>
+      f.getBoundingClientRect(),
+    );
+    // Two rows of two frames, in reading order.
+    await expect(Math.abs((frames[0] as DOMRect).top - (frames[1] as DOMRect).top)).toBeLessThan(1);
+    await expect((frames[2] as DOMRect).top).toBeGreaterThan((frames[0] as DOMRect).bottom);
+    await expect(inside(root)).toHaveLength(37);
+    for (const el of inside(root)) await expectTargetSize(el, 'g1-up');
+    const inner = contentBox(box);
+    for (const el of root.querySelectorAll('.ni-mset__actions .ni-btn')) {
+      await expectInside(el.getBoundingClientRect(), inner, 0, 'action');
+    }
+  },
+};
