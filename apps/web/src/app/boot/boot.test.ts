@@ -35,6 +35,22 @@ describe('boot: fresh setup', () => {
     expect(device.net.syncRequests).toEqual([]);
   });
 
+  it('binds the content to the item core, so items generate with their prompt and are checked', async () => {
+    const engine = await import('@number-island/engine');
+    engine.resetContent();
+    const app = await track(testDevice().boot());
+
+    expect(app.content.misconceptions.length).toBeGreaterThan(0);
+    const template = Object.values(app.content.store.graph.templates).find(
+      (t) => t.format === 'number-pad',
+    );
+    if (!template) throw new Error('no number-pad template in the content');
+    const item = engine.generateItem(template, 7);
+    expect(app.content.narration[item.prompt.narration]).toBeDefined();
+    expect(item.prompt.text.length).toBeGreaterThan(0);
+    expect(engine.checkResponse(item, engine.itemExampleCorrect(item)).correct).toBe(true);
+  });
+
   it('starts syncing with the device token right after adoptFamily (setup or pairing)', async () => {
     const device = testDevice();
     const app = await track(device.boot());

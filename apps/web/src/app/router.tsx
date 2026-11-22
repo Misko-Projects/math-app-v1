@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { ChildHomePage } from '@/island/ChildHomePage';
+import { PlayLayout } from '@/island/PlayLayout';
 import { lazyRoute } from './lazyRoutes';
 import { ProfilePicker } from './picker/ProfilePicker';
 import { RootLayout } from './RootLayout';
@@ -32,7 +33,14 @@ export const routes: RouteObject[] = [
           </StartGate>
         ),
       },
-      { path: 'play/:childId', Component: ChildHomePage },
+      {
+        path: 'play/:childId',
+        Component: PlayLayout,
+        children: [
+          { index: true, Component: ChildHomePage },
+          { path: 'pier', lazy: lazyRoute.pier },
+        ],
+      },
       { path: 'welcome', lazy: lazyRoute.welcome, handle: FIRST_RUN_HOME },
       { path: 'setup', lazy: lazyRoute.setup },
       { path: 'join', lazy: lazyRoute.join },

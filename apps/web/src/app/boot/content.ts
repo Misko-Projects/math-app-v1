@@ -6,6 +6,8 @@ import { buildSkillGraph } from '@number-island/engine/shell';
 import {
   gameDataSchema,
   itemTemplateSchema,
+  type MisconceptionSpec,
+  misconceptionSpecSchema,
   type NarrationJson,
   narrationJsonSchema,
   skillGraphSchema,
@@ -22,6 +24,7 @@ const REQUIRED_FILES = [
   'narration.json',
   'skills.json',
   'templates.json',
+  'misconceptions.json',
 ];
 const OPTIONAL_FILES = ['template-stats.json'];
 
@@ -31,6 +34,8 @@ export interface AppContent {
   store: StoreContent;
   /** `narration.json` for the AudioManager and narration text (02 §5.5). */
   narration: NarrationJson;
+  /** `misconceptions.json`: the engine's item core checks answers against these (03 §7.1). */
+  misconceptions: MisconceptionSpec[];
 }
 
 export type ContentErrorCode = 'unreachable' | 'invalid';
@@ -118,6 +123,9 @@ export async function loadContent(fetchImpl: FetchLike = globalThis.fetch): Prom
   const templates = parse('templates.json', () =>
     itemTemplateSchema.array().parse(raw['templates.json']),
   );
+  const misconceptions = parse('misconceptions.json', () =>
+    misconceptionSpecSchema.array().parse(raw['misconceptions.json']),
+  );
   const graph = parse('graph.json', () => {
     const g = raw['graph.json'] as Record<string, unknown> | null;
     const isRecord = (v: unknown) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -153,6 +161,7 @@ export async function loadContent(fetchImpl: FetchLike = globalThis.fetch): Prom
   return {
     contentVersion: index.contentVersion,
     narration,
+    misconceptions,
     store: { contentVersion: index.contentVersion, gameData, graph: skillGraph },
   };
 }

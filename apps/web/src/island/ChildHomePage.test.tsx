@@ -7,6 +7,7 @@ import { testDevice } from '@/app/boot/boot.test-support';
 import type { SessionTimers } from '@/app/session/SessionController';
 import { CHILD_K, profile } from '@/data/store.test-support';
 import { ChildHomePage } from './ChildHomePage';
+import { PlayLayout } from './PlayLayout';
 
 const booted: AppServices[] = [];
 let restore = () => {};
@@ -39,7 +40,14 @@ async function renderHome({ startSession = true } = {}) {
   const router = createMemoryRouter(
     [
       { path: '/', element: <p>picker</p> },
-      { path: '/play/:childId', Component: ChildHomePage },
+      {
+        path: '/play/:childId',
+        Component: PlayLayout,
+        children: [
+          { index: true, Component: ChildHomePage },
+          { path: 'pier', element: <p>pier</p> },
+        ],
+      },
     ],
     { initialEntries: [`/play/${CHILD_K}`] },
   );
@@ -97,6 +105,25 @@ describe('<ChildHomePage>', () => {
     await screen.findByText('picker');
     expect(router.state.location.pathname).toBe('/');
     expect(await ended(app)).toHaveLength(1);
+  });
+
+  it('opens the Practice Pier without ending the session; a wind-down that came there plays on return', async () => {
+    const { app, router, tick } = await renderHome();
+    await screen.findByTestId('child-home');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: "Let's play!" }));
+    });
+    await screen.findByText('pier');
+    expect(router.state.location.pathname).toBe(`/play/${CHILD_K}/pier`);
+    // The budget runs out at the pier, which lets the current item finish and ends nothing itself.
+    tick(10 * 60_000);
+    expect(await ended(app)).toHaveLength(0);
+    await act(async () => {
+      await router.navigate(`/play/${CHILD_K}`, { replace: true });
+    });
+    expect(await screen.findByTestId('sunset')).toBeTruthy();
+    await waitFor(async () => expect(await ended(app)).toHaveLength(1));
+    expect((await ended(app))[0]?.payload).toMatchObject({ reason: 'wind-down' });
   });
 
   it('Home ends the session as a child exit', async () => {

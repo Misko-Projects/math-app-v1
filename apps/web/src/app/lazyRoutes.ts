@@ -20,6 +20,10 @@ export const lazyRoute = {
   parentHome: async () => ({ Component: (await parentArea()).ParentHome }),
   pairDevice: async () => ({ Component: (await parentArea()).PairDevicePage }),
   diagnostics: async () => ({ Component: (await parentArea()).DiagnosticsPage }),
+  // The Practice Pier (#20): a workshop chunk (02 §6), warmed like the rest once the app is up.
+  pier: async () => ({
+    Component: (await import('@/workshops/practice-pier/PierPage')).PierPage,
+  }),
 } satisfies Record<string, RouteModule>;
 
 type Idle = (run: () => void) => void;
