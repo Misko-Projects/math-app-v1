@@ -1951,7 +1951,6 @@ export const TwentyNineOneScreenPierG1: Story = {
 
 /** The pier's room for a landscape screen (measured at 960 × 600 and 1280 × 800 in Grade 1). */
 const pierRoom = (vw: number) => ({ w: vw - 102, h: Math.round(vw * 0.625) - 242 });
-const SWEEP_SCREENS = [960, 1040, 1120, 1200, 1280];
 const SWEEP_COUNTS = [21, 25, 29, 30];
 interface SweepCase {
   w: number;
@@ -1988,45 +1987,56 @@ function PlatesSweep(args: WidgetHostProps) {
  * counted all 31 numeral cards and Check can be reached: none lies left of or above where the
  * area scrolls to, and all are within its scrollable size.
  */
-export const PlatesAnswerReachableSweep: Story = {
+const platesSweep = (vw: number): Story => ({
   args: { config: groupsOfTen },
   render: (args) => <PlatesSweep {...args} />,
   play: async ({ canvasElement }) => {
-    let key = 0;
-    for (const vw of SWEEP_SCREENS) {
-      for (const n of SWEEP_COUNTS) {
-        key += 1;
-        const room = pierRoom(vw);
-        const what = `${n} crabs in ${room.w} × ${room.h}`;
-        window.dispatchEvent(new CustomEvent('ni-sweep', { detail: { ...room, n, key } }));
-        await waitFor(() => {
-          const host = canvasElement.querySelector('.story-host-box') as HTMLElement;
-          expect(host.clientWidth).toBe(room.w);
-          expect(host.querySelectorAll('[data-obj]')).toHaveLength(n);
-        });
-        const root = await findWidget(canvasElement, ROOT);
-        await settle(root);
-        for (let i = 0; i < n; i++) await userEvent.click(obj(root, i));
-        if (root.getAttribute('data-step') === 'build') await goNext(root);
-        const host = root.closest('.story-host-box') as HTMLElement;
-        host.scrollTop = 0;
-        host.scrollLeft = 0;
-        const origin = host.getBoundingClientRect();
-        const cards = [
-          ...root.querySelectorAll('.ni-tapc__asktray .ni-pick, .ni-tapc__tray .ni-pick'),
-        ];
-        await expect(cards, what).toHaveLength(31);
-        for (const el of [...cards, checkButton(root)]) {
-          const r = el.getBoundingClientRect();
-          await expect(r.left, what).toBeGreaterThanOrEqual(origin.left - 0.5);
-          await expect(r.top, what).toBeGreaterThanOrEqual(origin.top - 0.5);
-          await expect(r.right - origin.left, what).toBeLessThanOrEqual(host.scrollWidth + 0.5);
-          await expect(r.bottom - origin.top, what).toBeLessThanOrEqual(host.scrollHeight + 0.5);
-        }
+    const room = pierRoom(vw);
+    for (const [k, n] of SWEEP_COUNTS.entries()) {
+      const what = `${n} crabs in ${room.w} × ${room.h}`;
+      window.dispatchEvent(new CustomEvent('ni-sweep', { detail: { ...room, n, key: k + 1 } }));
+      await waitFor(() => {
+        const host = canvasElement.querySelector('.story-host-box') as HTMLElement;
+        expect(host.clientWidth).toBe(room.w);
+        expect(host.querySelectorAll('[data-obj]')).toHaveLength(n);
+      });
+      const root = await findWidget(canvasElement, ROOT);
+      await settle(root);
+      // Plain clicks (no pointer simulation): the sweep is about where the answer ends up.
+      for (let i = 0; i < n; i++) obj(root, i).click();
+      // Every crab counted: the tray is in (one screen) or Next is (two steps).
+      await waitFor(() =>
+        expect(
+          root.querySelector(
+            '.ni-tapc__tray[data-shown="true"], .ni-steps [data-cue="next"] button',
+          ),
+        ).not.toBeNull(),
+      );
+      if (root.getAttribute('data-step') === 'build') await goNext(root);
+      const host = root.closest('.story-host-box') as HTMLElement;
+      host.scrollTop = 0;
+      host.scrollLeft = 0;
+      const origin = host.getBoundingClientRect();
+      const cards = [
+        ...root.querySelectorAll('.ni-tapc__asktray .ni-pick, .ni-tapc__tray .ni-pick'),
+      ];
+      await expect(cards, what).toHaveLength(31);
+      for (const el of [...cards, checkButton(root)]) {
+        const r = el.getBoundingClientRect();
+        await expect(r.left, what).toBeGreaterThanOrEqual(origin.left - 0.5);
+        await expect(r.top, what).toBeGreaterThanOrEqual(origin.top - 0.5);
+        await expect(r.right - origin.left, what).toBeLessThanOrEqual(host.scrollWidth + 0.5);
+        await expect(r.bottom - origin.top, what).toBeLessThanOrEqual(host.scrollHeight + 0.5);
       }
     }
   },
-};
+});
+/** One story a screen, so each stays well inside the test timeout on a slow runner. */
+export const PlatesAnswerReachable960: Story = platesSweep(960);
+export const PlatesAnswerReachable1040: Story = platesSweep(1040);
+export const PlatesAnswerReachable1120: Story = platesSweep(1120);
+export const PlatesAnswerReachable1200: Story = platesSweep(1200);
+export const PlatesAnswerReachable1280: Story = platesSweep(1280);
 
 /** On the tablet area the same seven leaves stay on one screen, tray and all (no steps). */
 export const CountOneScreenTabletK: Story = {
