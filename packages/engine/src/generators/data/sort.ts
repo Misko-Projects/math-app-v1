@@ -8,6 +8,8 @@
 //   labelled `noun.<kind>.many`); `cardSet: shapes` sorts ShapeCards by `attribute` colour
 //   (`word.red|blue|yellow`), shape (`shape.<kind>.many`) or size (`word.big|small`, scale 1.5 or
 //   0.6). Card ids c0, c1, … in display order; bins b0, b1, b2. Response `{ bins }` (sort.byRule).
+//   A sort shows no count or order, so it is DAT.01 practice only, never DAT.10 evidence (PR #84
+//   review round 2).
 // - number-pad: an objects picture with `a` of one kind among `b` others (the ObjectSet
 //   `distractors`); the child counts the asked kind.
 // - bar-graph-read: a picture graph of the groups (one row of pictures each, categories named by

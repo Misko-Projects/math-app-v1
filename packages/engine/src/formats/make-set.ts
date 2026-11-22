@@ -155,6 +155,20 @@ export const makeSet: FormatModel<'make-set', MakeSetState> = {
         return s;
       case 'close-container':
         return { ...s, closed: true };
+      case 'answer': {
+        // The generic answer op (03 §6.3): drag or remove until the container holds `value`
+        // (as many as the supply and capacity allow), then, with groupsOf 10, bundle every full ten.
+        const value = argNumber(a, 'value');
+        if (value === undefined || !Number.isInteger(value) || value < 0) return s;
+        const want = Math.min(value, c.capacity);
+        let next = s;
+        if (want > next.count) {
+          next = makeSet.apply(next, { op: 'drag', args: { count: want - next.count } });
+        } else if (want < next.count) {
+          next = makeSet.apply(next, { op: 'remove', args: { count: next.count - want } });
+        }
+        return c.groupsOf ? makeSet.apply(next, { op: 'bundle' }) : next;
+      }
       default:
         throw new UnsupportedOpError('make-set', a.op);
     }

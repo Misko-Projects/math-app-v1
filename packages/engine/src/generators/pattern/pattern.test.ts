@@ -199,7 +199,7 @@ describe('pattern.tokens', () => {
 });
 
 describe('pattern.grow', () => {
-  it('hundred chart: taps the next terms after the three shaded', () => {
+  it('hundred chart: taps the next terms after the three the prompt says', () => {
     const t = tpl('pattern.grow', 'hundred-chart', 'pictorial', 'hundred-chart');
     const { item, features } = build(t, { start: 4, step: 10, ask: 2 });
     expect(item.widget).toMatchObject({ mode: 'pattern', patternStart: 4, patternStep: 10 });

@@ -393,6 +393,57 @@ describe('tombstones (08 §4)', () => {
   });
 });
 
+describe('putProfiles: several profiles, all or none', () => {
+  it('writes every profile in one go, each stamped', async () => {
+    const env = testEnv();
+    const store = await track(env.open('batch'));
+    const saved = await store.putProfiles([
+      profile(CHILD_K, 'K', 'Ada'),
+      profile(CHILD_G2, '2', 'Ben'),
+    ]);
+    expect(saved.map((p) => p.updatedAt)).toEqual([env.clock.now(), env.clock.now()]);
+    expect((await store.allProfiles()).map((p) => p.name).sort()).toEqual(['Ada', 'Ben']);
+  });
+
+  it('one invalid profile writes none of them', async () => {
+    const store = await track(testEnv().open('batch-invalid'));
+    await expect(
+      store.putProfiles([profile(CHILD_K, 'K', 'Ada'), { ...profile(CHILD_G2, '2'), name: '' }]),
+    ).rejects.toMatchObject({ code: 'invalid_profile' });
+    expect(await store.allProfiles()).toEqual([]);
+  });
+
+  it('a failure after the write, inside the transaction, rolls every profile back', async () => {
+    const store = await track(testEnv().open('batch-rollback'));
+    const table = store.db.profiles;
+    const write = table.bulkPut.bind(table);
+    const spy = vi.spyOn(table, 'bulkPut').mockImplementation((async (
+      ...args: Parameters<typeof write>
+    ) => {
+      await write(...args);
+      throw new Error('disk full'); // the rows were written, then the transaction fails
+    }) as never);
+    await expect(
+      store.putProfiles([profile(CHILD_K, 'K', 'Ada'), profile(CHILD_G2, '2', 'Ben')]),
+    ).rejects.toThrow('disk full');
+    spy.mockRestore();
+    expect(await store.allProfiles()).toEqual([]);
+  });
+
+  it('a deleted child in the list writes none of them', async () => {
+    const env = testEnv();
+    const store = await track(env.open('batch-deleted'));
+    const tomb = serverEvent('child.deleted', { childId: CHILD_K }, env.clock.now(), null, {
+      deviceId: FAMILY,
+    });
+    await store.ingest([tomb], { source: 'server' });
+    await expect(
+      store.putProfiles([profile(CHILD_G2, '2', 'Ben'), profile(CHILD_K, 'K', 'Ada')]),
+    ).rejects.toMatchObject({ code: 'child_deleted' });
+    expect(await store.allProfiles()).toEqual([]);
+  });
+});
+
 describe('profiles and settings (LWW per document)', () => {
   it('putProfile stamps updatedAt; mergeProfiles keeps the newer whole document', async () => {
     const { env, store } = await familyStore();
@@ -404,9 +455,59 @@ describe('profiles and settings (LWW per document)', () => {
     expect(await store.mergeProfiles([older, { junk: true }], { source: 'server' })).toBe(0);
     expect(await store.mergeProfiles([newer], { source: 'server' })).toBe(1);
     expect((await store.allProfiles()).find((p) => p.id === CHILD_K)).toEqual(newer);
+    // The picture password is device-local (08 §3): a merge keeps this device's (here, none).
+    const withHash = { ...newer, picturePasswordHash: 'pbkdf2-sha256$1$eA$eA', updatedAt: t + 2 };
+    expect(await store.mergeProfiles([withHash], { source: 'backup' })).toBe(1);
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)?.picturePasswordHash).toBe(
+      null,
+    );
     // The grade moved from K to G1: the child's skills row and the goals row are rebuilt.
     const row = await store.db.projections.get(`skills:${CHILD_K}`);
     expect(row?.version).toMatch(/\|isK=0$/);
+  });
+
+  it('a server copy that differs only in the local picture password changes nothing', async () => {
+    const { store } = await familyStore();
+    const hash = 'pbkdf2-sha256$1$eA$eA';
+    const local = await store.setPicturePassword(CHILD_K, hash);
+    // The server never holds the password: its copy of the same document has none.
+    const server = { ...local, picturePasswordHash: null };
+    const put = vi.spyOn(store.db.profiles, 'put');
+    expect(await store.mergeProfiles([server], { source: 'server' })).toBe(0);
+    expect(put).not.toHaveBeenCalled();
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)).toEqual(local);
+    // A real change at the same updatedAt is still adopted from the server, password kept.
+    expect(await store.mergeProfiles([{ ...server, name: 'Renamed' }], { source: 'server' })).toBe(
+      1,
+    );
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)).toEqual({
+      ...local,
+      name: 'Renamed',
+    });
+    put.mockRestore();
+  });
+
+  it('a session ends once: a second session.ended for it is refused, whatever its case', async () => {
+    const { store } = await familyStore();
+    const end = (sessionId: string, reason: 'child-exit' | 'abandoned') =>
+      store.append(
+        'session.ended',
+        { sessionId, reason, activeMs: 1000, mathMs: 0, items: 0 },
+        { childId: CHILD_K },
+      );
+    await end('Session-A', 'child-exit');
+    await expect(end('session-a', 'abandoned')).rejects.toMatchObject({ code: 'session_ended' });
+    // Two tabs racing: the transactions run one after the other, and the second is refused.
+    const raced = await Promise.allSettled([end('b', 'abandoned'), end('b', 'abandoned')]);
+    expect(raced.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    const ends = (await store.events()).filter((e) => e.type === 'session.ended');
+    expect(ends).toHaveLength(2);
+    expect(ends.map((e) => e.payload)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sessionId: 'b', reason: 'abandoned' }),
+        expect.objectContaining({ sessionId: 'Session-A', reason: 'child-exit' }),
+      ]),
+    );
   });
 
   it('settings read with defaults; LWW merge; goal targets follow the settings', async () => {

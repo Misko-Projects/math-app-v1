@@ -281,7 +281,8 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
           cursor,
           events,
           settings: await store.allSettings(),
-          profiles: await store.allProfiles(),
+          // The picture password is a local lock (08 §3): its hash never leaves this device.
+          profiles: (await store.allProfiles()).map((p) => ({ ...p, picturePasswordHash: null })),
         };
         const res = await exchange(device.deviceToken, body, current);
         await apply(events, res, current);

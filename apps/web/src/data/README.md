@@ -43,7 +43,7 @@ What each method does:
   - On a device that was already paired, only never-synced events move.
   - A server-authored tombstone that moves also takes the new family id as its `deviceId`, because the server's pseudo-device is the family id (02 §5.9 S2).
   - Profiles that carry the local family id move too.
-- **Profiles and settings:** `putProfile`, `putSettings` (both stamp `updatedAt`), `mergeProfiles(list, { source })` and `mergeSettings(docs, { source })` (LWW per whole document, never for a deleted child), `allProfiles` and `allSettings`. The server keeps its stored document unless the incoming `updatedAt` is strictly greater. So a `server` document wins on an equal `updatedAt`, while a `backup` document must be strictly newer. `familySettings`, `childSettings` and `settingsView` fill in defaults with `withSettingDefaults`.
+- **Profiles and settings:** `putProfile`, `putProfiles` (several in one transaction: all are written or none), `putSettings` (all stamp `updatedAt`), `mergeProfiles(list, { source })` and `mergeSettings(docs, { source })` (LWW per whole document, never for a deleted child), `allProfiles` and `allSettings`. The server keeps its stored document unless the incoming `updatedAt` is strictly greater. So a `server` document wins on an equal `updatedAt`, while a `backup` document must be strictly newer. `familySettings`, `childSettings` and `settingsView` fill in defaults with `withSettingDefaults`.
 - **Tombstones:** one rule, `isValidTombstone`, decides everywhere: the envelope passes the shared `child.deleted` schema, its `childId` is null, and its `deviceId` equals its `familyId` (02 §5.9 S2).
   - `ingest` refuses other tombstones, and `tombstoned()` ignores them.
   - Open deletes stored ones.

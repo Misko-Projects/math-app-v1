@@ -59,6 +59,8 @@ export interface AxisTick {
   /** Position along the value axis (y for vertical charts, x for horizontal ones). */
   pos: number;
   labelled: boolean;
+  /** Whether the tick draws its gridline (a long axis in a short plot thins them out). */
+  line: boolean;
 }
 
 export interface ChartGeometry {
@@ -97,6 +99,14 @@ export interface ChartLayoutOptions {
 }
 
 export const NUMERAL_PX = 32;
+/** Gridlines of a bar graph are at least this far apart (closer ones are thinned out). */
+export const GRID_MIN_PX = 8;
+/**
+ * The smallest picture-graph symbol and line-plot X. A box too small for a chart's marks at this
+ * size makes the geometry bigger than the box (its `width` and `height` say so), never marks
+ * outside the chart: the caller then scales the whole chart down.
+ */
+export const MARK_MIN_PX = 14;
 /** Rough Baloo 2 numeral advance at NUMERAL_PX (bold): about 0.62 em a digit. */
 const DIGIT_PX = 20;
 const PAD = 12;
@@ -117,7 +127,20 @@ function ticksFor(
   const values = axisTicks(chart);
   const spacing = Math.abs(toPos(chart.scale) - toPos(0));
   const stride = labelStride(spacing, minSpacing);
-  return values.map((value, k) => ({ value, pos: toPos(value), labelled: k % stride === 0 }));
+  // Gridlines closer than GRID_MIN_PX would read as a texture, not as counts: then only the
+  // labelled ticks and the ones halfway between them (the fives between tens) keep a line.
+  const lineEvery =
+    spacing >= GRID_MIN_PX
+      ? 1
+      : stride % 2 === 0 && (spacing * stride) / 2 >= GRID_MIN_PX
+        ? stride / 2
+        : stride;
+  return values.map((value, k) => ({
+    value,
+    pos: toPos(value),
+    labelled: k % stride === 0,
+    line: k % lineEvery === 0,
+  }));
 }
 
 /** Tally strokes for one count in a box: groups of five, each four strokes and a gate. */
@@ -172,27 +195,36 @@ function lineGeometry(
   o: Required<Omit<ChartLayoutOptions, 'values' | 'padY'>>,
 ): ChartGeometry {
   const slots = chartSlots(chart);
-  const width = o.width;
   const left = PAD + 24;
-  const right = width - PAD - 24;
   const n = Math.max(1, slots.length - 1);
+  const top = PAD;
+  const below = NUMERAL_PX + PAD + 14;
+  const most = Math.max(1, chart.axisMax, ...values);
+  // Room for every X at MARK_MIN_PX: neighbours apart across, the tallest stack up.
+  const width = Math.max(o.width, 2 * left + (n * MARK_MIN_PX) / 0.8);
+  const height = Math.max(o.height, top + 10 + most * (MARK_MIN_PX + 4) + below);
+  const right = width - PAD - 24;
   const spacing = (right - left) / n;
   const at = (i: number) => left + i * spacing;
-  const axisY = o.height - NUMERAL_PX - PAD - 14;
-  const top = PAD;
-  const most = Math.max(1, chart.axisMax, ...values);
-  const mark = Math.max(14, Math.min(40, spacing * 0.8, (axisY - top - 10) / most - 4));
+  const axisY = height - below;
+  const mark = Math.max(MARK_MIN_PX, Math.min(40, spacing * 0.8, (axisY - top - 10) / most - 4));
   const min = chart.lineScale?.min ?? 0;
   const step = chart.lineScale?.step ?? 1;
-  // Whole-number positions carry numerals; halves and quarters are shorter ticks.
+  // Whole-number positions carry numerals; halves and quarters are shorter ticks. Labels are
+  // counted from the first whole number on the scale, so a scale that starts on a half or a
+  // quarter still labels its whole numbers.
   const wholeEvery = Math.round(1 / step);
-  const labelEvery = labelStride(spacing * wholeEvery, 48) * wholeEvery;
-  const ticks: AxisTick[] = slots.map((s, i) => ({
-    value: s.at ?? 0,
-    pos: at(i),
-    labelled:
-      Number.isInteger(s.at ?? 0) && Math.round(((s.at ?? 0) - min) / step) % labelEvery === 0,
-  }));
+  const wholeStride = labelStride(spacing * wholeEvery, 48);
+  const firstWhole = Math.ceil(min - 1e-9);
+  const ticks: AxisTick[] = slots.map((s, i) => {
+    const value = s.at ?? 0;
+    return {
+      value,
+      pos: at(i),
+      labelled: Number.isInteger(value) && Math.round(value - firstWhole) % wholeStride === 0,
+      line: true,
+    };
+  });
   const geo: SlotGeometry[] = slots.map((s, i) => {
     const v = values[i] ?? 0;
     // Each position's lane is the strip around it, clipped to the chart.
@@ -217,7 +249,7 @@ function lineGeometry(
     kind: chart.kind,
     orientation: 'horizontal',
     width,
-    height: o.height,
+    height,
     plot: { x: left, y: top, w: right - left, h: axisY - top },
     slots: geo,
     ticks,
@@ -268,12 +300,18 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
       chart.kind === 'table'
         ? plotX + tableW
         : o.width - PAD - (chart.kind === 'bar' ? numW / 2 : 8);
-    const plot = { x: plotX, y: y0, w: Math.max(40, plotR - plotX), h: rowsH };
-    const unit = plot.w / top;
-    const toPos = (v: number) => plot.x + v * unit;
     const symCols = Math.round(top / scale);
     const sgap = 6;
-    const sym = Math.max(14, Math.min(rowH - 14, 64, (plot.w - (symCols - 1) * sgap) / symCols));
+    // A picture graph's row holds every symbol at MARK_MIN_PX: a narrower box widens the chart.
+    const symRowW = chart.kind === 'picture' ? symCols * MARK_MIN_PX + (symCols - 1) * sgap : 0;
+    const plot = { x: plotX, y: y0, w: Math.max(40, symRowW, plotR - plotX), h: rowsH };
+    const width = Math.max(o.width, plot.x + plot.w + (o.width - plotR));
+    const unit = plot.w / top;
+    const toPos = (v: number) => plot.x + v * unit;
+    const sym = Math.max(
+      MARK_MIN_PX,
+      Math.min(rowH - 14, 64, (plot.w - (symCols - 1) * sgap) / symCols),
+    );
     const groupsMax = Math.max(1, Math.ceil(top / 5));
     const strokeFit = (plot.w - 12) / (0.32 * (4 * groupsMax + 1.7 * (groupsMax - 1) + 1));
     const stroke = Math.min(rowH * 0.64, 56, strokeFit);
@@ -316,7 +354,7 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     return {
       kind: chart.kind,
       orientation: 'horizontal',
-      width: chart.kind === 'table' ? plot.x + tableW + PAD : o.width,
+      width: chart.kind === 'table' ? plot.x + tableW + PAD : width,
       height,
       plot,
       slots: geo,
@@ -324,7 +362,7 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
       axisLine: chart.kind === 'bar' ? [plot.x, y0 - 6, plot.x, axisY] : null,
       valueToPos: toPos,
       mark: chart.kind === 'picture' ? sym : stroke,
-      key: keyH ? { x: o.width - PAD - 200, y: PAD - 4, w: 200, h: keyH - 8 } : null,
+      key: keyH ? { x: width - PAD - 200, y: PAD - 4, w: 200, h: keyH - 8 } : null,
       numeral: NUMERAL_PX,
     };
   }
@@ -338,15 +376,22 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
   const width = Math.max(o.width, x0 + colsW + PAD);
   const topPad = PAD + keyH + (chart.kind === 'bar' ? NUMERAL_PX / 2 : 0);
   const tableH = 72;
+  const symRows = Math.round(top / scale);
+  const sgap = 5;
+  // A picture graph's column holds every symbol at MARK_MIN_PX: a shorter box makes it taller.
+  const symColH = chart.kind === 'picture' ? symRows * MARK_MIN_PX + (symRows - 1) * sgap : 0;
   const plotH =
-    chart.kind === 'table' ? tableH : Math.max(60, o.height - topPad - labelH - o.gap - PAD);
+    chart.kind === 'table'
+      ? tableH
+      : Math.max(60, symColH, o.height - topPad - labelH - o.gap - PAD);
   const baseY = topPad + plotH;
   const plot = { x: x0, y: topPad, w: colsW, h: plotH };
   const unit = plotH / top;
   const toPos = (v: number) => baseY - v * unit;
-  const symRows = Math.round(top / scale);
-  const sgap = 5;
-  const sym = Math.max(14, Math.min(colW - 16, 64, (plotH - (symRows - 1) * sgap) / symRows));
+  const sym = Math.max(
+    MARK_MIN_PX,
+    Math.min(colW - 16, 64, (plotH - (symRows - 1) * sgap) / symRows),
+  );
   const stacks = Math.max(1, Math.ceil(top / 5));
   const stroke = Math.min(colW * 0.5, 52, plotH / (stacks * 1.52));
   const geo: SlotGeometry[] = slots.map((s, i) => {

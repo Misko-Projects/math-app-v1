@@ -192,7 +192,7 @@ export function ChartView({
         )}
         {/* Gridlines at every tick (scale), numerals at the labelled ones. */}
         {g.ticks.map((tk) =>
-          chart.kind === 'line-plot' ? null : g.orientation === 'vertical' ? (
+          chart.kind === 'line-plot' || !tk.line ? null : g.orientation === 'vertical' ? (
             <line
               key={`grid-${tk.value}`}
               className="ni-chart__grid"

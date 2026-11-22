@@ -4,23 +4,36 @@
 import type { AnswerSpec, ItemFormat, WidgetConfig } from '@number-island/shared';
 import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
-import { barGraphBuild } from './bar-graph-build';
-import { barGraphRead } from './bar-graph-read';
+import { balance } from './balance';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
+import { compare } from './compare';
+import { compareLength } from './compare-length';
 import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
 import { expandedForm } from './expanded-form';
+import { barGraphBuild } from './bar-graph-build';
+import { barGraphRead } from './bar-graph-read';
+import { fractionCut } from './fraction-cut';
+import { fractionLine } from './fraction-line';
+import { fractionPick } from './fraction-pick';
+import { patternExtend } from './pattern-extend';
 import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
+import { measureLength } from './measure-length';
 import { numberBond } from './number-bond';
 import { numberLineJump } from './number-line-jump';
+import { numberLinePlace } from './number-line-place';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
-import { patternExtend } from './pattern-extend';
+import { perimeterWalk } from './perimeter-walk';
+import { puzzleGrid } from './puzzle-grid';
 import { rekenrek } from './rekenrek';
+import { shapeCompose } from './shape-compose';
+import { shapeSort } from './shape-sort';
+import { storyProblem } from './story-problem';
 import { tapCount } from './tap-count';
 import { tenframeFill } from './tenframe-fill';
 import type { FormatModel, FormatState } from './types';
@@ -35,12 +48,14 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'dot-flash': dotFlash,
   'numeral-pick': numeralPick,
   'number-pad': numberPad,
+  compare,
   order,
   'tenframe-fill': tenframeFill,
   'number-bond': numberBond,
   rekenrek,
   'number-line-jump': numberLineJump,
   'hundred-chart': hundredChart,
+  'number-line-place': numberLinePlace,
   // U04 (#13)
   'base-ten-build': baseTenBuild,
   'base-ten-trade': baseTenTrade,
@@ -49,7 +64,21 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'equal-groups': equalGroups,
   'equal-share': equalShare,
   'area-tiles': areaTiles,
-  // U05 (#14)
+  // U04 (#13): equality, stories and puzzles
+  'story-problem': storyProblem,
+  balance,
+  'puzzle-grid': puzzleGrid,
+  // U05 (#14) measurement and geometry
+  'measure-length': measureLength,
+  'compare-length': compareLength,
+  'perimeter-walk': perimeterWalk,
+  'shape-compose': shapeCompose,
+  'shape-sort': shapeSort,
+  // U05 (#14) fractions
+  'fraction-cut': fractionCut,
+  'fraction-pick': fractionPick,
+  'fraction-line': fractionLine,
+  // U05 (#14) patterns and data
   'pattern-extend': patternExtend,
   'bar-graph-read': barGraphRead,
   'bar-graph-build': barGraphBuild,

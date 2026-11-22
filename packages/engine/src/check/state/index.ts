@@ -21,6 +21,7 @@ import { jumpsReach } from './jumps.reach';
 import { patternIsomorphic } from './pattern.isomorphic';
 import { patternTokens } from './pattern.tokens';
 import { puzzleSatisfies } from './puzzle.satisfies';
+import { rectPerimeterArea } from './rect.perimeterArea';
 import { rekenrekTotal } from './rekenrek.total';
 import { selectExactSet } from './select.exactSet';
 import { setCount } from './set.count';
@@ -32,6 +33,9 @@ import { tilesCover } from './tiles.cover';
 import { tradeResult } from './trade.result';
 import type { StateChecker } from './types';
 import { unitsIterate } from './units.iterate';
+
+/** Found by `pnpm bundle-size` to prove this module is not in the initial JS (02 §6a, #95). */
+export const CHECKERS_CHUNK_MARK = 'number-island:item-core/state-checkers';
 
 const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'set.count': setCount,
@@ -53,6 +57,7 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'fraction.cut': fractionCut, // K01 fractions (fraction-cut)
   'fraction.partition': fractionPartition, // K01 fractions (fraction-line partition)
   'pattern.tokens': patternTokens, // K01 patterns (pattern-extend extend, fill)
+  'pattern.isomorphic': patternIsomorphic, // U05 (#14): pattern-extend translate
   // U04 (#13)
   'baseten.value': basetenValue,
   'baseten.exact': basetenExact,
@@ -62,10 +67,10 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'groups.equal': groupsEqual,
   'share.fair': shareFair,
   'tiles.cover': tilesCover,
-  // U05 (#14)
-  'pattern.isomorphic': patternIsomorphic,
   // K01 (#11): balance make-equal (the balance format has no model yet, U04)
   'balance.equal': balanceEqual,
+  // U05 (#14): perimeter-walk design
+  'rect.perimeterArea': rectPerimeterArea,
 };
 
 export function stateChecker(id: StateCheckerId): StateChecker | undefined {

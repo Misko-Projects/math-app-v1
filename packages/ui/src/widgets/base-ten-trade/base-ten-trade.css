@@ -1,0 +1,768 @@
+/*
+ * base-ten-trade widget (U04). The problem on top, the place-value mat (a warm wooden board with
+ * paper columns and trade buttons on the dividers), the adding tray or the seagull's nest below,
+ * and the column algorithm, number pad and "check" on the right. Sizes that layout.ts plans with
+ * (column widths, body and tray heights, the unit edge) arrive as inline styles.
+ */
+
+.ni-btt {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 6px 4px;
+  color: var(--color-ink);
+}
+
+/* Groups are fieldsets (the mat, the tray, the goal, the algorithm): no browser frame. */
+:where(.ni-btt fieldset) {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ni-btt__main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* ROW_GAP (layout.ts). */
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ---------- problem ---------- */
+
+.ni-btt__problemrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+.ni-btt__problemrow--work {
+  display: flex;
+  justify-content: center;
+}
+.ni-btt__problem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 10px 28px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-btt__problem .ni-expr {
+  flex-wrap: nowrap;
+  gap: 0 22px;
+  font-size: var(--text-numeral);
+}
+.ni-btt__answerwrap {
+  position: relative;
+  display: inline-flex;
+}
+.ni-btt__answer {
+  min-width: calc(var(--target-min) * 1.6);
+}
+.ni-btt__answer[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-btt__answer.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+
+/* Goal chips (regroup-to): "0 [flat] 12 [rod] 3 [unit]". */
+.ni-btt__goal {
+  gap: 28px;
+}
+.ni-btt__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 4px 18px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-pill);
+  background: var(--color-cloud);
+}
+.ni-btt__chipnum {
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+.ni-btt__chipicon {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+}
+
+/* ---------- piece pictures ---------- */
+
+.ni-btt__icon {
+  width: 100%;
+  height: 100%;
+}
+.ni-btt__icon-fill {
+  fill: var(--color-shallows);
+}
+.ni-btt__icon-grid {
+  fill: none;
+  stroke: var(--color-sea-dark);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+.ni-btt__icon-edge {
+  fill: none;
+  stroke: var(--color-sea-dark);
+  stroke-width: 2.5;
+}
+.ni-btt__icon-piece {
+  fill: var(--color-shallows);
+  stroke: var(--color-sea-dark);
+  stroke-width: 1.6;
+}
+.ni-btt__icon-arrow {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+[data-tier="pictorial"] .ni-btt__icon-fill,
+[data-tier="pictorial"] .ni-btt__icon-piece {
+  fill: var(--color-cloud);
+}
+[data-tier="pictorial"] .ni-btt__icon-grid,
+[data-tier="pictorial"] .ni-btt__icon-edge,
+[data-tier="pictorial"] .ni-btt__icon-piece {
+  stroke: var(--color-ink);
+}
+
+/*
+ * One base-ten piece. Concrete: teal blocks with their unit grid, a highlight and a contact shadow
+ * (05 §11). Pictorial: an ink drawing on paper, the "quick pictures" children draw.
+ */
+.ni-btt__piece {
+  position: absolute;
+  box-sizing: border-box;
+  /* A press lands on the item, tray group or column the piece belongs to. */
+  pointer-events: none;
+  border: 2px solid var(--color-sea-dark);
+  border-radius: 3px;
+  background-color: var(--color-shallows);
+  background-origin: border-box;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.55),
+    0 2px 0 rgb(23 96 110 / 0.3);
+}
+.ni-btt__piece--tens {
+  background-image: linear-gradient(to bottom, rgb(23 96 110 / 0.55) 1.5px, transparent 1.5px);
+  background-size: 100% var(--u);
+}
+.ni-btt__piece--hundreds {
+  border-radius: 4px;
+  background-image:
+    linear-gradient(to right, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px);
+  background-size: var(--u) var(--u);
+}
+[data-tier="pictorial"] .ni-btt__piece {
+  border-color: var(--color-ink);
+  background-color: var(--color-cloud);
+  box-shadow: none;
+}
+[data-tier="pictorial"] .ni-btt__piece--tens {
+  background-image: linear-gradient(to bottom, rgb(38 70 83 / 0.5) 1.5px, transparent 1.5px);
+}
+[data-tier="pictorial"] .ni-btt__piece--hundreds {
+  background-image:
+    linear-gradient(to right, rgb(38 70 83 / 0.4) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, rgb(38 70 83 / 0.4) 1.5px, transparent 1.5px);
+}
+/* A rod lying down in the nest: its unit lines run across. */
+.ni-btt__piece--tens[data-lying="true"] {
+  background-image: linear-gradient(to right, rgb(23 96 110 / 0.55) 1.5px, transparent 1.5px);
+  background-size: var(--u) 100%;
+}
+[data-tier="pictorial"] .ni-btt__piece--tens[data-lying="true"] {
+  background-image: linear-gradient(to right, rgb(38 70 83 / 0.5) 1.5px, transparent 1.5px);
+}
+/* Still on its way (an animation ghost draws it meanwhile). */
+.ni-btt__piece[data-arriving="true"] {
+  opacity: 0;
+}
+
+/* ---------- the mat ---------- */
+
+.ni-btt__mat {
+  display: grid;
+  box-sizing: border-box;
+  max-width: 100%;
+  border-style: solid;
+  border-color: var(--color-wood-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-wood);
+  box-shadow: var(--shadow-soft);
+}
+.ni-btt__col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--color-paper);
+}
+.ni-btt__col:first-child {
+  border-top-left-radius: 22px;
+  border-bottom-left-radius: 22px;
+}
+.ni-btt__col:last-child {
+  border-top-right-radius: 22px;
+  border-bottom-right-radius: 22px;
+}
+.ni-btt__head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-bottom: 3px solid var(--color-sand-deep);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  background: var(--color-sand);
+  pointer-events: none;
+}
+.ni-btt__head .ni-btt__icon {
+  width: 30px;
+  height: 30px;
+}
+[data-age-mode="k"] .ni-btt__head .ni-btt__icon {
+  width: 40px;
+  height: 40px;
+}
+.ni-btt__headword {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+  white-space: nowrap;
+}
+.ni-btt__body {
+  position: relative;
+  box-sizing: border-box;
+}
+.ni-btt__body.ni-invite {
+  outline-offset: -6px;
+  border-radius: 14px;
+  animation: none;
+}
+/* Inset by COL_PAD (layout.ts). */
+.ni-btt__pile {
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+}
+/* A column's tap pad (speaks the piece's name) or drop target (adding), behind its pieces. */
+.ni-btt__pad {
+  position: absolute;
+  /* Inset by the target gap from the column sides: the trade strips between are target-wide. */
+  inset: 0 var(--target-gap);
+  z-index: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-btt__pad.ni-drop-target {
+  outline-offset: -6px;
+}
+.ni-btt__pad:focus-visible,
+.ni-btt__pad.ni-drop-target:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: -6px;
+}
+.ni-btt__pad.ni-drop-target[data-over="true"] {
+  transform: none;
+  box-shadow: inset 0 0 0 12px rgb(42 157 143 / 0.18);
+}
+.ni-btt__speak:disabled {
+  cursor: default;
+}
+.ni-btt__speak:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: -6px;
+}
+.ni-btt__head,
+.ni-btt__body {
+  z-index: 1;
+}
+.ni-btt__pad ~ .ni-btt__body {
+  pointer-events: none;
+}
+/* In a column: GAP clear of a trade strip, to the mat's frame on an outer side (colInsets). */
+.ni-btt__col > .ni-btt__pad {
+  left: var(--btt-inset-l);
+  right: var(--btt-inset-r);
+}
+
+/* Take away: the column's pieces are one draggable item; the piece under the finger comes along. */
+.ni-btt__grab {
+  position: absolute;
+  inset: 0 var(--btt-inset-r) 0 var(--btt-inset-l);
+  border-radius: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The grabbed piece, placed in the column body (--btt-px/py, in body coordinates). */
+.ni-btt__grab > .ni-btt__piece {
+  left: calc(var(--btt-px) - var(--btt-inset-l));
+  top: var(--btt-py);
+}
+/*
+ * While dragged the item is just the piece's box (same place on screen), so useDragToTarget's drop
+ * test uses the centre of the piece the child moves, not the middle of the whole column.
+ */
+.ni-btt__grab[data-dragging="true"] {
+  inset: auto;
+  left: var(--btt-px);
+  top: var(--btt-py);
+  width: var(--btt-pw);
+  height: var(--btt-ph);
+  border-radius: 3px;
+}
+.ni-btt__grab[data-dragging="true"] > .ni-btt__piece {
+  left: 0;
+  top: 0;
+}
+.ni-btt__grab[aria-disabled="true"] {
+  cursor: default;
+}
+.ni-btt__grab:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: -6px;
+}
+/* Picked up: the piece itself lifts inside an ink ring, not the whole column. */
+.ni-btt__grab[data-selected="true"] {
+  outline: none;
+  filter: none;
+}
+.ni-btt__grab[data-selected="true"] > .ni-btt__piece {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+  transform: translateY(-4px);
+}
+
+/* Reduced motion: a trade lands at once, and the columns it changed glow a moment. */
+.ni-btt__col[data-flash="true"] .ni-btt__body,
+.ni-btt__nest[data-flash="true"] {
+  box-shadow: inset 0 0 0 5px var(--color-sunshine-deep);
+  border-radius: 14px;
+}
+
+/* ---------- trade buttons on the dividers ---------- */
+
+.ni-btt__strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 0;
+  box-sizing: border-box;
+  background:
+    linear-gradient(90deg, transparent 46%, rgb(143 90 49 / 0.35) 46% 54%, transparent 54%),
+    var(--color-wood);
+}
+.ni-btt__tradewrap {
+  position: relative;
+  display: inline-flex;
+}
+.ni-btt__trade.ni-btn {
+  flex-direction: column;
+  gap: 2px;
+  width: var(--target-min);
+  min-width: 0;
+  height: var(--btt-trade-h);
+  min-height: 0;
+  padding: 6px 4px 4px;
+  border-radius: var(--radius-pebble);
+  font-size: 1.05rem;
+}
+/* Also `.ni-btn__icon` (the kit's glyph marker, so Pip's hand keeps clear of it): this rule wins
+   over its size and flex. */
+.ni-btt__trade .ni-btt__tradeicon {
+  display: inline-flex;
+  flex: 0 1 auto;
+  width: 52px;
+  height: 36px;
+}
+[data-age-mode="k"] .ni-btt__trade .ni-btt__tradeicon {
+  width: 62px;
+  height: 43px;
+}
+.ni-btt__tradecap {
+  line-height: 1;
+}
+.ni-btt__trade.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+/* Pip presses it (demo): sunk onto its ledge with an ink ring. */
+.ni-btt__trade.ni-btt__hi {
+  transform: translateY(4px);
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+/* ---------- adding tray ---------- */
+
+.ni-btt__tray {
+  position: relative;
+  display: grid;
+  box-sizing: border-box;
+  max-width: 100%;
+  border: 3px dashed var(--color-sea-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-sky-light);
+}
+/* Everything is added: the tray steps aside but keeps its place (nothing jumps). */
+.ni-btt__traycell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-row: 1;
+}
+.ni-btt__plus {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-sea-dark);
+  border-radius: 50%;
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.ni-btt__pending {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  border: 3px solid var(--color-sea-deep);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  box-shadow: 0 5px 0 rgb(31 122 140 / 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-btt__pending[aria-disabled="true"] {
+  cursor: default;
+}
+.ni-btt__pending:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
+.ni-btt__pending.ni-invite {
+  outline-offset: 6px;
+  border-radius: var(--radius-pebble);
+}
+.ni-btt__pending.ni-btt__hi {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
+
+/* ---------- the seagull's nest (take away) ---------- */
+
+.ni-btt__nest {
+  position: relative;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+/* The art spans the nest less the gull's room (GULL_W in layout.ts). */
+/* The ends' radius is NEST_END (layout.ts): the taken pieces keep inside the straight part. */
+.ni-btt__hollow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: calc(100% - 52px);
+  height: calc(100% - 16px);
+  border: 3px solid var(--color-wood-deep);
+  border-radius: 80px / 50%;
+  background: var(--color-sand-shadow);
+  box-shadow: inset 0 6px 0 var(--color-wood);
+  pointer-events: none;
+}
+/* The front wall keeps one height (NEST_WALL in layout.ts); the pieces rest just above it. */
+.ni-btt__nest-wall {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: calc(100% - 52px);
+  height: 40px;
+  pointer-events: none;
+}
+.ni-btt__nest-twigs {
+  position: absolute;
+  left: 4%;
+  bottom: 6px;
+  width: calc(92% - 52px);
+  height: 18px;
+  pointer-events: none;
+}
+.ni-btt__gull {
+  position: absolute;
+  right: 0;
+  bottom: 8px;
+  width: 88px;
+  height: 80px;
+  pointer-events: none;
+}
+.ni-btt__nestpad {
+  border-radius: var(--radius-card);
+}
+.ni-btt__nestpad.ni-drop-target {
+  outline-offset: 2px;
+}
+.ni-btt__taken {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+/* A taken kind's put-back control: a clear button over its pieces, the nest's whole height. */
+.ni-btt__back {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-btt__back:disabled {
+  cursor: default;
+}
+.ni-btt__back:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: -6px;
+}
+@media (hover: hover) {
+  .ni-btt__back:not(:disabled):hover {
+    box-shadow: inset 0 0 0 3px rgb(42 157 143 / 0.35);
+  }
+}
+
+/* ---------- side: the algorithm, the pad, "check" ---------- */
+
+.ni-btt__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: stretch;
+  box-sizing: border-box;
+  /* The pad's keys and "check" at the target size (64 px G1, 80 px K): a narrower side panel
+     leaves the mat room for 20 px pieces. */
+  --target-big: var(--target-min);
+}
+/*
+ * Each pad key keeps 4 px under it for its shadow (kit.css .ni-pad__key, PAD_KEY_SHADOW in
+ * layout.ts), inside its grid row: the rows are the target plus 4 px, so every key is a full
+ * target (64 × 64 G1, 80 × 80 K), 12 px apart across and 16 px down. The columns stay the target
+ * wide, so the pad (and the side panel) is no wider.
+ */
+.ni-btt__side .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}
+/* "Check" in a wrapper exactly its size (the widget measures it to plan the side panel). */
+.ni-btt__checkwrap {
+  display: inline-flex;
+}
+/* K with the algorithm in the side: "check" beside the pad, level with its bottom row. */
+.ni-btt__padrow {
+  display: flex;
+  align-items: flex-end;
+}
+
+/* The column algorithm, as a child writes it: start, operand with its sign, a line, the result. */
+/*
+ * One column per place, each as wide as a result box (a tap target: --target-min, 12 px apart).
+ * Height: WORK_H in the widget (200 px; 216 in K, whose boxes are bigger).
+ */
+.ni-btt__work {
+  display: grid;
+  grid-template-columns: 24px repeat(3, var(--target-min));
+  /* Each row as tall as its numerals (≥ 32 px) with their top padding. */
+  grid-template-rows: 36px 40px 40px 8px var(--target-min);
+  column-gap: var(--target-gap);
+  justify-items: center;
+  align-items: center;
+  box-sizing: border-box;
+  flex: none;
+  /* In the side panel: level with the top of the mat; the pad and "check" sit at its foot. */
+  margin-bottom: auto;
+  height: 226px;
+  /* CARD_PAD (layout.ts). */
+  padding: 16px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+[data-age-mode="k"] .ni-btt__work {
+  height: 242px;
+}
+.ni-btt__note {
+  grid-row: 1;
+  color: var(--color-coral-deep);
+  font-size: 2rem;
+  padding-top: 0.12em;
+}
+.ni-btt__digit {
+  position: relative;
+  font-size: 2.25rem;
+  padding-top: 0.12em;
+}
+/* The sign has its own narrow column, left of the operand. */
+.ni-btt__opsign {
+  color: var(--color-ink-soft);
+}
+/* The old digit, crossed out after a trade (a line, not a colour change). */
+.ni-btt__digit[data-crossed="true"]::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: 52%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-coral-deep);
+  transform: rotate(-38deg);
+}
+.ni-btt__rule {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  align-self: center;
+  justify-self: stretch;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-ink);
+}
+.ni-btt__boxwrap {
+  position: relative;
+  display: inline-flex;
+}
+.ni-btt__box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  margin: 0;
+  border: 3px solid var(--color-ink);
+  border-radius: 12px;
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  padding: 0.12em 0 0;
+}
+button.ni-btt__box {
+  appearance: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button.ni-btt__box:disabled {
+  cursor: default;
+}
+/* The box being typed into: a solid teal border and ring plus the caret (not colour alone). */
+.ni-btt__box[data-state="active"] {
+  border-style: solid;
+  border-color: var(--color-sea-deep);
+  box-shadow: 0 0 0 5px rgb(42 157 143 / 0.35);
+}
+button.ni-btt__box:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
+/* Only an empty box is dashed: a written digit sits in a solid box. */
+.ni-btt__box[data-empty="true"] {
+  border-style: dashed;
+  background: var(--color-sky-light);
+}
+.ni-btt__box.ni-btt__hi {
+  border-style: solid;
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+.ni-btt__box.ni-invite {
+  outline-offset: 5px;
+  border-radius: 10px;
+}
+
+/* ---------- the animation layer (Pip's hand is the kit's useInviteHand) ---------- */
+
+.ni-btt__fx {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-drag);
+  overflow: visible;
+  pointer-events: none;
+}
+.ni-btt__ghost {
+  transform-origin: 0 0;
+  will-change: transform, opacity;
+}
+
+/* Portrait or narrow: the side panel moves under the mat. */
+@media (max-width: 900px), (orientation: portrait) {
+  .ni-btt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ni-btt__side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

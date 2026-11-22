@@ -1,9 +1,11 @@
 // fraction.partition `{ denominator, max }` (03 §5.5 fraction-line `partition`). K01 response shape
 // (engine README): `{ cuts: number[] }`, the marks the child placed, in units from 0 (any order).
-// The wholes 0, 1, … max are drawn already, so a mark on a whole is ignored. Correct when the other
-// marks split every whole into `denominator` equal intervals: they match the points k/denominator
-// strictly between 0 and max that are not wholes one to one, each within PARTITION_TOLERANCE (2% of
-// the unit length).
+// The wholes inside the strip (1 … max − 1) are drawn already, so a mark on one of them is ignored.
+// Correct when the other marks split every whole into `denominator` equal intervals: they match
+// the points k/denominator strictly between 0 and max that are not wholes one to one, each within
+// PARTITION_TOLERANCE (2% of the unit length). A mark next to an end of the strip is a mark like
+// any other: it cuts off a sliver, so it is an extra part and the partition is not correct
+// (PR #84 review, s_d74b2eb5991e).
 import { nums, type StateChecker } from './types';
 
 export const PARTITION_TOLERANCE = 0.02;
@@ -16,10 +18,13 @@ export function partitionPoints(denominator: number, max: number): number[] {
   return out;
 }
 
+/** On a whole inside the strip (1 … max − 1); the two ends of the strip absorb no mark. */
 const onWhole = (x: number, max: number): boolean =>
-  Math.abs(x - Math.round(x)) <= PARTITION_TOLERANCE && Math.round(x) >= 0 && Math.round(x) <= max;
+  Math.abs(x - Math.round(x)) <= PARTITION_TOLERANCE &&
+  Math.round(x) >= 1 &&
+  Math.round(x) <= max - 1;
 
-/** The child's marks without those on a whole, sorted. */
+/** The child's marks without those on a whole inside the strip, sorted. */
 export function innerCuts(cuts: readonly number[], max: number): number[] {
   return cuts.filter((x) => !onWhole(x, max)).sort((a, b) => a - b);
 }

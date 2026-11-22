@@ -1,6 +1,7 @@
 // Storybook-only narration text: the real `ui.*` lines from packages/content/narration/ui.yaml,
 // so stories show (and play functions assert) the same words the app will speak. The app resolves
 // keys through the compiled narration.json instead (02 §5.5).
+import commonYaml from '../../content/narration/common.yaml?raw';
 import numbersYaml from '../../content/narration/numbers.yaml?raw';
 import uiYaml from '../../content/narration/ui.yaml?raw';
 import type { NarrationTextResolver } from '../src/preferences/UiProvider';
@@ -31,9 +32,13 @@ export function parseNarrationText(source: string): Record<string, string> {
   return out;
 }
 
-// The clip sets too (noun.*, shape.*, word.*, …: numbers.yaml), which widgets show as labels
-// (U05 #14: chart categories are `noun.<id>.many`).
-const texts = { ...parseNarrationText(numbersYaml), ...parseNarrationText(uiYaml) };
+// Shared words (shape, unit, noun and word.* names; generator bin labels) so widget stories show
+// the words a child hears; ui.yaml wins on a clash.
+const texts = {
+  ...parseNarrationText(numbersYaml),
+  ...parseNarrationText(commonYaml),
+  ...parseNarrationText(uiYaml),
+};
 
 /** Story fixtures for keys outside ui.yaml (e.g. a resident's request line in a bubble story). */
 const storyTexts: Record<string, string> = {

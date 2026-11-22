@@ -13,13 +13,35 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  // U05 (#14) measurement and geometry
+  'shape-sort': () => import('./shape-sort/ShapeSortWidget'),
+  'compare-length': () => import('./compare-length/CompareLengthWidget'),
+  'measure-length': () => import('./measure-length/MeasureLengthWidget'),
+  'shape-compose': () => import('./shape-compose/ShapeComposeWidget'),
+  'perimeter-walk': () => import('./perimeter-walk/PerimeterWalkWidget'),
+  // U05 (#14) fractions
+  'fraction-pick': () => import('./fraction-pick/FractionPickWidget'),
+  'fraction-cut': () => import('./fraction-cut/FractionCutWidget'),
+  'fraction-line': () => import('./fraction-line/FractionLineWidget'),
+  // U05 (#14) patterns and data
+  'pattern-extend': () => import('./pattern-extend/PatternExtendWidget'),
+  'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
+  'bar-graph-build': () => import('./bar-graph-build/BarGraphBuildWidget'),
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),
-  // U05 (#14) patterns and data
-  'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
-  'bar-graph-build': () => import('./bar-graph-build/BarGraphBuildWidget'),
-  'pattern-extend': () => import('./pattern-extend/PatternExtendWidget'),
+  // U04 (#13): place value
+  'base-ten-build': () => import('./base-ten-build/BaseTenBuildWidget'),
+  'base-ten-trade': () => import('./base-ten-trade/BaseTenTradeWidget'),
+  'expanded-form': () => import('./expanded-form/ExpandedFormWidget'),
+  'number-line-place': () => import('./number-line-place/NumberLinePlaceWidget'),
+  'number-line-jump': () => import('./number-line-jump/NumberLineJumpWidget'),
+  'hundred-chart': () => import('./hundred-chart/HundredChartWidget'),
+  'tenframe-fill': () => import('./tenframe-fill/TenframeFillWidget'),
+  'number-bond': () => import('./number-bond/NumberBondWidget'),
+  rekenrek: () => import('./rekenrek/RekenrekWidget'),
+  compare: () => import('./compare/CompareWidget'),
+  order: () => import('./order/OrderWidget'),
 };
 
 /** Formats that have a registered widget. */
