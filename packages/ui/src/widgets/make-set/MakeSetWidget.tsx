@@ -212,8 +212,8 @@ interface Plan {
    * latest ones taken away show, and the earlier ones come back into view as objects go back.
    */
   awayRows: number | null;
-  /** `split`: the actions under the container, or under the take-away pile. */
-  actUnder: 'box' | 'away';
+  /** `split`: where the actions (and the heap) go; see `planSplit`. */
+  actUnder: 'box' | 'away' | 'top';
   /** The piles' padding: `compact` where it lets the heap show more objects at once. */
   tray: 'normal' | 'compact';
 }
@@ -872,11 +872,12 @@ export function MakeSetWidget({
   /**
    * `split`: a take-away item where the pile cannot stand in the column beside the container with
    * the heap and the actions (ten K objects are 356 px of rows alone). The pile gets a column of
-   * its own beside the container, without its arrow; the heap (one row at least) sits under the
-   * container, and the actions under the container too or, with no heap, under the pile:
-   * whichever shows more of the pile. Compact trays, no padding. The pile shows as many rows as
-   * fit; when that is not every object the item has, it still holds what a right answer takes
-   * away, and one more.
+   * its own beside the container, without its arrow, and shows as many rows as fit: when that is
+   * not every object the item has, the latest ones taken show. Compact trays, no padding. Where
+   * the heap and the actions go (`actUnder`), whichever shows the most of the pile:
+   * - `box`: under the container, the heap first;
+   * - `away` (no heap): the actions under the pile;
+   * - `top` (with a heap): one heap object at a time and the actions in a row above the pile.
    */
   const planSplit = (chrome: Chrome, oneFrame: boolean): Plan | null => {
     if (!room || !takeAway) return null;
@@ -885,38 +886,49 @@ export function MakeSetWidget({
     const edge = PILE_EDGE_COMPACT;
     const fitCols = (w: number) => Math.floor((w - edge + gap) / (slot + gap));
     const fitRows = (h: number) => Math.floor((h - edge + gap) / (slot + gap));
-    const need = Math.min(awayMost, Math.max(0, start - config.target) + 1);
-    const variant = (actUnder: 'box' | 'away'): Plan | null => {
-      if (actUnder === 'away' && showSupply) return null;
+    const fitsH = (h: number) => h <= room.height + 0.5;
+    const variant = (actUnder: Plan['actUnder']): Plan | null => {
+      if ((actUnder === 'away') === showSupply && actUnder !== 'box') return null;
+      // Under the container: the heap and the actions (`box`), or nothing.
       const besideAct = actUnder === 'box' ? room.actionsW + g : 0;
-      const supplyCols = showSupply
-        ? Math.min(STACK_HEAP_COLS, supplyMost, fitCols(box.w - besideAct))
-        : 0;
+      const supplyCols = !showSupply
+        ? 0
+        : actUnder === 'top'
+          ? 1
+          : Math.min(STACK_HEAP_COLS, supplyMost, fitCols(box.w - besideAct));
       if (showSupply && supplyCols < 1) return null;
-      const underW =
-        (showSupply ? heapW(supplyCols) + edge : 0) + (actUnder === 'box' ? room.actionsW : 0);
-      const leftW = Math.max(box.w, underW + (showSupply && actUnder === 'box' ? g : 0));
+      const supplyW = showSupply ? heapW(supplyCols) + edge : 0;
+      const underW = actUnder === 'box' ? supplyW + (showSupply ? g : 0) + room.actionsW : 0;
+      const leftW = Math.max(box.w, underW);
+      // Above or under the pile: the actions (`away`), or the heap and the actions (`top`).
+      const headW = actUnder === 'top' ? supplyW + g + room.actionsW : 0;
       const awayCols = Math.min(
         STACK_HEAP_COLS,
         fitCols(room.width - leftW - g),
         Math.max(2, awayMost),
       );
-      if (awayCols < 2 || (actUnder === 'away' && heapW(awayCols) + edge < room.actionsW)) {
-        return null;
-      }
-      const underH = (rows: number) =>
-        Math.max(showSupply ? rowsH(rows) + edge : 0, actUnder === 'box' ? room.actionsH : 0);
-      const leftH = (rows: number) => box.h + (underH(rows) > 0 ? g + underH(rows) : 0);
-      const supplyFull = Math.max(1, heapRows(supplyMost, Math.max(1, supplyCols)).length);
-      let supplyRows = supplyFull;
-      while (supplyRows > 1 && leftH(supplyRows) > room.height + 0.5) supplyRows -= 1;
-      if (leftH(supplyRows) > room.height + 0.5) return null;
-      const awayFull = Math.max(1, heapRows(awayMost, awayCols).length);
-      const awayRows = Math.min(
-        awayFull,
-        fitRows(room.height - (actUnder === 'away' ? g + room.actionsH : 0)),
+      const rightW = Math.max(
+        heapW(awayCols) + edge,
+        headW,
+        actUnder === 'away' ? room.actionsW : 0,
       );
-      if (awayRows < 1 || awayRows * awayCols < need) return null;
+      if (awayCols < 2 || leftW + g + rightW > room.width + 0.5) return null;
+      const supplyFull = Math.max(1, heapRows(supplyMost, Math.max(1, supplyCols)).length);
+      const supplyH = (rows: number) => (showSupply ? rowsH(rows) + edge : 0);
+      let supplyRows = actUnder === 'top' ? 1 : supplyFull;
+      const leftH = (rows: number) =>
+        actUnder === 'box' ? box.h + g + Math.max(supplyH(rows), room.actionsH) : box.h;
+      while (supplyRows > 1 && !fitsH(leftH(supplyRows))) supplyRows -= 1;
+      if (!fitsH(leftH(supplyRows))) return null;
+      const headH =
+        actUnder === 'away'
+          ? g + room.actionsH
+          : actUnder === 'top'
+            ? g + Math.max(supplyH(1), room.actionsH)
+            : 0;
+      const awayFull = Math.max(1, heapRows(awayMost, awayCols).length);
+      const awayRows = Math.min(awayFull, fitRows(room.height - headH));
+      if (awayRows < 1) return null;
       return {
         layout: 'split',
         chrome,
@@ -932,9 +944,9 @@ export function MakeSetWidget({
     };
     const shown = (q: Plan | null) =>
       q === null ? 0 : q.awayRows === null ? awayMost : q.awayRows * q.awayCols;
-    const underBox = variant('box');
-    const underAway = variant('away');
-    return shown(underAway) > shown(underBox) ? underAway : underBox;
+    return (['box', 'away', 'top'] as const)
+      .map(variant)
+      .reduce<Plan | null>((best, q) => (shown(q) > shown(best) ? q : best), null);
   };
   const firstFit = (oneFrame: boolean) =>
     PLANS.reduce<Plan | null>((found, [l, c, r]) => found ?? planFor(l, c, r, oneFrame), null);
@@ -989,11 +1001,13 @@ export function MakeSetWidget({
       : layout === 'side'
         ? ['. box', ...sideParts.map((p) => `${p} box`), '. box']
         : layout === 'split'
-          ? showSupply
-            ? ['box box away', 'supply act away']
-            : plan?.actUnder === 'away'
-              ? ['box away', 'box act']
-              : ['box away', 'act away']
+          ? plan?.actUnder === 'top'
+            ? ['box supply act', 'box away away']
+            : showSupply
+              ? ['box box away', 'supply act away']
+              : plan?.actUnder === 'away'
+                ? ['box away', 'box act']
+                : ['box away', 'act away']
           : [showSupply && 'supply', 'box', takeAway && 'away', 'act'];
   const layoutStyle: CSSProperties =
     layout === 'row'

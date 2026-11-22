@@ -46,9 +46,7 @@ describe('what the Practice Pier plays', () => {
       'PV.09.t5',
     ]);
     expect(new Set(all.tasks.map((t) => t.seed)).size).toBe(4);
-    expect(browseRequest(graph, { skillId: 'PV.09', templateId: 'PV.09.t3' }, 1).tasks).toEqual(
-      [],
-    );
+    expect(browseRequest(graph, { skillId: 'PV.09', templateId: 'PV.09.t3' }, 1).tasks).toEqual([]);
     const one = browseRequest(graph, { skillId: 'PV.09', templateId: 'PV.09.t4' }, 1);
     expect(one.tasks.map((t) => t.templateId)).toEqual(['PV.09.t4']);
     // The numeral-pick templates with wide cards under a picture fit now (#12) and are played.

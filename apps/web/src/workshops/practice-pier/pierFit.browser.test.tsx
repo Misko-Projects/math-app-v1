@@ -14,11 +14,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import { type AppContent, loadContent } from '@/app/boot/content';
 import '@/styles.css';
-import { FIT_VIEWPORTS, type FitViewport, fitAllowance } from './pierFitAllowlist';
 import { PierItemScreen } from './PierScreen';
+import { FIT_VIEWPORTS, type FitViewport, fitAllowance } from './pierFitAllowlist';
 
-/** The seed the check plays: the first one. */
-const SEED = 1;
+/**
+ * The seeds the check plays: the first one. `VITE_FIT_SEEDS=1,2,3` plays more (a survey: other
+ * seeds draw other numbers, and the allowlist is kept for the first seed only).
+ */
+const SEEDS = ((import.meta.env.VITE_FIT_SEEDS as string | undefined) ?? '1')
+  .split(',')
+  .map(Number);
 /** While working on a widget: `VITE_FIT_ONLY=number-pad,dot-flash` checks only those formats. */
 const ONLY = (import.meta.env.VITE_FIT_ONLY as string | undefined)?.split(',');
 /** `VITE_FIT_SHOTS=ADD.01.t4,…` saves a screenshot of those templates beside this file. */
@@ -29,7 +34,8 @@ const SLACK_PX = 1;
 const SETTLED_FRAMES = 3;
 const SETTLE_LIMIT_FRAMES = 240;
 
-const CONTROLS = 'button, input, select, textarea, [role="button"], [role="slider"], [tabindex="0"]';
+const CONTROLS =
+  'button, input, select, textarea, [role="button"], [role="slider"], [tabindex="0"]';
 
 let content: AppContent;
 let host: HTMLDivElement;
@@ -107,7 +113,12 @@ function misfits(stage: HTMLElement): string[] {
   for (const el of stage.querySelectorAll<HTMLElement>(CONTROLS)) {
     const r = el.getBoundingClientRect();
     if (r.width <= 1 || r.height <= 1) continue;
-    const by = Math.max(area.left - r.left, area.top - r.top, r.right - area.right, r.bottom - area.bottom);
+    const by = Math.max(
+      area.left - r.left,
+      area.top - r.top,
+      r.right - area.right,
+      r.bottom - area.bottom,
+    );
     if (by > SLACK_PX) outside = Math.max(outside, by);
   }
   if (outside > 0) found.push(`a control ${over(outside)} px outside the area`);
@@ -179,8 +190,12 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
         allowed += 1;
         continue;
       }
-      show(engine.generateItem(template, SEED), ageModeOf(template));
-      const found = await measure(template.id);
+      const found: string[] = [];
+      for (const seed of SEEDS) {
+        show(engine.generateItem(template, seed), ageModeOf(template));
+        const misfit = await measure(template.id);
+        if (misfit.length > 0) found.push(...(SEEDS.length > 1 ? [`seed ${seed}`] : []), ...misfit);
+      }
       if (SHOTS.includes(template.id)) {
         await page.screenshot({ path: `__fit__/${template.id}-${viewport}.png` });
         console.info(`${template.id} at ${viewport}: ${describeParts()}`);

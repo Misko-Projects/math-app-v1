@@ -73,7 +73,7 @@ export const FIT_EXCEPTIONS: Readonly<Partial<Record<ItemFormat, readonly FitExc
   'tap-count': [
     {
       reason:
-        'Equal groups of ten to count by tapping: three plates of ten 64 px targets are wider than the 858 px area at 960 × 600 and taller than it in two rows (they fit at 1280 × 800); fix: a group layout that pages or reshapes the plates, which changes how the item is shown.',
+        'Equal groups of ten to count by tapping: three plates of ten 64 px targets are wider than the 858 px area at 960 × 600 and taller than it in two rows (the first seed, two plates of ten and four, fits at 1280 × 800; a third plate of five or more does not); fix: a group layout that pages or reshapes the plates, which changes how the item is shown.',
       at: SMALL,
       templates: ['CNT.19.t2'],
     },

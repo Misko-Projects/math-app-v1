@@ -226,10 +226,25 @@ export function NumeralPickWidget({
   );
   // Shape pictures share one scale: a composition's target and the pieces in its choices compare
   // truly (GEO.10, GEO.11), so the smallest fit of any of them draws them all.
+  //
+  // The question's shapes are fitted to the box the plan gives them, and the plan depends on the
+  // cards, whose shapes use the same scale: smaller shapes make smaller cards, a bigger box and
+  // bigger shapes again. So in one room the question's scale only ever goes down (`unitCap`), and
+  // the layout settles on the first scale that fits.
+  const stimulusUnit =
+    stimulus.kind === 'shape'
+      ? shapeSetUnit(stimulus.shapes, pictureBox.width, pictureBox.height)
+      : null;
+  const [unitCap, setUnitCap] = useState<{ px: number; w: number; h: number } | null>(null);
+  const cap =
+    unitCap && unitCap.w === room.w && unitCap.h === room.h ? unitCap.px : Number.POSITIVE_INFINITY;
+  useLayoutEffect(() => {
+    if (stimulusUnit !== null && stimulusUnit < cap - 0.01) {
+      setUnitCap({ px: stimulusUnit, w: room.w, h: room.h });
+    }
+  }, [stimulusUnit, cap, room.w, room.h]);
   const shapeUnits = [
-    ...(stimulus.kind === 'shape'
-      ? [shapeSetUnit(stimulus.shapes, pictureBox.width, pictureBox.height)]
-      : []),
+    ...(stimulusUnit !== null ? [Math.min(stimulusUnit, cap)] : []),
     ...config.options.flatMap((o) =>
       o.stimulus?.kind === 'shape'
         ? [shapeSetUnit(o.stimulus.shapes, choiceWidth, CHOICE_BOX.height)]
