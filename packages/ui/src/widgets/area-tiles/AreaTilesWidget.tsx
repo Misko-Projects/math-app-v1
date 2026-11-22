@@ -44,6 +44,7 @@ import {
   inRegion,
   LABEL,
   type Line,
+  labelled,
   lineFromStroke,
   lineNear,
   nextCell,
@@ -232,7 +233,7 @@ export function AreaTilesWidget({
     [shape, answerMax, box.w, box.h, button, ageMode],
   );
   const picture = askPlan.picture ? picturePlan(shape, askPlan.picture, ageMode) : null;
-  const labelRoom = config.sideLabels ? LABEL : { top: 0, left: 0 };
+  const labelRoom = labelled(shape) ? LABEL : { top: 0, left: 0 };
 
   // ---------- child input ----------
 
@@ -551,6 +552,10 @@ export function AreaTilesWidget({
   // ---------- render ----------
 
   const tileCount = state.tiles.filter(Boolean).length;
+  const squareWords = (r: number, c: number) =>
+    t('ui.widget.at.where.square', { r: r + 1, c: c + 1 });
+  const lineWords = (l: Line) =>
+    t(l.dir === 'v' ? 'ui.widget.at.where.line-v' : 'ui.widget.at.where.line-h', { n: l.at });
   /** The region in words: what a sighted child can count. */
   const regionLabel = [
     t(working && step === 'build' ? `ui.widget.at.board.${mode}` : 'ui.widget.picture'),
@@ -568,9 +573,29 @@ export function AreaTilesWidget({
           t(state.splits.length === 1 ? 'ui.widget.at.count.line' : 'ui.widget.at.count.lines', {
             n: state.splits.length,
           }),
+          ...state.splits.map((s) => lineWords(s)),
         ]
       : []),
+    ...(tiling && tileCount > 0
+      ? cells.filter(([r, c]) => tiled(state, r, c)).map(([r, c]) => squareWords(r, c))
+      : []),
   ].join('. ');
+  /**
+   * Where the cursor is and what is there, for assistive tech: said when it moves or changes
+   * (a polite live region), so the pad can be used without seeing the region.
+   */
+  const cursorWords = !working
+    ? ''
+    : tiling
+      ? t(
+          tiled(state, cell[0], cell[1]) ? 'ui.widget.at.cursor.tile' : 'ui.widget.at.cursor.bare',
+          { where: squareWords(cell[0], cell[1]) },
+        )
+      : line
+        ? t(hasLine(state, line) ? 'ui.widget.at.cursor.drawn' : 'ui.widget.at.cursor.open', {
+            where: lineWords(line),
+          })
+        : '';
 
   const lines = (segs: Segment[], className: string, key: string, data?: string) =>
     segs.map((s, i) => (
@@ -646,8 +671,8 @@ export function AreaTilesWidget({
         className="ni-atw__inner"
         style={{ width: W + labelRoom.left, height: H + labelRoom.top }}
       >
-        {config.sideLabels ? sideLabel('top', region.w) : null}
-        {config.sideLabels ? sideLabel('left', region.h) : null}
+        {labelled(shape) ? sideLabel('top', region.w) : null}
+        {labelled(shape) ? sideLabel('left', region.h) : null}
         <svg
           className="ni-atw__svg"
           width={W}
@@ -840,6 +865,9 @@ export function AreaTilesWidget({
           />
           {renderRegion(plan, true)}
           {actions}
+          <span className="ni-visually-hidden" aria-live="polite" data-cursor-words="true">
+            {cursorWords}
+          </span>
         </div>
       ) : (
         <AskStep

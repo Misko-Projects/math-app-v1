@@ -314,6 +314,15 @@ describe('area-tiles: the supported domain', () => {
     expect(issues(areaTiles, { ...area, mode: 'multiply', sideLabels: true })).toEqual([]);
   });
 
+  it('labels side lengths on a region to read only', () => {
+    for (const mode of ['tile', 'decompose', 'partition'] as const) {
+      expect(issues(areaTiles, { ...area, mode, sideLabels: true })).toEqual([
+        `sideLabels: side lengths are labelled on a region to read, not one to ${mode}`,
+      ]);
+    }
+    expect(issues(areaTiles, { ...area, mode: 'count', sideLabels: true })).toEqual([]);
+  });
+
   it('the decimal grid is a counted 10 × 10', () => {
     const mask = '1'.repeat(47) + '0'.repeat(53);
     const c = { ...area, mode: 'count', decimalGrid: true, region: { w: 10, h: 10, mask } };
@@ -342,7 +351,7 @@ describe('area-tiles: what the child must read is on screen', () => {
       expect(issues(areaTiles, { ...plain, mode })).toEqual([
         `gridShown: a region to ${mode} shows its unit squares (gridShown)`,
       ]);
-      expect(issues(areaTiles, { ...plain, mode, sideLabels: true })).toHaveLength(1);
+      expect(issues(areaTiles, { ...plain, mode, sideLabels: true })).not.toEqual([]);
       expect(issues(areaTiles, { ...plain, mode, gridShown: true })).toEqual([]);
     }
   });

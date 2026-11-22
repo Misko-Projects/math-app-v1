@@ -260,7 +260,14 @@ export const PadTiles: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(cursorCell(root)).toBe('0-0');
+    // The cursor and what is under it are put in words for assistive tech, as they change.
+    const words = () => q(root, '[data-cursor-words]').textContent;
+    await expect(words()).toBe('You are at row 1, square 1. No tile here');
     await press(root, 'tile');
+    await expect(words()).toBe('You are at row 1, square 1. A tile is here');
+    await expect(surface(root)).toHaveAccessibleName(
+      'Fill the shape with tiles. Row 1 has 4. Row 2 has 4. Row 3 has 4. 1 tile. row 1, square 1',
+    );
     await press(root, 'right');
     await press(root, 'down');
     await expect(cursorCell(root)).toBe('1-1');
@@ -401,7 +408,9 @@ export const TileAsk: Story = {
     await expect(tiles(root)).toHaveLength(12);
     await expect(root.querySelector('.ni-atw__cursor')).toBeNull();
     await expect(q(root, '.ni-atw__picture')).toHaveAccessibleName(
-      'Look at the picture. Row 1 has 4. Row 2 has 4. Row 3 has 4. 12 tiles',
+      expect.stringMatching(
+        /^Look at the picture\. Row 1 has 4\. Row 2 has 4\. Row 3 has 4\. 12 tiles\. /,
+      ),
     );
     await enterNumber(root, 12);
     await expectAreaFit(canvasElement, {
@@ -544,11 +553,17 @@ export const DecomposePad: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(cursorLine(root)).toBe('cursor-v-2');
+    const words = () => q(root, '[data-cursor-words]').textContent;
+    await expect(words()).toBe('You are at the line down after 2. It is not drawn');
     // The cursor's line is dashed until it is drawn, and solid once it is.
     await expect(root.querySelector('.ni-atw__cursordash')).not.toBeNull();
     await press(root, 'cut');
     await expect(drawn(root)).toEqual(['v-2']);
     await expect(root.querySelector('.ni-atw__cursordash')).toBeNull();
+    await expect(words()).toBe('You are at the line down after 2. It is drawn');
+    await expect(surface(root)).toHaveAccessibleName(
+      'Cut the shape into parts. Row 1 has 2. Row 2 has 4. Row 3 has 4. 1 line. the line down after 2',
+    );
     // The same button erases the line where it is.
     await press(root, 'cut');
     await expect(drawn(root)).toEqual([]);

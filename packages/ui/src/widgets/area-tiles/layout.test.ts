@@ -49,6 +49,11 @@ describe('area-tiles layout in the smallest area (906 × 373)', () => {
             const what = `${mode} ${w} × ${h} ${ageMode}`;
             const p = workPlan({ mode, region: rect(w, h), sideLabels: false }, room, ageMode);
             expect(p.fits, what).toBe(true);
+            // A region to work on has no side labels (the schema refuses them): the flag adds
+            // nothing to its layout.
+            expect(workPlan({ mode, region: rect(w, h), sideLabels: true }, room, ageMode)).toEqual(
+              p,
+            );
             expect(p.cell, what).toBeGreaterThanOrEqual(MIN_WORK_CELL);
             expect(Math.min(p.board.w, p.board.h), what).toBeGreaterThanOrEqual(
               MIN_TARGET_PX[ageMode],
@@ -71,7 +76,7 @@ describe('area-tiles layout in the smallest area (906 × 373)', () => {
             // The kit's number pad at kindergarten size does not fit this area (a known kit
             // limit); kindergarten sizes are checked where the tray or the stepper answers.
             if (ageMode === 'k' && max > 20) continue;
-            for (const sideLabels of [false, true]) {
+            for (const sideLabels of read ? [false, true] : [false]) {
               const c: AreaShape = { mode, region: rect(w, h), sideLabels };
               const what = `${mode} ${w} × ${h} labels ${sideLabels} ${ageMode}`;
               const plan = askPlanFor(c, max, ROOM, BUTTON[ageMode], ageMode);
@@ -164,6 +169,43 @@ describe('area-tiles geometry', () => {
       [0, 1],
     ]);
     expect(cellsBetween(L, { x: 20, y: 20 }, { x: 20, y: 20 }, 40)).toEqual([[0, 0]]);
+    // A slanted stroke that only clips a square's corner still lays its tile: from (2, 0) up
+    // to (1, 3) the path enters (2, 1) and (2, 2) on the way, and comes back the same way.
+    const slant: [number, number][] = [
+      [2, 0],
+      [2, 1],
+      [2, 2],
+      [1, 2],
+      [1, 3],
+    ];
+    expect(cellsBetween(L, { x: 20, y: 100 }, { x: 140, y: 70 }, 40)).toEqual(slant);
+    expect(cellsBetween(L, { x: 140, y: 70 }, { x: 20, y: 100 }, 40)).toEqual([...slant].reverse());
+    // One slanted move over a 2 × 2 region that is in the top-right square only briefly.
+    expect(cellsBetween(rect(2, 2), { x: 20, y: 18 }, { x: 65, y: 63 }, 40)).toEqual([
+      [0, 0],
+      [0, 1],
+      [1, 1],
+    ]);
+    // Every stroke between two square centres of a 10 × 6 board: the squares found are joined
+    // edge to edge (none skipped), start at the first and end at the last.
+    const board = rect(10, 6);
+    for (const [r0, c0] of regionCells(board)) {
+      for (const [r1, c1] of regionCells(board)) {
+        const path = cellsBetween(
+          board,
+          { x: c0 * 40 + 13, y: r0 * 40 + 29 },
+          { x: c1 * 40 + 13, y: r1 * 40 + 29 },
+          40,
+        );
+        expect(path[0]).toEqual([r0, c0]);
+        expect(path.at(-1)).toEqual([r1, c1]);
+        for (let k = 1; k < path.length; k += 1) {
+          const [pr, pc] = path[k - 1] as [number, number];
+          const [qr, qc] = path[k] as [number, number];
+          expect(Math.abs(pr - qr) + Math.abs(pc - qc)).toBe(1);
+        }
+      }
+    }
   });
 
   it('the line cursor walks the lines of one kind and turns to the other', () => {

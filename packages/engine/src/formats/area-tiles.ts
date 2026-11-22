@@ -226,6 +226,13 @@ const configSchema = areaTilesConfigSchema.superRefine((c, ctx) => {
       message: 'a region to multiply shows its side lengths or its unit squares',
     });
   }
+  if (c.sideLabels && worked) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['sideLabels'],
+      message: `side lengths are labelled on a region to read, not one to ${c.mode}`,
+    });
+  }
   if (c.sideLabels && !isRectangle(c.region.mask)) {
     ctx.addIssue({
       code: 'custom',

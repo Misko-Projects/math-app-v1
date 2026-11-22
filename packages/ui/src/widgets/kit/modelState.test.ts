@@ -21,6 +21,23 @@ describe('modelState: waits for a render', () => {
     await expect(played).resolves.toBe('settled');
   });
 
+  it('a wait asked for after the widget is gone settles at once', async () => {
+    const w = commitWaiters();
+    w.settle();
+    const late = new Promise<string>((resolve) => w.push(() => resolve('settled')));
+    expect(w.size).toBe(0);
+    await expect(late).resolves.toBe('settled');
+    // Mounted again (an effect that React re-runs), waits wait for a commit again.
+    w.open();
+    let done = false;
+    w.push(() => {
+      done = true;
+    });
+    expect(done).toBe(false);
+    w.flush();
+    expect(done).toBe(true);
+  });
+
   it('a wait queued while settling is kept for the next commit', () => {
     const w = commitWaiters();
     const seen: string[] = [];

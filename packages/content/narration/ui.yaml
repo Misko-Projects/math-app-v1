@@ -1328,4 +1328,25 @@ ui.widget.at.len.sq-in:
 ui.widget.at.len.sq-ft:
   text: "ft"
   level: "2"
+ui.widget.at.where.square:
+  text: "row {r}, square {c}"
+  level: "2"
+ui.widget.at.where.line-v:
+  text: "the line down after {n}"
+  level: "2"
+ui.widget.at.where.line-h:
+  text: "the line after row {n}"
+  level: "2"
+ui.widget.at.cursor.bare:
+  text: "You are at {where}. No tile here"
+  level: "2"
+ui.widget.at.cursor.tile:
+  text: "You are at {where}. A tile is here"
+  level: "2"
+ui.widget.at.cursor.open:
+  text: "You are at {where}. It is not drawn"
+  level: "2"
+ui.widget.at.cursor.drawn:
+  text: "You are at {where}. It is drawn"
+  level: "2"
 # end area-tiles

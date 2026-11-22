@@ -155,9 +155,12 @@ export const FRAME = 4;
 /** The side-length labels: a row above the region and a column left of it. */
 export const LABEL = { top: 48, left: 60 } as const;
 
+/** Side lengths are labelled on a region to read (the schema refuses them on one to work on). */
+export const labelled = (c: AreaShape): boolean => c.sideLabels && !worked(c.mode);
+
 const extraFor = (c: AreaShape): Size => ({
-  w: 2 * FRAME + (c.sideLabels ? LABEL.left : 0),
-  h: 2 * FRAME + (c.sideLabels ? LABEL.top : 0),
+  w: 2 * FRAME + (labelled(c) ? LABEL.left : 0),
+  h: 2 * FRAME + (labelled(c) ? LABEL.top : 0),
 });
 
 /** The step with the region and its pad (`room` is the kit's `buildRoom`). */
@@ -269,7 +272,9 @@ export function arrowToward(
 
 /**
  * The region squares a finger crosses between two points (px from the first square's corner),
- * in order: the path is sampled every quarter square, so a fast stroke skips none.
+ * in order. The straight path is walked from grid line to grid line, so every square it enters is
+ * found, however fast or slanted the stroke (a path through a corner takes one of the two
+ * squares beside it).
  */
 export function cellsBetween(
   region: Region,
@@ -277,13 +282,37 @@ export function cellsBetween(
   b: { x: number; y: number },
   cell: number,
 ): [number, number][] {
-  const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (cell / 4)));
+  const x0 = a.x / cell;
+  const y0 = a.y / cell;
+  const dx = b.x / cell - x0;
+  const dy = b.y / cell - y0;
+  let c = Math.floor(x0);
+  let r = Math.floor(y0);
+  const endC = Math.floor(b.x / cell);
+  const endR = Math.floor(b.y / cell);
+  const stepC = Math.sign(dx);
+  const stepR = Math.sign(dy);
+  // How far along the path (0 … 1) the next grid line of each kind is, and one square more.
+  let nextC = dx === 0 ? Number.POSITIVE_INFINITY : ((stepC > 0 ? c + 1 : c) - x0) / dx;
+  let nextR = dy === 0 ? Number.POSITIVE_INFINITY : ((stepR > 0 ? r + 1 : r) - y0) / dy;
+  const perC = dx === 0 ? Number.POSITIVE_INFINITY : Math.abs(1 / dx);
+  const perR = dy === 0 ? Number.POSITIVE_INFINITY : Math.abs(1 / dy);
   const out: [number, number][] = [];
-  for (let i = 0; i <= steps; i += 1) {
-    const r = Math.floor((a.y + ((b.y - a.y) * i) / steps) / cell);
-    const c = Math.floor((a.x + ((b.x - a.x) * i) / steps) / cell);
-    const last = out[out.length - 1];
-    if (inRegion(region, r, c) && !(last && last[0] === r && last[1] === c)) out.push([r, c]);
+  const visit = () => {
+    if (inRegion(region, r, c)) out.push([r, c]);
+  };
+  visit();
+  // Each step crosses one grid line: at most the squares between the two ends, both ways.
+  const most = Math.abs(endC - c) + Math.abs(endR - r);
+  for (let k = 0; k < most && (c !== endC || r !== endR); k += 1) {
+    if (nextC < nextR) {
+      c += stepC;
+      nextC += perC;
+    } else {
+      r += stepR;
+      nextR += perR;
+    }
+    visit();
   }
   return out;
 }

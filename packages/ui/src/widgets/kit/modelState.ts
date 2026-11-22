@@ -11,17 +11,28 @@ import type { AskPlan } from './twoStep';
  */
 export function commitWaiters() {
   let waiting: (() => void)[] = [];
+  let gone = false;
   const run = () => {
     const now = waiting;
     waiting = [];
     for (const w of now) w();
   };
   return {
+    /** Waits for the next commit; once the widget is gone there is none, so it settles now. */
     push: (w: () => void) => {
-      waiting.push(w);
+      if (gone) w();
+      else waiting.push(w);
     },
     flush: run,
-    settle: run,
+    /** The widget unmounted: settles every wait, and every later one at once. */
+    settle: () => {
+      gone = true;
+      run();
+    },
+    /** The widget mounted (again: React may remount an effect): waits wait for commits. */
+    open: () => {
+      gone = false;
+    },
     get size() {
       return waiting.length;
     },
@@ -42,7 +53,10 @@ export function useModelState<S>(initial: () => S, apply: (s: S, a: WidgetAction
     waiters.flush();
   });
   // A widget that goes away mid-demo (WidgetHost remounts per item) settles every pending wait.
-  useLayoutEffect(() => () => waiters.settle(), [waiters]);
+  useLayoutEffect(() => {
+    waiters.open();
+    return () => waiters.settle();
+  }, [waiters]);
   const [, setTick] = useState(0);
   const commit = (next: S) => {
     stateRef.current = next;

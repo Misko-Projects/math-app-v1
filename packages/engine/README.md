@@ -298,7 +298,7 @@ Both models state and enforce the domain their widgets draw. Every bound is a fi
 | area-tiles | `region.w`, `region.h` to read (`count`, `multiply`) | 1 to 10 (`AREA_SIDE_MAX`): every unit square at least 26 px |
 | | `region.w`, `region.h` to work on (`tile`, `decompose`, `partition`: `areaWorked(mode)`) | at most 10 wide (`AREA_WORK_W_MAX`) and 6 tall (`AREA_WORK_H_MAX`): every unit square at least 40 px |
 | | `region.mask` | not empty; one connected shape; it touches every side of its `w` × `h` box (`fillsBox`). The decimal grid's mask is exempt from the last two (it shades part of one whole) |
-| | `sideLabels` | rectangles only (an L's other sides would have no label) |
+| | `sideLabels` | rectangles only (an L's other sides would have no label), and only on a region to read (`count`, `multiply`) |
 | | `gridShown` | what the child must read is on screen: `count` and `decompose` show the unit squares (`gridShown`, or the decimal grid); `multiply` shows the side lengths or the unit squares. `tile` and `partition` may be plain |
 | | `decimalGrid` | mode `count`, 10 × 10 |
 | | the answer control's range | `areaAnswerMax(config)`: 0 to 20 for a box of at most 20 squares, otherwise 0 to 100 |
