@@ -1,7 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { expectNumeralsSolid } from '../../test-support/clockChecks';
+import { expectHandsLeaveNumerals, expectNumeralsSolid } from '../../test-support/clockChecks';
 import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
 import {
   clearSpies,
@@ -504,6 +504,9 @@ export const DemoInvite: Story = {
       root,
     );
     await expectOneInvite(root);
+    // The invited hand glows; the glow leaves the number it points at (12) readable.
+    await expect(root.querySelector('.ni-clock__hand[data-lit="true"]')).not.toBeNull();
+    await expectHandsLeaveNumerals(root.querySelector('.ni-clock') as SVGSVGElement);
   },
 };
 

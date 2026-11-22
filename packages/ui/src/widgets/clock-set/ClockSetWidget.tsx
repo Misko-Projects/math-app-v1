@@ -26,6 +26,7 @@ import {
   useAlive,
   useDemoPause,
   useInviteHand,
+  useRoomy,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -53,7 +54,9 @@ import './clock-set.css';
  */
 
 const OPS = ['drag-minute', 'drag-hour', 'count-fives', 'highlight-hand'] as const;
+/** The face's diameter: 288 px, and larger where the area is roomy (kit `useRoomy`). */
 const FACE_PX = 288;
+const FACE_ROOMY_PX = 392;
 
 type Config = ConfigFor<'clock-set'>;
 type Hand = 'hour' | 'minute';
@@ -81,6 +84,8 @@ export function ClockSetWidget({
   const { speakOnTap, tapOnly } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
+  const [roomy, areaRef] = useRoomy();
+  const facePx = roomy ? FACE_ROOMY_PX : FACE_PX;
   const alive = useAlive();
   const pause = useDemoPause();
   const model = formatModel('clock-set');
@@ -124,11 +129,14 @@ export function ClockSetWidget({
   const pointAngle = (clientX: number, clientY: number) => {
     const r = faceRef.current?.getBoundingClientRect();
     if (!r) return null;
+    // The rendered face: a circle as wide as its box, at the top of it (its shadow hangs below).
     const cx = r.left + r.width / 2;
-    const cy = r.top + FACE_PX / 2;
+    const cy = r.top + r.width / 2;
     return {
       deg: angleOf(clientX - cx, clientY - cy),
       dist: Math.hypot(clientX - cx, clientY - cy),
+      /** Distance from the centre in face units (the face is 200 units across). */
+      units: Math.hypot(clientX - cx, clientY - cy) / (r.width / 200),
     };
   };
 
@@ -178,7 +186,7 @@ export function ClockSetWidget({
     if (!p) return;
     // The hand under the finger, wherever along it; off the hands, near the middle is the short
     // hand and out by the numbers the long one (kit `clockHandAt`).
-    const u = p.dist / (FACE_PX / 200);
+    const u = p.units;
     const a = (p.deg * Math.PI) / 180;
     const hand: Hand = clockHandAt(u * Math.sin(a), -u * Math.cos(a), stateRef.current.t);
     const raw = hand === 'minute' ? p.deg / 6 : p.deg * 2;
@@ -428,14 +436,18 @@ export function ClockSetWidget({
   return (
     <div
       className="ni-cset"
-      ref={rootRef}
+      ref={(el) => {
+        rootRef.current = el;
+        areaRef.current = el;
+      }}
+      data-roomy={roomy ? 'true' : undefined}
       style={handRootStyle}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
       data-time={`${now.h}:${String(now.m).padStart(2, '0')}`}
     >
       <div className="ni-cset__face" ref={faceRef}>
-        <ClockFace t={shown} numerals size={FACE_PX} highlight={glow} fives={fives} />
+        <ClockFace t={shown} numerals size={facePx} highlight={glow} fives={fives} />
         <div
           {...{
             ...facePad,

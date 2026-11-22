@@ -92,6 +92,9 @@ function Hand({ kind, deg, lit }: { kind: 'hour' | 'minute'; deg: number; lit: b
     kind === 'hour'
       ? `M${-w / 2} 12L${-w / 2} ${-(len - 14)}L0 ${-len}L${w / 2} ${-(len - 14)}L${w / 2} 12Z`
       : `M${-w / 2} 12L${-w / 2} -48L-1.1 -55L-1.1 ${-(len - 6)}L0 ${-len}L1.1 ${-(len - 6)}L1.1 -55L${w / 2} -48L${w / 2} 12Z`;
+  // The glow of a lit hand follows the hand's broad part only: on the long hand it stops before the
+  // numbers (r 46), so the number the hand points at is never hidden under the glow.
+  const halo = kind === 'hour' ? d : `M${-w / 2} 12L${-w / 2} -46L${w / 2} -46L${w / 2} 12Z`;
   return (
     <g
       className="ni-clock__hand"
@@ -102,7 +105,7 @@ function Hand({ kind, deg, lit }: { kind: 'hour' | 'minute'; deg: number; lit: b
     >
       {lit ? (
         <path
-          d={d}
+          d={halo}
           fill="none"
           stroke={paint('sunshine')}
           strokeWidth={12}

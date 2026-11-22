@@ -26,6 +26,7 @@ import {
   useDemoPause,
   useInviteHand,
   usePadEntry,
+  useRoomy,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -45,7 +46,9 @@ import './clock-read.css';
 
 const OPS = ['point-hour', 'point-minute', 'count-fives', 'answer'] as const;
 const KEY_MS = 340;
+/** The face's diameter: 284 px, and larger where the area is roomy (kit `useRoomy`). */
 const FACE_PX = 284;
+const FACE_ROOMY_PX = 388;
 const HAND_PX = 56;
 
 type Config = ConfigFor<'clock-read'>;
@@ -71,6 +74,8 @@ export function ClockReadWidget({
   const { say, sayNumber } = useSpeech();
   const { speakOnTap } = useUiPreferences();
   const trace = useInteractionTrace(onInteract);
+  const [roomy, areaRef] = useRoomy();
+  const facePx = roomy ? FACE_ROOMY_PX : FACE_PX;
   const alive = useAlive();
   const pause = useDemoPause();
   const model = formatModel('clock-read');
@@ -215,8 +220,8 @@ export function ClockReadWidget({
     const deg = pointed === 'hour' ? hourAngle(time) : minuteAngle(time);
     const len = pointed === 'hour' ? CLOCK.hourLen : CLOCK.minuteLen;
     const p = polarPoint(len * 0.62, deg);
-    const k = FACE_PX / 200;
-    return { left: FACE_PX / 2 + p.x * k - HAND_PX * 0.42, top: FACE_PX / 2 + p.y * k - 8 };
+    const k = facePx / 200;
+    return { left: facePx / 2 + p.x * k - HAND_PX * 0.42, top: facePx / 2 + p.y * k - 8 };
   })();
   const invitedId =
     invite?.op === 'answer' && typeof invite.args?.id === 'string' ? invite.args.id : null;
@@ -241,11 +246,11 @@ export function ClockReadWidget({
   const fives = state.fives !== null && state.fives > 0 ? { from: 0, to: state.fives } : null;
 
   const face = (
-    <div className="ni-cread__face" style={{ width: FACE_PX } as CSSProperties}>
+    <div className="ni-cread__face" style={{ width: facePx } as CSSProperties}>
       <ClockFace
         t={time}
         numerals={config.numerals}
-        size={FACE_PX}
+        size={facePx}
         highlight={pointed}
         fives={fives}
         label={label}
@@ -270,7 +275,11 @@ export function ClockReadWidget({
         data-input="pick"
         data-tier={tier}
         data-disabled={disabled ? 'true' : undefined}
-        ref={rootRef}
+        ref={(el) => {
+          rootRef.current = el;
+          areaRef.current = el;
+        }}
+        data-roomy={roomy ? 'true' : undefined}
         style={handRootStyle}
       >
         {face}
@@ -333,7 +342,11 @@ export function ClockReadWidget({
       data-input="digital-pad"
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
-      ref={rootRef}
+      ref={(el) => {
+        rootRef.current = el;
+        areaRef.current = el;
+      }}
+      data-roomy={roomy ? 'true' : undefined}
       style={handRootStyle}
     >
       {face}

@@ -16,7 +16,7 @@ import { CoinArt, type MoneyPiece, moneyText, pieceCents } from '../kit';
 
 const W = 360;
 const PAD = 52;
-const LINE_Y = 80;
+const LINE_Y = 72;
 const NUMERAL_PX = 34;
 /** A riding coin is drawn 24 px wide: the room one needs on its level, with 2 px to spare. */
 export const RIDE_PX = 26;
@@ -48,8 +48,8 @@ export function CountUpLine({ price, paid, given, label }: CountUpLineProps) {
       role="img"
       aria-label={label}
       width={W}
-      height={LINE_Y + 58}
-      viewBox={`0 0 ${W} ${LINE_Y + 58}`}
+      height={LINE_Y + 54}
+      viewBox={`0 0 ${W} ${LINE_Y + 54}`}
       data-price={price}
       data-paid={paid}
       data-reached={at}
@@ -58,14 +58,17 @@ export function CountUpLine({ price, paid, given, label }: CountUpLineProps) {
       {hops.map((h) => {
         const x1 = x(h.from);
         const x2 = x(h.to);
-        const top = LINE_Y - 12 - Math.min(36, 10 + (x2 - x1) * 0.5);
+        // A hop is as tall as it is long (up to 36 px), so a penny's hop is a small bump, not a spike.
+        const top = LINE_Y - 12 - Math.min(36, 4 + (x2 - x1) * 0.6);
         const mid = (x1 + x2) / 2;
         const w = x2 - x1;
         // Short hops side by side would stack their coins: every other one rides higher, and a
         // hop too short even for that is drawn without its coin.
         const rides = w >= RIDE_PX / 2;
         const lift = w < RIDE_PX && h.i % 2 === 1 ? 22 : 0;
-        const stop = Math.max(2, Math.min(6, w / 2 - 1));
+        // A short hop is drawn finer, so a run of penny hops is a row of small bumps, never a blot.
+        const fine = w < 12;
+        const stop = Math.max(1.2, Math.min(6, w / 2 - 1));
         return (
           <g
             key={h.i}
@@ -78,8 +81,15 @@ export function CountUpLine({ price, paid, given, label }: CountUpLineProps) {
             <path
               d={`M${x1} ${LINE_Y - 6}Q${mid} ${2 * top - (LINE_Y - 6)} ${x2} ${LINE_Y - 6}`}
               className="ni-mchange__arc"
+              style={fine ? { strokeWidth: Math.max(1.2, w / 3) } : undefined}
             />
-            <circle cx={x2} cy={LINE_Y} r={stop} className="ni-mchange__stop" />
+            <circle
+              cx={x2}
+              cy={LINE_Y}
+              r={stop}
+              className="ni-mchange__stop"
+              style={fine ? { strokeWidth: 0.6 } : undefined}
+            />
             {!rides ? null : h.p === 'dollar' ? (
               <rect
                 x={mid - 14}
@@ -115,7 +125,7 @@ export function CountUpLine({ price, paid, given, label }: CountUpLineProps) {
           <text
             className="ni-mchange__numeral"
             x={x(v)}
-            y={LINE_Y + 18 + NUMERAL_PX * 0.85}
+            y={LINE_Y + 14 + NUMERAL_PX * 0.85}
             fontSize={NUMERAL_PX}
             textAnchor="middle"
           >

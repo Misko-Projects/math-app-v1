@@ -12,6 +12,10 @@
   max-width: 1180px;
   padding: 2px 12px;
 }
+/* A roomy area (kit `useRoomy`): the larger clock, its readouts and its buttons spread across it. */
+.ni-cset[data-roomy="true"] {
+  justify-content: space-around;
+}
 .ni-cset__face {
   position: relative;
   flex: none;

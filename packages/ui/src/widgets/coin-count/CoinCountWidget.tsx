@@ -25,6 +25,7 @@ import {
   useInviteHand,
   useMoneySpeech,
   usePadEntry,
+  useRoomy,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -77,6 +78,7 @@ export function CoinCountWidget({
   const { speakOnTap } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
+  const [roomy, areaRef] = useRoomy();
   const alive = useAlive();
   const pause = useDemoPause();
   const model = formatModel('coin-count');
@@ -321,11 +323,14 @@ export function CoinCountWidget({
   // One coin scale for the whole item: both purses of a comparison draw a quarter the same size.
   const slotsOf = (src: { coins: readonly unknown[]; bills: readonly unknown[] } | undefined) =>
     (src?.coins.length ?? 0) + 3 * (src?.bills.length ?? 0);
-  const quarterPx = quarterFor(Math.max(slotsOf(config), slotsOf(config.compareWith)), compare);
+  // A roomy area draws the same purse a third larger (kit `useRoomy`).
+  const quarterPx = Math.round(
+    quarterFor(Math.max(slotsOf(config), slotsOf(config.compareWith)), compare) * (roomy ? 1.3 : 1),
+  );
 
   const purse = (side: Side) => {
     const pieces = shown[side];
-    const billH = 74;
+    const billH = roomy ? 96 : 74;
     const label = t('ui.widget.picture');
     return (
       <fieldset
@@ -400,7 +405,11 @@ export function CoinCountWidget({
         data-mode="compare"
         data-tier={tier}
         data-disabled={disabled ? 'true' : undefined}
-        ref={rootRef}
+        ref={(el) => {
+          rootRef.current = el;
+          areaRef.current = el;
+        }}
+        data-roomy={roomy ? 'true' : undefined}
         style={handRootStyle}
       >
         {sides.map((side) => (
@@ -444,7 +453,11 @@ export function CoinCountWidget({
       data-mode={config.answerUnit}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
-      ref={rootRef}
+      ref={(el) => {
+        rootRef.current = el;
+        areaRef.current = el;
+      }}
+      data-roomy={roomy ? 'true' : undefined}
       style={handRootStyle}
     >
       <div className="ni-ccount__board">{purse('left')}</div>

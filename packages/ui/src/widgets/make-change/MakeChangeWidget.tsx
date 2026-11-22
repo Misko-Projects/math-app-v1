@@ -17,6 +17,7 @@ import {
   useDemoPause,
   useInviteHand,
   useMoneySpeech,
+  useRoomy,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -53,6 +54,7 @@ export function MakeChangeWidget({
   const money = useMoneySpeech();
   const { speakOnTap } = useUiPreferences();
   const trace = useInteractionTrace(onInteract);
+  const [roomy, areaRef] = useRoomy();
   const alive = useAlive();
   const pause = useDemoPause();
   const model = formatModel('make-change');
@@ -208,7 +210,11 @@ export function MakeChangeWidget({
   return (
     <div
       className="ni-mchange"
-      ref={rootRef}
+      ref={(el) => {
+        rootRef.current = el;
+        areaRef.current = el;
+      }}
+      data-roomy={roomy ? 'true' : undefined}
       style={handRootStyle}
       data-tier={tier}
       data-line={config.countUpLine ? 'true' : undefined}
@@ -242,7 +248,7 @@ export function MakeChangeWidget({
         }}
         trace={trace}
         disabled={!interactive}
-        quarterPx={64}
+        quarterPx={roomy ? 84 : 64}
         trayLabel={t('ui.money.change-tray')}
         highlight={highlight}
         landed={landed}

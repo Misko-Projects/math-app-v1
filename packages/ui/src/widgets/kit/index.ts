@@ -187,6 +187,7 @@ export {
   usePadEntry,
 } from './PadEntry';
 export { useWidgetRoom, type WidgetRoom } from './room';
+export { isRoomy, ROOMY_HEIGHT_PX, ROOMY_WIDTH_PX, useRoomy } from './roomy';
 export {
   countedParts,
   equalSideGroups,

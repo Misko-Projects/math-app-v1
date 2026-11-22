@@ -25,6 +25,7 @@ import {
   useDemoPause,
   useInviteHand,
   useMoneySpeech,
+  useRoomy,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -60,6 +61,7 @@ export function CoinPayWidget({
   const money = useMoneySpeech();
   const { speakOnTap } = useUiPreferences();
   const trace = useInteractionTrace(onInteract);
+  const [roomy, areaRef] = useRoomy();
   const alive = useAlive();
   const pause = useDemoPause();
   const model = formatModel('coin-pay');
@@ -283,7 +285,11 @@ export function CoinPayWidget({
   return (
     <div
       className="ni-cpay"
-      ref={rootRef}
+      ref={(el) => {
+        rootRef.current = el;
+        areaRef.current = el;
+      }}
+      data-roomy={roomy ? 'true' : undefined}
       style={handRootStyle}
       data-tier={tier}
       data-mode={config.mode}
@@ -299,7 +305,7 @@ export function CoinPayWidget({
         }}
         trace={trace}
         disabled={!interactive}
-        quarterPx={68}
+        quarterPx={roomy ? 92 : 68}
         trayLabel={t('ui.money.tray')}
         highlight={highlight}
         landed={landed}

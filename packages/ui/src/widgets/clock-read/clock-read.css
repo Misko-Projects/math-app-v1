@@ -12,6 +12,10 @@
   max-width: 1180px;
   padding: 2px 12px;
 }
+/* A roomy area (kit `useRoomy`): the larger clock and the answer side spread across it. */
+.ni-cread[data-roomy="true"] {
+  justify-content: space-around;
+}
 .ni-cread__face {
   position: relative;
   flex: none;

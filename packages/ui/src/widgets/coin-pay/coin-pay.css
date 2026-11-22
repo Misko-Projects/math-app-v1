@@ -12,6 +12,13 @@
 .ni-cpay .ni-money {
   flex: 1 1 auto;
 }
+/* A roomy area (kit `useRoomy`): larger coins in deeper zones, so the board fills the space. */
+.ni-cpay[data-roomy="true"] .ni-money {
+  gap: 28px;
+}
+.ni-cpay[data-roomy="true"] .ni-money__zone {
+  padding: 24px 28px;
+}
 .ni-cpay__aside {
   display: flex;
   align-items: center;

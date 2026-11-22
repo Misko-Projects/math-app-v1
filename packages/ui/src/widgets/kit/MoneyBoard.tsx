@@ -92,14 +92,13 @@ export interface MoneyBoardProps {
   trayAside?: ReactNode;
 }
 
-const BILL_H = 74;
-const BILL_W = (BILL_H * 235) / 104;
-/** The tray zone's side padding (money.css `.ni-money__zone`). */
-const ZONE_PAD_X = 18;
+/** A bill's height beside coins at `quarterPx`: 74 px up to a 68 px quarter, then in step. */
+const billHeight = (quarterPx: number) => Math.max(74, Math.round((74 * quarterPx) / 68));
+const billWidth = (quarterPx: number) => (billHeight(quarterPx) * 235) / 104;
 
 /** A piece's drawn size in px (CoinArt's box: 2 units of rim, 7 of shadow below). */
 function artSize(p: MoneyPiece, quarterPx: number): { w: number; h: number } {
-  if (p === 'dollar') return { w: BILL_W, h: BILL_H };
+  if (p === 'dollar') return { w: billWidth(quarterPx), h: billHeight(quarterPx) };
   const unit = quarterPx / 88;
   const r = coinRadius(p as CoinKind);
   return { w: (2 * r + 4) * unit, h: (2 * r + 9) * unit };
@@ -107,7 +106,7 @@ function artSize(p: MoneyPiece, quarterPx: number): { w: number; h: number } {
 
 function PieceArt({ piece, quarterPx }: { piece: MoneyPiece; quarterPx: number }) {
   return piece === 'dollar' ? (
-    <BillArt dollars={1} height={BILL_H} />
+    <BillArt dollars={1} height={billHeight(quarterPx)} />
   ) : (
     <CoinArt kind={piece as CoinKind} quarterPx={quarterPx} />
   );
@@ -166,7 +165,12 @@ export function MoneyBoard({
   useLayoutEffect(() => {
     const el = trayRef.current;
     if (!el) return;
-    const measure = () => setTrayWidth(Math.max(0, el.clientWidth - 2 * ZONE_PAD_X));
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const pad =
+        (Number.parseFloat(cs.paddingLeft) || 0) + (Number.parseFloat(cs.paddingRight) || 0);
+      setTrayWidth(Math.max(0, el.clientWidth - pad));
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
