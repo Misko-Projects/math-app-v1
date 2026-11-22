@@ -42,8 +42,6 @@ export const PANEL_HEAD_H = 40;
 /** The note: two lines of label text. */
 export const NOTE_LINE_H = 30;
 export const NOTE_LINES = 2;
-/** The panel is never narrower than this, so a note fits its two lines. */
-export const PANEL_MIN_W = 240;
 /** A pad button's ledge (drawn under it; the next row keeps the target gap below it). */
 const LEDGE = 6;
 
@@ -59,7 +57,8 @@ export function padBox(ageMode: AgeMode, cols: number, rows: number): Size {
 /** The panel's box for a pad of `pad`, with or without a head line. */
 export function panelBox(pad: Size, head: boolean): Size {
   return {
-    w: Math.max(pad.w, PANEL_MIN_W),
+    // As wide as its pad, so the pad's buttons are the panel's edges (a note is two short lines).
+    w: pad.w,
     h: (head ? PANEL_HEAD_H + PANEL_GAP : 0) + pad.h + PANEL_GAP + NOTE_LINES * NOTE_LINE_H,
   };
 }
@@ -131,7 +130,6 @@ export interface PadButton {
   label: NarrationKey;
   icon: ReactNode;
   onPress: () => void;
-  pressed?: boolean;
 }
 
 export interface WorkPanelProps {
@@ -193,7 +191,6 @@ export function WorkPanel({
                 caption={false}
                 onPress={b.onPress}
                 disabled={disabled}
-                pressed={b.pressed}
                 className={ringed === b.id ? 'ni-invite' : undefined}
               />
             </span>

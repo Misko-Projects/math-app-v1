@@ -1209,7 +1209,7 @@ ui.widget.ab.board:
   text: "Make your rows here"
   level: "2"
 ui.widget.ab.pad:
-  text: "Row buttons"
+  text: "Make the rows"
   level: "2"
 ui.widget.ab.pad.row-more:
   text: "One more row"
@@ -1230,7 +1230,7 @@ ui.widget.ab.pad.line-right:
   text: "Move the line right"
   level: "2"
 ui.widget.ab.count.none:
-  text: "No rows yet"
+  text: "No rows"
   level: "2"
 ui.widget.ab.count.one:
   text: "1 row of {cols}"
@@ -1245,12 +1245,87 @@ ui.widget.ab.found:
   text: "You made these before"
   level: "2"
 ui.widget.ab.note.rows:
-  text: "No more rows fit here."
+  text: "That is the most rows."
   level: "2"
 ui.widget.ab.note.cols:
-  text: "The rows are as long as they can be."
+  text: "The rows are full."
   level: "2"
 ui.widget.ab.note.line:
-  text: "Put the line in first."
+  text: "Put the line in."
   level: "2"
 # end array-build
+
+# U04 area-tiles widget (packages/ui/src/widgets/area-tiles): keys under ui.widget.at.*
+ui.widget.at.board.tile:
+  text: "Fill the shape with tiles"
+  level: "2"
+ui.widget.at.board.decompose:
+  text: "Cut the shape into parts"
+  level: "2"
+ui.widget.at.board.partition:
+  text: "Cut the shape into squares"
+  level: "2"
+ui.widget.at.pad:
+  text: "Work on the shape"
+  level: "2"
+ui.widget.at.pad.up:
+  text: "Move up"
+  level: "2"
+ui.widget.at.pad.down:
+  text: "Move down"
+  level: "2"
+ui.widget.at.pad.left:
+  text: "Move left"
+  level: "2"
+ui.widget.at.pad.right:
+  text: "Move right"
+  level: "2"
+ui.widget.at.pad.tile:
+  text: "Tile here"
+  level: "2"
+ui.widget.at.pad.row:
+  text: "Fill this row"
+  level: "2"
+ui.widget.at.pad.cut:
+  text: "Line here"
+  level: "2"
+ui.widget.at.note.row:
+  text: "This row is full."
+  level: "2"
+ui.widget.at.whole:
+  text: "One whole"
+  level: "2"
+ui.widget.at.tile:
+  text: "Tile"
+  level: "2"
+ui.widget.at.square:
+  text: "Square"
+  level: "2"
+ui.widget.at.count.row:
+  text: "Row {i} has {n}"
+  level: "2"
+ui.widget.at.count.tile:
+  text: "1 tile"
+  level: "2"
+ui.widget.at.count.tiles:
+  text: "{n} tiles"
+  level: "2"
+ui.widget.at.count.line:
+  text: "1 line"
+  level: "2"
+ui.widget.at.count.lines:
+  text: "{n} lines"
+  level: "2"
+ui.widget.at.len.sq-cm:
+  text: "cm"
+  level: "2"
+ui.widget.at.len.sq-m:
+  text: "m"
+  level: "2"
+ui.widget.at.len.sq-in:
+  text: "in"
+  level: "2"
+ui.widget.at.len.sq-ft:
+  text: "ft"
+  level: "2"
+# end area-tiles

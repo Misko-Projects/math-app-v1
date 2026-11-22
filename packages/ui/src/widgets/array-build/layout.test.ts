@@ -11,8 +11,8 @@ import {
   MIN_PITCH,
   picturePlan,
   SPLIT_SPACE,
-  spriteBox,
   splitX,
+  spriteBox,
   workPlan,
 } from './layout';
 

@@ -176,9 +176,9 @@ describe('array-build: one source for the answer', () => {
   it('build-dims: the target is this array, with this orientation rule', () => {
     expect(arrayAnswerIssues(array, dims({ rows: 3, cols: 4 }))).toEqual([]);
     expect(arrayAnswerIssues(array, dims({ rows: 4, cols: 3 }))).toHaveLength(1);
-    expect(
-      arrayAnswerIssues(array, dims({ rows: 3, cols: 4, orientationMatters: true })),
-    ).toEqual(['the target and the widget disagree on whether orientation matters']);
+    expect(arrayAnswerIssues(array, dims({ rows: 3, cols: 4, orientationMatters: true }))).toEqual([
+      'the target and the widget disagree on whether orientation matters',
+    ]);
     expect(arrayAnswerIssues(array, dims({ rows: 3, cols: 4, requireSplit: true }))).toEqual([
       'requireSplit is set exactly for split',
     ]);
@@ -204,7 +204,9 @@ describe('array-build: one source for the answer', () => {
   });
 
   it('rows and columns are not interchangeable where orientation matters', () => {
-    const check = stateChecker('array.dims')?.check as NonNullable<ReturnType<typeof stateChecker>>["check"];
+    const check = stateChecker('array.dims')?.check as NonNullable<
+      ReturnType<typeof stateChecker>
+    >['check'];
     const s = arrayBuild.apply(
       arrayBuild.initialState(array),
       act('drag-rect', { rows: 4, cols: 3 }),
@@ -368,7 +370,9 @@ describe('area-tiles: one source for the answer', () => {
   });
 
   it('a covered region answers; one tile short, one too many or a gap does not', () => {
-    const check = stateChecker('tiles.cover')?.check as NonNullable<ReturnType<typeof stateChecker>>["check"];
+    const check = stateChecker('tiles.cover')?.check as NonNullable<
+      ReturnType<typeof stateChecker>
+    >['check'];
     const target = { mask: L.mask, value: 7 };
     const c = { ...area, region: L } as AreaConfig;
     let s = areaTiles.initialState(c);

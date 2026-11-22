@@ -64,9 +64,9 @@
   position: absolute;
   left: 0;
   top: 0;
-  box-sizing: border-box;
-  border: 3px solid var(--color-ink);
-  border-radius: 10px;
+  /* Drawn round the cells, in the board's frame: it never covers a sprite. */
+  outline: 3px solid var(--color-ink);
+  border-radius: 8px;
   background: var(--color-cloud);
 }
 /* Demo counting: the rows counted so far. */

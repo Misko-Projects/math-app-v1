@@ -4,6 +4,11 @@
  * The mask is row-major '1'/'0', like the engine's (`packages/engine/src/formats/area-tiles.ts`).
  */
 
+import type { AgeMode } from '../../tokens/tokens';
+import type { Size } from '../kit/arrange';
+import { planWork, type WorkPlan } from '../kit/gridWork';
+import { type AskPlan, planAsk } from '../kit/twoStep';
+
 export interface Segment {
   x1: number;
   y1: number;
@@ -127,126 +132,196 @@ export function splitSegments(region: Region, dir: 'v' | 'h', at: number, p: num
   );
 }
 
-/** How many staggered lanes a line of `size` px buttons, one per `pitch`, needs to keep `gap`. */
-export function lanesFor(pitch: number, size: number, gap: number): number {
-  return Math.max(1, Math.ceil((size + gap) / Math.max(1, pitch)));
+// ---------- the plans (kit gridWork, kit twoStep) ----------
+
+export type AreaMode = 'tile' | 'count' | 'multiply' | 'decompose' | 'partition';
+
+export interface AreaShape {
+  mode: AreaMode;
+  region: Region;
+  sideLabels: boolean;
 }
 
-/** The width of `lanes` staggered lanes of `size` px buttons, `gap` apart, plus the lead gap. */
-export function laneBand(lanes: number, size: number, gap: number): number {
-  return gap + lanes * size + (lanes - 1) * gap;
+/** Whether the child works on the region (lays tiles or draws lines). */
+export const worked = (mode: AreaMode): boolean =>
+  mode === 'tile' || mode === 'decompose' || mode === 'partition';
+
+/** A unit square to read is never drawn smaller than this; one to work on, than WORK_CELL. */
+export const MIN_CELL = 26;
+export const MIN_WORK_CELL = 40;
+export const MAX_CELL: Readonly<Record<AgeMode, number>> = { k: 144, 'g1-up': 144 };
+/** The outline's room round the squares, each side. */
+export const FRAME = 4;
+/** The side-length labels: a row above the region and a column left of it. */
+export const LABEL = { top: 48, left: 60 } as const;
+
+const extraFor = (c: AreaShape): Size => ({
+  w: 2 * FRAME + (c.sideLabels ? LABEL.left : 0),
+  h: 2 * FRAME + (c.sideLabels ? LABEL.top : 0),
+});
+
+/** The step with the region and its pad (`room` is the kit's `buildRoom`). */
+export function workPlan(c: AreaShape, room: Size, ageMode: AgeMode): WorkPlan {
+  return planWork({
+    room,
+    ageMode,
+    pad: { cols: 3, rows: 2 },
+    head: false,
+    cols: c.region.w,
+    rows: c.region.h,
+    extra: extraFor(c),
+    minCell: MIN_WORK_CELL,
+    maxCell: MAX_CELL[ageMode],
+  });
 }
 
-export interface FitOptions {
-  /** Room for the board's contents (tray + field), in px. */
-  width: number;
-  /** Room for the field (bands included), in px. */
-  height: number;
-  w: number;
-  h: number;
-  /** Smallest and largest pitch. */
-  min: number;
-  max: number;
-  /** The age mode's hit-target size and the gap between targets (06 §4). */
-  target: number;
-  gap: number;
-  /** The tile tray stands left of the field (tile mode). */
-  tray: boolean;
-  /** "Fill this row" buttons right of the region (tile mode). */
-  rowButtons: boolean;
-  /** Gap markers below (column lines) and right of (row lines) the region. */
-  markers: boolean;
-  /** Side-length labels above and left of the region; `labelW` is the left label's width. */
-  labels: boolean;
-  labelW: number;
+/** The ask step's picture of the region in `box`: no pad, nothing to touch. */
+export function picturePlan(c: AreaShape, box: Size, ageMode: AgeMode): WorkPlan {
+  return planWork({
+    room: box,
+    ageMode,
+    pad: { cols: 0, rows: 0 },
+    head: false,
+    cols: c.region.w,
+    rows: c.region.h,
+    extra: extraFor(c),
+    minCell: MIN_CELL,
+    maxCell: MAX_CELL[ageMode],
+  });
 }
 
-export interface BoardLayout {
-  pitch: number;
-  /** The tray's width (0 without one); the stack tile is drawn at `stack` px. */
-  trayW: number;
-  stack: number;
-  /** Staggered lanes for the row buttons and the column / row gap markers. */
-  rowLanes: number;
-  vLanes: number;
-  hLanes: number;
-  /** The region's top-left inside the field. */
-  gridLeft: number;
-  gridTop: number;
-  fieldW: number;
-  fieldH: number;
+/** The ask step: the answer control at full size, and the region as large as the rest allows. */
+export function askPlanFor(
+  c: AreaShape,
+  max: number,
+  room: Size,
+  button: Size,
+  ageMode: AgeMode,
+): AskPlan {
+  return planAsk({
+    ageMode,
+    max,
+    button,
+    actions: worked(c.mode) ? 2 : 1,
+    room,
+    pictureScore: (box) => {
+      const p = picturePlan(c, box, ageMode);
+      return p.fits ? p.cell : 0;
+    },
+  });
 }
 
-/** The space between the tray and the field. */
-export const TRAY_GAP = 20;
-/** The tray's padding and border, both sides. */
-export const TRAY_EDGES = 28;
+// ---------- the cursors the pad's arrows move ----------
 
-/** The layout at one pitch (no fitting). */
-export function layoutAt(o: FitOptions, p: number): BoardLayout {
-  const stack = o.tray ? Math.max(p, o.target) : 0;
-  const trayW = o.tray ? stack + TRAY_EDGES : 0;
-  const rowLanes = o.rowButtons ? lanesFor(p, o.target, o.gap) : 0;
-  const vLanes = o.markers ? lanesFor(p, o.target, o.gap) : 0;
-  const hLanes = vLanes;
-  // Buttons centred on rows or lines may stand out past the region when cells are small: pad
-  // the field so they stay inside it.
-  const rowPad = o.rowButtons ? Math.max(0, Math.ceil((o.target - p) / 2)) : 0;
-  const linePad = o.markers ? Math.max(0, Math.ceil(o.target / 2 - p)) : 0;
-  const gridLeft = (o.labels ? o.labelW + o.gap : 0) + linePad;
-  const gridTop = (o.labels ? o.target + o.gap : 0) + Math.max(rowPad, linePad);
-  const right = o.rowButtons
-    ? laneBand(rowLanes, o.target, o.gap)
-    : o.markers
-      ? laneBand(hLanes, o.target, o.gap)
-      : 0;
-  const bottom = o.markers ? laneBand(vLanes, o.target, o.gap) : 0;
-  return {
-    pitch: p,
-    trayW,
-    stack,
-    rowLanes,
-    vLanes,
-    hLanes,
-    gridLeft,
-    gridTop,
-    fieldW: gridLeft + o.w * p + right,
-    fieldH: gridTop + o.h * p + Math.max(bottom, rowPad),
+export type Dir = 'up' | 'down' | 'left' | 'right';
+const STEP: Record<Dir, [number, number]> = {
+  up: [-1, 0],
+  down: [1, 0],
+  left: [0, -1],
+  right: [0, 1],
+};
+
+/** The next region cell from (r, c) in a direction (past any notch); null at the region's end. */
+export function nextCell(region: Region, r: number, c: number, dir: Dir): [number, number] | null {
+  const [dr, dc] = STEP[dir];
+  for (let k = 1; k < Math.max(region.w, region.h); k += 1) {
+    const rr = r + dr * k;
+    const cc = c + dc * k;
+    if (rr < 0 || cc < 0 || rr >= region.h || cc >= region.w) return null;
+    if (inRegion(region, rr, cc)) return [rr, cc];
+  }
+  return null;
+}
+
+export interface Line {
+  dir: 'v' | 'h';
+  at: number;
+}
+
+/** Whether the region has a line there (1 … w − 1 down, 1 … h − 1 across) that cuts it. */
+export function lineCuts(region: Region, line: Line): boolean {
+  return splitSegments(region, line.dir, line.at, 1).length > 0;
+}
+
+/** Every line that cuts the region. */
+export function cutLines(region: Region): Line[] {
+  const out: Line[] = [];
+  for (let at = 1; at < region.w; at += 1) out.push({ dir: 'v', at });
+  for (let at = 1; at < region.h; at += 1) out.push({ dir: 'h', at });
+  return out.filter((l) => lineCuts(region, l));
+}
+
+/** Where the line cursor starts: the middle up-and-down line, else the middle one across. */
+export function firstLine(region: Region): Line | null {
+  const lines = cutLines(region);
+  const pick = (dir: 'v' | 'h') => {
+    const own = lines.filter((l) => l.dir === dir);
+    return own[Math.floor((own.length - 1) / 2)] ?? null;
   };
+  return pick('v') ?? pick('h');
 }
 
-/** The largest whole-pixel pitch whose layout fits the room (or the smallest allowed). */
-export function fitBoard(o: FitOptions): BoardLayout {
-  for (let p = Math.floor(o.max); p > o.min; p -= 1) {
-    const l = layoutAt(o, p);
-    const width = l.fieldW + (o.tray ? l.trayW + TRAY_GAP : 0);
-    // The tray box (stack, the tiles peeking under it, padding) plus its label line above.
-    const trayH = o.tray ? l.stack + TRAY_EDGES + 24 + 36 : 0;
-    if (width <= o.width && l.fieldH <= o.height && trayH <= o.height) return l;
-  }
-  return layoutAt(o, o.min);
-}
-
-/** The next empty region cell after (r, c) in reading order, wrapping round; null if none. */
-export function nextEmptyCell(
+/**
+ * The line cursor after an arrow: left and right step through the up-and-down lines, up and down
+ * through the lines across. From a line of the other kind the cursor turns to the nearest line of
+ * the arrow's kind (`last` remembers where each kind was). Null: there is no such line.
+ */
+export function nextLine(
   region: Region,
-  tiles: readonly boolean[],
-  r: number,
-  c: number,
-): [number, number] | null {
-  const cells = regionCells(region);
-  const start = cells.findIndex(([cr, cc]) => cr === r && cc === c);
-  for (let i = 1; i <= cells.length; i += 1) {
-    const cell = cells[(start + i) % cells.length] as [number, number];
-    if (!tiles[cell[0] * region.w + cell[1]]) return cell;
+  cur: Line,
+  dir: Dir,
+  last: { v: number | null; h: number | null },
+): Line | null {
+  const kind = dir === 'left' || dir === 'right' ? 'v' : 'h';
+  const own = cutLines(region)
+    .filter((l) => l.dir === kind)
+    .map((l) => l.at);
+  if (own.length === 0) return null;
+  if (cur.dir !== kind) {
+    const want = last[kind] ?? own[Math.floor((own.length - 1) / 2)];
+    return { dir: kind, at: own.includes(want as number) ? (want as number) : (own[0] as number) };
   }
-  return null;
+  const step = dir === 'left' || dir === 'up' ? -1 : 1;
+  const i = own.indexOf(cur.at) + step;
+  return i < 0 || i >= own.length ? null : { dir: kind, at: own[i] as number };
 }
 
-/** A side id from `label-side {side}`: the width side ('top') or the height side ('left'). */
-export function sideOf(side: unknown): 'top' | 'left' | null {
-  const s = String(side ?? '').toLowerCase();
-  if (['top', 'bottom', 'w', 'width', 'cols'].includes(s)) return 'top';
-  if (['left', 'right', 'h', 'height', 'rows'].includes(s)) return 'left';
-  return null;
+/**
+ * The line a finger drew: a stroke that runs more down than across draws the up-and-down line
+ * nearest to its middle, and the other way round. Null when the region has no such line.
+ */
+export function lineFromStroke(
+  region: Region,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  cell: number,
+): Line | null {
+  const down = Math.abs(to.y - from.y) >= Math.abs(to.x - from.x);
+  const lines = cutLines(region).filter((l) => l.dir === (down ? 'v' : 'h'));
+  if (lines.length === 0) return null;
+  const mid = down ? (from.x + to.x) / 2 : (from.y + to.y) / 2;
+  let best = lines[0] as Line;
+  for (const l of lines) {
+    if (Math.abs(l.at * cell - mid) < Math.abs(best.at * cell - mid)) best = l;
+  }
+  return best;
+}
+
+/** The line nearest to a point (either kind). Null when the region has none. */
+export function lineNear(region: Region, p: { x: number; y: number }, cell: number): Line | null {
+  let best: { line: Line; d: number } | null = null;
+  for (const line of cutLines(region)) {
+    const d = Math.abs(line.at * cell - (line.dir === 'v' ? p.x : p.y));
+    if (!best || d < best.d) best = { line, d };
+  }
+  return best?.line ?? null;
+}
+
+/** How many squares each row of the region has (top to bottom). */
+export function rowCounts(region: Region): number[] {
+  const out: number[] = [];
+  for (let r = 0; r < region.h; r += 1) {
+    out.push(region.mask.slice(r * region.w, (r + 1) * region.w).split('1').length - 1);
+  }
+  return out;
 }

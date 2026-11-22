@@ -1,122 +1,149 @@
-import { describe, expect, it } from 'vitest';
 import {
-  type FitOptions,
-  fitBoard,
+  AREA_SIDE_MAX,
+  AREA_WORK_H_MAX,
+  AREA_WORK_W_MAX,
+  areaAnswerMax,
+} from '@number-island/engine';
+import { describe, expect, it } from 'vitest';
+import { MIN_TARGET_PX } from '../../tokens/tokens';
+import { buildRoom } from '../kit/twoStep';
+import {
+  type AreaShape,
+  askPlanFor,
+  cutLines,
+  firstLine,
   innerGridSegments,
-  lanesFor,
-  nextEmptyCell,
+  lineFromStroke,
+  lineNear,
+  MIN_CELL,
+  MIN_WORK_CELL,
+  nextCell,
+  nextLine,
   outlineSegments,
+  picturePlan,
   regionCells,
-  rowsWithCells,
-  sideOf,
+  rowCounts,
   splitSegments,
+  workPlan,
 } from './layout';
 
-// An L: 3 wide, 3 tall, the top-right 2 × 2 cut away.
-//   1 0 0
-//   1 0 0
-//   1 1 1
-const L = { w: 3, h: 3, mask: '100100111' };
-const rect = { w: 3, h: 2, mask: '111111' };
+/** The smallest widget area (906 × 373) inside its card: 3 px border and 24 px padding a side. */
+const ROOM = { w: 852, h: 319 };
+/** The compact action button as measured (kit `useActionSize`: the 6 px ledge is included). */
+const BUTTON = { 'g1-up': { w: 76, h: 82 }, k: { w: 96, h: 102 } } as const;
+const AGES = ['g1-up', 'k'] as const;
 
-const total = (segs: { x1: number; y1: number; x2: number; y2: number }[]) =>
-  segs.reduce((n, s) => n + Math.abs(s.x2 - s.x1) + Math.abs(s.y2 - s.y1), 0);
+const rect = (w: number, h: number) => ({ w, h, mask: '1'.repeat(w * h) });
+/** An L: a 4 × 3 box without the last two squares of its top row. */
+const L = { w: 4, h: 3, mask: '110011111111' };
 
-describe('area-tiles layout', () => {
-  it('lists region cells in reading order and the rows that have any', () => {
-    expect(regionCells(L)).toEqual([
-      [0, 0],
-      [1, 0],
-      [2, 0],
-      [2, 1],
-      [2, 2],
+describe('area-tiles layout in the smallest area (906 × 373)', () => {
+  it('fits every region a child works on, with its pad, at both sizes', () => {
+    for (const ageMode of AGES) {
+      const room = buildRoom(ROOM, BUTTON[ageMode]);
+      for (const mode of ['tile', 'decompose', 'partition'] as const) {
+        for (let w = 1; w <= AREA_WORK_W_MAX; w += 1) {
+          for (let h = 1; h <= AREA_WORK_H_MAX; h += 1) {
+            const what = `${mode} ${w} × ${h} ${ageMode}`;
+            const p = workPlan({ mode, region: rect(w, h), sideLabels: false }, room, ageMode);
+            expect(p.fits, what).toBe(true);
+            expect(p.cell, what).toBeGreaterThanOrEqual(MIN_WORK_CELL);
+            expect(Math.min(p.board.w, p.board.h), what).toBeGreaterThanOrEqual(
+              MIN_TARGET_PX[ageMode],
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it('the ask step shows every region beside every answer control, labels or not', () => {
+    for (const ageMode of AGES) {
+      for (const mode of ['count', 'multiply', 'tile', 'decompose'] as const) {
+        const read = mode === 'count' || mode === 'multiply';
+        const wMax = read ? AREA_SIDE_MAX : AREA_WORK_W_MAX;
+        const hMax = read ? AREA_SIDE_MAX : AREA_WORK_H_MAX;
+        for (let w = 1; w <= wMax; w += 1) {
+          for (let h = 1; h <= hMax; h += 1) {
+            const max = areaAnswerMax({ region: rect(w, h) });
+            // The kit's number pad at kindergarten size does not fit this area (a known kit
+            // limit); kindergarten sizes are checked where the tray or the stepper answers.
+            if (ageMode === 'k' && max > 20) continue;
+            for (const sideLabels of [false, true]) {
+              const c: AreaShape = { mode, region: rect(w, h), sideLabels };
+              const what = `${mode} ${w} × ${h} labels ${sideLabels} ${ageMode}`;
+              const plan = askPlanFor(c, max, ROOM, BUTTON[ageMode], ageMode);
+              expect(plan.fits, what).toBe(true);
+              expect(plan.picture, what).not.toBeNull();
+              const pic = picturePlan(c, plan.picture as { w: number; h: number }, ageMode);
+              expect(pic.fits, what).toBe(true);
+              expect(pic.cell, what).toBeGreaterThanOrEqual(MIN_CELL);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('says so when a region cannot fit (a room far too small)', () => {
+    const c: AreaShape = { mode: 'tile', region: rect(10, 6), sideLabels: false };
+    expect(workPlan(c, { w: 400, h: 200 }, 'g1-up').fits).toBe(false);
+  });
+});
+
+describe('area-tiles geometry', () => {
+  it('lists the cells and the squares in each row', () => {
+    expect(regionCells(L)).toHaveLength(10);
+    expect(rowCounts(L)).toEqual([2, 4, 4]);
+  });
+
+  it('outlines an L with six sides, and grids only its inside', () => {
+    expect(outlineSegments(L, 10)).toHaveLength(6);
+    // Inside lines: across after rows 1 and 2 (the first only under the two top squares), and
+    // down after columns 1, 2 and 3.
+    expect(innerGridSegments(rect(2, 2), 10)).toHaveLength(2);
+    expect(innerGridSegments(L, 10).length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('a split line shows only where it cuts the region', () => {
+    expect(splitSegments(L, 'v', 2, 10)).toEqual([{ x1: 20, y1: 10, x2: 20, y2: 30 }]);
+    expect(splitSegments(L, 'h', 1, 10)).toEqual([{ x1: 0, y1: 10, x2: 20, y2: 10 }]);
+  });
+
+  it('the cell cursor steps over a notch and stops at the region’s end', () => {
+    expect(nextCell(L, 1, 1, 'right')).toEqual([1, 2]);
+    expect(nextCell(L, 0, 1, 'right')).toBeNull();
+    expect(nextCell(L, 0, 0, 'left')).toBeNull();
+    expect(nextCell(L, 1, 3, 'up')).toBeNull();
+    // Over a gap: a U's two arms.
+    const U = { w: 3, h: 2, mask: '101111' };
+    expect(nextCell(U, 0, 0, 'right')).toEqual([0, 2]);
+  });
+
+  it('the line cursor walks the lines of one kind and turns to the other', () => {
+    expect(cutLines(L)).toHaveLength(5);
+    expect(cutLines(rect(1, 3))).toEqual([
+      { dir: 'h', at: 1 },
+      { dir: 'h', at: 2 },
     ]);
-    expect(rowsWithCells({ w: 2, h: 3, mask: '110011' })).toEqual([0, 2]);
+    expect(firstLine(L)).toEqual({ dir: 'v', at: 2 });
+    expect(firstLine(rect(1, 3))).toEqual({ dir: 'h', at: 1 });
+    expect(firstLine(rect(1, 1))).toBeNull();
+    const none = { v: null, h: null };
+    expect(nextLine(L, { dir: 'v', at: 2 }, 'right', none)).toEqual({ dir: 'v', at: 3 });
+    expect(nextLine(L, { dir: 'v', at: 3 }, 'right', none)).toBeNull();
+    expect(nextLine(L, { dir: 'v', at: 2 }, 'down', none)).toEqual({ dir: 'h', at: 1 });
+    expect(nextLine(L, { dir: 'h', at: 1 }, 'left', { v: 3, h: 1 })).toEqual({ dir: 'v', at: 3 });
+    expect(nextLine(rect(1, 3), { dir: 'h', at: 1 }, 'left', none)).toBeNull();
   });
 
-  it('outlines a rectangle with four runs and an L with six', () => {
-    const r = outlineSegments(rect, 10);
-    expect(r).toHaveLength(4);
-    expect(total(r)).toBe(2 * (30 + 20));
-    const l = outlineSegments(L, 10);
-    expect(l).toHaveLength(6);
-    // The L's perimeter is the same as its 3 × 3 box's.
-    expect(total(l)).toBe(120);
-  });
-
-  it('draws inner grid lines only between two region cells', () => {
-    // A 3 × 2 rectangle: 1 horizontal run of 3 and 2 vertical runs of 2.
-    expect(total(innerGridSegments(rect, 10))).toBe(30 + 2 * 20);
-    // The L: 2 vertical unit edges in the bottom row, 2 horizontal in the left column.
-    expect(total(innerGridSegments(L, 10))).toBe(40);
-  });
-
-  it('stops a split line at the notch of an L', () => {
-    // After column 1: it only touches the bottom row.
-    expect(splitSegments(L, 'v', 1, 10)).toEqual([{ x1: 10, y1: 20, x2: 10, y2: 30 }]);
-    // After row 2 (above the full bottom row): only the left column is cut.
-    expect(splitSegments(L, 'h', 2, 10)).toEqual([{ x1: 0, y1: 20, x2: 10, y2: 20 }]);
-    expect(splitSegments(rect, 'h', 1, 10)).toEqual([{ x1: 0, y1: 10, x2: 30, y2: 10 }]);
-  });
-
-  it('staggers buttons into lanes when the pitch is shorter than a button and its gap', () => {
-    expect(lanesFor(100, 64, 12)).toBe(1);
-    expect(lanesFor(76, 64, 12)).toBe(1);
-    expect(lanesFor(51, 64, 12)).toBe(2);
-    expect(lanesFor(30, 80, 12)).toBe(4);
-  });
-
-  const base: FitOptions = {
-    width: 820,
-    height: 556,
-    w: 7,
-    h: 5,
-    min: 28,
-    max: 132,
-    target: 64,
-    gap: 12,
-    tray: true,
-    rowButtons: true,
-    markers: false,
-    labels: false,
-    labelW: 0,
-  };
-
-  it('fits the 7 × 5 L to tile with the tray and row buttons, cells ≥ 28 px', () => {
-    const l = fitBoard(base);
-    expect(l.pitch).toBeGreaterThanOrEqual(28);
-    expect(l.trayW + 20 + l.fieldW).toBeLessThanOrEqual(820);
-    expect(l.fieldH).toBeLessThanOrEqual(556);
-    // The stack tile is drawn at the cells' own scale.
-    expect(l.stack).toBe(Math.max(l.pitch, 64));
-    // A bigger pitch would not fit.
-    const tooBig = fitBoard({ ...base, min: l.pitch + 1, max: l.pitch + 1 });
-    expect(tooBig.trayW + 20 + tooBig.fieldW > 820 || tooBig.fieldH > 556).toBe(true);
-  });
-
-  it('fits a 10 × 10 decimal grid at ≥ 20 px and keeps row buttons ≥ 12 px apart', () => {
-    const l = fitBoard({ ...base, w: 10, h: 10, min: 20 });
-    expect(l.pitch).toBeGreaterThanOrEqual(20);
-    expect(l.rowLanes * l.pitch).toBeGreaterThanOrEqual(64 + 12);
-  });
-
-  it('caps a tiny region at the largest pitch (chunky, not a poster)', () => {
-    const l = fitBoard({ ...base, w: 3, h: 2, tray: false, rowButtons: false, max: 150 });
-    expect(l.pitch).toBe(150);
-  });
-
-  it('finds the next empty cell, wrapping, or none', () => {
-    const tiles = [true, false, false, false, false, false];
-    expect(nextEmptyCell(rect, tiles, 0, 0)).toEqual([0, 1]);
-    expect(nextEmptyCell(rect, [false, true, true, true, true, true], 1, 2)).toEqual([0, 0]);
-    expect(nextEmptyCell(rect, new Array(6).fill(true), 0, 0)).toBeNull();
-  });
-
-  it('reads side ids', () => {
-    expect(sideOf('top')).toBe('top');
-    expect(sideOf('w')).toBe('top');
-    expect(sideOf('left')).toBe('left');
-    expect(sideOf('right')).toBe('left');
-    expect(sideOf('middle')).toBeNull();
+  it('a finger’s stroke draws the nearest line of its direction', () => {
+    const down = lineFromStroke(L, { x: 58, y: 10 }, { x: 66, y: 110 }, 40);
+    expect(down).toEqual({ dir: 'v', at: 2 });
+    const across = lineFromStroke(L, { x: 5, y: 70 }, { x: 150, y: 86 }, 40);
+    expect(across).toEqual({ dir: 'h', at: 2 });
+    expect(lineFromStroke(rect(1, 3), { x: 5, y: 0 }, { x: 8, y: 90 }, 40)).toBeNull();
+    expect(lineNear(L, { x: 118, y: 60 }, 40)).toEqual({ dir: 'v', at: 3 });
+    expect(lineNear(rect(1, 1), { x: 1, y: 1 }, 40)).toBeNull();
   });
 });

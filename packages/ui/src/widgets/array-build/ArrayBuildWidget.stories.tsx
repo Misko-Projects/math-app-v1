@@ -370,14 +370,24 @@ export const LimitRowsRingsBack: Story = {
     clearSpies(audio);
     await press(root, 'down');
     await expectShown(root, 3, 1);
-    await expectNote(root, 'No more rows fit here.');
+    await expectNote(root, 'That is the most rows.');
     await expect(said(audio)).toContain('ui.widget.ab.note.rows');
     await expectRing(root, pad(root, 'up'));
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'array-build 906x373 limit rows'));
-    // The next step clears the note and the ring.
+  },
+};
+
+/** The child's next step clears the note and the ring. */
+export const LimitClearsOnNextStep: Story = {
+  args: { config: strict },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await press(root, 'down', 4);
+    await expectRing(root, pad(root, 'up'));
     await press(root, 'up');
     await expectNote(root, null);
     await expectRing(root, null);
+    await expectShown(root, 2, 1);
   },
 };
 
@@ -388,7 +398,7 @@ export const LimitMayBeAnswer: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await press(root, 'right', 4);
     await expectShown(root, 1, 3);
-    await expectNote(root, 'The rows are as long as they can be.');
+    await expectNote(root, 'The rows are full.');
     await expectRing(root, null);
   },
 };
@@ -546,7 +556,7 @@ export const SplitAsk: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await userEvent.click(stepButton(root, 'next'));
     await expect(root).toHaveAttribute('data-step', 'build');
-    await expectNote(root, 'Put the line in first.');
+    await expectNote(root, 'Put the line in.');
     await expectRing(root, board(root));
     await press(root, 'left', 2);
     await expectRing(root, null);

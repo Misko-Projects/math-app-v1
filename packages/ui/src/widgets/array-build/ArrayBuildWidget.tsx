@@ -45,8 +45,8 @@ import {
   padFor,
   picturePlan,
   SPLIT_SPACE,
-  spriteBox,
   splitX,
+  spriteBox,
   workPlan,
 } from './layout';
 import './array-build.css';
@@ -243,8 +243,7 @@ export function ArrayBuildWidget({
     return total % full === 0 && total / full <= other;
   };
 
-  const setRect = (rows: number, cols: number) =>
-    act({ op: 'drag-rect', args: { rows, cols } });
+  const setRect = (rows: number, cols: number) => act({ op: 'drag-rect', args: { rows, cols } });
 
   const onPad = (dir: Dir) => {
     if (!interactive) return;
@@ -253,8 +252,7 @@ export function ArrayBuildWidget({
     const s = stateRef.current;
     if (mode === 'split') {
       const at = s.split;
-      const next =
-        at === null ? (dir === 'left' ? s.cols - 1 : 1) : at + (dir === 'left' ? -1 : 1);
+      const next = at === null ? (dir === 'left' ? s.cols - 1 : 1) : at + (dir === 'left' ? -1 : 1);
       act({ op: 'split-at', args: { col: Math.max(1, Math.min(s.cols - 1, next)) } });
       return;
     }
