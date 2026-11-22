@@ -442,6 +442,35 @@ export const TabletArea: Story = {
   },
 };
 
+/**
+ * The densest clock-set, in the smallest area: an elapsed prompt (the start time and the longest
+ * "add … minutes" line, `CLOCK_ELAPSED_MAX`) with the hands' own readout, at single-minute
+ * precision. Nothing clips or scrolls, the readout says what the hands show, and the hands still
+ * turn to the minute (two minutes back past 12 rewinds the hour).
+ */
+export const ElapsedDensestLandscapeMin: Story = {
+  args: {
+    config: {
+      format: 'clock-set',
+      target: { h: 11, m: 58 },
+      start: { h: 12, m: 0 },
+      precision: 1,
+      showDigital: true,
+      prompt: 'elapsed',
+      elapsed: { from: { h: 11, m: 59 }, minutes: 719 },
+    },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('[data-card="elapsed"]')).toHaveTextContent('719');
+    await expectFitsArea(canvasElement, root);
+    await turn(root, 115, 0, -12, 'touch');
+    await expectGeared(root, 11, 58);
+    await expectFitsArea(canvasElement, root);
+  },
+};
+
 /** The smallest landscape area, both cards: no scroll. */
 export const LandscapeMinArea: Story = {
   args: { config: matchDigital },
