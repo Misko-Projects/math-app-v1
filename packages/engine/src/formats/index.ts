@@ -5,6 +5,8 @@ import type { AnswerSpec, ItemFormat, WidgetConfig } from '@number-island/shared
 import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
 import { balance } from './balance';
+import { barGraphBuild } from './bar-graph-build';
+import { barGraphRead } from './bar-graph-read';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
 import { clockRead } from './clock-read';
@@ -30,6 +32,7 @@ import { numberLinePlace } from './number-line-place';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
+import { patternExtend } from './pattern-extend';
 import { perimeterWalk } from './perimeter-walk';
 import { puzzleGrid } from './puzzle-grid';
 import { rekenrek } from './rekenrek';
@@ -86,6 +89,10 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'make-change': makeChange,
   'clock-set': clockSet,
   'clock-read': clockRead,
+  // U05 (#14) patterns and data
+  'pattern-extend': patternExtend,
+  'bar-graph-read': barGraphRead,
+  'bar-graph-build': barGraphBuild,
 };
 
 export function formatModel<F extends ItemFormat>(

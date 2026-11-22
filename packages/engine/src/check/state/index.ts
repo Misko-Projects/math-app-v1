@@ -20,6 +20,7 @@ import { fractionPartition } from './fraction.partition';
 import { gridPolygon } from './grid.polygon';
 import { groupsEqual } from './groups.equal';
 import { jumpsReach } from './jumps.reach';
+import { patternIsomorphic } from './pattern.isomorphic';
 import { patternTokens } from './pattern.tokens';
 import { puzzleSatisfies } from './puzzle.satisfies';
 import { rectPerimeterArea } from './rect.perimeterArea';
@@ -60,6 +61,7 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'fraction.cut': fractionCut, // K01 fractions (fraction-cut)
   'fraction.partition': fractionPartition, // K01 fractions (fraction-line partition)
   'pattern.tokens': patternTokens, // K01 patterns (pattern-extend extend, fill)
+  'pattern.isomorphic': patternIsomorphic, // U05 (#14): pattern-extend translate
   // U04 (#13)
   'baseten.value': basetenValue,
   'baseten.exact': basetenExact,

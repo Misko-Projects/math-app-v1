@@ -1092,3 +1092,70 @@ ui.clock.start:
 ui.clock.later:
   text: "Add {minutes} minutes"
   level: "2"
+# Patterns and data widgets (U05 #14: pattern-extend, bar-graph-read, bar-graph-build).
+ui.widget.chart.graph:
+  text: "Look at the graph"
+  level: K
+ui.widget.chart.slot:
+  text: "{name}: {n}"
+  level: K
+ui.widget.chart.at:
+  text: "Above {n}"
+  level: K
+ui.widget.chart.take-back:
+  text: "Take one back"
+  level: K
+ui.widget.chart.half-picture:
+  text: "Half a picture"
+  level: K
+ui.widget.chart.mark.tally:
+  text: "Tally mark"
+  level: K
+ui.widget.chart.mark.picture:
+  text: "Picture"
+  level: K
+ui.widget.chart.mark.block:
+  text: "Block"
+  level: K
+ui.widget.chart.mark.x:
+  text: "Mark"
+  level: K
+ui.widget.chart.data-title:
+  text: "Count them"
+  level: K
+ui.widget.chart.build-title:
+  text: "Your graph"
+  level: K
+ui.widget.stepper.more:
+  text: "One more"
+  level: K
+ui.widget.stepper.less:
+  text: "One less"
+  level: K
+ui.widget.pattern.row:
+  text: "The pattern"
+  level: K
+ui.widget.pattern.new-row:
+  text: "Your new pattern"
+  level: K
+ui.widget.pattern.blank:
+  text: "Space {n}"
+  level: K
+ui.widget.pattern.pieces:
+  text: "Pieces to put in"
+  level: K
+ui.widget.pattern.place:
+  text: "{name}, place {n}"
+  level: K
+ui.widget.pattern.squares:
+  text: "{n} squares"
+  level: K
+ui.widget.pattern.jump:
+  text: "How big is each jump?"
+  level: K
+ui.widget.pattern.biggest:
+  text: "That is the biggest one."
+  level: K
+ui.widget.chart.full:
+  text: "{n} is the most here."
+  level: K

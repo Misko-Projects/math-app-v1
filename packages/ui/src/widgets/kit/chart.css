@@ -65,7 +65,7 @@
 }
 .ni-chart__stroke {
   stroke: var(--color-ink);
-  stroke-width: 5;
+  stroke-width: var(--tally-stroke, 5);
   stroke-linecap: round;
 }
 .ni-chart__stroke[data-counted="true"],
@@ -170,12 +170,25 @@
   line-height: 1.1;
   text-align: center;
 }
+/* The graph widgets' labels (ChartView `widgetLabels`, chartLayout LABEL_FONT_PX): 24 px, 28 px
+   in kindergarten mode, on one line; their names are bounded, so the cell is sized for them. */
+.ni-chart[data-labels="widget"] .ni-chart__labelface {
+  font-size: 24px;
+  white-space: nowrap;
+}
+[data-age-mode="k"] .ni-chart[data-labels="widget"] .ni-chart__labelface {
+  font-size: 28px;
+}
 .ni-chart__labelface[data-orientation="horizontal"] {
   justify-content: flex-start;
 }
 .ni-chart__labelface[data-orientation="vertical"] {
   flex-direction: column;
   gap: 2px;
+}
+/* A widget label's name has the whole column (columns are 12 px apart). */
+.ni-chart[data-labels="widget"] .ni-chart__labelface[data-orientation="vertical"] {
+  padding-inline: 0;
 }
 .ni-chart__labelsprite {
   display: block;

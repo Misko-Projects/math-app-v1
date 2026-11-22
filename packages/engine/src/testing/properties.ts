@@ -627,6 +627,19 @@ export function runTemplateProperties(
     if (!support.answers.includes(item.answer.kind)) {
       fail(seed, '3.answer', `${t.format} does not answer with ${item.answer.kind}`);
     }
+    // The answer is one the widget can send for this config (FormatModel.answerIssues).
+    if (model?.answerIssues && parsed.success) {
+      for (const issue of model.answerIssues(item.widget as never, item.answer)) {
+        fail(seed, '3.answer', `answer: ${issue}`);
+      }
+    }
+    // Every label the widget prints fits it (FormatModel.labelIssues).
+    if (model?.labelIssues && parsed.success) {
+      const words = (key: string) => narration[key as keyof typeof narration]?.text;
+      for (const issue of model.labelIssues(item.widget as never, words)) {
+        fail(seed, '3.label', issue);
+      }
+    }
     // 4. example correct, solution replays to a correct response
     try {
       const ex = itemExampleCorrect(item, t);

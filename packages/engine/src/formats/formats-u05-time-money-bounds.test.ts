@@ -864,6 +864,33 @@ describe("a coin item's answer is the one its config implies (PR #101 review 4)"
     ).toContain('target.found');
   });
 
+  it('refuses a found entry that is not a string: the checker would skip it (PR #101 review 5)', () => {
+    const again = {
+      ...pay,
+      target: 25,
+      mode: 'new-way' as const,
+      purse: { quarter: 1, dime: 2, nickel: 5 },
+      found: ['q0d0n5p0'],
+    };
+    const spec = coinAnswerSpec(again);
+    const nested = { ...spec, target: { ...spec.target, found: [['q0d0n5p0']] } };
+    expect(coinAnswerIssues(again, nested).join(' ')).toContain(
+      'target.found is a list of way keys',
+    );
+    // Why: with that target the checker accepts five nickels again, while the widget does not.
+    const nickels = Array.from({ length: 5 }, (): PurseKind => 'nickel');
+    const value = { coins: responseTray(nickels, again.purse) };
+    expect(stateChecker(spec.checker)?.check(nested.target, value)).toBe(true);
+    expect(trayAnswers(again, nickels)).toBe(false);
+    // The right target: both refuse the repeat.
+    expect(stateChecker(spec.checker)?.check(spec.target, value)).toBe(false);
+    for (const found of [[7], [null], 'q0d0n5p0', { 0: 'q0d0n5p0' }, [{ key: 'q0d0n5p0' }]]) {
+      expect(
+        coinAnswerIssues(again, { ...spec, target: { ...spec.target, found } }).join(' '),
+      ).toContain('target.found');
+    }
+  });
+
   it('make-change: the change owed, coins.total, and the config purse', () => {
     const spec = coinAnswerSpec(change);
     expect(spec.checker).toBe('coins.total');

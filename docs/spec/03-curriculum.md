@@ -1572,7 +1572,7 @@ interface ClockReadConfig extends WidgetBase { format: 'clock-read'; time: { h: 
 interface CoinPayConfig extends WidgetBase { format: 'coin-pay'; target: number; purse: Partial<Record<CoinKind | 'dollar', number | 'unlimited'>>;
   requireFewest: boolean; mode: 'pay' | 'new-way'; found?: string[]; showRunningTotal: boolean }
 ```
-- **Answer:** `state` / `coins.total` `{cents}` (any combination totalling `target` cents), or `coins.fewest` `{cents}` when `requireFewest`. `new-way` (`PUZ.09`): the multiset (encoded as `"q1d0n0p0"`) must not be in `found`.
+- **Answer:** `state` / `coins.total` `{cents, purse}` (any combination from the purse totalling `target` cents), or `coins.fewest` `{cents, purse}` when `requireFewest`. `new-way` (`PUZ.09`): `{cents, purse, found}`; the tray's multiset (encoded as `"q1d0n0p0"`) must not be in `found`. The target is the one the config implies and nothing else (content-check 3.coins): `cents` is `target`, `purse` is the config's `purse` (never left out: without it the checker allows every coin and no bills), and `found` is the config's `found`, a list of key strings. Example: `{ kind: 'state', checker: 'coins.fewest', target: { cents: 300, purse: { dollar: 3, quarter: 12 } } }`.
 - **Features:** `target` (per 25¢; 0.3), `kinds` (coin kinds available − 1; 0.3), `fewest` (0.5), `runningTotal.off` (0.4), `dollars` (0.4).
 - **Tiers:** C. **Ops:** `drop {coin}`, `count-up {coin}`, `say-total`.
 
@@ -1590,7 +1590,7 @@ interface CoinCountConfig extends WidgetBase { format: 'coin-count'; coins: Coin
 interface MakeChangeConfig extends WidgetBase { format: 'make-change'; price: number; paid: number;
   purse: CoinPayConfig['purse']; countUpLine: boolean }
 ```
-- **Answer:** `state` / `coins.total` `{cents: paid − price}`. `countUpLine` shows an open number line from price to paid.
+- **Answer:** `state` / `coins.total` `{cents: paid − price, purse}`, with `purse` the config's `purse` (required, as coin-pay; content-check 3.coins). Example: `{ kind: 'state', checker: 'coins.total', target: { cents: 35, purse: { quarter: 'unlimited', dime: 'unlimited', nickel: 'unlimited', penny: 'unlimited' } } }`. `countUpLine` shows an open number line from price to paid.
 - **Features:** `change` (per 25¢; 0.4), `crossDollar` (0.5), `countUpLine.off` (0.3).
 - **Tiers:** C. **Ops:** `drop {coin}`, `count-up {to}`.
 

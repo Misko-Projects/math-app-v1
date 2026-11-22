@@ -29,6 +29,10 @@ export const widgetRegistry: WidgetRegistry = {
   'make-change': () => import('./make-change/MakeChangeWidget'),
   'clock-set': () => import('./clock-set/ClockSetWidget'),
   'clock-read': () => import('./clock-read/ClockReadWidget'),
+  // U05 (#14) patterns and data
+  'pattern-extend': () => import('./pattern-extend/PatternExtendWidget'),
+  'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
+  'bar-graph-build': () => import('./bar-graph-build/BarGraphBuildWidget'),
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),

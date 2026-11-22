@@ -80,6 +80,15 @@ export function coinAnswerIssues(c: CoinConfig, answer: AnswerSpec): string[] {
       out.push('target.purse is not the purse of the widget config');
     }
   }
+  // The checkers read only string keys in `found` and skip anything else, so an entry of another
+  // shape (a key wrapped in an array, a number) would be a way the config lists and Check ignores.
+  if (answer.target.found !== undefined) {
+    const list = answer.target.found;
+    if (!Array.isArray(list) || list.some((k) => typeof k !== 'string')) {
+      out.push('target.found is a list of way keys (strings such as "q1d0n0p0")');
+      return out;
+    }
+  }
   const got = Array.isArray(answer.target.found) ? answer.target.found : undefined;
   const wantFound = c.format === 'coin-pay' && c.mode === 'new-way' ? c.found : undefined;
   if (JSON.stringify(foundKeys(got)) !== JSON.stringify(foundKeys(wantFound))) {

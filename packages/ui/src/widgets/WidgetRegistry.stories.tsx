@@ -34,21 +34,10 @@ const makeSet: ConfigFor<'make-set'> = {
   showRunningCount: true,
 };
 
-// A format whose widget is not registered yet (the bar graphs are the last ones owed).
-const unregistered: ConfigFor<'bar-graph-read'> = {
-  format: 'bar-graph-read',
-  chart: {
-    kind: 'bar',
-    orientation: 'vertical',
-    categories: [
-      { id: 'fish', label: 'word.fish', value: 4 },
-      { id: 'crab', label: 'word.crab', value: 2 },
-    ],
-    scale: 1,
-    axisMax: 10,
-  },
-  question: { type: 'difference', categories: ['fish', 'crab'] },
-};
+// A format id no widget is registered for. Made up on purpose: every real format gets its widget
+// sooner or later (clock-set and the bar graphs did), and this story is about the host's
+// fallback, not about any one of them.
+const unregistered = { format: 'not-built-yet' } as unknown as WidgetConfig;
 
 const meta = {
   title: 'Widgets/Registry',
@@ -363,11 +352,11 @@ export const Disabled: Story = {
 
 /** A format with no registered widget shows the placeholder; "next" answers `skip`. */
 export const UnregisteredFormat: Story = {
-  args: { config: unregistered as WidgetConfig },
+  args: { config: unregistered },
   play: async ({ canvasElement, args }) => {
     const host = canvasElement.querySelector('.ni-widget');
     await expect(host).toHaveAttribute('data-registered', 'false');
-    await expect(host).toHaveAttribute('data-format', 'bar-graph-read');
+    await expect(host).toHaveAttribute('data-format', 'not-built-yet');
     await userEvent.click(within(canvasElement).getByRole('button', { name: 'Next' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'skip' });
   },
@@ -376,7 +365,7 @@ export const UnregisteredFormat: Story = {
 /** The placeholder in K mode: Pip's line is spoken (tap the bubble), not printed. */
 export const UnregisteredFormatK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: unregistered as WidgetConfig },
+  args: { config: unregistered },
 };
 
 function NextItemDemo(args: WidgetHostProps) {

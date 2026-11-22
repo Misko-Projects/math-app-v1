@@ -22,7 +22,13 @@ export {
   zoomed,
   zoomFor,
 } from './arrange';
-export { ChartView, type ChartViewProps, chartBox } from './ChartView';
+export {
+  CategoryLabel,
+  ChartView,
+  type ChartViewProps,
+  chartBox,
+  useMeasuredBox,
+} from './ChartView';
 export {
   CLOCK,
   ClockFace,
@@ -207,6 +213,7 @@ export {
   shapeSetUnit,
   squareCorners,
 } from './ShapeView';
+export { Stepper, type StepperProps } from './Stepper';
 export {
   BaseTenView,
   ExpressionView,
