@@ -183,7 +183,7 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
       const found = await measure(template.id);
       if (SHOTS.includes(template.id)) {
         await page.screenshot({ path: `__fit__/${template.id}-${viewport}.png` });
-        found.push(describeParts());
+        console.info(`${template.id} at ${viewport}: ${describeParts()}`);
       }
       if (found.length > 0 && !allowance) {
         failing.push(`${template.id} (${template.format}, ${template.tier}): ${found.join('; ')}`);

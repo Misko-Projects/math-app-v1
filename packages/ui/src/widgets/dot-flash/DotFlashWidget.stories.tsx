@@ -8,6 +8,7 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
+import { areaBox, expectAreaFit, inArea } from '../../test-support/twoStepStory';
 import { expectPointerOn, findWidget, renderWidget, traceOf } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
@@ -539,5 +540,108 @@ export const DemoReducedMotion: Story = {
     await waitFor(() =>
       expect(within(root).getByRole('button', { name: 'Your answer: 5' })).toBeVisible(),
     );
+  },
+};
+
+// ---------- in the workshop's widget area (#12: nothing scrolls, Check always in view) ----------
+
+/** The controls and parts of a dot-flash widget, for `expectAreaFit`. */
+const areaFit = (root: HTMLElement, ageMode: 'k' | 'g1-up', story: string) => ({
+  ageMode,
+  story,
+  controls: {
+    answer: [...root.querySelectorAll('.ni-pad__key, .ni-pick')],
+    'look again': [root.querySelector('.ni-flash__again .ni-btn') as HTMLElement],
+    check: [root.querySelector('.ni-flash__check .ni-btn') as HTMLElement],
+  },
+  parts: [board(root), ...root.querySelectorAll('.ni-flash__slot')],
+});
+
+/** The picture lies inside its board, clear of the board's edge. */
+async function expectPictureOnBoard(root: HTMLElement) {
+  const picture = root.querySelector('.ni-flash__picture .ni-stimulus') as HTMLElement;
+  const p = picture.getBoundingClientRect();
+  const b = board(root).getBoundingClientRect();
+  await expect(p.left, 'picture left').toBeGreaterThanOrEqual(b.left);
+  await expect(p.right, 'picture right').toBeLessThanOrEqual(b.right);
+  await expect(p.top, 'picture top').toBeGreaterThanOrEqual(b.top);
+  await expect(p.bottom, 'picture bottom').toBeLessThanOrEqual(b.bottom);
+}
+
+/**
+ * The smallest area (906 × 373) in K: the entered number and Check sit under the board beside
+ * "look again", the pad turns 4 × 3 (80 px keys), and the board takes the height that is left.
+ */
+export const LandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...fingers, flashMs: 60_000 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await shownIs(root, 'true');
+    await expectAreaFit(canvasElement, areaFit(root, 'k', 'dot-flash 906x373 K'));
+    await expectPictureOnBoard(root);
+    await expect(root).toHaveAttribute('data-mode', 'short');
+    await expect(root.querySelector('.ni-pad')).toHaveAttribute('data-shape', '4x3');
+    // The same task: type 10, check, one `number` response.
+    await userEvent.click(key(root, '1'));
+    await userEvent.click(key(root, '0'));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 10 });
+  },
+};
+
+/** The smallest area from Grade 1: the 3 × 4 pad of 64 px keys beside the board. */
+export const LandscapeMinG1: Story = {
+  args: { config: { ...tenFrame, flashMs: 60_000 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await shownIs(root, 'true');
+    await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'dot-flash 906x373 G1'));
+    await expectPictureOnBoard(root);
+    await expect(root.querySelector('.ni-pad')).toHaveAttribute('data-shape', '3x4');
+  },
+};
+
+/**
+ * The smallest area with numeral cards (no shipped item uses them yet): plain cards beside the
+ * board and Check under it; nothing scrolls and every control is inside the area.
+ */
+export const LandscapeMinPick: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...fiveFrames, flashMs: 60_000 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await shownIs(root, 'true');
+    const area = areaBox(canvasElement);
+    await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
+    await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+    const box = area.getBoundingClientRect();
+    const controls = Object.values(areaFit(root, 'k', '').controls).flat();
+    await expect(controls.length).toBeGreaterThanOrEqual(5);
+    for (const el of controls) {
+      const r = el.getBoundingClientRect();
+      await expect(r.top).toBeGreaterThanOrEqual(box.top);
+      await expect(r.bottom).toBeLessThanOrEqual(box.bottom);
+      await expect(r.left).toBeGreaterThanOrEqual(box.left);
+      await expect(r.right).toBeLessThanOrEqual(box.right);
+      await expectTargetSize(el as HTMLElement, 'k');
+    }
+    await expectPictureOnBoard(root);
+  },
+};
+
+/** The tablet area (1226 × 493) in K: the designed layout, the number over the big keys. */
+export const TabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...fingers, flashMs: 60_000 } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await shownIs(root, 'true');
+    await expectAreaFit(canvasElement, areaFit(root, 'k', 'dot-flash tablet K'));
+    await expectPictureOnBoard(root);
   },
 };

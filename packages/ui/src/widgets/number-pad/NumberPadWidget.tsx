@@ -44,6 +44,8 @@ type Config = ConfigFor<'number-pad'>;
 
 /** Between the picture and the text under it (`.ni-npw__ask` gap). */
 const ASK_PART_GAP = 16;
+/** How many times the text's numerals step down (number-pad.css `data-text`): 72 → 60 → 48 → 40 px. */
+const TEXT_STEPS = 3;
 /** The least a picture is given before the whole question is scaled instead. */
 const MIN_PICTURE_H = 96;
 
@@ -104,8 +106,21 @@ export function NumberPadWidget({
   const textRef = useRef<HTMLDivElement | null>(null);
   const unzoomed = useRef(1);
   const button = useActionSize(actRef, unzoomed, ageMode);
-  const plan = planPad(roomBox(useWidgetRoom(rootRef)), button, ageMode);
+  const room = roomBox(useWidgetRoom(rootRef));
+  const plan = planPad(room, button, ageMode);
   const textH = useOwnHeight(textRef);
+  // The text's numerals step down while the text is wider than the question's box (a new room
+  // starts from the full size): the blanks keep their target size, only the numerals shrink.
+  const [textTier, setTextTier] = useState({ step: 0, w: room.w, h: room.h });
+  const textStep = textTier.w === room.w && textTier.h === room.h ? textTier.step : 0;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measured after every layout of the text
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el || textStep >= TEXT_STEPS) return;
+    if (el.offsetWidth > plan.ask.w + 0.5) {
+      setTextTier({ step: textStep + 1, w: room.w, h: room.h });
+    }
+  }, [textStep, plan.ask.w, room.w, room.h, textH]);
 
   const interactive = !disabled && !demoBusy;
   const values = texts.map(padValue);
@@ -308,7 +323,7 @@ export function NumberPadWidget({
       data-check={plan.check}
       style={handRootStyle}
     >
-      <div className="ni-npw__ask" style={{ width: plan.ask.w, maxHeight: plan.ask.h }}>
+      <div className="ni-npw__ask" style={{ maxWidth: plan.ask.w, maxHeight: plan.ask.h }}>
         <Scaled maxWidth={plan.ask.w} maxHeight={plan.ask.h}>
           <div className="ni-npw__parts">
             {stimulus.kind !== 'none' ? (
@@ -326,7 +341,7 @@ export function NumberPadWidget({
               </div>
             ) : null}
             {hasText ? (
-              <div ref={textRef} className="ni-npw__text">
+              <div ref={textRef} className="ni-npw__text" data-text={textStep || undefined}>
                 {expression ? (
                   <div className="ni-npw__expr">
                     <ExpressionView expr={expression} renderBlank={renderBlank} />
