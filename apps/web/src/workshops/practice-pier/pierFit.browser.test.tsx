@@ -39,6 +39,9 @@ const SLACK_PX = 1;
 const SETTLED_FRAMES = 3;
 const SETTLE_LIMIT_FRAMES = 240;
 
+/** A registered widget showed its fallback: it failed to load or render, so nothing was checked. */
+const FALLBACK = 'the widget did not render (fallback)';
+
 const CONTROLS =
   'button, input, select, textarea, [role="button"], [role="slider"], [tabindex="0"]';
 
@@ -181,7 +184,7 @@ async function measure(templateId: string): Promise<string[]> {
     }
     if (same >= SETTLED_FRAMES) {
       // Only registered formats get here: the fallback means the widget failed to load or render.
-      if (widget.querySelector('.ni-placeholder')) return ['the widget did not render (fallback)'];
+      if (widget.querySelector('.ni-placeholder')) return [FALLBACK];
       return misfits(stage);
     }
   }
@@ -219,7 +222,8 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
         await page.screenshot({ path: `__fit__/${template.id}-${viewport}.png` });
         console.info(`${template.id} at ${viewport}: ${describeParts()}`);
       }
-      if (found.length > 0 && !allowance) {
+      // An allowance is for a widget that renders and does not fit, never for one that did not render.
+      if (found.includes(FALLBACK) || (found.length > 0 && !allowance)) {
         // With the parts' sizes, so a failure on another machine can be read from its log.
         failing.push(
           `${template.id} (${template.format}, ${template.tier}): ${found.join('; ')} [window ${window.innerWidth}x${window.innerHeight}; ${describeParts()}]`,
@@ -237,7 +241,10 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
       if (!known.at.includes(viewport) || !template) continue;
       if (ONLY && !ONLY.includes(template.format)) continue;
       show(engine.generateItem(template, known.seed), ageModeOf(template));
-      if ((await measure(template.id)).length === 0) {
+      const misfit = await measure(template.id);
+      if (misfit.includes(FALLBACK)) {
+        failing.push(`${known.template} seed ${known.seed}: ${FALLBACK}`);
+      } else if (misfit.length === 0) {
         fitsAgain.push(`${known.template} seed ${known.seed}`);
       } else {
         knownSeeds += 1;

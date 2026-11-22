@@ -20,6 +20,7 @@ import {
   NumberPadKeys,
   NumeralTray,
   numeralCardPx,
+  numeralTraySize,
   type ObjectLayout,
   ObjectSetView,
   ObjectSprite,
@@ -33,6 +34,7 @@ import {
   spriteNameKey,
   TRAY_MAX,
   TRAY_PANEL_EDGES_PX,
+  trayColumnChoices,
   useActionSize,
   useAlive,
   useDemoPause,
@@ -538,8 +540,7 @@ export function TapCountWidget({
    */
   const [split, setSplit] = useState<boolean | null>(null);
   const splitSteps = split === true;
-  // Up to 20, where the answer step can keep the numeral cards (a tray of 0–30 has no room there).
-  const canSplit = concrete && !ordinal && config.input === 'auto' && n <= TRAY_MAX;
+  const canSplit = concrete && !ordinal && config.input === 'auto';
   const two = useTwoStep(rootRef, {
     interactive,
     trace,
@@ -1178,12 +1179,11 @@ export function TapCountWidget({
 
   const askSpec = useMemo(() => ({ kind: 'objects' as const, set: config.set }), [config.set]);
   const askMax = trayValues.at(-1) ?? 0;
-  const askPlan = planAsk({
+  const askInput = {
     ageMode,
     max: askMax,
     button: stepButton,
-    actions: 2,
-    trayOnly: true,
+    actions: 2 as const,
     room: { w: (widgetW ?? HOW_MANY_AREA_W) - 2 * 24, h: hostH - 2 * PAD_Y },
     pictureScore: (box: Size) => {
       const set = countLayout(askSpec);
@@ -1191,7 +1191,30 @@ export function TapCountWidget({
       const c = cellToFit(set, box.w - ASK_CARD_EDGE, box.h - ASK_CARD_EDGE);
       return c >= ASK_MIN_CELL ? Math.min(c, 96) : 0;
     },
-  });
+  };
+  /**
+   * The answer is a pick among numeral cards on every screen (the same `opt-<n>` trace). Up to 20
+   * that is the kit's tray; above it (0–30 for sets of 21 to 30) the kit would hand out the number
+   * pad, so the step draws the cards itself: the widest tray that fits, with the picture if one
+   * of them leaves it room.
+   */
+  const ownTray = askMax > TRAY_MAX;
+  const ownTrayPlans = ownTray
+    ? trayColumnChoices(trayValues.length)
+        .filter((cols) => cols >= 3)
+        .map((cols) => ({
+          cols,
+          plan: planAsk({
+            ...askInput,
+            control: numeralTraySize(trayValues.length, trayDigits, cols, target, TARGET_GAP_PX),
+          }),
+        }))
+    : [];
+  const ownTrayPick =
+    ownTrayPlans.find((c) => c.plan.fits && c.plan.picture) ??
+    ownTrayPlans.find((c) => c.plan.fits) ??
+    ownTrayPlans[0];
+  const askPlan = ownTrayPick?.plan ?? planAsk({ ...askInput, trayOnly: true });
   const stepActions = (
     <StepActions
       actRef={actRef}
@@ -1230,20 +1253,33 @@ export function TapCountWidget({
             </div>
           }
           entry={
-            <AskEntry
-              plan={askPlan}
-              max={askMax}
-              value={picked}
-              onChange={(v) => {
-                setInvite((inv) => (followsInput(inv) ? inv : null));
-                setPicked(v);
-              }}
-              disabled={!interactive}
-              highlighted={cueCard}
-              trace={trace}
-              onEnter={submit}
-              actions={stepActions}
-            />
+            ownTrayPick ? (
+              <div className="ni-tapc__asktray">
+                <NumeralTray
+                  values={trayValues}
+                  selected={picked}
+                  highlighted={cueCard}
+                  onPick={pick}
+                  disabled={!interactive}
+                  columns={ownTrayPick.cols}
+                />
+              </div>
+            ) : (
+              <AskEntry
+                plan={askPlan}
+                max={askMax}
+                value={picked}
+                onChange={(v) => {
+                  setInvite((inv) => (followsInput(inv) ? inv : null));
+                  setPicked(v);
+                }}
+                disabled={!interactive}
+                highlighted={cueCard}
+                trace={trace}
+                onEnter={submit}
+                actions={stepActions}
+              />
+            )
           }
           actions={stepActions}
         />

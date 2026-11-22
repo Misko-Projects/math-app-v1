@@ -1733,7 +1733,7 @@ async function expectInHost(root: HTMLElement, els: readonly Element[], ageMode:
 }
 
 const answerControls = (root: HTMLElement) => [
-  ...root.querySelectorAll('.ni-entry button, .ni-stepper button'),
+  ...root.querySelectorAll('.ni-entry button, .ni-stepper button, .ni-tapc__asktray .ni-pick'),
   stepButton(root, 'back'),
   stepButton(root, 'check'),
 ];
@@ -1844,6 +1844,34 @@ export const ArrangementKeptOnResize: Story = {
     await expect(root).not.toHaveAttribute('data-step');
     await expect(tray(root)).not.toBeNull();
     await expect(marks(root)).toEqual([1]);
+  },
+};
+
+/**
+ * CNT.19.t2 seed 2 on the tablet area (review of #106): 29 crabs on three plates are taller than
+ * the area, so the item is count-then-answer, and its answer step keeps the numeral cards 0–30
+ * (the kit would hand out the number pad above 20), all in view with Back and Check.
+ */
+export const CountTwentyNineThenAnswerTablet: Story = {
+  args: { config: groupsOfTen },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    for (let i = 0; i < 29; i++) await userEvent.click(obj(root, i));
+    await goNext(root);
+    await expect(root.querySelectorAll('.ni-tapc__asktray .ni-pick')).toHaveLength(31);
+    await expect(root.querySelector('.ni-pad')).toBeNull();
+    await expectInHost(root, answerControls(root), 'g1-up');
+    await userEvent.click(within(root).getByRole('button', { name: '29' }));
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 29 });
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => `${e.t}:${e.target}`)
+        .slice(-2),
+    ).toEqual(['tap:next', 'tap:opt-29']);
   },
 };
 

@@ -635,6 +635,14 @@ export const LandscapeMinHundredDots: Story = {
     );
     await expect(drawn).toHaveLength(100);
     await expectPictureOnBoard(root);
+    // The picture is drawn smaller with a transform: its own, larger layout box must not make
+    // the area scroll (`expectAreaFit` above checks this too; said here in so many words).
+    const area = areaBox(canvasElement);
+    await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight);
+    await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth);
+    const b = board(root);
+    await expect(b.scrollHeight).toBeLessThanOrEqual(b.clientHeight);
+    await expect(b.scrollWidth).toBeLessThanOrEqual(b.clientWidth);
   },
 };
 
