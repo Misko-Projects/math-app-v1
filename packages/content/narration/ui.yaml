@@ -1458,3 +1458,15 @@ ui.widget.at.cursor.drawn:
   text: "You are at {where}. It is drawn"
   level: "2"
 # end area-tiles
+
+# Practice Pier (#20, apps/web/src/workshops/practice-pier).
+ui.pier.open:
+  text: "Let's play!"
+  level: K
+ui.pier.done:
+  text: "All done! Great playing!"
+  voice: pip
+  level: K
+ui.pier.progress:
+  text: "How many are done"
+  level: K

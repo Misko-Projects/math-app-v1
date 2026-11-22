@@ -13,7 +13,7 @@ import { createDataStore, type DataStore } from '@/data/store';
 import { recordDiagnostic } from '../diagnostics';
 import { SessionController, type SessionControllerOptions } from '../session/SessionController';
 import { type AppContent, ContentLoadError, loadContent } from './content';
-import { loadItemCore } from './itemCore';
+import { bindItemCore, loadItemCore } from './itemCore';
 import {
   createSyncLifecycle,
   type SyncLifecycle,
@@ -107,6 +107,8 @@ export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
       failed.cause,
     );
   }
+
+  await bindItemCore(content);
 
   let store: DataStore;
   try {

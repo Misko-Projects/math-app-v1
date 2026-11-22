@@ -16,11 +16,12 @@ import {
   useSpeech,
 } from '@number-island/ui';
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ChildUi } from '@/app/AppServices';
+import { devFlag } from '@/app/devFlag';
 import { recordDiagnostic } from '@/app/diagnostics';
 import { ChildAvatar } from '@/app/picker/ChildAvatar';
-import type { SessionController, WindDownReason } from '@/app/session/SessionController';
+import type { WindDownReason } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
 import { HoldToOpen } from '@/parent/HoldToOpen';
@@ -56,27 +57,6 @@ export function ChildHomePage() {
   );
 }
 
-/** Ends the running session when the page goes away mid-session (the browser's back button). */
-function useEndOnLeave(controller: SessionController, sessionId: string) {
-  useEffect(() => {
-    mountedIds.add(sessionId);
-    return () => {
-      mountedIds.delete(sessionId);
-      // StrictMode's simulated unmount is followed at once by a remount; a real one is not.
-      setTimeout(() => {
-        if (mountedIds.has(sessionId)) return;
-        const snap = controller.getSnapshot();
-        if (snap.status === 'active' && snap.session.sessionId === sessionId) {
-          void controller.end('child-exit').catch((e) => recordDiagnostic('session.end', e));
-        }
-      }, 0);
-    };
-  }, [controller, sessionId]);
-}
-
-/** Sessions whose home is mounted right now (StrictMode remounts re-add theirs). */
-const mountedIds = new Set<string>();
-
 function ChildHome({
   child,
   index,
@@ -88,9 +68,8 @@ function ChildHome({
 }) {
   const { say } = useSpeech();
   const navigate = useNavigate();
-  const { session, controller } = useSession();
+  const { session, controller, windDown } = useSession();
   const sessionId = session?.sessionId ?? '';
-  useEndOnLeave(controller, sessionId);
 
   const greeted = useRef(false);
   useEffect(() => {
@@ -109,6 +88,16 @@ function ChildHome({
       }),
     [controller, sessionId, onWindDown],
   );
+  // The signal fires once. When it came while the child was at the Practice Pier (which lets the
+  // current item finish, 04 §6.4), the session is already winding down when this page returns.
+  const pendingWindDown = useRef(windDown);
+  useEffect(() => {
+    const reason = pendingWindDown.current;
+    if (reason === null || sessionId === '') return;
+    pendingWindDown.current = null;
+    onWindDown(reason);
+    void controller.end(reason).catch((e) => recordDiagnostic('session.end', e));
+  }, [controller, sessionId, onWindDown]);
 
   const goHome = async () => {
     try {
@@ -145,6 +134,24 @@ function ChildHome({
         <div className="pointer-events-none relative flex items-center justify-center gap-5 px-6 pt-[clamp(6.5rem,16vh,9rem)] *:pointer-events-auto">
           <SpeechBubble say="ui.home.hello" tail="none" showText />
           <ReplayButton onPress={() => say('ui.home.hello')} />
+        </div>
+        {/* Until the island hub (I01) offers requests, the Practice Pier is the way to play. */}
+        <div className="absolute inset-x-0 bottom-[clamp(5rem,18vh,9rem)] flex flex-col items-center gap-3">
+          <BigButton
+            label="ui.pier.open"
+            icon={<icons.CrateIcon />}
+            tone="leaf"
+            showLabel
+            onPress={() => navigate(`/play/${child.id}/pier`)}
+          />
+          {devFlag() && (
+            <Link
+              to={`/play/${child.id}/pier?browse`}
+              className="rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
+            >
+              Content browser (dev)
+            </Link>
+          )}
         </div>
       </main>
       <footer className="absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))]">
