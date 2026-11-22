@@ -337,9 +337,10 @@ export function ChartView({
               className="ni-chart__tally"
               data-slot={s.id}
               data-marks={s.value}
-              // Short strokes (a narrow data board) are drawn thinner, so the gaps stay open.
+              // A data board (pictures without names) draws short strokes thinner, so the gaps
+              // between them stay open.
               style={
-                widgetLabels
+                widgetLabels && !names
                   ? ({ '--tally-stroke': Math.max(3, Math.min(5, g.mark * 0.12)) } as CSSProperties)
                   : undefined
               }
