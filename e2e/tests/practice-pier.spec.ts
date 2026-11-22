@@ -71,8 +71,8 @@ test('a child plays a request at the Practice Pier: three formats, every attempt
     await expect(widget).toHaveAttribute('data-format', 'tap-count');
     await expect(widget).toHaveAttribute('data-registered', 'true');
     await expect(progress).toHaveAttribute('aria-valuenow', '0');
-    // The prompt is on screen as a button that speaks it again, with a replay button beside it.
-    await expect(page.getByRole('button', { name: 'Hear it again' })).toBeVisible();
+    // The prompt is on screen as a button that speaks it again (its words are its name).
+    await expect(page.getByRole('banner').getByRole('button', { name: /\?$/ })).toBeVisible();
     const things = stage.getByRole('group', { name: 'Look at the picture' }).getByRole('button');
     const count = await things.count();
     expect(count).toBeGreaterThan(0);
@@ -214,6 +214,46 @@ test('the planned request opens from the child home and Home leaves it without e
 
   await page.getByRole('button', { name: 'Go home' }).click();
   await expect(page.getByTestId('child-home')).toBeVisible();
-  const types = (await localEvents(page)).map((e) => e.type);
-  expect(types).toEqual(['session.started', 'request.accepted', 'request.completed']);
+  const types = async () => (await localEvents(page)).map((e) => e.type);
+  expect(await types()).toEqual(['session.started', 'request.accepted', 'request.completed']);
+
+  // Leaving with the browser's back button completes the request too.
+  await page.getByRole('button', { name: "Let's play!" }).click();
+  await expect(pier).toHaveAttribute('data-phase', 'answer');
+  await page.goBack();
+  await expect(page.getByTestId('child-home')).toBeVisible();
+  await expect
+    .poll(types)
+    .toEqual([
+      'session.started',
+      'request.accepted',
+      'request.completed',
+      'request.accepted',
+      'request.completed',
+    ]);
+});
+
+test('a widget that cannot load ends the request and logs no answer', async ({ page }) => {
+  await page.route(/\/assets\/TapCountWidget-[^/]+\.js$/, (route) => route.abort());
+  await seedLocalChild(page, { ...CHILD, id: '019c0000-0000-7000-8000-00000000e2e3' });
+  await page.evaluate(() => localStorage.setItem('ni.dev', '1'));
+  await page.getByTestId('tap-to-start').click();
+  await page.getByRole('button', { name: CHILD.name, exact: true }).click();
+  await page.getByRole('link', { name: 'Content browser (dev)' }).click();
+  await page.getByRole('searchbox').fill('CNT.02');
+  await page.getByRole('button', { name: /^t1 tap-count / }).click();
+
+  const pier = page.getByTestId('pier');
+  await expect(pier).toHaveAttribute('data-phase', 'answer');
+  const stage = page.getByTestId('pier-stage');
+  // The placeholder stands in for the widget; its "next" is not the child's answer.
+  await expect(stage.locator('.ni-placeholder')).toBeVisible();
+  await stage.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByTestId('pier-summary')).toBeVisible();
+  const events = await localEvents(page);
+  expect(events.filter((e) => e.type === 'attempt')).toEqual([]);
+  expect(events.find((e) => e.type === 'request.completed')?.payload).toMatchObject({
+    items: 0,
+    endedEarly: true,
+  });
 });

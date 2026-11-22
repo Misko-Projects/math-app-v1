@@ -35,11 +35,13 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ChildUi, useAppServices } from '@/app/AppServices';
 import { devFlag } from '@/app/devFlag';
+import { recordDiagnostic } from '@/app/diagnostics';
 import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
 import { childContext } from '@/runner/childContext';
 import { createTaskRunner, type PierTaskRunner, type RequestSummary } from '@/runner/TaskRunner';
+import { createVisibleClock, type VisibleClock } from '@/runner/visibleClock';
 import {
   type BrowsePick,
   browseRequest,
@@ -135,6 +137,17 @@ function PierRequest({
   const [cue, setCue] = useState<Cue | null>(null);
   const [summary, setSummary] = useState<RequestSummary | null>(null);
   const readyAt = useRef(0);
+  // Latency counts visible time only: a tablet asleep mid-item adds nothing (04 §2.3, §7).
+  const clock = useRef<VisibleClock | null>(null);
+  useEffect(() => {
+    const c = createVisibleClock();
+    clock.current = c;
+    return () => {
+      clock.current = null;
+      c.dispose();
+    };
+  }, []);
+  const clockNow = useCallback(() => clock.current?.now() ?? 0, []);
   const trace = useRef<InteractionEvent[]>([]);
 
   // One runner per mounted request. The ref outlives StrictMode's simulated remount, so the
@@ -213,14 +226,30 @@ function PierRequest({
     setPhase('prompt');
     const ready = () => {
       if (!alive) return;
-      readyAt.current = performance.now();
+      readyAt.current = clockNow();
       setPhase('answer');
     };
     audio.say(item.prompt.narration, item.prompt.vars).then(ready, ready);
     return () => {
       alive = false;
     };
-  }, [item, audio, setPhase]);
+  }, [item, audio, setPhase, clockNow]);
+
+  // Leaving another way than Home (the browser's back button) still completes the request.
+  // StrictMode's simulated unmount is followed at once by a remount; a real one is not.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      setTimeout(() => {
+        if (mounted.current) return;
+        void starting.current
+          ?.then((r) => r.finish())
+          .catch((e) => recordDiagnostic('pier.finish', e));
+      }, 0);
+    };
+  }, []);
 
   const speak = useCallback(
     (key: NarrationKey | undefined) => {
@@ -242,15 +271,22 @@ function PierRequest({
 
   const onResponse = (response: ResponseValue) => {
     if (!runner || phaseNow.current !== 'answer') return;
+    // Only the placeholder answers a skip: the widget is missing, or it failed to load or render.
+    // That is not the child's answer, so nothing is logged and the request ends here.
+    if (response.kind === 'skip') {
+      setPhase('checking');
+      end(runner);
+      return;
+    }
     setPhase('checking');
-    const latencyMs = performance.now() - readyAt.current;
+    const latencyMs = clockNow() - readyAt.current;
     runner.submit(response, { latencyMs, trace: [...trace.current] }).then((fb) => {
       if (fb.retry) {
         audio.sfx('knock');
         setCue({ kind: 'again', say: fb.say.key });
         const again = runner.next();
         if (again?.kind === 'item') setTask(again);
-        readyAt.current = performance.now();
+        readyAt.current = clockNow();
         setPhase('answer');
       } else {
         if (fb.correct) audio.sfx('chime');
@@ -305,11 +341,8 @@ function PierRequest({
         <>
           <HomeButton onPress={leave} />
           {item && (
-            <div className="flex min-w-0 flex-1 items-center gap-4">
+            <div className="flex min-w-0 flex-1 items-center">
               <SpeechBubble say={item.prompt.narration} vars={item.prompt.vars} tail="left" />
-              <ReplayButton
-                onPress={() => void audio.say(item.prompt.narration, item.prompt.vars)}
-              />
             </div>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-4">

@@ -11,7 +11,9 @@ import {
   defaultChildSettings,
   type EventPayloads,
   type GeneratedItem,
+  type InteractionEvent,
   type PlannedRequest,
+  type PlannedTask,
   type ResponseValue,
 } from '@number-island/shared';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -19,6 +21,7 @@ import type { DataStore } from '@/data/store';
 import { CHILD_K, fixtureContent, profile, testEnv } from '@/data/store.test-support';
 import {
   browseRequest,
+  PIER_EXCLUDED,
   pierPlayable,
   planPierRequest,
 } from '@/workshops/practice-pier/pierRequest';
@@ -259,5 +262,136 @@ describe('TaskRunner', () => {
     expect(await runner.finish()).toEqual({ items: 2, firstTryCorrect: 1, reason: 'wind-down' });
     const completed = (await store.events()).find((e) => e.type === 'request.completed');
     expect(completed?.payload).toMatchObject({ items: 2, endedEarly: true });
+  });
+
+  it('opens no item after a wind-down signalled while the feedback was showing', async () => {
+    const store = await openStore();
+    const request = await plannedRequest(store);
+    const { engine: spied, last } = spiedEngine();
+    let winding = false;
+    const { session } = fakeSession({ windingDown: () => winding });
+    const runner = await createTaskRunner({
+      engine: spied,
+      store,
+      graph: fixtureContent().graph,
+      child,
+      session,
+      request,
+      hosts: pierPlayable,
+    });
+
+    const fb = await runner.submit(engine.itemExampleCorrect(last()), { latencyMs: 1000 });
+    expect(fb.correct).toBe(true);
+    // The item is resolved and more tasks are planned; the signal arrives before "next".
+    winding = true;
+    expect(runner.next()).toBeNull();
+    expect(runner.endReason()).toBe('wind-down');
+    expect(await runner.finish()).toEqual({ items: 1, firstTryCorrect: 1, reason: 'wind-down' });
+  });
+
+  it('judges a second try on what the child did since the first', async () => {
+    const store = await openStore();
+    const request = await plannedRequest(store);
+    const traces: (InteractionEvent[] | undefined)[] = [];
+    const spied: RunnerEngine = {
+      ...engine,
+      detectProcessMisconceptions: (item, r, meta) => {
+        traces.push(meta.trace);
+        return engine.detectProcessMisconceptions(item, r, meta);
+      },
+    };
+    const { session } = fakeSession();
+    const runner = await createTaskRunner({
+      engine: spied,
+      store,
+      graph: fixtureContent().graph,
+      child,
+      session,
+      request,
+      hosts: pierPlayable,
+    });
+    const tap = (target: string, ms: number): InteractionEvent => ({ t: 'tap', target, ms });
+    const first = [tap('obj-0', 100), tap('obj-0', 200)];
+
+    expect((await runner.submit(wrongAnswer, { latencyMs: 3000, trace: first })).retry).toBe(true);
+    runner.next();
+    // The widget stays mounted, so the second submit carries the item's whole trace.
+    await runner.submit(wrongAnswer, { latencyMs: 3000, trace: [...first, tap('obj-1', 300)] });
+    expect(traces).toEqual([first, [tap('obj-1', 300)]]);
+
+    // The next item starts from an empty trace again.
+    runner.next();
+    await runner.submit(wrongAnswer, { latencyMs: 3000, trace: [tap('obj-2', 50)] });
+    expect(traces[2]).toEqual([tap('obj-2', 50)]);
+  });
+
+  it('finishing while an answer is being written counts that attempt', async () => {
+    const store = await openStore();
+    const request = await plannedRequest(store);
+    const { engine: spied, last } = spiedEngine();
+    const { session } = fakeSession();
+    const runner = await createTaskRunner({
+      engine: spied,
+      store,
+      graph: fixtureContent().graph,
+      child,
+      session,
+      request,
+      hosts: pierPlayable,
+    });
+
+    // The child presses Check and then Home before the write has finished.
+    const writing = runner.submit(engine.itemExampleCorrect(last()), { latencyMs: 1500 });
+    const summary = await runner.finish();
+    await writing;
+    expect(summary).toEqual({ items: 1, firstTryCorrect: 1, reason: 'child-exit' });
+    const types = (await store.events()).map((e) => e.type);
+    expect(types).toEqual(['request.accepted', 'attempt', 'request.completed']);
+  });
+
+  it('drops an inserted task the pier cannot show', async () => {
+    const store = await openStore();
+    const graph = fixtureContent().graph;
+    const request = browseRequest(graph, { skillId: 'ADD.23', templateId: null }, 5);
+    const excluded = Object.keys(PIER_EXCLUDED)[0] as string;
+    expect(excluded).toBe('ADD.23.t3');
+    const playable = request.tasks[0] as PlannedTask;
+    let inserted = false;
+    const { engine: base, last } = spiedEngine();
+    const spied: RunnerEngine = {
+      ...base,
+      adaptNext: (input) => {
+        const decision = engine.adaptNext(input);
+        if (inserted || decision.action !== 'continue') return decision;
+        inserted = true;
+        return {
+          ...decision,
+          insert: [
+            { ...playable, templateId: excluded, seed: 91 },
+            { ...playable, seed: 92 },
+          ],
+        };
+      },
+    };
+    const { session } = fakeSession();
+    const runner = await createTaskRunner({
+      engine: spied,
+      store,
+      graph,
+      child,
+      session,
+      request,
+      hosts: pierPlayable,
+    });
+    const before = runner.progress().total;
+
+    await runner.submit(engine.itemExampleCorrect(last()), { latencyMs: 2000 });
+    expect(inserted).toBe(true);
+    expect(runner.progress().total).toBe(before + 1);
+    const next = runner.next();
+    expect(next?.kind === 'item' && [next.item.templateId, next.item.seed]).toEqual([
+      playable.templateId,
+      92,
+    ]);
   });
 });

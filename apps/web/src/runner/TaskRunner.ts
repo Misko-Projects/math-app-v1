@@ -126,6 +126,17 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   let ended: RequestEndReason | null = null;
   let current: Current | null = null;
   let finished: Promise<RequestSummary> | null = null;
+  /** The submit being written, if any: `finish` waits for it, so its attempt is counted. */
+  let submitting: Promise<unknown> | null = null;
+  /** How much of the item's trace the tries so far have already been judged on. */
+  let traceJudged = 0;
+
+  /** Inserted tasks the hosting workshop can show (04 §7b picks them by format alone). */
+  const hosted = (tasks: PlannedTask[]) =>
+    tasks.filter((t) => {
+      const tpl = graph.templates[t.templateId];
+      return tpl !== undefined && deps.hosts(tpl);
+    });
 
   const isItem = (t: PlannedTask) => t.mode === 'item';
 
@@ -211,7 +222,20 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   current = present(0);
   if (!current) ended = 'complete';
 
-  const submit = async (
+  const submit = (
+    r: ResponseValue,
+    meta: { latencyMs: number; trace?: InteractionEvent[] },
+  ): Promise<RunnerFeedback> => {
+    const run = judge(r, meta);
+    submitting = run;
+    const settled = () => {
+      if (submitting === run) submitting = null;
+    };
+    run.then(settled, settled);
+    return run;
+  };
+
+  const judge = async (
     r: ResponseValue,
     meta: { latencyMs: number; trace?: InteractionEvent[] },
   ): Promise<RunnerFeedback> => {
@@ -225,7 +249,14 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       const { attemptNo } = cur.task;
       const latencyMs = Math.max(0, Math.round(meta.latencyMs));
       const checked = engine.checkResponse(item, r);
-      const process = engine.detectProcessMisconceptions(item, r, { ...meta, latencyMs });
+      // `meta.trace` is the item's whole trace. A second try is judged on what the child did
+      // since the first, so a slip made on the first try is not logged against the second.
+      const trace = meta.trace?.slice(traceJudged);
+      traceJudged = meta.trace?.length ?? 0;
+      const process = engine.detectProcessMisconceptions(item, r, {
+        latencyMs,
+        ...(trace ? { trace } : {}),
+      });
       const result: CheckResult = {
         ...checked,
         partialCredit: checked.correct ? 1 : 0,
@@ -277,14 +308,17 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         resolved += 1;
         if (decision.action === 'continue') {
           if (decision.tierOverrides) tierOverrides = { ...decision.tierOverrides };
-          if (decision.insert) request.tasks.splice(cur.index + 1, 0, ...decision.insert);
+          if (decision.insert) request.tasks.splice(cur.index + 1, 0, ...hosted(decision.insert));
         } else if (decision.action === 'confidence-then-offer-break') {
-          request.tasks.splice(cur.index + 1, 0, ...decision.insert);
+          request.tasks.splice(cur.index + 1, 0, ...hosted(decision.insert));
         } else if (decision.action === 'end-request') {
           ended = decision.reason;
         }
         if (result.correct) {
-          const [strategy] = engine.detectStrategies(item, r, { ...meta, latencyMs });
+          const [strategy] = engine.detectStrategies(item, r, {
+            latencyMs,
+            ...(trace ? { trace } : {}),
+          });
           if (strategy) say = strategy.replace(/^strategy\./, 'fb.praise.');
         } else {
           // Moving on after the last try: never the "one more time" line.
@@ -311,6 +345,12 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       cur.outcome = 'open';
       return cur.task;
     }
+    // The wind-down may have been signalled while the feedback was showing: no item starts after
+    // it (04 §6.4 rule 6: no overrun beyond the current item).
+    if (!ended && (session.windingDown() || session.elapsedMs() >= session.budgetMs)) {
+      ended = 'wind-down';
+    }
+    traceJudged = 0;
     current = ended ? null : present(cur.index + 1);
     if (!current && !ended) ended = 'complete';
     return current?.task ?? null;
@@ -318,6 +358,8 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
 
   const finish = (): Promise<RequestSummary> => {
     finished ??= (async () => {
+      // An answer still being written belongs to this request: count it.
+      await submitting?.catch(() => {});
       const summary: RequestSummary = {
         items: firstTries.length,
         firstTryCorrect: firstTries.filter(Boolean).length,
