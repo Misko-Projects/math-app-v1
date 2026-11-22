@@ -417,6 +417,8 @@ async function expectPilesReadable(root: HTMLElement, min = 16) {
  * purse dims and takes no more until a penny comes back, and then it does again.
  */
 export const TrayFull: Story = {
+  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
+  tags: ['!visual'],
   args: { config: pennies },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -493,6 +495,8 @@ export const TakeBack: Story = {
  * 5 piles) in the smallest area.
  */
 export const PlaceOverAPile: Story = {
+  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
+  tags: ['!visual'],
   args: { config: { ...stressPurse(), purse: { ...stressPurse().purse, penny: 3 } } },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
@@ -762,6 +766,8 @@ export const StressLandscapeMin: Story = {
  * or scrolls.
  */
 export const WorstTraysLandscapeMin: Story = {
+  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
+  tags: ['!visual'],
   args: { config: stressPurse() },
   render: (args) => (
     <div style={{ display: 'grid', gap: 16 }}>

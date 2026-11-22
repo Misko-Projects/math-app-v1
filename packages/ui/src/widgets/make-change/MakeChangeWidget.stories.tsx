@@ -278,6 +278,8 @@ export const TakeBackAHop: Story = {
  * a dollar bill (hops of 1¢ on a line 100¢ and more long). Each still reads as one line of hops.
  */
 export const HardestLinesLandscapeMin: Story = {
+  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
+  tags: ['!visual'],
   args: { config: { ...change65, price: 88, purse: { penny: 'unlimited' } } },
   render: (args) => (
     <div style={{ display: 'grid', gap: 16 }}>
