@@ -122,58 +122,48 @@ describe('pattern-extend: the supported domain', () => {
 
   it('numbers are whole, 0 to PATTERN_NUMBER_MAX, and have no palette', () => {
     expect(issues(patternExtend, numbers([0, PATTERN_NUMBER_MAX, 0, null]))).toEqual([]);
-    // A pattern that goes on by one steady step asks only for terms the pad can type.
-    expect(issues(patternExtend, numbers([997, 998, null]))).toEqual([]);
-    expect(
-      refuses(
-        issues(patternExtend, numbers([800, 900, null, null])),
-        'the missing term 1000 cannot be typed',
-      ),
-    ).toBe(true);
-    expect(
-      refuses(issues(patternExtend, numbers([20, 10, null, null])), 'the missing term -10'),
-    ).toBe(true);
-    // Review round 3: every kind that goes on is bound, not only `number`; and a tile pattern
-    // asks only for a stack the counter can build.
-    for (const kind of ['grow', 'function'] as const) {
-      expect(
-        refuses(
-          issues(patternExtend, { ...numbers([800, 900, null, null]), kind }),
-          'the missing term 1000 cannot be typed',
-        ),
-        kind,
-      ).toBe(true);
-      expect(issues(patternExtend, { ...numbers([600, 700, null, null]), kind }), kind).toEqual([]);
-    }
+    // The schema does not guess a pattern's rule from its shown terms (review rounds 2 to 4): a
+    // config says what is shown, and the item's answer says what goes in the blanks. Whether that
+    // answer can be entered is `patternAnswerIssues` (property 3.answer), tested below.
+    const tokens = (expected: unknown[]): AnswerSpec => ({
+      kind: 'state',
+      checker: 'pattern.tokens',
+      target: { expected },
+    });
     const stacks = (...tiles: (number | null)[]): Pattern => ({
       ...numbers([]),
       sequence: tiles.map((t) => (t === null ? null : { tiles: t })),
       kind: 'grow',
     });
-    expect(issues(patternExtend, stacks(5, 10, 15, null))).toEqual([]);
-    expect(
-      refuses(
-        issues(patternExtend, stacks(10, 15, 20, null)),
-        'the missing stack of 25 cannot be built (1–20 tiles)',
-      ),
-    ).toBe(true);
-    expect(
-      refuses(
-        issues(patternExtend, stacks(3, 2, 1, null)),
-        'the missing stack of 0 cannot be built',
-      ),
-    ).toBe(true);
-    // Review round 2: a repeating pattern of numbers (800, 900, 800, 900) is not an arithmetic
-    // one, and its answers are numbers it already shows.
+    // Round 4: the squares 1, 4, 9 with the first stack missing; two shown terms prove no step.
+    const squares = stacks(null, 4, 9);
+    expect(issues(patternExtend, squares)).toEqual([]);
+    expect(patternAnswerIssues(squares, tokens([{ tiles: 1 }]))).toEqual([]);
+    // Round 2: a repeating pattern of numbers asks for numbers it shows.
     const repeating = { ...numbers([800, 900, null, null]), kind: 'repeat' as const };
     expect(issues(patternExtend, repeating)).toEqual([]);
+    expect(patternAnswerIssues(repeating, tokens([{ n: 800 }, { n: 900 }]))).toEqual([]);
+    // An answer outside what the child can enter is refused, whatever the kind.
+    for (const kind of ['number', 'grow', 'function'] as const) {
+      const goesOn = { ...numbers([800, 900, null, null]), kind };
+      expect(issues(patternExtend, goesOn), kind).toEqual([]);
+      expect(
+        patternAnswerIssues(goesOn, tokens([{ n: 1000 }, { n: 1100 }])).join(' '),
+        kind,
+      ).toContain('cannot be typed');
+    }
     expect(
-      patternAnswerIssues(repeating, {
-        kind: 'state',
-        checker: 'pattern.tokens',
-        target: { expected: [{ n: 800 }, { n: 900 }] },
-      }),
-    ).toEqual([]);
+      patternAnswerIssues(numbers([20, 10, null, null]), tokens([{ n: 0 }, { n: -10 }])).join(' '),
+    ).toContain('expected[1] cannot be typed');
+    const tall = stacks(10, 15, 20, null);
+    expect(issues(patternExtend, tall)).toEqual([]);
+    expect(patternAnswerIssues(tall, tokens([{ tiles: 25 }])).join(' ')).toContain(
+      'not a stack of 1–20 tiles',
+    );
+    expect(patternAnswerIssues(stacks(5, 10, 15, null), tokens([{ tiles: 20 }]))).toEqual([]);
+    expect(patternAnswerIssues(stacks(3, 2, 1, null), tokens([{ tiles: 0 }])).join(' ')).toContain(
+      'not a',
+    );
     for (const n of [PATTERN_NUMBER_MAX + 1, -1, 2.5]) {
       expect(refuses(issues(patternExtend, numbers([1, n, null])), 'whole, 0–999'), `${n}`).toBe(
         true,

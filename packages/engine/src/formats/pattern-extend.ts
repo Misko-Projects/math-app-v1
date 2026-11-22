@@ -342,42 +342,6 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
     if (c.palette.findIndex((u) => sameToken(u, t)) !== i)
       add(['palette', i], 'the palette repeats a unit');
   });
-  // A pattern of numbers or tile stacks that goes on (every kind but `repeat`: number, grow and
-  // function) and whose shown terms keep one steady step: the terms asked for can be entered,
-  // a number on the pad (0 to 999), a stack with the counter (1 to MAX_TILES). A repeating pattern
-  // (kind `repeat`: 800, 900, 800, 900) asks for terms it already shows.
-  const entered = family === 'n' || (family === 'tiles' && c.palette.length === 0);
-  if (
-    entered &&
-    c.kind !== 'repeat' &&
-    (c.mode === 'extend' || c.mode === 'fill') &&
-    blanks.length > 0
-  ) {
-    const step = firstStep(c.sequence);
-    const at = c.sequence.findIndex((t) => t !== null);
-    const first = tokenNumber(c.sequence[at] ?? null);
-    const steady =
-      step !== null &&
-      first !== null &&
-      c.sequence.every((t, i) => t === null || tokenNumber(t) === first + (i - at) * step);
-    if (steady && step !== null && first !== null) {
-      blanks.forEach((i) => {
-        const term = first + (i - at) * step;
-        if (family === 'n' && !isPatternNumber(term)) {
-          add(
-            ['sequence', i],
-            `the missing term ${term} cannot be typed (0–${PATTERN_NUMBER_MAX})`,
-          );
-        }
-        if (family === 'tiles' && !(Number.isInteger(term) && term >= 1 && term <= MAX_TILES)) {
-          add(
-            ['sequence', i],
-            `the missing stack of ${term} cannot be built (1–${MAX_TILES} tiles)`,
-          );
-        }
-      });
-    }
-  }
   if (family === 'n' && c.palette.length > 0) {
     add(['palette'], 'a number pattern is typed: it has no palette');
   }

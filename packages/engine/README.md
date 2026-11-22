@@ -230,7 +230,7 @@ The three models state and enforce the domain their widgets support. Every bound
 | pattern-extend | places in a pattern | 2 to 12 (`PATTERN_LENGTH_MAX`); numbers or tile stacks 6 (`PATTERN_TYPED_LENGTH_MAX`); `translate` 6 (`PATTERN_TRANSLATE_LENGTH_MAX`) |
 | | blanks (`extend`, `fill`) | 1 to 4 (`PATTERN_BLANKS_MAX`) |
 | | different units: shown, palette, `translateTo` | at most 4 (`PATTERN_UNITS_MAX`); a picture palette has at least 2 |
-| | numbers | whole, 0 to 999 (`PATTERN_NUMBER_MAX`, three digits on the pad); a number pattern has no palette; in a pattern that goes on (every kind but `repeat`) whose shown terms keep one steady step, every missing term is 0 to 999 too, and every missing tile stack 1 to 20 (a repeating pattern, kind `repeat`, asks for terms it shows) |
+| | numbers | whole, 0 to 999 (`PATTERN_NUMBER_MAX`, three digits on the pad); a number pattern has no palette; the schema does not guess a pattern's rule from its shown terms: whether the terms asked for can be entered is checked against the item's answer (`patternAnswerIssues`: a number 0 to 999, a stack of 1 to 20) |
 | | tile stacks | 1 to 20 tiles (`MAX_TILES`) |
 | | `rule` | the shown numbers grow by one whole step of 1 or more |
 | | `table` | not supported yet: the schema refuses the mode (the widget has no table layout for the smallest area; the model keeps the ops) |
