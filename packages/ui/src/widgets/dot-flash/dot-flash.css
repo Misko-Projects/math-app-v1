@@ -58,15 +58,10 @@
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
-  overflow: hidden;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
-}
-/* The demo's ring stands outside the board's edge. */
-.ni-flash__board.ni-invite {
-  overflow: visible;
 }
 .ni-flash__picture .ni-stimulus {
   border: 0;

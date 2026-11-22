@@ -19,6 +19,7 @@ import {
   type PadKey,
   padValue,
   roomBox,
+  Scaled,
   StimulusView,
   useAlive,
   useDemoPause,
@@ -151,6 +152,8 @@ function answerCue(
 /** The pressable element a cue points at (null: a ring-only cue). */
 /** Between the board's edge and its picture, at least. */
 const BOARD_EDGE = 24;
+/** The board's border, both sides (dot-flash.css). */
+const BOARD_BORDER = 2 * 3;
 
 function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
   switch (cue.at) {
@@ -495,11 +498,21 @@ export function DotFlashWidget({
           data-shown={shown ? 'true' : 'false'}
         >
           <div className="ni-flash__picture" aria-hidden={shown ? undefined : true}>
-            <StimulusView
-              spec={config.stimulus}
-              maxWidth={Math.min(500, (boardSize?.w ?? 580) - 2 * BOARD_EDGE)}
-              maxHeight={Math.min(280, (boardSize?.h ?? 360) - 2 * BOARD_EDGE)}
-            />
+            {/*
+              The picture re-flows to its box down to the kit's smallest cell; one that is still
+              bigger than the board (a hundred dots to estimate on a short board) is drawn smaller
+              as a whole, so the board never hides a dot.
+            */}
+            <Scaled
+              maxWidth={Math.max(1, (boardSize?.w ?? 580) - BOARD_BORDER)}
+              maxHeight={Math.max(1, (boardSize?.h ?? 360) - BOARD_BORDER)}
+            >
+              <StimulusView
+                spec={config.stimulus}
+                maxWidth={Math.min(500, (boardSize?.w ?? 580) - 2 * BOARD_EDGE)}
+                maxHeight={Math.min(280, (boardSize?.h ?? 360) - 2 * BOARD_EDGE)}
+              />
+            </Scaled>
           </div>
           {rings.map((r, i) => (
             <span

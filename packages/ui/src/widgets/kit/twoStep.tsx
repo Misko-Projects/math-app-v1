@@ -229,6 +229,12 @@ export interface AskInput {
    * otherwise larger is better (for example the size of one item).
    */
   pictureScore: (box: Size) => number;
+  /**
+   * Only the numeral tray (full or compact), whether or not a picture fits beside it: for a
+   * widget whose answer is a pick among numerals on every screen, so that a short room never
+   * turns it into typing or stepping (tap-count: the same `opt-<n>` trace as on one screen).
+   */
+  trayOnly?: boolean;
 }
 
 /** Whether key `a` sorts strictly before `b` (compared entry by entry; equal keys: no). */
@@ -249,10 +255,12 @@ export function planAsk(input: AskInput): AskPlan {
   const { room, button } = input;
   let best: { plan: AskPlan; key: number[] } | null = null;
   let least: { plan: AskPlan; over: number } | null = null;
-  const numeric: (EntryLayout | null)[][] = entryGroups(input.max);
+  const every: (EntryLayout | null)[][] = entryGroups(input.max);
+  const trays = every.filter((group) => group.every((e) => e?.kind === 'tray'));
+  const numeric = input.trayOnly && trays.length > 0 ? trays : every;
   const groups: (EntryLayout | null)[][] = input.control
     ? [[null]]
-    : [...numeric, ...(input.max <= STEPPER_MAX ? [[null]] : [])];
+    : [...numeric, ...(input.max <= STEPPER_MAX && !input.trayOnly ? [[null]] : [])];
   for (const [g, group] of groups.entries()) {
     const stepper = !input.control && g === numeric.length;
     for (const entry of group) {

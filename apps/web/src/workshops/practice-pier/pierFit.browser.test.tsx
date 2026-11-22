@@ -169,7 +169,11 @@ async function measure(templateId: string): Promise<string[]> {
     const now = [stage.scrollHeight, stage.scrollWidth, r?.width, r?.height, r?.top].join();
     same = now === last ? same + 1 : 0;
     last = now;
-    if (same >= SETTLED_FRAMES) return misfits(stage);
+    if (same >= SETTLED_FRAMES) {
+      // Only registered formats get here: the fallback means the widget failed to load or render.
+      if (widget.querySelector('.ni-placeholder')) return ['the widget did not render (fallback)'];
+      return misfits(stage);
+    }
   }
   throw new Error(`${templateId}: the layout did not settle`);
 }

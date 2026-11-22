@@ -9,7 +9,7 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
-import { enterNumber, expectCountable, goNext, stepButton } from '../../test-support/twoStepStory';
+import { goNext, stepButton } from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -1741,7 +1741,8 @@ const answerControls = (root: HTMLElement) => [
 /**
  * CNT.02.t1 (K) in the smallest area: seven leaves at full target size and the 0–10 tray need
  * 382 px, the area has 319. The child counts with the whole area; Next comes with the last leaf;
- * the answer step shows the leaves small beside the numerals, with Back to count again. The
+ * the answer step shows the numeral cards (and the leaves small where they fit), with Back to
+ * count again. The
  * response and the tap trace are the one-screen ones, plus `next`.
  */
 export const CountThenAnswerMinK: Story = {
@@ -1760,13 +1761,17 @@ export const CountThenAnswerMinK: Story = {
     await expectInHost(root, [...objects(root), stepButton(root, 'next')], 'k');
     await goNext(root);
     await expectInHost(root, answerControls(root), 'k');
-    await expectCountable(root.querySelector('.ni-tapc__askpic') as HTMLElement);
+    // Here the numeral cards and the two buttons leave no room to draw seven leaves at a size a
+    // child can count (32 px cells), so the step shows the cards alone; Back shows the leaves.
+    await expect(root.querySelector('.ni-tapc__askpic')).toBeNull();
     // Back shows the counted leaves again, marks and all.
     await userEvent.click(stepButton(root, 'back'));
     await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     await goNext(root);
-    await enterNumber(root, 7);
+    // The answer is a pick among the numeral cards, as on one screen: `opt-7`.
+    await expect(root.querySelector('.ni-entry')).toHaveAttribute('data-kind', 'tray');
+    await userEvent.click(within(root).getByRole('button', { name: '7' }));
     await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
@@ -1775,7 +1780,7 @@ export const CountThenAnswerMinK: Story = {
       ...Array.from({ length: 7 }, (_, i) => `tap:obj-${i}`),
       'tap:next',
     ]);
-    await expect(trace.slice(8, 10)).toEqual(['tap:back', 'tap:next']);
+    await expect(trace.slice(8)).toEqual(['tap:back', 'tap:next', 'tap:opt-7']);
     await expectTraceOrdered(traceOf(args.onInteract));
   },
 };
@@ -1804,9 +1809,18 @@ export const CountTwelveThenAnswerPierK: Story = {
     await expectInHost(root, [...objects(root), stepButton(root, 'next')], 'k');
     await goNext(root);
     await expectInHost(root, answerControls(root), 'k');
-    await enterNumber(root, 12);
+    // Review of #106: the answer stays a direct pick among 0–20 (never the stepper or the pad).
+    await expect(root.querySelector('.ni-entry')).toHaveAttribute('data-kind', 'tray');
+    await expect(root.querySelectorAll('.ni-entry .ni-pick')).toHaveLength(21);
+    await expect(root.querySelector('.ni-stepper')).toBeNull();
+    await userEvent.click(within(root).getByRole('button', { name: '12' }));
     await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 12 });
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => `${e.t}:${e.target}`)
+        .slice(-2),
+    ).toEqual(['tap:next', 'tap:opt-12']);
   },
 };
 

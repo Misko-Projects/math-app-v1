@@ -117,6 +117,39 @@ describe('planAsk (the ask step: answer control, actions, the box left for the p
     expect(stepperSize('g1-up')).toEqual({ w: 140, h: 176 });
   });
 
+  it('tray only: the numeral cards in every room, never the stepper or the pad (tap-count)', () => {
+    const rooms = [MIN, { w: 810, h: 350 }, { w: 1130, h: 550 }];
+    for (const ageMode of ['k', 'g1-up'] as const) {
+      for (const room of rooms) {
+        for (const max of [10, 20]) {
+          const input = {
+            ageMode,
+            max,
+            button: ageMode === 'k' ? BUTTON.k : BUTTON.g1,
+            actions: 2 as const,
+            room,
+            pictureScore: picture,
+          };
+          const p = planAsk({ ...input, trayOnly: true });
+          const what = `${ageMode} 0 … ${max} in ${room.w} × ${room.h}`;
+          expect(p.entry?.kind, what).toBe('tray');
+          expect(p.stepper, what).toBe(false);
+          expect(p.fits, what).toBe(true);
+        }
+      }
+    }
+    // Without it, the same K room trades the cards for the stepper to keep a picture.
+    const free = planAsk({
+      ageMode: 'k',
+      max: 20,
+      button: BUTTON.k,
+      actions: 2,
+      room: { w: 810, h: 350 },
+      pictureScore: picture,
+    });
+    expect(free.entry?.kind === 'tray' && !free.stepper).toBe(false);
+  });
+
   it("plans round a widget's own answer control (two choice cards)", () => {
     const p = planAsk({
       ageMode: 'g1-up',

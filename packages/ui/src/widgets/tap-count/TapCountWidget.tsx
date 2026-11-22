@@ -31,6 +31,7 @@ import {
   type Size,
   StepActions,
   spriteNameKey,
+  TRAY_MAX,
   TRAY_PANEL_EDGES_PX,
   useActionSize,
   useAlive,
@@ -537,7 +538,8 @@ export function TapCountWidget({
    */
   const [split, setSplit] = useState<boolean | null>(null);
   const splitSteps = split === true;
-  const canSplit = concrete && !ordinal && config.input === 'auto';
+  // Up to 20, where the answer step can keep the numeral cards (a tray of 0–30 has no room there).
+  const canSplit = concrete && !ordinal && config.input === 'auto' && n <= TRAY_MAX;
   const two = useTwoStep(rootRef, {
     interactive,
     trace,
@@ -1181,6 +1183,7 @@ export function TapCountWidget({
     max: askMax,
     button: stepButton,
     actions: 2,
+    trayOnly: true,
     room: { w: (widgetW ?? HOW_MANY_AREA_W) - 2 * 24, h: hostH - 2 * PAD_Y },
     pictureScore: (box: Size) => {
       const set = countLayout(askSpec);

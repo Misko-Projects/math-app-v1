@@ -557,11 +557,18 @@ const areaFit = (root: HTMLElement, ageMode: 'k' | 'g1-up', story: string) => ({
   parts: [board(root), ...root.querySelectorAll('.ni-flash__slot')],
 });
 
-/** The picture lies inside its board, clear of the board's edge. */
+/** The picture, and every object drawn in it, lies inside its board. */
 async function expectPictureOnBoard(root: HTMLElement) {
   const picture = root.querySelector('.ni-flash__picture .ni-stimulus') as HTMLElement;
   const p = picture.getBoundingClientRect();
   const b = board(root).getBoundingClientRect();
+  for (const sprite of picture.querySelectorAll('svg.ni-sprite, .ni-dot')) {
+    const r = sprite.getBoundingClientRect();
+    await expect(r.top, 'object top').toBeGreaterThanOrEqual(b.top);
+    await expect(r.bottom, 'object bottom').toBeLessThanOrEqual(b.bottom);
+    await expect(r.left, 'object left').toBeGreaterThanOrEqual(b.left);
+    await expect(r.right, 'object right').toBeLessThanOrEqual(b.right);
+  }
   await expect(p.left, 'picture left').toBeGreaterThanOrEqual(b.left);
   await expect(p.right, 'picture right').toBeLessThanOrEqual(b.right);
   await expect(p.top, 'picture top').toBeGreaterThanOrEqual(b.top);
@@ -601,6 +608,33 @@ export const LandscapeMinG1: Story = {
     await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'dot-flash 906x373 G1'));
     await expectPictureOnBoard(root);
     await expect(root.querySelector('.ni-pad')).toHaveAttribute('data-shape', '3x4');
+  },
+};
+
+/** CMP.13.t2 at its largest: a hundred dots to estimate, G1 timing. */
+const hundred: ConfigFor<'dot-flash'> = {
+  ...dots,
+  stimulus: { kind: 'dots', arrangement: 'scatter', groups: [100] },
+  flashMs: 60_000,
+  estimate: { tolerancePct: 25 },
+};
+
+/**
+ * A hundred dots on the short board (review of #106): at the kit's smallest cell the scatter is
+ * taller than the board, so it is drawn smaller as a whole and every dot stays in view.
+ */
+export const LandscapeMinHundredDots: Story = {
+  args: { config: hundred },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await shownIs(root, 'true');
+    await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'dot-flash 906x373 100 dots'));
+    const drawn = root.querySelectorAll(
+      '.ni-flash__picture svg.ni-sprite, .ni-flash__picture .ni-dot',
+    );
+    await expect(drawn).toHaveLength(100);
+    await expectPictureOnBoard(root);
   },
 };
 
