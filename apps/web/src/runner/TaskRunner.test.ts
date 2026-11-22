@@ -11,7 +11,6 @@ import {
   defaultChildSettings,
   type EventPayloads,
   type GeneratedItem,
-  type InteractionEvent,
   type PlannedRequest,
   type PlannedTask,
   type ResponseValue,
@@ -289,47 +288,54 @@ describe('TaskRunner', () => {
     expect(await runner.finish()).toEqual({ items: 1, firstTryCorrect: 1, reason: 'wind-down' });
   });
 
-  it('judges a second try on what the child did since the first', async () => {
+  it('logs a misconception once per item, however many tries repeat it', async () => {
     const store = await openStore();
-    const request = await plannedRequest(store);
-    const traces: (InteractionEvent[] | undefined)[] = [];
-    const spied: RunnerEngine = {
-      ...engine,
-      detectProcessMisconceptions: (item, r, meta) => {
-        traces.push(meta.trace);
-        return engine.detectProcessMisconceptions(item, r, meta);
-      },
-    };
+    const graph = fixtureContent().graph;
+    const { engine: spied, last } = spiedEngine();
     const { session } = fakeSession();
-    const runner = await createTaskRunner({
-      engine: spied,
-      store,
-      graph: fixtureContent().graph,
-      child,
-      session,
-      request,
-      hosts: pierPlayable,
-    });
-    const tap = (target: string, ms: number): InteractionEvent => ({ t: 'tap', target, ms });
-    const first = [tap('obj-0', 100), tap('obj-0', 200)];
+    // A shipped "how many?" item with at least four objects (CNT.02.t1, tap-count).
+    let runner: Awaited<ReturnType<typeof createTaskRunner>> | null = null;
+    let count = 0;
+    for (let nonce = 1; nonce < 40 && count < 4; nonce += 1) {
+      runner = await createTaskRunner({
+        engine: spied,
+        store,
+        graph,
+        child,
+        session,
+        request: browseRequest(graph, { skillId: 'CNT.02', templateId: 'CNT.02.t1' }, nonce),
+        hosts: pierPlayable,
+      });
+      const right = engine.itemExampleCorrect(last());
+      count = right.kind === 'number' ? right.value : 0;
+    }
+    if (!runner || count < 4) throw new Error('no CNT.02.t1 item with four objects');
+    expect(last().format).toBe('tap-count');
+    const before = (await store.events()).length;
 
-    expect((await runner.submit(wrongAnswer, { latencyMs: 3000, trace: first })).retry).toBe(true);
+    // The child misses one object and answers one too few, then presses Check again unchanged.
+    const oneShort: ResponseValue = { kind: 'number', value: count - 1 };
+    const first = await runner.submit(oneShort, { latencyMs: 4000, trace: [] });
+    expect(first.misconceptionIds).toEqual(['MC.off-by-one-counting']);
+    expect(first.retry).toBe(true);
     runner.next();
-    // The widget stays mounted, so the second submit carries the item's whole trace.
-    await runner.submit(wrongAnswer, { latencyMs: 3000, trace: [...first, tap('obj-1', 300)] });
-    expect(traces).toEqual([first, [tap('obj-1', 300)]]);
+    const second = await runner.submit(oneShort, { latencyMs: 4000, trace: [] });
+    expect(second.misconceptionIds).toEqual([]);
 
-    // The next item starts from an empty trace again.
-    runner.next();
-    await runner.submit(wrongAnswer, { latencyMs: 3000, trace: [tap('obj-2', 50)] });
-    expect(traces[2]).toEqual([tap('obj-2', 50)]);
+    const logged = attempts((await store.events()).slice(before));
+    expect(logged.map((a) => [a.attemptNo, a.misconceptionIds])).toEqual([
+      [1, ['MC.off-by-one-counting']],
+      [2, []],
+    ]);
+    const hits = (await store.skillStates(CHILD_K))?.skills['CNT.02']?.misconceptionHits ?? [];
+    expect(hits.map((h) => h.id)).toEqual(['MC.off-by-one-counting']);
   });
 
   it('finishing while an answer is being written counts that attempt', async () => {
     const store = await openStore();
     const request = await plannedRequest(store);
     const { engine: spied, last } = spiedEngine();
-    const { session } = fakeSession();
+    const { session, log } = fakeSession();
     const runner = await createTaskRunner({
       engine: spied,
       store,
@@ -342,6 +348,9 @@ describe('TaskRunner', () => {
 
     // The child presses Check and then Home before the write has finished.
     const writing = runner.submit(engine.itemExampleCorrect(last()), { latencyMs: 1500 });
+    // The session has the item and its time at once: a session that ends now (the child left
+    // during a wind-down, and the child home ends it) saves totals that include this answer.
+    expect(log).toEqual({ items: 1, mathMs: 1500 });
     const summary = await runner.finish();
     await writing;
     expect(summary).toEqual({ items: 1, firstTryCorrect: 1, reason: 'child-exit' });

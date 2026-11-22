@@ -29,6 +29,7 @@ import {
   type InteractionEvent,
   type ItemTemplate,
   type LearnerState,
+  type MisconceptionId,
   type NarrationKey,
   type PlannedRequest,
   type PlannedTask,
@@ -128,8 +129,8 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   let finished: Promise<RequestSummary> | null = null;
   /** The submit being written, if any: `finish` waits for it, so its attempt is counted. */
   let submitting: Promise<unknown> | null = null;
-  /** How much of the item's trace the tries so far have already been judged on. */
-  let traceJudged = 0;
+  /** Misconceptions already logged on the item on screen: a second try never logs one again. */
+  let loggedOnItem = new Set<MisconceptionId>();
 
   /** Inserted tasks the hosting workshop can show (04 §7b picks them by format alone). */
   const hosted = (tasks: PlannedTask[]) =>
@@ -249,19 +250,20 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       const { attemptNo } = cur.task;
       const latencyMs = Math.max(0, Math.round(meta.latencyMs));
       const checked = engine.checkResponse(item, r);
-      // `meta.trace` is the item's whole trace. A second try is judged on what the child did
-      // since the first, so a slip made on the first try is not logged against the second.
-      const trace = meta.trace?.slice(traceJudged);
-      traceJudged = meta.trace?.length ?? 0;
-      const process = engine.detectProcessMisconceptions(item, r, {
-        latencyMs,
-        ...(trace ? { trace } : {}),
-      });
+      // The session's totals are counted before anything is awaited: a session that ends while
+      // this answer is being written (the child leaves during a wind-down) still holds it.
+      session.recordMath(latencyMs);
+      if (attemptNo === 1) session.recordItem();
+      // The widget stays mounted for the second try, so the trace (and often the answer) of the
+      // first try is still there. One slip is one hit: a misconception is logged once per item.
+      const process = engine.detectProcessMisconceptions(item, r, { ...meta, latencyMs });
+      const matched = [...new Set([...checked.misconceptionIds, ...process])];
       const result: CheckResult = {
         ...checked,
         partialCredit: checked.correct ? 1 : 0,
-        misconceptionIds: [...new Set([...checked.misconceptionIds, ...process])],
+        misconceptionIds: matched.filter((id) => !loggedOnItem.has(id)),
       };
+      for (const id of matched) loggedOnItem.add(id);
       const tpl = template(item.templateId);
       const payload: AttemptPayload = {
         sessionId: session.sessionId,
@@ -287,11 +289,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       if (!folded) throw new Error(`TaskRunner: the learner state of ${childId} is gone`);
       state = folded;
 
-      session.recordMath(latencyMs);
-      if (attemptNo === 1) {
-        session.recordItem();
-        firstTries.push(result.correct);
-      }
+      if (attemptNo === 1) firstTries.push(result.correct);
       if (!result.correct && latencyMs < RAPID_TAP_MS) rapidWrongTaps += 1;
 
       let decision = adapt(cur, result, attemptNo, latencyMs);
@@ -315,10 +313,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
           ended = decision.reason;
         }
         if (result.correct) {
-          const [strategy] = engine.detectStrategies(item, r, {
-            latencyMs,
-            ...(trace ? { trace } : {}),
-          });
+          const [strategy] = engine.detectStrategies(item, r, { ...meta, latencyMs });
           if (strategy) say = strategy.replace(/^strategy\./, 'fb.praise.');
         } else {
           // Moving on after the last try: never the "one more time" line.
@@ -350,7 +345,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
     if (!ended && (session.windingDown() || session.elapsedMs() >= session.budgetMs)) {
       ended = 'wind-down';
     }
-    traceJudged = 0;
+    loggedOnItem = new Set();
     current = ended ? null : present(cur.index + 1);
     if (!current && !ended) ended = 'complete';
     return current?.task ?? null;
