@@ -1,6 +1,6 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   clearSpies,
@@ -1848,13 +1848,15 @@ export const ArrangementKeptOnResize: Story = {
 };
 
 /**
- * CNT.19.t2 seed 2 on the tablet area (review of #106): 29 crabs on three plates are taller than
- * the area, so the item is count-then-answer, and its answer step keeps the numeral cards 0–30
- * (the kit would hand out the number pad above 20), all in view with Back and Check.
+ * CNT.19.t2 seed 2 in the pier's room on a 1200 × 700 screen, about 1098 × 458 (review of #106):
+ * 29 crabs on three plates are taller than the room, so the item is count-then-answer, and its
+ * answer step keeps the numeral cards 0–30 (the kit would hand out the number pad above 20), all
+ * in view with Back and Check. The four-row tray fits here only beside the compact step buttons
+ * (76 px), which is the size the first, once-only choice plans with.
  */
 export const CountTwentyNineThenAnswerTablet: Story = {
   args: { config: groupsOfTen },
-  parameters: { area: widgetArea(1280, 800) },
+  parameters: { area: { w: 1098, h: 458 } },
   render: renderInArea,
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -1944,6 +1946,85 @@ export const TwentyNineOneScreenPierG1: Story = {
     await userEvent.click(within(root).getByRole('button', { name: '29' }));
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 29 });
+  },
+};
+
+/** The pier's room for a landscape screen (measured at 960 × 600 and 1280 × 800 in Grade 1). */
+const pierRoom = (vw: number) => ({ w: vw - 102, h: Math.round(vw * 0.625) - 242 });
+const SWEEP_SCREENS = [960, 1040, 1120, 1200, 1280];
+const SWEEP_COUNTS = [21, 25, 29, 30];
+interface SweepCase {
+  w: number;
+  h: number;
+  n: number;
+  key: number;
+}
+
+/** Mounts the plates item afresh for each case the play function sends (`ni-sweep`). */
+function PlatesSweep(args: WidgetHostProps) {
+  const [c, setCase] = useState<SweepCase>({ ...pierRoom(960), n: 21, key: 0 });
+  useEffect(() => {
+    const next = (e: Event) => setCase((e as CustomEvent<SweepCase>).detail);
+    window.addEventListener('ni-sweep', next);
+    return () => window.removeEventListener('ni-sweep', next);
+  }, []);
+  const config: ConfigFor<'tap-count'> = {
+    ...groupsOfTen,
+    set: { ...groupsOfTen.set, count: c.n, groups: [10, 10, c.n - 20] },
+  };
+  return (
+    <Fragment key={c.key}>
+      {renderInArea(
+        { ...args, config: config as WidgetConfig },
+        { parameters: { area: { w: c.w, h: c.h } } },
+      )}
+    </Fragment>
+  );
+}
+
+/**
+ * CNT.19.t2 with 21 to 30 crabs, over the pier's rooms from 960 × 600 to 1280 × 800: whichever
+ * arrangement the item takes (one screen that scrolls, or count-then-answer), once every crab is
+ * counted all 31 numeral cards and Check can be reached: none lies left of or above where the
+ * area scrolls to, and all are within its scrollable size.
+ */
+export const PlatesAnswerReachableSweep: Story = {
+  args: { config: groupsOfTen },
+  render: (args) => <PlatesSweep {...args} />,
+  play: async ({ canvasElement }) => {
+    let key = 0;
+    for (const vw of SWEEP_SCREENS) {
+      for (const n of SWEEP_COUNTS) {
+        key += 1;
+        const room = pierRoom(vw);
+        const what = `${n} crabs in ${room.w} × ${room.h}`;
+        window.dispatchEvent(new CustomEvent('ni-sweep', { detail: { ...room, n, key } }));
+        await waitFor(() => {
+          const host = canvasElement.querySelector('.story-host-box') as HTMLElement;
+          expect(host.clientWidth).toBe(room.w);
+          expect(host.querySelectorAll('[data-obj]')).toHaveLength(n);
+        });
+        const root = await findWidget(canvasElement, ROOT);
+        await settle(root);
+        for (let i = 0; i < n; i++) await userEvent.click(obj(root, i));
+        if (root.getAttribute('data-step') === 'build') await goNext(root);
+        const host = root.closest('.story-host-box') as HTMLElement;
+        host.scrollTop = 0;
+        host.scrollLeft = 0;
+        const origin = host.getBoundingClientRect();
+        const cards = [
+          ...root.querySelectorAll('.ni-tapc__asktray .ni-pick, .ni-tapc__tray .ni-pick'),
+        ];
+        await expect(cards, what).toHaveLength(31);
+        for (const el of [...cards, checkButton(root)]) {
+          const r = el.getBoundingClientRect();
+          await expect(r.left, what).toBeGreaterThanOrEqual(origin.left - 0.5);
+          await expect(r.top, what).toBeGreaterThanOrEqual(origin.top - 0.5);
+          await expect(r.right - origin.left, what).toBeLessThanOrEqual(host.scrollWidth + 0.5);
+          await expect(r.bottom - origin.top, what).toBeLessThanOrEqual(host.scrollHeight + 0.5);
+        }
+      }
+    }
   },
 };
 

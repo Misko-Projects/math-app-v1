@@ -5,7 +5,7 @@ import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { ArrowIcon, CheckIcon } from '../../primitives/icons';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
-import { MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
+import { MIN_TARGET_PX, TARGET_GAP_PX, TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
   AskEntry,
@@ -1188,10 +1188,14 @@ export function TapCountWidget({
 
   const askSpec = useMemo(() => ({ kind: 'objects' as const, set: config.set }), [config.set]);
   const askMax = trayValues.at(-1) ?? 0;
+  // The step buttons are the compact (icon-only) ones: a big button, with its 6 px ledge. Until
+  // one is mounted and measured (the answer step), the plan works with that size, so the once-only
+  // choice of arrangement is made with the buttons the answer step will really draw.
+  const compactButton: Size = { w: TARGET_PX[ageMode].big, h: TARGET_PX[ageMode].big + 6 };
   const askInput = {
     ageMode,
     max: askMax,
-    button: stepButton,
+    button: asking ? stepButton : compactButton,
     actions: 2 as const,
     room: { w: (widgetW ?? HOW_MANY_AREA_W) - 2 * 24, h: hostH - 2 * PAD_Y },
     pictureScore: (box: Size) => {
