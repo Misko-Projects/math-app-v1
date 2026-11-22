@@ -1,10 +1,11 @@
-import type { CoinKind, InteractionEvent } from '@number-island/shared';
-import { type ReactNode, useLayoutEffect, useRef } from 'react';
+import { type CoinKind, type InteractionEvent, TRAY_PIECES_MAX } from '@number-island/shared';
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import type { PlaceVia } from '../../interaction/useTapToPlace';
 import { useNarrationText, useReducedMotion, useUiPreferences } from '../../preferences/UiProvider';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { BillArt, COIN_CENTS, CoinArt, coinRadius, type MoneyPiece, moneyText } from './CoinArt';
+import { type PileSpec, pileSteps } from './moneyLayout';
 import './money.css';
 
 /**
@@ -93,7 +94,8 @@ export interface MoneyBoardProps {
 
 const BILL_H = 74;
 const BILL_W = (BILL_H * 235) / 104;
-const MAX_PILE_PX = 300;
+/** The tray zone's side padding (money.css `.ni-money__zone`). */
+const ZONE_PAD_X = 18;
 
 /** A piece's drawn size in px (CoinArt's box: 2 units of rim, 7 of shadow below). */
 function artSize(p: MoneyPiece, quarterPx: number): { w: number; h: number } {
@@ -159,6 +161,18 @@ export function MoneyBoard({
 
   // The piece that just landed pops in (never with reduced motion).
   const trayRef = useRef<HTMLDivElement | null>(null);
+  // The room the piles have, so a crowded tray squeezes them into two rows (moneyLayout.ts).
+  const [trayWidth, setTrayWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = trayRef.current;
+    if (!el) return;
+    const measure = () => setTrayWidth(Math.max(0, el.clientWidth - 2 * ZONE_PAD_X));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   useLayoutEffect(() => {
     if (!landed || reduced) return;
     const el = trayRef.current?.querySelector<HTMLElement>(
@@ -173,6 +187,17 @@ export function MoneyBoard({
     );
   }, [landed, reduced]);
 
+  // A chosen piece arms the other zone, and the whole of that zone then takes the tap that places
+  // it: the pieces already lying there (each one the target that takes it back) step aside, so a
+  // tap meant to place a coin never picks up another one instead, however full the zone is.
+  const armedFor: BoardTarget | null = drag.selected
+    ? drag.selected.startsWith('purse-')
+      ? 'tray'
+      : 'purse'
+    : null;
+  // The tray holds `TRAY_PIECES_MAX` pieces (every one is drawn); a full tray takes no more.
+  const full = tray.length >= TRAY_PIECES_MAX;
+
   const isHi = (item: BoardItem) => highlight?.item === item;
   const cls = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(' ');
 
@@ -183,7 +208,7 @@ export function MoneyBoard({
     const step = shown <= 1 ? 0 : Math.min(k === 'dollar' ? 5 : 4, 28 / (shown - 1));
     const b = box(k);
     const id: BoardItem = `purse-${k}`;
-    const props = drag.itemProps(id, { label: name(k), disabled: n <= 0 });
+    const props = drag.itemProps(id, { label: name(k), disabled: n <= 0 || full });
     const lift = Math.max(0, shown - 1) * step;
     return (
       <div
@@ -234,11 +259,18 @@ export function MoneyBoard({
     );
   };
 
-  const trayPile = (k: MoneyPiece) => {
+  // Every piece in a pile is drawn; they overlap more as the tray fills, each one still showing
+  // at least `MIN_PILE_STEP_PX` of itself, and the piles take at most two rows (moneyLayout.ts).
+  const trayKinds = PIECE_ORDER.filter((k) => inTray(k) > 0);
+  const steps = pileSteps(
+    trayKinds.map((k): PileSpec => ({ n: inTray(k), w: box(k).w, bill: k === 'dollar' })),
+    trayWidth,
+  );
+
+  const trayPile = (k: MoneyPiece, at: number) => {
     const n = inTray(k);
     const b = box(k);
-    // Every piece in the pile is drawn; they overlap more as the pile grows, never past its width.
-    const off = n <= 1 ? 0 : Math.min(b.w * 0.42, (Math.max(b.w, MAX_PILE_PX) - b.w) / (n - 1));
+    const off = steps[at] ?? 0;
     const id: BoardItem = `tray-${k}`;
     const props = drag.itemProps(id, { label: name(k) });
     return (
@@ -280,10 +312,13 @@ export function MoneyBoard({
 
   const trayPad = drag.targetProps('tray', { label: trayLabel });
   const pursePad = drag.targetProps('purse', { label: t('ui.money.purse') });
-  const trayKinds = PIECE_ORDER.filter((k) => inTray(k) > 0);
-
   return (
-    <div className="ni-money" data-disabled={disabled ? 'true' : undefined}>
+    <div
+      className="ni-money"
+      data-disabled={disabled ? 'true' : undefined}
+      data-armed-for={armedFor ?? undefined}
+      data-full={full ? 'true' : undefined}
+    >
       <div className="ni-money__row">
         <div className="ni-money__zone" data-zone="purse">
           <div

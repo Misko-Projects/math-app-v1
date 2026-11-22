@@ -372,11 +372,14 @@ export const DemoReducedMotion: Story = {
   args: { config: dollars, disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedController.play({ op: 'sort-coins' });
     await reducedController.play({ op: 'count-up', args: { index: 2 } });
     await reducedController.play({ op: 'answer', args: { values: [1, 30] } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    // Reduced motion is judged by its effect, not by a stopwatch: no glide, pop or sweep was
+    // started (a control's own colour transition is not motion).
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => !(a instanceof CSSTransition)),
+    ).toHaveLength(0);
     await expect(root.querySelector('.ni-ccount__running')).toHaveTextContent('$1.30');
     await expect(within(root).getByRole('button', { name: 'Cents: 30' })).toBeVisible();
   },

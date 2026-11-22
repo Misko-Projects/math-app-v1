@@ -19,8 +19,8 @@ import {
 import { useWidgetDemo } from '../demo';
 import {
   CheckButton,
-  CLOCK,
   ClockFace,
+  clockHandAt,
   DigitalClock,
   faceTime,
   useAlive,
@@ -37,8 +37,9 @@ import './clock-set.css';
  * hour (or back), and turning the short hand winds the long one round with it; at 3:30 the short
  * hand is exactly halfway between 3 and 4. The long hand snaps to `precision` minutes.
  *
- * - Drag: press anywhere on the face and turn; near the middle turns the short hand, out by the
- *   numbers the long hand. The hands follow the finger smoothly and settle on the snapped time.
+ * - Drag: press a hand, anywhere along it, and turn it. A press off the hands turns the short hand
+ *   near the middle and the long hand out by the numbers. The hands follow the finger smoothly and
+ *   settle on the snapped time. Turning a hand back undoes a turn: the hand is its own undo.
  * - Tap-to-place: tap "the long hand" or "the short hand" (it lights up and is named), then tap the
  *   face where it should point (`useTapToPlace`: items `hand-minute`, `hand-hour`, target `face`).
  *   Tapping the face with no hand chosen says the nearest number.
@@ -175,9 +176,11 @@ export function ClockSetWidget({
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const p = pointAngle(e.clientX, e.clientY);
     if (!p) return;
-    // Near the middle: the short hand; out by the numbers: the long hand.
-    const k = FACE_PX / 200;
-    const hand: Hand = p.dist < CLOCK.hourLen * 1.15 * k ? 'hour' : 'minute';
+    // The hand under the finger, wherever along it; off the hands, near the middle is the short
+    // hand and out by the numbers the long one (kit `clockHandAt`).
+    const u = p.dist / (FACE_PX / 200);
+    const a = (p.deg * Math.PI) / 180;
+    const hand: Hand = clockHandAt(u * Math.sin(a), -u * Math.cos(a), stateRef.current.t);
     const raw = hand === 'minute' ? p.deg / 6 : p.deg * 2;
     drag.current = { hand, id: e.pointerId, tCont: stateRef.current.t, lastRaw: raw, moved: false };
     dragged.current = false;

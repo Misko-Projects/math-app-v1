@@ -28,8 +28,10 @@ export {
   ClockFace,
   type ClockFaceProps,
   ClockView,
+  clockHandAt,
   DigitalClock,
   faceTime,
+  HAND_GRAB,
   polarPoint,
 } from './ClockView';
 export {

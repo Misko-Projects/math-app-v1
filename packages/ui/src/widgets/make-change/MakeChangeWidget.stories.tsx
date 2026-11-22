@@ -1,4 +1,4 @@
-import type { WidgetConfig } from '@number-island/shared';
+import { TRAY_PIECES_MAX, type WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
@@ -209,6 +209,114 @@ export const Disabled: Story = {
   },
 };
 
+/**
+ * The count-up line still reads as one line of hops: every hop and every piece riding one lies
+ * inside the line's picture, no two riding pieces cover each other, and every hop has its stop.
+ */
+async function expectLineReads(root: HTMLElement) {
+  const line = root.querySelector('.ni-mchange__line') as SVGSVGElement;
+  const frame = line.getBoundingClientRect();
+  const hops = [...line.querySelectorAll<SVGGElement>('.ni-mchange__hop')];
+  for (const h of hops) {
+    const r = h.getBoundingClientRect();
+    await expect(r.left).toBeGreaterThanOrEqual(frame.left - 0.5);
+    await expect(r.right).toBeLessThanOrEqual(frame.right + 0.5);
+    await expect(r.top).toBeGreaterThanOrEqual(frame.top - 0.5);
+    await expect(h.querySelector('.ni-mchange__stop')).not.toBeNull();
+  }
+  const riders = [...line.querySelectorAll<SVGGElement>('.ni-mchange__rider')].map((g) =>
+    g.getBoundingClientRect(),
+  );
+  for (const [i, a] of riders.entries()) {
+    for (const b of riders.slice(i + 1)) {
+      const apart =
+        a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+      // Coins on neighbouring levels may touch at a corner; they never cover one another.
+      const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const overlapY = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      await expect(apart || Math.min(overlapX, overlapY) <= 6).toBe(true);
+    }
+  }
+}
+
+/**
+ * A hop is taken back where its piece sits: tap the coin in the tray, tap the purse (or Enter on
+ * each). The last hop of that coin leaves the line, the count steps back, and both are traced.
+ */
+export const TakeBackAHop: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await tapPlace(root, 'nickel');
+    await tapPlace(root, 'dime');
+    await tapPlace(root, 'dime');
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(3);
+    await expect(root.dataset.reached).toBe('90');
+    await userEvent.click(pileTop(root, 'dime') as HTMLElement);
+    await userEvent.click(pursePad(root));
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(2);
+    await expect(root.dataset.reached).toBe('80');
+    await expectLineTrue(root, 65);
+    (pileTop(root, 'nickel') as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(document.activeElement).toBe(pursePad(root));
+    await userEvent.keyboard('{Enter}');
+    await expect(trayDrawn(root)).toEqual({ dime: 1 });
+    await expect(root.dataset.reached).toBe('75');
+    await expectLineTrue(root, 65);
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.slice(-4)).toEqual([
+      'tap:tray-dime',
+      'tap:purse',
+      'tap:tray-nickel',
+      'tap:purse',
+    ]);
+  },
+};
+
+/**
+ * The hardest lines the bounds allow, in the smallest area: twelve penny hops; and pennies beside
+ * a dollar bill (hops of 1¢ on a line 100¢ and more long). Each still reads as one line of hops.
+ */
+export const HardestLinesLandscapeMin: Story = {
+  args: { config: { ...change65, price: 88, purse: { penny: 'unlimited' } } },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: 16 }}>
+      {inArea('landscapeMin')(args)}
+      {inArea('landscapeMin')({
+        ...args,
+        config: {
+          ...change65,
+          price: 289,
+          paid: 500,
+          purse: { dollar: 2, dime: 'unlimited', penny: 'unlimited' },
+        } as WidgetConfig,
+      })}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
+    const cases: [number, string[]][] = [
+      [88, Array.from({ length: 12 }, () => 'penny')],
+      // $2.11 of change in 12 pieces: a penny, a dime, two bills, then pennies again.
+      [289, ['penny', 'dime', 'dollar', 'dollar', ...Array.from({ length: 8 }, () => 'penny')]],
+    ];
+    for (const [i, [price, pieces]] of cases.entries()) {
+      const area = areas[i] as HTMLElement;
+      const root = await waitFor(() => {
+        const el = area.querySelector<HTMLElement>(ROOT);
+        if (!el) throw new Error('no widget yet');
+        return el;
+      });
+      for (const k of pieces) await tapPlace(root, k);
+      await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_PIECES_MAX);
+      await expectLineTrue(root, price);
+      await expectLineReads(root);
+      await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+      await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
+    }
+  },
+};
+
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /** Demo: Pip counts up 70, 80, 90, a dollar (each spoken), then invites the child's next coin. */
@@ -251,10 +359,13 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedController.play({ op: 'count-up', args: { to: 90 } });
     await reducedController.play({ op: 'count-up', args: { to: 100 } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    // Reduced motion is judged by its effect, not by a stopwatch: no glide, pop or sweep was
+    // started (a control's own colour transition is not motion).
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => !(a instanceof CSSTransition)),
+    ).toHaveLength(0);
     await expect(trayDrawn(root)).toEqual({ quarter: 1, dime: 1 });
   },
 };
@@ -336,37 +447,40 @@ export const SizesG1: Story = {
   },
 };
 
-/** 65¢ of change in 18 coins: ten pennies, five nickels and three dimes. */
+/** 65¢ of change in 12 coins, the most the tray holds: five pennies, two nickels, five dimes. */
 const STRESS = [
-  ...Array.from({ length: 10 }, () => 'penny'),
-  ...Array.from({ length: 5 }, () => 'nickel'),
-  'dime',
-  'dime',
-  'dime',
+  ...Array.from({ length: 5 }, () => 'penny'),
+  'nickel',
+  'nickel',
+  ...Array.from({ length: 5 }, () => 'dime'),
 ];
 const stressChange: ConfigFor<'make-change'> = { ...change65, price: 35 };
 
-/** Stress, tablet: 18 coins of change, every hop on the line; nothing clips or scrolls. */
+/** Stress, tablet: 12 coins of change, every hop on the line; nothing clips or scrolls. */
 export const StressTablet: Story = {
   args: { config: stressChange },
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const k of STRESS) await tapPlace(root, k);
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_PIECES_MAX);
     await expectLineTrue(root, 35);
+    await expectLineReads(root);
     await expectFitsArea(canvasElement, root);
     await expectControls(root, 'g1-up');
   },
 };
 
-/** Stress, smallest landscape area: the same 18 coins. */
+/** Stress, smallest landscape area: the same 12 coins. */
 export const StressLandscapeMin: Story = {
   args: { config: stressChange },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const k of STRESS) await tapPlace(root, k);
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_PIECES_MAX);
     await expectLineTrue(root, 35);
+    await expectLineReads(root);
     await expectFitsArea(canvasElement, root);
   },
 };

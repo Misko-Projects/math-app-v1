@@ -1,55 +1,11 @@
-// The workshop widget area as a story stage (06 §2: ≥ 60% of the screen), after #76's `inArea`
-// pattern (MakeSetWidget.stories.tsx on feat/issue-12-counting): the U05 time and money stories use
-// it to prove a widget fits the tablet and the smallest landscape area with nothing scrolling.
+// Area checks of the U05 time and money stories: the stage itself (`AREA`, `inArea`) is the kit's
+// one widget area (areaStory.tsx); this file adds the checks that read a whole widget's controls.
 import { expect } from 'storybook/test';
-import { WidgetHost, type WidgetHostProps } from '../widgets/WidgetHost';
+import { AREA, inArea, widgetArea } from './areaStory';
 import { controlSummary, controlsOf, expectNumerals, isPad, settled } from './controlChecks';
 import { expectTargetGaps } from './storyHelpers';
 
-/** The widget area inside a workshop at a viewport: 24 px margins, 60% of the screen's area. */
-export function widgetArea(vw: number, vh: number) {
-  const outer = vw - 2 * 24;
-  return { width: outer - 2 * 3, height: Math.ceil((0.6 * vw * vh) / outer) - 2 * 3 };
-}
-
-export const AREA = {
-  /** 960 × 600 → 906 × 373 (852 × 319 inside the card's padding). */
-  landscapeMin: widgetArea(960, 600),
-  /** 1280 × 800 → 1226 × 493 (1172 × 439 inside). */
-  tablet: widgetArea(1280, 800),
-} as const;
-
-/**
- * Renders the widget in the warm widget card (3 px tan border, 24 px padding, sand), the card
- * exactly the area's size. The card is a scroll box, so a play function can prove nothing scrolls.
- */
-export function inArea(area: keyof typeof AREA) {
-  return (args: WidgetHostProps) => <AreaCard area={area} args={args} />;
-}
-
-function AreaCard({ area, args }: { area: keyof typeof AREA; args: WidgetHostProps }) {
-  return (
-    <div
-      className="story-widget-area"
-      data-area-size={area}
-      style={{
-        ...AREA[area],
-        maxWidth: 'none',
-        boxSizing: 'border-box',
-        display: 'grid',
-        placeItems: 'center',
-        overflow: 'auto',
-        padding: 24,
-        border: '3px solid var(--color-sand-deep)',
-        borderRadius: 'var(--radius-card)',
-        background: 'var(--color-sand)',
-        boxShadow: 'var(--shadow-soft)',
-      }}
-    >
-      <WidgetHost {...args} />
-    </div>
-  );
-}
+export { AREA, inArea, widgetArea };
 
 export const areaBox = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('.story-widget-area') as HTMLElement;

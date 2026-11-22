@@ -9,7 +9,14 @@
 // drops one `coin` and says the new running total (no `coin`: counts the tray, biggest first);
 // `say-total` says the tray's total; the generic `answer {coins}` sets the whole tray.
 
-import { type AnswerSpec, coinPayConfigSchema, type WidgetConfigOf } from '@number-island/shared';
+import {
+  type AnswerSpec,
+  COIN_FOUND_WAY_PIECES_MAX,
+  coinPayConfigSchema,
+  MONEY_CENTS_MAX,
+  TRAY_PIECES_MAX,
+  type WidgetConfigOf,
+} from '@number-island/shared';
 import {
   COIN_ORDER,
   canonicalKey,
@@ -41,7 +48,12 @@ type Config = WidgetConfigOf<'coin-pay'>;
 type Purse = Config['purse'];
 
 /** The most a coin item asks for: $10 (the tray has to show every piece). */
-export const MAX_PAY_CENTS = 1000;
+export const MAX_PAY_CENTS = MONEY_CENTS_MAX;
+/**
+ * The most pieces the tray holds (shared `TRAY_PIECES_MAX`): a drop into a full tray does nothing,
+ * and a config whose answer needs more is refused, so the tray never has to draw a pile it cannot.
+ */
+export const MAX_TRAY_PIECES = TRAY_PIECES_MAX;
 
 export interface CoinTrayState {
   /** The pieces in the tray, in the order they went in. */
@@ -81,14 +93,14 @@ export function dropPiece(
     return [...order.slice(0, at), ...order.slice(at + 1)];
   }
   const inTray = order.filter((k) => k === coin).length;
-  if (inTray >= purseLimit(purse, coin)) return [...order];
+  if (inTray >= purseLimit(purse, coin) || order.length >= MAX_TRAY_PIECES) return [...order];
   return [...order, coin];
 }
 
 /** A tray from the generic `answer {coins}` op, in the purse's order, or null when it does not fit. */
 export function answerOrder(coins: unknown, purse: Purse): PurseKind[] | null {
   const tray = readTray(coins);
-  if (!tray || !trayFitsPurse(tray, purse)) return null;
+  if (!tray || !trayFitsPurse(tray, purse) || trayPieces(tray) > MAX_TRAY_PIECES) return null;
   return PIECES_BIG_FIRST.flatMap((k) => Array.from({ length: tray[k] ?? 0 }, () => k));
 }
 
@@ -99,7 +111,7 @@ export function responseTray(order: readonly PurseKind[], purse: Purse): Tray {
 
 /** Whether a tray answers the item (the checker's rule, used by the config's semantic check). */
 function answers(tray: Tray, c: Config, found: ReadonlySet<string>, fewest: number | null) {
-  if (found.has(trayKey(tray))) return false;
+  if (found.has(trayKey(tray)) || trayPieces(tray) > MAX_TRAY_PIECES) return false;
   return !c.requireFewest || trayPieces(tray) === fewest;
 }
 
@@ -124,6 +136,20 @@ const configSchema = coinPayConfigSchema.superRefine((c, ctx) => {
         path: ['found', i],
         message: `"${key}" is not a way to pay ${c.target}¢`,
       });
+    } else if (!trayFitsPurse(t, c.purse) || trayPieces(t) > MAX_TRAY_PIECES) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['found', i],
+        message: `"${key}" is not a way this purse and tray (${MAX_TRAY_PIECES} pieces) can pay`,
+      });
+    } else if (trayPieces(t) > COIN_FOUND_WAY_PIECES_MAX) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['found', i],
+        message: `a found way lists at most ${COIN_FOUND_WAY_PIECES_MAX} pieces ("${key}" has ${trayPieces(t)})`,
+      });
+    } else if (found.has(canonicalKey(key) as string)) {
+      ctx.addIssue({ code: 'custom', path: ['found', i], message: `"${key}" is listed twice` });
     } else found.add(canonicalKey(key) as string);
   }
   const fewest = fewestPieces(c.target, c.purse);
@@ -135,11 +161,23 @@ const configSchema = coinPayConfigSchema.superRefine((c, ctx) => {
     });
     return;
   }
+  if (fewest > MAX_TRAY_PIECES) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['purse'],
+      message: `paying ${c.target}¢ takes ${fewest} pieces; the tray holds ${MAX_TRAY_PIECES}`,
+    });
+    return;
+  }
   if (
     c.mode === 'new-way' &&
-    !waysToPay(c.target, c.purse).some((t) => answers(t, c, found, fewest))
+    !waysToPay(c.target, c.purse, 5000, MAX_TRAY_PIECES).some((t) => answers(t, c, found, fewest))
   ) {
-    ctx.addIssue({ code: 'custom', path: ['found'], message: 'every way is already found' });
+    ctx.addIssue({
+      code: 'custom',
+      path: ['found'],
+      message: `every way of at most ${MAX_TRAY_PIECES} pieces is already found`,
+    });
   }
 });
 

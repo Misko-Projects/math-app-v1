@@ -1,8 +1,16 @@
-import { COIN_KINDS } from '@number-island/shared';
+import { COIN_KINDS, TRAY_PIECES_MAX } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { pairRatio } from '../../art/core/contrast';
 import { COIN_CENTS, COIN_CONTRAST_PAIRS, coinPx, moneyNameKey, moneyText } from './CoinArt';
 import { coinsCentsOf, pictureQuarterPx } from './CoinsView';
+import {
+  MAX_PILE_ROWS,
+  MIN_PILE_STEP_PX,
+  type PileSpec,
+  pileRows,
+  pileSteps,
+  pileWidth,
+} from './moneyLayout';
 import { applyBoxKey, padBoxValue } from './PadEntry';
 
 describe('coin art (U05 #14)', () => {
@@ -65,5 +73,53 @@ describe('typed pad boxes', () => {
     expect(applyBoxKey('1', '.', dollars)).toBe('1');
     expect(padBoxValue('', dollars)).toBeNull();
     expect(padBoxValue('12', dollars)).toBe(12);
+  });
+});
+
+describe('tray piles (U05 #14)', () => {
+  // Piece boxes at grade 1 and up: coins in 64 px boxes (K: 80), the bill 167 px wide.
+  const BILL_W = 167;
+  /** Every way to split `total` pieces over the five kinds (dollar first). */
+  function* splits(total: number, kinds = 5): Generator<number[]> {
+    if (kinds === 1) {
+      yield [total];
+      return;
+    }
+    for (let n = 0; n <= total; n++)
+      for (const rest of splits(total - n, kinds - 1)) yield [n, ...rest];
+  }
+  const pilesOf = (counts: number[], coinW: number): PileSpec[] =>
+    counts
+      .map((n, i): PileSpec => ({ n, w: i === 0 ? BILL_W : coinW, bill: i === 0 }))
+      .filter((p) => p.n > 0);
+
+  it('fits every tray of up to TRAY_PIECES_MAX pieces in two rows, each piece showing', () => {
+    // The narrowest trays the widgets give the piles: coin-pay at 906 × 373 (grade 1 up and K).
+    for (const [avail, coinW] of [
+      [417, 64],
+      [417, 80],
+    ] as const) {
+      for (let total = 1; total <= TRAY_PIECES_MAX; total++) {
+        for (const counts of splits(total)) {
+          const piles = pilesOf(counts, coinW);
+          const steps = pileSteps(piles, avail);
+          const widths = piles.map((p, i) => pileWidth(p, steps[i] as number));
+          expect(pileRows(widths, avail), JSON.stringify(counts)).toBeLessThanOrEqual(
+            MAX_PILE_ROWS,
+          );
+          for (const [i, p] of piles.entries()) {
+            if (p.n > 1) expect(steps[i]).toBeGreaterThanOrEqual(MIN_PILE_STEP_PX);
+            expect(widths[i]).toBeLessThanOrEqual(avail);
+          }
+        }
+      }
+    }
+  });
+
+  it('gives a pile all the room it wants when the tray is wide or not measured yet', () => {
+    const piles: PileSpec[] = [{ n: 3, w: 64 }];
+    expect(pileSteps(piles, 0)).toEqual([64 * 0.42]);
+    expect(pileSteps(piles, 800)).toEqual([64 * 0.42]);
+    expect(pileSteps([{ n: 1, w: 64 }], 800)).toEqual([0]);
   });
 });

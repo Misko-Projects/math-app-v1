@@ -89,6 +89,18 @@
   border-radius: 50%;
   -webkit-tap-highlight-color: transparent;
 }
+/*
+ * A chosen piece arms the other zone: all of that zone places it, so the pieces lying there (each
+ * one the target that takes it back) let the tap through to the pad. Keyboard focus is unchanged.
+ */
+.ni-money[data-armed-for="tray"] [data-zone="tray"] .ni-money__piece,
+.ni-money[data-armed-for="purse"] [data-zone="purse"] .ni-money__piece {
+  pointer-events: none;
+}
+/* A full tray takes no more: the purse dims until a piece comes back. */
+.ni-money[data-full="true"] [data-zone="purse"] .ni-money__stack {
+  opacity: 0.45;
+}
 .ni-money__piece[data-piece="dollar"],
 .ni-money__empty[data-piece="dollar"] {
   border-radius: 12px;

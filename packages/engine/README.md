@@ -221,7 +221,7 @@ The balance and story-problem models (U04, #13) follow these conventions, so the
 - **shape-sort** sorts (data.sort): object cards carry props `{ kind }` with bins `noun.<kind>.many`; shape cards carry `{ shape, color, size }`, sorted by colour (`word.red`, `word.blue`, `word.yellow`), shape (`shape.<kind>.many`) or size (`word.big`, `word.small`, scale 1.5 or 0.6). Response `{ bins }` (`sort.byRule`, as for the geo sorts). A sort shows no count or order, so it is DAT.01 practice only: DAT.10 (count each group and order the groups) has no shape-sort template (PR #84 review round 2).
 - **order** (data.sort): one objects picture per group, no label, put in order from the fewest; values are the counts, which are all different.
 
-### Time formats (K01: time.clock, time.sequence; clock-set and clock-read have no model yet)
+### Time formats (K01: time.clock, time.sequence; the clock-set and clock-read models are #14's, see "Time and money" below)
 
 - **clock-set** answers state `clock.time { h, m }`. The response is `{ h, m }`, the time the geared hands show: `h` the hour the short hand has reached (1–12), `m` the minute the long hand points at (0–59). The checker compares face times, so any `h` for the same hour on the face counts (12 and 0, 3 and 15); a minute outside 0–59 is not a reading. K01 items start at `start` 12:00 with `precision` 5, so a swapped setting (12:15 for 3:00) can be made. Solutions use `highlight-hand {hand: 'minute'}`, `drag-minute {to: m}`, `highlight-hand {hand: 'hour'}` and end with `drag-hour {to: h}` (the hour hand then sits between `h` and the next hour by `m`). The property test's near misses move the short hand one hour or the long hand five minutes.
 - **clock-read** `digital-pad` answers `numbers` `[h, m]`, ordered, with `h` 1–12. `pick` (K01: TIM.09, `ask: hour`) asks only which hour it is after: the options are hours with the numeric pick ids `opt-<h>` and labels `"<h>"`, the run of consecutive hours the hour is in, from a fixed partition of the face (`hourClass`: 1–4, 5–8, 9–12 with diagnostic distractors, otherwise runs of three). Every hour of a run gets the same options and is the key of some item, so the options never give the hour away (PR #84 review); MC.hour-hand-next and MC.hour-minute-swap predict an option only when it is in the run. Solutions use `point-hour`, `point-minute` and end with `answer {values}` or `answer {id}`.
@@ -355,6 +355,57 @@ The models follow K01's shapes ("Sharing and fraction formats" above). Picture g
 - **Schemas.** fraction-cut: 2–12 parts, `shade ≤ parts`, `thenName` needs `shade ≥ 1`, `gridSize` exactly on the grid (≤ 100 cells, sharing evenly into the parts; guided grids need strips). fraction-pick: every mode with options shows ≥ 3 with distinct ids (03 §5.1), pick-picture options are `fraction` pictures, fair-or-not and name have a `stimulus` (fair-or-not a fraction), only `name` has `nameInput`. fraction-line: `partition` has no target and 2+ parts; the other modes have a target on the line, `read`/`equivalent` targets (and `place` targets with ticks shown) sit on a tick, `read` asks for the line's own denominator, `decimalLabels` are tenths, at most 12 parts a whole.
 - **Fraction pictures** (`fractionPicture(shape, parts, equalParts)`): equal parts are the guided cut of the whole, exact by construction. Unequal parts use `UNEQUAL_WEIGHTS` (the biggest part ≥ 1.5 times the smallest, so no unequal picture passes for equal): an off-centre cross for a rect in fourths, an off-centre chord for a circle in two, otherwise strips or sectors of different sizes. The first `shaded` parts are filled.
 - **Features.** fraction-pick reads only sets and maxima of what it shows (options are shuffled): `denominator` is the largest shown − 2, and `unequalDistractor` an unequal option that is not the answer. fraction-line's `ticks.hidden` is 0 in `partition` (it never shows the ticks it asks for). Where frac.partition emits a feature itself (`denominator`, `parts.hard`, `shape.circle`), its value wins.
+
+### Time and money
+
+Money helpers (purses, trays, multiset keys, fewest pieces) are in `src/formats/money.ts`. A dollar bill (`dollar`) is 100¢.
+
+| Format | Response | Checker target |
+|---|---|---|
+| `coin-pay` `pay` | `{ coins: { penny, nickel, dime, quarter, dollar? } }`: the tray's counts (`dollar` only when the purse has bills) | `coins.total` `{ cents, purse? }`: any pieces worth `cents`, within the purse when given |
+| `coin-pay` `requireFewest` | same | `coins.fewest` `{ cents, purse? }`: also the fewest pieces the purse allows (no purse: every coin unlimited, no bills) |
+| `coin-pay` `new-way` | same | `coins.total` (or `coins.fewest`) with `found`: the tray's multiset key must not be in it |
+| `make-change` | `{ coins }`: the change given | `coins.total` `{ cents: paid − price, purse? }` |
+| `coin-count` `cents` | `number` (cents) | — |
+| `coin-count` `dollars-cents` | `numbers` `[dollars, cents]` (ordered) | — |
+| `coin-count` `compareWith` | `choice` `left` \| `right` \| `same` | — |
+
+- **Multiset key** (`trayKey`): `q<n>d<n>n<n>p<n>`, quarters first, with `b<n>` in front when the tray holds dollar bills (`"q1d0n1p0"`, `"b1q1d0n0p0"`). `found` keys are compared in canonical form (a `b0` prefix is dropped), and every `found` key of a `new-way` config is a way to pay `target`.
+- **Ops.** coin-pay and make-change `drop {coin, to?, index?}`: one piece from the purse into the tray (never more of a kind than the purse holds); `to: 'purse'` takes one back (the tray's `index`-th piece, else the last of that kind). coin-pay `count-up {coin?}` drops `coin` and says the new running total (no `coin`: counts the tray, biggest first), `say-total` says the tray's total. make-change `count-up {to}` gives the one piece worth `to` − (price + change so far), or nothing when no piece of the purse is. The generic `answer {coins}` sets the whole tray. coin-count `sort-coins` (biggest first, bills before coins, stable), `count-up {index, side?}` (the running total is the sum of the pieces shown up to `index`), `say-running {value}`, and `answer {value}` / `{values}` / `{id}`.
+- **coin-count pieces** are drawn bills first, then the coins in config order (a `sorted` config lists them biggest first). Ids are `bill-<i>` and `coin-<i>` (config index), `r-bill-<i>` and `r-coin-<i>` for the `compareWith` purse.
+- **Config rules** (`configSchema`): the purse can pay the target (make-change: the change) exactly, within its counts; at most $10 to pay (`MAX_PAY_CENTS`); `found` only in `new-way`, and a way not found yet exists. coin-count draws every piece as its own tap target: at most 12 coin slots a purse (6 each with `compareWith`), a bill ($1, $2, $5, $10 or $20) taking 3.
+- **Features.** coin-pay `target` and make-change `change` are `(cents − 1) / 25`; coin-pay `kinds` counts coin kinds (bills are the `dollars` feature: target ≥ 100¢); coin-count `kinds` counts bills as one kind and both purses' coins; make-change `crossDollar` is a whole dollar strictly between price and paid.
+
+The clock models follow #84's "Time formats" conventions above. Face arithmetic is in `src/formats/clock.ts`: one face time `t` (minutes after 12:00, 0–719) drives both hands, the minute hand at 6° a minute and the hour hand at 30° an hour plus 0.5° a minute, so they never disagree (at 3:30 the hour hand is exactly halfway between 3 and 4).
+
+| Format | Response | Checker target |
+|---|---|---|
+| `clock-set` | `{ h, m }`: the time the hands show (h 1–12); null until a hand moves | `clock.time` `{ h, m }` (#84) |
+| `clock-read` `digital-pad` | `numbers` `[h, m]` (ordered, h 1–12) | — |
+| `clock-read` `pick` | `choice`: an option id (`opt-<h>` for #84's hour picks) | — |
+| `clock-read` `ampm` | `choice` `am` \| `pm` | — |
+
+- **clock-set ops.** `drag-minute {to, dir?}` turns the long hand to minute `to`, snapped to `precision`, the shorter way round (half an hour goes forward) unless `dir` is `cw` or `ccw`; passing 12 carries the short hand to the next hour or back. `drag-hour {to}` turns the short hand to hour `to` keeping the minutes (the long hand goes round with it), so `drag-minute {to: m}` then `drag-hour {to: h}` sets h:m from any start (#84's solutions). `count-fives {from, to}` and `highlight-hand {hand}` are visual; `answer {h, m}` / `{values}` sets the time.
+- **clock-read ops.** `point-hour`, `point-minute`, `count-fives {to}` (from 12) are visual; `answer {values}` or `{id}`.
+- **Config rules.** Times are whole h 0–23 and m 0–59; the target and start minutes are multiples of `precision` and differ on the face; `elapsed` goes with `prompt: elapsed` and its `from + minutes` is the target. A pick (not `ampm`) shows 3 or more distinct options; the digital pad has none; `ampm` is picked.
+- **Features** read the target time, not the snapping (as time.clock): `precisionFeatures` (the same table as the generator's), `afterHalf` m ≥ 30; an hour pick (every option an `opt-<h>` id) reads no minutes, so it has no precision feature.
+
+**Supported domain (#14).** Every number a config can carry is bounded by what the widgets draw; the shared schema or the format model refuses anything else with a message that names the bound, content-check runs both (V13), and `formats-u05-time-money-bounds.test.ts` has a test for each. Constants are in `packages/shared/src/items/widgets.ts` and `core.ts`.
+
+| Input | Bound |
+|---|---|
+| A time (`target`, `start`, `time`, `elapsed.from`, the `clock` stimulus) | whole `h` 0–23, whole `m` 0–59 |
+| clock-set `precision` | 60, 30, 15, 5 or 1; `target.m` and `start.m` are multiples of it; `start` is not already the target |
+| clock-set `elapsed.minutes` | 1–719 (`CLOCK_ELAPSED_MAX`: under 12 hours, so the answer is never the start time again); target = from + minutes |
+| clock-read pick `options` | 3–4 (`CLOCK_READ_OPTIONS_MAX`), distinct ids and labels, labels 1–8 characters (`CLOCK_READ_LABEL_MAX`) |
+| coin-pay `target`, make-change `paid` | 1–1000¢ (`MONEY_CENTS_MAX`); make-change `price` 1–999¢ and under `paid` |
+| A purse count | 0–12 of a kind (`PURSE_COUNT_MAX`) or `'unlimited'` |
+| Pieces in the tray (coin-pay, make-change; one count-up hop a piece) | at most 12 (`TRAY_PIECES_MAX`). A drop into a full tray does nothing; a config whose fewest-piece answer needs more is refused; a new-way item needs an unfound way of at most 12 pieces |
+| coin-pay `found` | at most 4 ways (`COIN_FOUND_MAX`), each a way this purse and tray can pay, at most 6 pieces (`COIN_FOUND_WAY_PIECES_MAX`), none twice |
+| coin-count purse, the `coins` stimulus | 1–12 coin slots (`COIN_SLOTS_MAX`; a bill takes 3, `BILL_SLOTS`), 6 a purse with `compareWith`; bills of 1, 2, 5, 10 or 20 dollars (`BILL_DOLLARS`) |
+
+- **No tolerance band.** The clock-set response is always a snapped time (the model snaps the long hand to `precision` before it answers) and `clock.time` compares face minutes exactly, so a hand left near the target is either on it or not, the same for the model and the checker.
+- **Taking back.** Each thing a child does is undone where it sits: a coin in the tray goes back with `drop {coin, to: 'purse'}` (the widget: tap or Enter on the coin, then on the purse; or drag it back), which also removes that coin's hop from the count-up line; a hand is turned back the way it came. A typed digit is rubbed out with the pad's backspace.
 
 ## Tests
 

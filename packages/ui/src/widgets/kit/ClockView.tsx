@@ -35,6 +35,32 @@ export function polarPoint(r: number, deg: number): { x: number; y: number } {
   };
 }
 
+/** How near a press must be to a hand to take hold of it, in face units (17 px at 288 px). */
+export const HAND_GRAB = 12;
+
+/** The distance from `(x, y)` to the hand drawn from the centre to `len` units at `deg`. */
+function handDistance(x: number, y: number, len: number, deg: number): number {
+  const tip = polarPoint(len, deg);
+  const along = Math.max(0, Math.min(1, (x * tip.x + y * tip.y) / (len * len)));
+  return Math.hypot(x - along * tip.x, y - along * tip.y);
+}
+
+/**
+ * The hand a press on the face takes hold of, for a face showing `t`: `(x, y)` is the press in
+ * face units from the centre (x right, y down). A press on a hand takes that hand wherever along
+ * it the finger lands, so the long hand can be held near the middle and the short hand by its
+ * tip. A press on neither hand, or where the two lie together (by the hub, or one over the
+ * other), goes by where it is: near the middle the short hand, out by the numbers the long one.
+ */
+export function clockHandAt(x: number, y: number, t: number): 'hour' | 'minute' {
+  const zone = Math.hypot(x, y) < CLOCK.hourLen * 1.15 ? 'hour' : 'minute';
+  const toMinute = handDistance(x, y, CLOCK.minuteLen, minuteAngle(t));
+  const toHour = handDistance(x, y, CLOCK.hourLen, hourAngle(t));
+  if (Math.min(toMinute, toHour) > HAND_GRAB) return zone;
+  if (Math.abs(toMinute - toHour) < HAND_GRAB / 3) return zone;
+  return toMinute < toHour ? 'minute' : 'hour';
+}
+
 /** The face time for `{ h, m }`. */
 export const faceTime = (h: number, m: number): number => onFace((h % 12) * 60 + m);
 

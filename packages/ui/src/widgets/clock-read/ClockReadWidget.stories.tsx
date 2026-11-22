@@ -1,4 +1,8 @@
-import type { WidgetConfig } from '@number-island/shared';
+import {
+  CLOCK_READ_LABEL_MAX,
+  CLOCK_READ_OPTIONS_MAX,
+  type WidgetConfig,
+} from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { expectHandsLeaveNumerals, expectNumeralsSolid } from '../../test-support/clockChecks';
@@ -272,11 +276,14 @@ export const DemoPickReducedMotion: Story = {
   args: { config: hourPick, disabled: true, demo: pickDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await pickDemo.play({ op: 'point-hour' });
     await pickDemo.play({ op: 'count-fives', args: { to: 10 } });
     await pickDemo.play({ op: 'answer', args: { id: 'opt-8' } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    // Reduced motion is judged by its effect, not by a stopwatch: no glide, pop or sweep was
+    // started (a control's own colour transition is not motion).
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => !(a instanceof CSSTransition)),
+    ).toHaveLength(0);
     await expect(root.querySelector('.ni-pick[data-id="opt-8"]')).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -314,6 +321,39 @@ export const PickLandscapeMin: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(canvasElement, root);
+  },
+};
+
+/**
+ * The most a pick shows, in the smallest area: `CLOCK_READ_OPTIONS_MAX` options with the longest
+ * labels the schema takes (`CLOCK_READ_LABEL_MAX` characters). Every label is whole, and the
+ * options keep their size and gaps.
+ */
+export const PickMaxLandscapeMin: Story = {
+  args: {
+    config: {
+      ...hourPick,
+      time: { h: 12, m: 45 },
+      numerals: true,
+      options: ['12:45 pm', '11:45 pm', '12:15 pm', '10:45 pm'].map((label, i) => ({
+        id: `t-${i}`,
+        label,
+      })),
+    },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const picks = [...root.querySelectorAll<HTMLElement>('.ni-cread__options .ni-pick')];
+    await expect(picks).toHaveLength(CLOCK_READ_OPTIONS_MAX);
+    for (const el of picks) {
+      await expect(el.textContent?.trim().length).toBe(CLOCK_READ_LABEL_MAX);
+      await expect(el.scrollWidth).toBeLessThanOrEqual(el.clientWidth + 1);
+      await expect(el.scrollHeight).toBeLessThanOrEqual(el.clientHeight + 1);
+      await expectTargetSize(el, 'g1-up');
+    }
+    await expectTargetGaps(picks);
     await expectFitsArea(canvasElement, root);
   },
 };

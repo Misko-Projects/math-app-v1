@@ -18,10 +18,11 @@ import {
   type CoinTrayState,
   dropPiece,
   MAX_PAY_CENTS,
+  MAX_TRAY_PIECES,
   responseTray,
   trayOf,
 } from './coin-pay';
-import { canPay, PIECE_CENTS, PIECES_BIG_FIRST, purseKinds, trayCents } from './money';
+import { fewestPieces, PIECE_CENTS, PIECES_BIG_FIRST, purseKinds, trayCents } from './money';
 import {
   argNumber,
   argString,
@@ -68,12 +69,22 @@ const configSchema = makeChangeConfigSchema.superRefine((c, ctx) => {
   }
   if (purseKinds(c.purse).length === 0) {
     ctx.addIssue({ code: 'custom', path: ['purse'], message: 'the purse is empty' });
-  } else if (!canPay(changeOwed(c), c.purse)) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['purse'],
-      message: `the purse cannot make ${changeOwed(c)}¢ of change`,
-    });
+  } else {
+    const fewest = fewestPieces(changeOwed(c), c.purse);
+    if (fewest === null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['purse'],
+        message: `the purse cannot make ${changeOwed(c)}¢ of change`,
+      });
+    } else if (fewest > MAX_TRAY_PIECES) {
+      // One hop of the count-up line a piece: the line and the tray draw at most this many.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['purse'],
+        message: `${changeOwed(c)}¢ of change takes ${fewest} pieces; the tray holds ${MAX_TRAY_PIECES}`,
+      });
+    }
   }
 });
 

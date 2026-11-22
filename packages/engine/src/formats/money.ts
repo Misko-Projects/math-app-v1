@@ -182,12 +182,18 @@ export const canPay = (cents: number, purse: Purse): boolean => fewestPieces(cen
 
 /**
  * Every tray from the purse worth exactly `cents` (biggest pieces decided first), up to `max`
- * trays. Used to check that a new-way item still has a way that is not found yet.
+ * trays, never one of more than `maxPieces` pieces (so a small tray's ways are all listed, however
+ * many the purse has). Used to check that a new-way item still has a way that is not found yet.
  */
-export function waysToPay(cents: number, purse: Purse, max = 5000): Tray[] {
+export function waysToPay(
+  cents: number,
+  purse: Purse,
+  max = 5000,
+  maxPieces = Number.POSITIVE_INFINITY,
+): Tray[] {
   const kinds = purseKinds(purse);
   const out: Tray[] = [];
-  const walk = (i: number, left: number, tray: Tray) => {
+  const walk = (i: number, left: number, tray: Tray, pieces = 0) => {
     if (out.length >= max) return;
     if (left === 0) {
       out.push({ ...tray });
@@ -196,10 +202,10 @@ export function waysToPay(cents: number, purse: Purse, max = 5000): Tray[] {
     const k = kinds[i];
     if (k === undefined) return;
     const v = PIECE_CENTS[k];
-    const most = Math.min(purseLimit(purse, k), Math.floor(left / v));
+    const most = Math.min(purseLimit(purse, k), Math.floor(left / v), maxPieces - pieces);
     for (let n = most; n >= 0; n -= 1) {
       tray[k] = n;
-      walk(i + 1, left - n * v, tray);
+      walk(i + 1, left - n * v, tray, pieces + n);
     }
     delete tray[k];
   };

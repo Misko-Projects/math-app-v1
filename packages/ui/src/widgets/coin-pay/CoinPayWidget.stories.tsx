@@ -1,4 +1,9 @@
-import type { WidgetConfig } from '@number-island/shared';
+import {
+  COIN_FOUND_MAX,
+  COIN_FOUND_WAY_PIECES_MAX,
+  TRAY_PIECES_MAX,
+  type WidgetConfig,
+} from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
@@ -69,15 +74,53 @@ const newWay: ConfigFor<'coin-pay'> = {
   showRunningTotal: true,
 };
 
-/** 30¢ in pennies only: a long pile, every penny drawn. */
+/** 12¢ in pennies only: the longest pile the tray holds (TRAY_PIECES_MAX), every penny drawn. */
 const pennies: ConfigFor<'coin-pay'> = {
   format: 'coin-pay',
-  target: 30,
+  target: 12,
   purse: { penny: 'unlimited' },
   requireFewest: false,
   mode: 'pay',
   showRunningTotal: true,
 };
+
+/** A purse of 12 pieces with two bills, every one moved to the tray (12 pieces in 5 piles). */
+const stressPurse = (): ConfigFor<'coin-pay'> => ({
+  format: 'coin-pay',
+  target: 297,
+  purse: { dollar: 2, quarter: 3, dime: 3, nickel: 2, penny: 2 },
+  requireFewest: false,
+  mode: 'pay',
+  showRunningTotal: true,
+});
+const STRESS = [
+  'dollar',
+  'dollar',
+  'quarter',
+  'quarter',
+  'quarter',
+  'dime',
+  'dime',
+  'dime',
+  'nickel',
+  'nickel',
+  'penny',
+  'penny',
+];
+
+/**
+ * The widest trays the bound allows (12 pieces): the longest pile of each kind beside the others.
+ * Each is `[purse, pieces to place]`; the target is whatever they add up to.
+ */
+const WORST_TRAYS: Record<string, number>[] = [
+  { penny: 12 },
+  { dollar: 10, penny: 2 },
+  { dollar: 3, quarter: 3, dime: 2, nickel: 2, penny: 2 },
+  { dollar: 1, quarter: 8, dime: 1, nickel: 1, penny: 1 },
+  { dollar: 1, quarter: 1, dime: 1, nickel: 1, penny: 8 },
+  { quarter: 3, dime: 3, nickel: 3, penny: 3 },
+  { dollar: 6, quarter: 6 },
+];
 
 const meta = {
   title: 'Widgets/Coin pay',
@@ -334,18 +377,158 @@ export const NewWay: Story = {
   },
 };
 
-/** Thirty pennies: every one is drawn in the pile, which stays inside the tray. */
-export const ThirtyPennies: Story = {
+/** A real tap at a point: whatever is on top there takes it (as a finger would). */
+async function tapAt(x: number, y: number) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) throw new Error(`nothing at ${x}, ${y}`);
+  await userEvent.click(el);
+}
+
+/** Every piece drawn in the tray lies inside the tray's dashed outline, and every pile in it. */
+async function expectTrayEnclosesPieces(root: HTMLElement) {
+  const zone = trayPad(root).getBoundingClientRect();
+  const parts = root.querySelectorAll<HTMLElement>(
+    '[data-zone="tray"] [data-piece], [data-zone="tray"] .ni-money__pile',
+  );
+  await expect(parts.length).toBeGreaterThan(0);
+  for (const el of parts) {
+    const r = el.getBoundingClientRect();
+    await expect(r.left).toBeGreaterThanOrEqual(zone.left);
+    await expect(r.right).toBeLessThanOrEqual(zone.right);
+    await expect(r.top).toBeGreaterThanOrEqual(zone.top);
+    await expect(r.bottom).toBeLessThanOrEqual(zone.bottom);
+  }
+}
+
+/** In a pile every piece shows: each one is offset from the one before by at least `min` px. */
+async function expectPilesReadable(root: HTMLElement, min = 16) {
+  for (const pile of root.querySelectorAll<HTMLElement>('[data-zone="tray"] .ni-money__pile')) {
+    const xs = [...pile.querySelectorAll<HTMLElement>('[data-piece]')]
+      .map((el) => el.getBoundingClientRect().left)
+      .sort((a, b) => a - b);
+    for (let i = 1; i < xs.length; i++) {
+      await expect((xs[i] as number) - (xs[i - 1] as number)).toBeGreaterThanOrEqual(min);
+    }
+  }
+}
+
+/**
+ * A full tray (TRAY_PIECES_MAX pennies): every one is drawn in the pile, inside the tray; the
+ * purse dims and takes no more until a penny comes back, and then it does again.
+ */
+export const TrayFull: Story = {
   args: { config: pennies },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    for (let i = 0; i < 30; i++) await tapPlace(root, 'penny');
-    await expect(trayDrawn(root)).toEqual({ penny: 30 });
-    await expect(root.querySelector('[data-pile="penny"]')).toHaveAttribute('data-count', '30');
+    for (let i = 0; i < TRAY_PIECES_MAX; i++) await tapPlace(root, 'penny');
+    await expect(trayDrawn(root)).toEqual({ penny: TRAY_PIECES_MAX });
+    await expect(root.querySelector('[data-pile="penny"]')).toHaveAttribute(
+      'data-count',
+      String(TRAY_PIECES_MAX),
+    );
     await expectTotalTrue(root);
-    const pile = (root.querySelector('[data-pile="penny"]') as HTMLElement).getBoundingClientRect();
-    const zone = (root.querySelector('[data-zone="tray"]') as HTMLElement).getBoundingClientRect();
-    await expect(pile.right).toBeLessThanOrEqual(zone.right);
+    await expectTrayEnclosesPieces(root);
+    await expectPilesReadable(root);
+    // Full: the purse's pennies are off (by pointer and by keyboard), and nothing more goes in.
+    await expect(root.querySelector('.ni-money')).toHaveAttribute('data-full', 'true');
+    await expect(stackTop(root, 'penny')).toHaveAttribute('aria-disabled', 'true');
+    (stackTop(root, 'penny') as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('{Enter}');
+    await expect(trayDrawn(root)).toEqual({ penny: TRAY_PIECES_MAX });
+    // One back (tap the pile's top penny, tap the purse): the purse takes taps again.
+    await userEvent.click(pileTop(root, 'penny') as HTMLElement);
+    await userEvent.click(pursePad(root));
+    await expect(trayDrawn(root)).toEqual({ penny: TRAY_PIECES_MAX - 1 });
+    await expect(root.querySelector('.ni-money')).not.toHaveAttribute('data-full');
+    await tapPlace(root, 'penny');
+    await expect(trayDrawn(root)).toEqual({ penny: TRAY_PIECES_MAX });
+  },
+};
+
+/**
+ * Take back where it sits: a coin in the tray is the thing a child touches to undo it. Tap it
+ * (it says its name), tap the purse; or Enter on it, Enter on the purse. Both are traced, the
+ * purse's count comes back, and the running total follows.
+ */
+export const TakeBack: Story = {
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await tapPlace(root, 'quarter');
+    await tapPlace(root, 'dime');
+    await tapPlace(root, 'dime');
+    clearSpies(audio);
+    await userEvent.click(pileTop(root, 'dime') as HTMLElement);
+    await expect(audio.say).toHaveBeenLastCalledWith('ui.money.dime', { cents: 10 });
+    await expect(pursePad(root)).toHaveAttribute('data-armed', 'true');
+    await userEvent.click(pursePad(root));
+    await expect(trayDrawn(root)).toEqual({ quarter: 1, dime: 1 });
+    await expect(root.querySelector('[data-stack="dime"]')).toHaveAttribute('data-left', '3');
+    await expectTotalTrue(root);
+    // Keyboard: the same undo.
+    (pileTop(root, 'quarter') as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(document.activeElement).toBe(pursePad(root));
+    await userEvent.keyboard('{Enter}');
+    await expect(trayDrawn(root)).toEqual({ dime: 1 });
+    await expect(root.querySelector('[data-stack="quarter"]')).toHaveAttribute('data-left', '2');
+    await expectTotalTrue(root);
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.slice(-4)).toEqual([
+      'tap:tray-dime',
+      'tap:purse',
+      'tap:tray-quarter',
+      'tap:purse',
+    ]);
+  },
+};
+
+/**
+ * A tap meant to place a coin is never taken by a coin already lying there. With a purse coin
+ * chosen, a tap anywhere in the tray places it: on the top coin of every pile (each one the
+ * take-back target), at a pile's edge, just inside the tray's rounded corners. And the other way: with a tray
+ * coin chosen, a tap on a purse stack takes it back. Tried with the fullest tray (12 pieces in
+ * 5 piles) in the smallest area.
+ */
+export const PlaceOverAPile: Story = {
+  args: { config: { ...stressPurse(), purse: { ...stressPurse().purse, penny: 3 } } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    // Eleven pieces in five piles (one penny among them); the next penny fills the tray.
+    for (const k of STRESS.slice(0, 11)) await tapPlace(root, k);
+    await expect(drawnCents(root)).toBe(316);
+    const tops = [...root.querySelectorAll<HTMLElement>('[data-zone="tray"] .ni-money__top')];
+    await expect(tops).toHaveLength(5);
+    const zone = trayPad(root).getBoundingClientRect();
+    const points = [
+      ...tops.map((el) => center(el)),
+      // The very edge of a pile's top coin, and the tray's corners.
+      ...tops.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + 2, y: r.top + r.height / 2 };
+      }),
+      { x: zone.left + 16, y: zone.top + 16 },
+      { x: zone.right - 16, y: zone.bottom - 16 },
+    ];
+    for (const at of points) {
+      await userEvent.click(stackTop(root, 'penny') as HTMLElement);
+      await expect(root.querySelector('.ni-money')).toHaveAttribute('data-armed-for', 'tray');
+      await tapAt(at.x, at.y);
+      // The penny went in (12 pieces), and no pile coin was picked up instead.
+      await expect(trayDrawn(root).penny).toBe(2);
+      await expect(root.querySelectorAll('[data-zone="tray"] [data-piece]')).toHaveLength(12);
+      await expect(root.querySelector('.ni-money')).not.toHaveAttribute('data-armed-for');
+      await expect(pursePad(root)).not.toHaveAttribute('data-armed');
+      // Take it back for the next point: tap the pile's top penny, then a purse stack's coin.
+      await userEvent.click(pileTop(root, 'penny') as HTMLElement);
+      const c = center(stackTop(root, 'penny') as HTMLElement);
+      await tapAt(c.x, c.y);
+      await expect(trayDrawn(root).penny).toBe(1);
+    }
+    await expectTotalTrue(root);
   },
 };
 
@@ -417,11 +600,14 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedController.play({ op: 'drop', args: { coin: 'quarter' } });
     await reducedController.play({ op: 'count-up', args: { coin: 'dime' } });
     await reducedController.play({ op: 'say-total' });
-    await expect(performance.now() - started).toBeLessThan(500);
+    // Reduced motion is judged by its effect, not by a stopwatch: no glide, pop or sweep was
+    // started (a control's own colour transition is not motion).
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => !(a instanceof CSSTransition)),
+    ).toHaveLength(0);
     await expect(trayDrawn(root)).toEqual({ quarter: 1, dime: 1 });
   },
 };
@@ -446,6 +632,43 @@ export const LandscapeMinArea: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const k of ['quarter', 'dime', 'nickel', 'penny']) await tapPlace(root, k);
+    await expectFitsArea(canvasElement, root);
+  },
+};
+
+/**
+ * The most ways a new-way item lists (`COIN_FOUND_MAX`), each as long as a found way may be
+ * (`COIN_FOUND_WAY_PIECES_MAX` pieces), in the smallest area: every way is drawn whole, piece for piece,
+ * and nothing clips or scrolls.
+ */
+export const FoundMaxLandscapeMin: Story = {
+  args: {
+    config: {
+      ...newWay,
+      purse: { quarter: 1, dime: 3, nickel: 6, penny: 5 },
+      found: ['q0d0n6p0', 'q0d1n4p0', 'q0d2n2p0', 'q0d3n0p0'].slice(0, COIN_FOUND_MAX),
+    },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const ways = [...root.querySelectorAll<HTMLElement>('.ni-cpay__found li')];
+    await expect(ways).toHaveLength(COIN_FOUND_MAX);
+    const list = (root.querySelector('.ni-cpay__found') as HTMLElement).getBoundingClientRect();
+    for (const li of ways) {
+      for (const piece of li.children) {
+        const r = piece.getBoundingClientRect();
+        await expect(r.left).toBeGreaterThanOrEqual(list.left - 0.5);
+        await expect(r.right).toBeLessThanOrEqual(list.right + 0.5);
+      }
+    }
+    await expect(ways.map((li) => li.children.length)).toEqual([
+      COIN_FOUND_WAY_PIECES_MAX,
+      5,
+      4,
+      3,
+    ]);
+    for (const k of ['quarter', 'nickel']) await tapPlace(root, k);
     await expectFitsArea(canvasElement, root);
   },
 };
@@ -506,33 +729,9 @@ export const SizesG1: Story = {
   },
 };
 
-/** A purse of 12 pieces with two bills, every one moved to the tray (12 pieces in 5 piles). */
-const stressPurse: ConfigFor<'coin-pay'> = {
-  format: 'coin-pay',
-  target: 297,
-  purse: { dollar: 2, quarter: 3, dime: 3, nickel: 2, penny: 2 },
-  requireFewest: false,
-  mode: 'pay',
-  showRunningTotal: true,
-};
-const STRESS = [
-  'dollar',
-  'dollar',
-  'quarter',
-  'quarter',
-  'quarter',
-  'dime',
-  'dime',
-  'dime',
-  'nickel',
-  'nickel',
-  'penny',
-  'penny',
-];
-
 /** Stress, tablet: the 12-piece purse emptied into the tray; nothing clips or scrolls. */
 export const StressTablet: Story = {
-  args: { config: stressPurse },
+  args: { config: stressPurse() },
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -547,12 +746,60 @@ export const StressTablet: Story = {
 
 /** Stress, smallest landscape area: the same 12 pieces in the tray. */
 export const StressLandscapeMin: Story = {
-  args: { config: stressPurse },
+  args: { config: stressPurse() },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const k of STRESS) await tapPlace(root, k);
     await expectTotalTrue(root);
     await expectFitsArea(canvasElement, root);
+  },
+};
+
+/**
+ * The widest trays the bound allows, in the smallest area: for each, every piece is drawn inside
+ * the tray's outline, every pile shows each of its pieces, the total is true, and nothing clips
+ * or scrolls.
+ */
+export const WorstTraysLandscapeMin: Story = {
+  args: { config: stressPurse() },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: 16 }}>
+      {WORST_TRAYS.map((tray, i) => {
+        const target = Object.entries(tray).reduce((a, [k, n]) => a + (CENTS[k] ?? 0) * n, 0);
+        const config = { ...stressPurse(), target, purse: tray } as WidgetConfig;
+        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list of cases
+        return <div key={i}>{inArea('landscapeMin')({ ...args, config })}</div>;
+      })}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
+    await expect(areas).toHaveLength(WORST_TRAYS.length);
+    for (const [i, area] of areas.entries()) {
+      const root = await waitFor(() => {
+        const el = area.querySelector<HTMLElement>(ROOT);
+        if (!el) throw new Error('no widget yet');
+        return el;
+      });
+      const tray = WORST_TRAYS[i] as Record<string, number>;
+      for (const [k, n] of Object.entries(tray)) {
+        for (let j = 0; j < n; j++) await tapPlace(root, k);
+      }
+      await expect(trayDrawn(root)).toEqual(tray);
+      await expectTotalTrue(root);
+      await expectTrayEnclosesPieces(root);
+      await expectPilesReadable(root);
+      await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+      await expect(area.scrollHeight, `tray ${JSON.stringify(tray)}`).toBeLessThanOrEqual(
+        area.clientHeight + 1,
+      );
+      for (const el of root.querySelectorAll<HTMLElement>('.ni-money__top, .ni-btn')) {
+        const r = el.getBoundingClientRect();
+        const a = area.getBoundingClientRect();
+        await expect(r.bottom).toBeLessThanOrEqual(a.bottom);
+        await expect(r.right).toBeLessThanOrEqual(a.right);
+      }
+    }
   },
 };

@@ -11,11 +11,13 @@
 
 import {
   type AnswerSpec,
+  BILL_DOLLARS,
+  BILL_SLOTS,
+  COIN_SLOTS_MAX,
   type CoinKind,
   coinCountConfigSchema,
   type WidgetConfigOf,
 } from '@number-island/shared';
-import { MAX_PAY_CENTS } from './coin-pay';
 import { COIN_ORDER, coinsCents, PIECE_CENTS } from './money';
 import {
   argNumber,
@@ -29,23 +31,26 @@ import {
 type Config = WidgetConfigOf<'coin-count'>;
 
 /** Bill values a purse can show, in dollars. */
-export const BILL_VALUES: readonly number[] = [1, 2, 5, 10, 20];
+export const BILL_VALUES: readonly number[] = BILL_DOLLARS;
 
 /**
  * Room in one purse, in coin slots: the widget draws every piece as its own tap target (≥ 64 px)
  * beside the number pad at the smallest landscape area, and a bill takes three coin slots.
  */
-export const MAX_COUNT_SLOTS = 12;
+export const MAX_COUNT_SLOTS = COIN_SLOTS_MAX;
 /**
  * Room in each of two purses side by side (`compareWith`): two rows of coins (or two bills) a
  * purse, with the choices under them, fit the smallest landscape area.
  */
 export const MAX_COMPARE_SLOTS = 6;
-export const BILL_SLOTS = 3;
+export { BILL_SLOTS };
 
 /** The coin slots a purse takes. */
 export const purseSlots = (side: { coins: readonly unknown[]; bills: readonly unknown[] }) =>
   side.coins.length + BILL_SLOTS * side.bills.length;
+
+/** The most one purse holds, in cents: what the four-digit cents pad can answer. */
+export const MAX_COUNT_CENTS = 9999;
 
 export type CountSide = 'left' | 'right';
 
@@ -140,8 +145,12 @@ const configSchema = coinCountConfigSchema.superRefine((c, ctx) => {
         });
       }
     });
-    if (sideCents(side.coins, side.bills) > MAX_PAY_CENTS * 10) {
-      ctx.addIssue({ code: 'custom', path: at('coins'), message: 'at most $100' });
+    if (sideCents(side.coins, side.bills) > MAX_COUNT_CENTS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: at('coins'),
+        message: `a purse holds at most ${MAX_COUNT_CENTS}¢ (the pad has four digits)`,
+      });
     }
     if (c.arrangement === 'sorted' && !isSortedBigFirst(side.coins)) {
       ctx.addIssue({

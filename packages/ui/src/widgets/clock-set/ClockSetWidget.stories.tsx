@@ -253,6 +253,82 @@ export const Keyboard: Story = {
   },
 };
 
+/**
+ * A press takes hold of the hand under it, wherever along the hand. At 3:00 the long hand points
+ * up: pressed near the middle (40 px out, inside the short hand's zone) and turned to the 3, it is
+ * the long hand that turns (3:15). The short hand held by its tip (60 px out) turns the hour. Off
+ * the hands, the middle still turns the short hand and the ring the long one.
+ */
+export const GrabAHandWhereItSits: Story = {
+  args: { config: { ...fiveThirty, start: { h: 3, m: 0 } } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectGeared(root, 3, 0);
+    // The long hand, held near the middle, to the 3.
+    await turn(root, 40, 0, 90, 'touch');
+    await expectGeared(root, 3, 15);
+    // The short hand (now a little past the 3, at 97.5°), held by its tip, on to the 5.
+    await turn(root, 60, 97.5, 157.5, 'touch');
+    await expectGeared(root, 5, 15);
+    // Off both hands: the middle turns the short hand (back two hours), the ring the long one.
+    await turn(root, 40, 300, 240, 'mouse');
+    await expectGeared(root, 3, 15);
+    await turn(root, 115, 200, 180, 'mouse');
+    await expectGeared(root, 3, 10);
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual([
+      'drag:hand-minute',
+      'drop:face',
+      'drag:hand-hour',
+      'drop:face',
+      'drag:hand-hour',
+      'drop:face',
+      'drag:hand-minute',
+      'drop:face',
+    ]);
+  },
+};
+
+/**
+ * A hand is its own undo: turned back where it was (by finger, or by the arrow keys on its
+ * button) the clock shows the start time again, the readout follows, and the answer sent is what
+ * the hands show. Each turn is traced.
+ */
+export const TurnBack: Story = {
+  args: { config: fiveThirty },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await turn(root, 115, 0, 180, 'touch');
+    await expectGeared(root, 12, 30);
+    await turn(root, 115, 180, 0, 'touch');
+    await expectGeared(root, 12, 0);
+    handBtn(root, 'hour').focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}');
+    await expectGeared(root, 2, 0);
+    await userEvent.keyboard('{ArrowLeft}');
+    await expectGeared(root, 1, 0);
+    handBtn(root, 'minute').focus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expectGeared(root, 1, 5);
+    await userEvent.keyboard('{ArrowLeft}');
+    await expectGeared(root, 1, 0);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { h: 1, m: 0 } });
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual([
+      'drag:hand-minute',
+      'drop:face',
+      'drag:hand-minute',
+      'drop:face',
+      'move:hand-hour',
+      'move:hand-hour',
+      'move:hand-hour',
+      'move:hand-minute',
+      'move:hand-minute',
+    ]);
+  },
+};
+
 /** Tapping the face with no hand chosen says the number nearest the tap (06 §5). */
 export const TapNumberSpeaks: Story = {
   parameters: { ui: { audio: spyAudio() } },
@@ -333,10 +409,25 @@ export const DemoReducedMotion: Story = {
   args: { config: fiveThirty, disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Every angle the long hand is drawn at while the demo plays: with no sweep it is only ever
+    // where it started (12) or where it lands (6), never a frame in between.
+    const seen = new Set<number>();
+    const long = hand(root, 'minute');
+    const watch = new MutationObserver(() => seen.add(Number(hand(root, 'minute').dataset.angle)));
+    watch.observe(long.parentElement ?? long, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ['data-angle'],
+    });
     await reducedController.play({ op: 'drag-minute', args: { to: 30 } });
     await reducedController.play({ op: 'drag-hour', args: { to: 5 } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    watch.disconnect();
+    await expect([...seen].filter((a) => a !== 0 && a !== 180)).toEqual([]);
+    // Reduced motion is judged by its effect, not by a stopwatch: no glide, pop or sweep was
+    // started (a control's own colour transition is not motion).
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => !(a instanceof CSSTransition)),
+    ).toHaveLength(0);
     await expectGeared(root, 5, 30);
   },
 };
