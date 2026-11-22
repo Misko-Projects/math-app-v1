@@ -302,6 +302,7 @@ export const BarsLandscapeMin: Story = {
     await userEvent.click(chip(root));
     for (let i = 0; i < 8; i += 1) await userEvent.click(lane(root, 'shell'));
     await expectChartShows(built(root), { fish: 0, shell: 8, crab: 0 });
+    await expectTallyCountable(root.querySelector('.ni-bgb__data') as HTMLElement);
     await expectFitsArea(
       areaBox(canvasElement),
       [...lanes(root), chip(root), back(root), check(root)],
@@ -721,15 +722,10 @@ export const StressBarsAtBoundKLandscapeMin: Story = {
   play: async (ctx) => {
     await stressBuild({ firefly: 10, crab: 7, shell: 4 })(ctx);
     const root = await findWidget(ctx.canvasElement, ROOT);
-    // The data board's tally marks can be seen and counted: every stroke at least 3 px wide and
-    // 20 px long, in a lane at least 60 px wide.
+    // The data board's tally marks can be seen and counted.
     const data = root.querySelector('.ni-bgb__data') as HTMLElement;
     await expectChartShows(data, { firefly: 10, crab: 7, shell: 4 });
-    // Each bar's top is on the gridline of its count (the axis starts at zero).
-    const zero = (
-      data.ownerDocument.querySelector('.ni-bgb__chart .ni-chart') as HTMLElement
-    ).getBoundingClientRect();
-    await expect(zero.height).toBeGreaterThan(0);
+    await expectTallyCountable(data);
   },
 };
 
@@ -844,3 +840,23 @@ export const StressObjectsAtBoundKLandscapeMin: Story = {
     await stressBuild({ firefly: 9, crab: 7, shell: 4 })(ctx);
   },
 };
+
+/**
+ * The tally marks of a board can be seen and counted: every upright stroke is at least 20 px long
+ * and neighbours are at least 6 px apart (centre to centre).
+ */
+async function expectTallyCountable(board: HTMLElement) {
+  const strokes = [...board.querySelectorAll('.ni-chart__stroke:not([data-gate])')].map((s) =>
+    s.getBoundingClientRect(),
+  );
+  await expect(strokes.length).toBeGreaterThan(0);
+  for (const r of strokes) await expect(r.height, 'a tally stroke').toBeGreaterThanOrEqual(20);
+  for (const [i, a] of strokes.entries()) {
+    for (const b of strokes.slice(i + 1)) {
+      const sameRow = Math.abs(a.top - b.top) < 2;
+      if (!sameRow) continue;
+      const apart = Math.abs(a.left + a.width / 2 - (b.left + b.width / 2));
+      await expect(apart, 'tally strokes apart').toBeGreaterThanOrEqual(6);
+    }
+  }
+}

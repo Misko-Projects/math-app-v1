@@ -174,8 +174,7 @@ export function ChartView({
     values,
     padY,
     labelFont,
-    // A label that is a button keeps room beside its name for the invite hand.
-    nameWidth: nameWidth(longest, labelFont) + (renderLabel && names ? 28 : 0),
+    nameWidth: nameWidth(longest, labelFont),
   });
   const interactive = Boolean(renderLabel || renderOverlay);
   const name = label ?? t('ui.widget.picture');

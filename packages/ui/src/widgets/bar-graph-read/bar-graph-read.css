@@ -115,6 +115,9 @@
   width: auto;
   height: auto;
 }
+.ni-bgr .ni-bgr__cat .ni-chart__labelface {
+  padding-block: 0;
+}
 /* Narrow (portrait): the answer goes under the chart. */
 @container bgr (max-width: 760px) {
   .ni-bgr__layout {

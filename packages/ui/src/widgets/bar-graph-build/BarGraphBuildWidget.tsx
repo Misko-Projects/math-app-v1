@@ -543,7 +543,8 @@ export function BarGraphBuildWidget({
             ...c,
             value: config.data.values[i] ?? 0,
           })),
-          axisMax: Math.max(config.chart.axisMax, ...config.data.values),
+          // The data's own top, so its marks are drawn as large as its board allows.
+          axisMax: Math.max(1, ...config.data.values),
         }
       : null;
 
@@ -663,7 +664,12 @@ export function BarGraphBuildWidget({
               <TakeBackIcon />
             </span>
           </button>
-          <CheckButton onPress={submit} disabled={!interactive || !ready} />
+          {/* Icon-only where the area is narrow, so the boards keep the room. */}
+          <CheckButton
+            onPress={submit}
+            disabled={!interactive || !ready}
+            compact={(layout?.width ?? 1200) < 1000}
+          />
         </div>
       </div>
       {inviteHand}
