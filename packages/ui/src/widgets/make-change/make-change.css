@@ -5,7 +5,7 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px 24px;
+  gap: 10px 24px;
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
@@ -49,16 +49,6 @@
   stroke: var(--color-coral-deep);
   stroke-width: 4;
   stroke-linecap: round;
-}
-/* A hop that runs off the end of the line (far too much change): dashed, with an arrowhead. */
-.ni-mchange__arc--off {
-  stroke-dasharray: 7 6;
-}
-.ni-mchange__arrow {
-  fill: var(--color-coral-deep);
-  stroke: var(--color-coral-deep);
-  stroke-width: 2;
-  stroke-linejoin: round;
 }
 .ni-mchange__stop {
   fill: var(--color-coral-deep);

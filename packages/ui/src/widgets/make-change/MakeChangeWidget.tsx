@@ -239,6 +239,7 @@ export function MakeChangeWidget({
             paid={config.paid}
             given={given}
             label={t('ui.money.count-up')}
+            scale={roomy ? 1.3 : 1}
           />
         ) : null}
         <span className={checkInvited ? 'ni-mchange__check ni-invite' : 'ni-mchange__check'}>

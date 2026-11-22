@@ -21,7 +21,7 @@ import './clock.css';
 export const CLOCK = {
   r: 94,
   tickOuter: 86,
-  numeralR: 67,
+  numeralR: 62,
   hourLen: 44,
   minuteLen: 76,
 } as const;
@@ -69,7 +69,7 @@ export interface ClockFaceProps {
   t: number;
   /** Draw the numbers 1–12 (03 §5.5 `numerals`). */
   numerals?: boolean;
-  /** Diameter in CSS px. Numerals are ≥ 32 px from 276 px up. */
+  /** Diameter in CSS px. Numerals are ≥ 32 px from 268 px up (24 face units). */
   size: number;
   /** A hand to light up (demo `highlight-hand`, `point-hour`, a selected hand). */
   highlight?: 'hour' | 'minute' | null;
@@ -87,14 +87,14 @@ function Hand({ kind, deg, lit }: { kind: 'hour' | 'minute'; deg: number; lit: b
   const color = kind === 'hour' ? 'ink' : 'sea-deep';
   // The hour hand: a broad arrow that stops short of the numbers. The minute hand reaches the
   // minute ticks, as a real one does, but slims to a needle where it crosses the number it points
-  // at (from r 50), so that number stays readable under it.
+  // at (from r 48, where the numbers begin), so that number stays readable under it.
   const d =
     kind === 'hour'
       ? `M${-w / 2} 12L${-w / 2} ${-(len - 14)}L0 ${-len}L${w / 2} ${-(len - 14)}L${w / 2} 12Z`
-      : `M${-w / 2} 12L${-w / 2} -48L-1.1 -55L-1.1 ${-(len - 6)}L0 ${-len}L1.1 ${-(len - 6)}L1.1 -55L${w / 2} -48L${w / 2} 12Z`;
+      : `M${-w / 2} 12L${-w / 2} -41L-0.8 -48L-0.8 ${-(len - 6)}L0 ${-len}L0.8 ${-(len - 6)}L0.8 -48L${w / 2} -41L${w / 2} 12Z`;
   // The glow of a lit hand follows the hand's broad part only: on the long hand it stops before the
-  // numbers (r 46), so the number the hand points at is never hidden under the glow.
-  const halo = kind === 'hour' ? d : `M${-w / 2} 12L${-w / 2} -46L${w / 2} -46L${w / 2} 12Z`;
+  // numbers (r 40), so the number the hand points at is never hidden under the glow.
+  const halo = kind === 'hour' ? d : `M${-w / 2} 12L${-w / 2} -40L${w / 2} -40L${w / 2} 12Z`;
   return (
     <g
       className="ni-clock__hand"
@@ -201,7 +201,14 @@ export function ClockFace({
             const n = i + 1;
             const p = polarPoint(CLOCK.numeralR, n * 30);
             return (
-              <text key={n} x={p.x} y={p.y + 8} textAnchor="middle" data-numeral={n} fontSize={23}>
+              <text
+                key={n}
+                x={p.x}
+                y={p.y + 8.5}
+                textAnchor="middle"
+                data-numeral={n}
+                fontSize={24}
+              >
                 {n}
               </text>
             );
@@ -274,8 +281,8 @@ export function ClockView({
   maxWidth?: number;
   maxHeight?: number;
 }) {
-  // A face with numbers is never under 280 px: the numbers stay ≥ 32 px (23 face units at 280 px
-  // is 32.2 px). That is why a clock picture sits only in a format's own picture box (engine
+  // A face with numbers is never under 280 px: the numbers stay ≥ 32 px (24 face units at 280 px
+  // is 33.6 px). That is why a clock picture sits only in a format's own picture box (engine
   // `misplacedTimeMoneyPictures`): a smaller box, such as a choice card, cannot hold one.
   const room = Math.min(300, maxWidth, maxHeight - 16);
   const size = numerals ? Math.max(280, room) : Math.max(200, room);

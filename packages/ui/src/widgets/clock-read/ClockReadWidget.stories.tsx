@@ -35,7 +35,7 @@ import type { WidgetHostProps } from '../WidgetHost';
 const halfPast: ConfigFor<'clock-read'> = {
   format: 'clock-read',
   time: { h: 3, m: 30 },
-  numerals: false,
+  numerals: true,
   input: 'digital-pad',
 };
 
@@ -51,7 +51,7 @@ const fiveThirty: ConfigFor<'clock-read'> = {
 const hourPick: ConfigFor<'clock-read'> = {
   format: 'clock-read',
   time: { h: 8, m: 10 },
-  numerals: false,
+  numerals: true,
   input: 'pick',
   options: [
     { id: 'opt-8', label: '8' },
@@ -70,6 +70,34 @@ const amPm: ConfigFor<'clock-read'> = {
   ampm: { scene: 'beach', isPm: false },
 };
 
+/**
+ * After every story: a clock face that has numbers has all twelve, each drawn at 32 px or more
+ * (rubric: numerals ≥ 32 px). Only a story that says so (`parameters.bareFace`) shows the harder
+ * face without numbers, which the model asks for with `numerals: false`.
+ */
+async function numeralsAfterEach({
+  canvasElement,
+  parameters,
+}: {
+  canvasElement: HTMLElement;
+  parameters: { bareFace?: boolean };
+}) {
+  for (const face of canvasElement.querySelectorAll<SVGSVGElement>('.ni-clock')) {
+    const nums = [...face.querySelectorAll<SVGTextElement>('[data-numeral]')];
+    if (parameters.bareFace) {
+      await expect(nums).toHaveLength(0);
+      continue;
+    }
+    await expect(nums.map((n) => n.textContent)).toEqual(
+      Array.from({ length: 12 }, (_, i) => String(i + 1)),
+    );
+    const scale = face.getBoundingClientRect().width / face.viewBox.baseVal.width;
+    for (const n of nums) {
+      await expect(Number(n.getAttribute('font-size')) * scale).toBeGreaterThanOrEqual(32);
+    }
+  }
+}
+
 const meta = {
   title: 'Widgets/Clock read',
   args: {
@@ -81,6 +109,7 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  afterEach: numeralsAfterEach,
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -115,7 +144,7 @@ export const DigitalPad: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectGeared(root, 3, 30);
     await expect(Number(hand(root, 'hour').dataset.angle)).toBe(105);
-    await expect(root.querySelectorAll('[data-numeral]')).toHaveLength(0);
+    await expect(root.querySelectorAll('[data-numeral]')).toHaveLength(12);
     const keys = [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
     for (const k of keys) await expectTargetSize(k, 'g1-up');
     await expectTargetGaps(keys);
@@ -272,6 +301,21 @@ export const AmPmClue: Story = {
   },
 };
 
+/**
+ * The harder face, without numbers (`numerals: false`, the model's `numerals.off` feature): only
+ * an item that asks for it shows it. Grade 1 and up; never the default, never in a K story.
+ */
+export const BareFaceHarder: Story = {
+  args: { config: { ...halfPast, numerals: false } },
+  parameters: { bareFace: true },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelectorAll('[data-numeral]')).toHaveLength(0);
+    await expect(root.querySelectorAll('.ni-clock__ticks [data-tick="five"]')).toHaveLength(12);
+    await expectGeared(root, 3, 30);
+  },
+};
+
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {
@@ -419,6 +463,8 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   args: { disabled: true, demo: inviteController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -437,6 +483,8 @@ export const DemoInvite: Story = {
  * other control.
  */
 export const SizesK: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -454,8 +502,11 @@ export const SizesG1: Story = {
 
 /** Evidence audit: the hour pick in K, every choice and check at least 80 px and 12 px apart. */
 export const PickSizesK: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
-  args: { config: hourPick },
+  // The youngest read whole hours: 8 o'clock, and the options are the hours.
+  args: { config: { ...hourPick, time: { h: 8, m: 0 } } },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectControls(root, 'k');

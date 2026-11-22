@@ -19,6 +19,17 @@
 .ni-cpay[data-roomy="true"] .ni-money__zone {
   padding: 24px 28px;
 }
+/*
+ * A board with little on it still fills its area (06 §2): the purse and the tray stand apart to a
+ * least height. A fuller board is taller than this and is not changed.
+ */
+.ni-cpay .ni-money {
+  min-height: 262px;
+  justify-content: space-between;
+}
+.ni-cpay[data-roomy="true"] .ni-money {
+  min-height: 336px;
+}
 .ni-cpay__aside {
   display: flex;
   align-items: center;

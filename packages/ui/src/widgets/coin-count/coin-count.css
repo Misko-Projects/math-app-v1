@@ -150,6 +150,10 @@
   min-width: 0;
   max-width: 100%;
 }
+/* A roomy area: a small purse still stands tall enough to fill the space (06 §2). */
+.ni-ccount[data-roomy="true"] .ni-ccount__board .ni-ccount__purse {
+  min-height: 216px;
+}
 .ni-ccount__side .ni-ccount__purse {
   flex: 1;
   padding: 10px 12px;

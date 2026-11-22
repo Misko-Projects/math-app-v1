@@ -101,6 +101,22 @@
 .ni-money[data-full="true"] [data-zone="purse"] .ni-money__stack {
   opacity: 0.45;
 }
+/*
+ * The target a piece is: a soft plate the size of its hit area (the age mode's minimum, 64 or
+ * 80 px), under the coin, so a small coin (a dime) still shows how big its target is.
+ */
+.ni-money__piece::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(38 70 83 / 0.08);
+  box-shadow: inset 0 0 0 2px rgb(38 70 83 / 0.3);
+  z-index: -1;
+}
+.ni-money__piece {
+  isolation: isolate;
+}
 .ni-money__piece[data-piece="dollar"],
 .ni-money__empty[data-piece="dollar"] {
   border-radius: 12px;
@@ -133,9 +149,14 @@
   color: var(--color-ink);
   box-shadow: var(--shadow-soft);
 }
+/* Words a child reads in a time or money widget: 24 px, 28 px in K (one size for all five). */
+[data-age-mode="k"] {
+  --ni-tm-label: 1.75rem;
+}
 .ni-money__tag-label {
   font-family: var(--font-body);
-  font-size: 1.1rem;
+  font-size: var(--ni-tm-label, 1.5rem);
+  line-height: 1.15;
   font-weight: 700;
 }
 .ni-money__amount {

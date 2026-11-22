@@ -60,10 +60,15 @@
 .ni-cset__card[data-card="target"] .ni-digital {
   background: var(--color-sunshine);
 }
+/* Words a child reads in a time or money widget: 24 px, 28 px in K (as money.css). */
+[data-age-mode="k"] {
+  --ni-tm-label: 1.75rem;
+}
 .ni-cset__cardlabel {
   color: var(--color-ink);
   font-family: var(--font-body);
-  font-size: 1.1rem;
+  font-size: var(--ni-tm-label, 1.5rem);
+  line-height: 1.15;
   font-weight: 700;
 }
 .ni-cset__controls {
@@ -115,9 +120,9 @@
     inset 0 0 0 4px var(--color-ink),
     0 6px 0 var(--color-ink);
 }
+/* Off (a demo is playing, or the item is over): flat, no outline that could read as a cue. */
 .ni-cset__handbtn[aria-disabled="true"] {
   cursor: default;
-  border-style: dashed;
   box-shadow: none;
 }
 .ni-cset__handicon {
@@ -142,7 +147,7 @@
 }
 .ni-cset__handlabel {
   font-family: var(--font-body);
-  font-size: 1.25rem;
+  font-size: var(--ni-tm-label, 1.5rem);
   font-weight: 700;
   white-space: nowrap;
 }

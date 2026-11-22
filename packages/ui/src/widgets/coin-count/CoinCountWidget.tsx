@@ -75,7 +75,7 @@ export function CoinCountWidget({
 }: WidgetProps<Config>) {
   const t = useNarrationText();
   const money = useMoneySpeech();
-  const { speakOnTap } = useUiPreferences();
+  const { speakOnTap, ageMode } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
   const [roomy, areaRef] = useRoomy();
@@ -323,9 +323,18 @@ export function CoinCountWidget({
   // One coin scale for the whole item: both purses of a comparison draw a quarter the same size.
   const slotsOf = (src: { coins: readonly unknown[]; bills: readonly unknown[] } | undefined) =>
     (src?.coins.length ?? 0) + 3 * (src?.bills.length ?? 0);
-  // A roomy area draws the same purse a third larger (kit `useRoomy`).
+  // A roomy area draws the same purse a third larger, a small purse (up to 8 slots) larger
+  // still (less so in K, whose targets are already 80 px), so a few coins fill the space as a
+  // full purse does (kit `useRoomy`).
   const quarterPx = Math.round(
-    quarterFor(Math.max(slotsOf(config), slotsOf(config.compareWith)), compare) * (roomy ? 1.3 : 1),
+    quarterFor(Math.max(slotsOf(config), slotsOf(config.compareWith)), compare) *
+      (roomy
+        ? Math.max(slotsOf(config), slotsOf(config.compareWith)) <= 8 && !compare
+          ? ageMode === 'k'
+            ? 1.6
+            : 2
+          : 1.3
+        : 1),
   );
 
   const purse = (side: Side) => {

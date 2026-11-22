@@ -421,6 +421,18 @@ export const TabletArea: Story = {
 };
 
 /** The smallest landscape area (960 × 600 → 906 × 373): twelve coins beside the pad, no scroll. */
+/** The bound on the tablet: a purse of twelve coins (COIN_SLOTS_MAX), every one a target. */
+export const TwelveTablet: Story = {
+  args: { config: twelve },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelectorAll('.ni-ccount__piece')).toHaveLength(12);
+    await expectFitsArea(canvasElement, root);
+    await expectControls(root, 'g1-up');
+  },
+};
+
 export const LandscapeMinArea: Story = {
   args: { config: twelve },
   render: inArea('landscapeMin'),
@@ -457,6 +469,8 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   args: { disabled: true, demo: inviteController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -479,6 +493,8 @@ export const DemoInvite: Story = {
  * other control.
  */
 export const SizesK: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);

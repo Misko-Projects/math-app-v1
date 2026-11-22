@@ -90,24 +90,40 @@ async function tapPlace(root: HTMLElement, k: string) {
 
 /**
  * Maths truth on the count-up line: one hop per piece given, in order, each from the count so far
- * to that plus the piece's value, ending where the tray's change takes the price; every hop is
- * drawn to one scale (its length over its value is the same for every hop).
+ * to that plus the piece's value, ending where the tray's change takes the price. The hops run
+ * left to right without a gap, each at least 30 px wide as drawn (so each can be counted), hops
+ * of the same piece the same width (but for one the paid mark cuts), and a bigger piece never
+ * hopping shorter than a smaller one.
  */
 async function expectLineTrue(root: HTMLElement, price: number) {
   const hops = [...root.querySelectorAll<SVGGElement>('.ni-mchange__hop')];
+  const paid = Number((root.querySelector('.ni-mchange__line') as SVGElement).dataset.paid);
   let at = price;
-  const perCent: number[] = [];
+  let x: number | null = null;
+  const widths = new Map<string, number>();
   for (const h of hops) {
-    const v = CENTS[h.dataset.piece as string] as number;
+    const kind = h.dataset.piece as string;
+    const v = CENTS[kind] as number;
     await expect(Number(h.dataset.from)).toBe(at);
+    const from = at;
     at += v;
     await expect(Number(h.dataset.to)).toBe(at);
-    // A hop that runs off the end of the line is not drawn to its length (it is marked `off`).
-    if (h.dataset.off === 'true') continue;
-    const box = (h.querySelector('.ni-mchange__arc') as SVGPathElement).getBBox();
-    perCent.push(box.width / v);
+    const box = (h.querySelector('.ni-mchange__arc') as SVGPathElement).getBoundingClientRect();
+    await expect(box.width, `${kind} hop width`).toBeGreaterThanOrEqual(30);
+    if (x !== null) await expect(Math.abs(box.left - x)).toBeLessThan(1);
+    x = box.right;
+    if (!(from < paid && at > paid)) {
+      const seen = widths.get(kind);
+      if (seen === undefined) widths.set(kind, box.width);
+      else await expect(Math.abs(box.width - seen), `${kind} hops alike`).toBeLessThan(1);
+    }
   }
-  for (const r of perCent) await expect(Math.abs(r - (perCent[0] as number))).toBeLessThan(0.05);
+  const order = ['penny', 'nickel', 'dime', 'quarter', 'dollar']
+    .filter((k) => widths.has(k))
+    .map((k) => widths.get(k) as number);
+  for (let i = 1; i < order.length; i++) {
+    await expect(order[i] as number).toBeGreaterThanOrEqual((order[i - 1] as number) - 1);
+  }
   const drawn = Object.entries(trayDrawn(root)).reduce((a, [k, n]) => a + (CENTS[k] ?? 0) * n, 0);
   await expect(at).toBe(price + drawn);
   await expect(Number(root.dataset.reached)).toBe(at);
@@ -212,8 +228,8 @@ export const Disabled: Story = {
 };
 
 /**
- * The count-up line still reads as one line of hops: every hop and every piece riding one lies
- * inside the line's picture, no two riding pieces cover each other, and every hop has its stop.
+ * The count-up line still reads as one line of hops: every hop and the piece over it lie inside
+ * the line's picture, every hop has its stop and its piece, and no two pieces touch.
  */
 async function expectLineReads(root: HTMLElement) {
   const line = root.querySelector('.ni-mchange__line') as SVGSVGElement;
@@ -224,19 +240,17 @@ async function expectLineReads(root: HTMLElement) {
     await expect(r.left).toBeGreaterThanOrEqual(frame.left - 0.5);
     await expect(r.right).toBeLessThanOrEqual(frame.right + 0.5);
     await expect(r.top).toBeGreaterThanOrEqual(frame.top - 0.5);
-    if (h.dataset.off !== 'true') await expect(h.querySelector('.ni-mchange__stop')).not.toBeNull();
+    await expect(h.querySelector('.ni-mchange__stop')).not.toBeNull();
+    await expect(h.querySelector('.ni-mchange__rider')).not.toBeNull();
   }
   const riders = [...line.querySelectorAll<SVGGElement>('.ni-mchange__rider')].map((g) =>
     g.getBoundingClientRect(),
   );
   for (const [i, a] of riders.entries()) {
     for (const b of riders.slice(i + 1)) {
-      const apart =
-        a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
-      // Coins on neighbouring levels may touch at a corner; they never cover one another.
-      const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-      const overlapY = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-      await expect(apart || Math.min(overlapX, overlapY) <= 6).toBe(true);
+      // No piece over the line covers another: their boxes do not meet.
+      const apart = a.right <= b.left + 0.5 || b.right <= a.left + 0.5;
+      await expect(apart).toBe(true);
     }
   }
 }
@@ -258,7 +272,7 @@ async function expectEndLabelsApart(root: HTMLElement) {
 /**
  * Far too much change (PR #101 review 1): 99¢ paid with $1.00, and the child gives a dollar bill.
  * The line does not stretch until 99¢ and $1.00 are printed on top of each other: the two amounts
- * stay apart, and the bill's hop runs off the end of the line with an arrow, past the paid mark.
+ * stay apart, and the bill's hop lands well past the paid mark.
  * Taking the bill back and giving the penny lands on $1.00. Also the longest amounts ($9.99 and
  * $10.00) and an overshoot by one penny.
  */
@@ -295,13 +309,13 @@ export const OverpayKeepsLabelsApart: Story = {
       await expectLineTrue(root, price);
       const line = root.querySelector('.ni-mchange__line') as SVGElement;
       const hop = line.querySelector('.ni-mchange__hop') as SVGGElement;
-      await expect(hop).toHaveAttribute('data-off', 'true');
-      // The hop is drawn, and it ends right of the paid mark.
-      const paidX = (line.querySelector('[data-end="paid"] line') as SVGLineElement).getBBox().x;
-      const arc = (hop.querySelector('.ni-mchange__arc') as SVGPathElement).getBBox();
-      await expect(arc.x + arc.width).toBeGreaterThan(paidX + 40);
-      await expect(hop.querySelector('.ni-mchange__arrow')).not.toBeNull();
-      // One penny too many after that is off the picture, and the labels still stand apart.
+      // The bill's hop is drawn whole, and it lands well right of the paid mark.
+      const paidX = (
+        line.querySelector('[data-end="paid"] line') as SVGLineElement
+      ).getBoundingClientRect().left;
+      const arc = (hop.querySelector('.ni-mchange__arc') as SVGPathElement).getBoundingClientRect();
+      await expect(arc.right).toBeGreaterThan(paidX + 12);
+      // One penny more after that: the labels still stand apart, and every hop is still seen.
       await tapPlace(root, 'penny');
       await expectEndLabelsApart(root);
       await expectLineTrue(root, price);
@@ -312,7 +326,6 @@ export const OverpayKeepsLabelsApart: Story = {
       }
       await tapPlace(root, 'penny');
       await expect(root.dataset.reached).toBe(String(price + 1));
-      await expect(line.querySelector('.ni-mchange__hop')).not.toHaveAttribute('data-off');
       await expectEndLabelsApart(root);
       await expectLineTrue(root, price);
       await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
@@ -492,6 +505,8 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   args: { disabled: true, demo: inviteController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -636,10 +651,25 @@ export const FullPurseAndTrayLandscapeMinK: Story = {
  * other control.
  */
 export const SizesK: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
+  // A small task for the youngest: 7¢ paid with a dime, pennies only.
+  args: { config: { ...change65, price: 7, paid: 10, purse: { penny: 'unlimited' } } },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await tapPlace(root, 'penny');
+    await tapPlace(root, 'penny');
     await expectControls(root, 'k');
+    // Every piece a child can touch (the purse's top penny, the pile's top penny) is an 80 px
+    // target, and the plate drawn under it shows that size.
+    for (const el of root.querySelectorAll<HTMLElement>('.ni-money__top')) {
+      const r = el.getBoundingClientRect();
+      await expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(80);
+      const plate = getComputedStyle(el, '::before');
+      await expect(Number.parseFloat(plate.width)).toBeGreaterThanOrEqual(80);
+    }
+    await expectLineTrue(root, 7);
   },
 };
 

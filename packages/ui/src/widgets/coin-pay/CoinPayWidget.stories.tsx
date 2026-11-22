@@ -7,7 +7,7 @@ import {
 } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
+import { expectControls, expectOneInvite, settled } from '../../test-support/controlChecks';
 import {
   center,
   clearSpies,
@@ -417,6 +417,8 @@ async function expectPurseOneRow(root: HTMLElement) {
 
 /** In a pile every piece shows: each one is offset from the one before by at least `min` px. */
 async function expectPilesReadable(root: HTMLElement, min = 16) {
+  // A piece that just landed pops in (a short transform): measure once it has come to rest.
+  await settled(root);
   for (const pile of root.querySelectorAll<HTMLElement>('[data-zone="tray"] .ni-money__pile')) {
     const xs = [...pile.querySelectorAll<HTMLElement>('[data-piece]')]
       .map((el) => el.getBoundingClientRect().left)
@@ -702,6 +704,8 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   args: { disabled: true, demo: inviteController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -724,6 +728,8 @@ export const DemoInvite: Story = {
  * other control.
  */
 export const SizesK: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);

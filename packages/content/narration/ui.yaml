@@ -1022,7 +1022,7 @@ ui.money.running:
   text: "In the tray"
   level: "2"
 ui.money.found:
-  text: "Ways you found"
+  text: "Found"
   level: "2"
 ui.money.price:
   text: "Buy it for"

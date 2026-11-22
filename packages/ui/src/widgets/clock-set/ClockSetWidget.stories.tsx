@@ -56,6 +56,34 @@ const fiveThirty: ConfigFor<'clock-set'> = {
   prompt: 'spoken',
 };
 
+/**
+ * After every story: a clock face that has numbers has all twelve, each drawn at 32 px or more
+ * (rubric: numerals ≥ 32 px). Only a story that says so (`parameters.bareFace`) shows the harder
+ * face without numbers, which the model asks for with `numerals: false`.
+ */
+async function numeralsAfterEach({
+  canvasElement,
+  parameters,
+}: {
+  canvasElement: HTMLElement;
+  parameters: { bareFace?: boolean };
+}) {
+  for (const face of canvasElement.querySelectorAll<SVGSVGElement>('.ni-clock')) {
+    const nums = [...face.querySelectorAll<SVGTextElement>('[data-numeral]')];
+    if (parameters.bareFace) {
+      await expect(nums).toHaveLength(0);
+      continue;
+    }
+    await expect(nums.map((n) => n.textContent)).toEqual(
+      Array.from({ length: 12 }, (_, i) => String(i + 1)),
+    );
+    const scale = face.getBoundingClientRect().width / face.viewBox.baseVal.width;
+    for (const n of nums) {
+      await expect(Number(n.getAttribute('font-size')) * scale).toBeGreaterThanOrEqual(32);
+    }
+  }
+}
+
 const meta = {
   title: 'Widgets/Clock set',
   args: {
@@ -67,6 +95,7 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  afterEach: numeralsAfterEach,
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -447,7 +476,8 @@ export const DemoMode: Story = {
     );
     demoController.invite({ op: 'drag-minute', args: { to: 45 } });
     await waitFor(() => expect(root.querySelector('.ni-cset__handbtn.ni-invite')).not.toBeNull());
-    await expect(hand(root, 'minute')).toHaveAttribute('data-lit', 'true');
+    // An invite has one cue, the ring on the button: the hand on the clock is not lit.
+    await expect(hand(root, 'minute')).not.toHaveAttribute('data-lit');
     await expectPointerOn(
       root.querySelector('.ni-invite-hand') as HTMLElement,
       handBtn(root, 'minute'),
@@ -541,26 +571,48 @@ export const LandscapeMinArea: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo invite (03 §6.3): Pip invites the child to turn the long hand: its button is ringed (the hand on the clock glows) and Pip's hand hangs under it. The story ends in the invited state, so the settled
- * picture shows the ring and the hand.
+ * Demo invite (03 §6.3): the whole task is on screen (the time to make, both hands, the hands'
+ * own reading) and there is exactly one cue, on the first thing to touch: the long hand's button
+ * is ringed and the guide's hand points at it. Neither hand on the clock is lit, and the buttons
+ * carry no other outline. The story ends in the invited state, so the settled picture shows it.
  */
 export const DemoInvite: Story = {
-  args: { disabled: true, demo: inviteController },
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
+  args: {
+    config: {
+      format: 'clock-set',
+      target: { h: 4, m: 30 },
+      start: { h: 4, m: 0 },
+      precision: 30,
+      showDigital: true,
+      prompt: 'digital',
+    },
+    disabled: true,
+    demo: inviteController,
+  },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteController.invite({ op: 'drag-minute', args: { to: 30 } });
     await waitFor(() => expect(root.querySelector('.ni-cset__handbtn.ni-invite')).not.toBeNull());
     await waitFor(() => expect(root.querySelector('.ni-invite-hand')).not.toBeNull());
-    const hand = root.querySelector('.ni-invite-hand') as HTMLElement;
-    await expect(hand).toBeVisible();
+    const pointer = root.querySelector('.ni-invite-hand') as HTMLElement;
+    await expect(pointer).toBeVisible();
     await expectPointerOn(
-      hand,
+      pointer,
       root.querySelector('.ni-cset__handbtn.ni-invite') as HTMLElement,
       root,
     );
     await expectOneInvite(root);
-    // The invited hand glows; the glow leaves the number it points at (12) readable.
-    await expect(root.querySelector('.ni-clock__hand[data-lit="true"]')).not.toBeNull();
+    // The task is shown: the time to make and the hands' own reading.
+    await expect(within(root).getByRole('img', { name: '4:30' })).toBeVisible();
+    await expect(within(root).getByRole('img', { name: '4:00' })).toBeVisible();
+    // Both hands are drawn apart (4:00), and neither is lit: the ring is the only cue.
+    await expectGeared(root, 4, 0);
+    await expect(root.querySelectorAll('.ni-clock__hand[data-lit="true"]')).toHaveLength(0);
+    for (const btn of root.querySelectorAll<HTMLElement>('.ni-cset__handbtn')) {
+      await expect(getComputedStyle(btn).borderStyle).toBe('solid');
+    }
     await expectHandsLeaveNumerals(root.querySelector('.ni-clock') as SVGSVGElement);
   },
 };
@@ -570,6 +622,8 @@ export const DemoInvite: Story = {
  * other control.
  */
 export const SizesK: Story = {
+  // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   args: { config: matchDigital },
   play: async ({ canvasElement }) => {
