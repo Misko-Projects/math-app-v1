@@ -342,8 +342,15 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
     if (c.palette.findIndex((u) => sameToken(u, t)) !== i)
       add(['palette', i], 'the palette repeats a unit');
   });
-  // A number pattern that goes on by one steady step: the terms asked for can be typed.
-  if (family === 'n' && (c.mode === 'extend' || c.mode === 'fill') && blanks.length > 0) {
+  // A number pattern (kind `number`: it goes on, it does not repeat) whose shown terms keep one
+  // steady step: the terms asked for can be typed. A repeating pattern of numbers (kind `repeat`:
+  // 800, 900, 800, 900) asks for numbers it already shows.
+  if (
+    family === 'n' &&
+    c.kind === 'number' &&
+    (c.mode === 'extend' || c.mode === 'fill') &&
+    blanks.length > 0
+  ) {
     const step = firstStep(c.sequence);
     const at = c.sequence.findIndex((t) => t !== null);
     const first = tokenNumber(c.sequence[at] ?? null);

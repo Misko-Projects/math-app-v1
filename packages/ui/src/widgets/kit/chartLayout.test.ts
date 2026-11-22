@@ -454,17 +454,38 @@ describe('line plot labels', () => {
   });
 });
 
+/** Widget and stimulus sizes, and every plot height between them (review round 2: 300 × 208). */
+const SIZES: [number, number][] = [
+  [300, 280],
+  [464, 293],
+  [640, 293],
+  [900, 440],
+  ...Array.from({ length: 60 }, (_, k): [number, number] => [300 + k * 7, 150 + k * 5]),
+];
+
 describe('a bar axis ends on a labelled line (PR #102 evidence review)', () => {
+  it('review round 2: a five-step axis in a 300 × 208 stimulus labels its top', () => {
+    const c: ChartSpec = {
+      kind: 'bar',
+      orientation: 'vertical',
+      categories: [{ id: 'fish', label: 'noun.fish.many', value: 5 }],
+      scale: 1,
+      axisMax: 5,
+    };
+    const g = chartGeometry(c, { width: 300, height: 208, target: 56 });
+    const labelled = g.ticks.filter((t) => t.labelled).map((t) => t.value);
+    expect(g.ticks.at(-1)?.labelled).toBe(true);
+    expect(Math.max(...labelled)).toBeGreaterThanOrEqual(5);
+    // Every labelled value is a whole number of strides from zero.
+    const stride = (labelled[1] ?? 1) - (labelled[0] ?? 0);
+    expect(labelled.every((v, i) => v === i * stride)).toBe(true);
+  });
+
   it('for every supported top, scale and size the top labelled line is at or above every bar', () => {
     for (const orientation of ['vertical', 'horizontal'] as const) {
       for (const scale of [1, 2, 5, 10] as const) {
         for (let steps = 1; steps <= 10; steps += 1) {
-          for (const [width, height] of [
-            [300, 280],
-            [464, 293],
-            [640, 293],
-            [900, 440],
-          ] as const) {
+          for (const [width, height] of SIZES) {
             // Horizontal bars are drawn only by the graph widgets, never narrower than 464 px.
             if (orientation === 'horizontal' && width < 464) continue;
             const top = steps * scale;
@@ -484,9 +505,16 @@ describe('a bar axis ends on a labelled line (PR #102 evidence review)', () => {
             const last = g.ticks.at(-1);
             expect(last?.labelled, `${what}: the last tick is labelled`).toBe(true);
             expect(Math.max(...labelled), what).toBeGreaterThanOrEqual(top);
-            // A bar is read from a labelled line plus at most 4 steps.
+            // A bar is read from a labelled line plus at most 4 steps, wherever a widget draws it
+            // (the widgets' charts are at least 464 px wide and 273 px high).
             const stride = ((labelled[1] ?? scale) - (labelled[0] ?? 0)) / scale;
-            expect(stride, `${what}: steps between labelled lines`).toBeLessThanOrEqual(5);
+            if (width >= 464 && height >= 273) {
+              expect(stride, `${what}: steps between labelled lines`).toBeLessThanOrEqual(5);
+            }
+            expect(
+              labelled.every((v, i) => v === i * stride * scale),
+              `${what}: even labels`,
+            ).toBe(true);
             // The bar still ends exactly on its value.
             const bar = g.slots[0]?.bar;
             const zero = g.ticks[0];

@@ -133,6 +133,17 @@ describe('pattern-extend: the supported domain', () => {
     expect(
       refuses(issues(patternExtend, numbers([20, 10, null, null])), 'the missing term -10'),
     ).toBe(true);
+    // Review round 2: a repeating pattern of numbers (800, 900, 800, 900) is not an arithmetic
+    // one, and its answers are numbers it already shows.
+    const repeating = { ...numbers([800, 900, null, null]), kind: 'repeat' as const };
+    expect(issues(patternExtend, repeating)).toEqual([]);
+    expect(
+      patternAnswerIssues(repeating, {
+        kind: 'state',
+        checker: 'pattern.tokens',
+        target: { expected: [{ n: 800 }, { n: 900 }] },
+      }),
+    ).toEqual([]);
     for (const n of [PATTERN_NUMBER_MAX + 1, -1, 2.5]) {
       expect(refuses(issues(patternExtend, numbers([1, n, null])), 'whole, 0–999'), `${n}`).toBe(
         true,

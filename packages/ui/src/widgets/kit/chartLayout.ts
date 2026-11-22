@@ -134,27 +134,35 @@ export function labelStride(spacing: number, min: number): number {
 }
 
 /**
- * The top a bar axis draws: `base` (the chart's own top) rounded up to the next labelled tick, so
- * the top labelled gridline is at or above every bar and a bar is read from a labelled line plus
- * at most `stride − 1` minor steps. `plot` is the axis length in px, `minSpacing` the room one
- * numeral needs; the stride found here is the one `ticksFor` labels with.
+ * The axis a bar chart draws: `base` (the chart's own top) rounded up to the next labelled tick,
+ * and the stride the ticks are labelled with. The top labelled gridline is then at or above every
+ * bar, and a bar is read from a labelled line plus at most `stride − 1` minor steps. `plot` is
+ * the axis length in px, `minSpacing` the room one numeral needs. `ticksFor` labels with exactly
+ * this stride (choosing it again from the final spacing could pick one that does not divide the
+ * top).
  */
-export function labelledTop(base: number, scale: number, plot: number, minSpacing: number): number {
-  for (const k of [1, 2, 5, 10, 20, 50]) {
-    const top = Math.ceil(base / (k * scale) - 1e-9) * k * scale;
-    if ((plot / (top / scale)) * k >= minSpacing) return top;
+export function labelledAxis(
+  base: number,
+  scale: number,
+  plot: number,
+  minSpacing: number,
+): { top: number; stride: number } {
+  for (const stride of [1, 2, 5, 10, 20, 50]) {
+    const top = Math.ceil(base / (stride * scale) - 1e-9) * stride * scale;
+    if ((plot / (top / scale)) * stride >= minSpacing) return { top, stride };
   }
-  return base;
+  // No stride leaves room for two numerals: label the ends only.
+  const steps = Math.max(1, Math.round(base / scale));
+  return { top: steps * scale, stride: steps };
 }
 
 function ticksFor(
   chart: Pick<ChartSpec, 'axisMax' | 'scale'>,
   toPos: (v: number) => number,
-  minSpacing: number,
+  stride: number,
 ): AxisTick[] {
   const values = axisTicks(chart);
   const spacing = Math.abs(toPos(chart.scale) - toPos(0));
-  const stride = labelStride(spacing, minSpacing);
   // Gridlines closer than GRID_MIN_PX would read as a texture, not as counts: then only the
   // labelled ticks and the ones halfway between them (the fives between tens) keep a line.
   const lineEvery =
@@ -340,7 +348,8 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const plot = { x: plotX, y: y0, w: Math.max(40, symRowW, plotR - plotX), h: rowsH };
     const width = Math.max(o.width, plot.x + plot.w + (o.width - plotR));
     // Bars: the axis runs to a labelled tick (the last numeral is centred on the plot's end).
-    const barTop = chart.kind === 'bar' ? labelledTop(top, scale, plot.w, numW + 10) : top;
+    const axis = labelledAxis(top, scale, plot.w, numW + 10);
+    const barTop = chart.kind === 'bar' ? axis.top : top;
     const unit = plot.w / barTop;
     const toPos = (v: number) => plot.x + v * unit;
     const sym = Math.max(
@@ -385,7 +394,7 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
       }
     });
     const ticks =
-      chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, numW + 10) : [];
+      chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, axis.stride) : [];
     const axisY = y0 + rowsH + 6;
     return {
       kind: chart.kind,
@@ -427,7 +436,8 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
   const baseY = topPad + plotH;
   const plot = { x: x0, y: topPad, w: colsW, h: plotH };
   // Bars: the axis runs to a labelled tick, so the top labelled gridline is at or above every bar.
-  const barTop = chart.kind === 'bar' ? labelledTop(top, scale, plotH, NUMERAL_PX * 0.9) : top;
+  const axis = labelledAxis(top, scale, plotH, NUMERAL_PX * 0.9);
+  const barTop = chart.kind === 'bar' ? axis.top : top;
   const unit = plotH / barTop;
   const toPos = (v: number) => baseY - v * unit;
   const sym = Math.max(
@@ -484,8 +494,7 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
         : Math.max(o.height, baseY + o.gap + labelH + PAD),
     plot,
     slots: geo,
-    ticks:
-      chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, NUMERAL_PX * 0.9) : [],
+    ticks: chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, axis.stride) : [],
     axisLine: chart.kind === 'bar' ? [x0 - 6, baseY, x0 + colsW + 6, baseY] : null,
     valueToPos: toPos,
     mark: chart.kind === 'picture' ? sym : stroke,
