@@ -1,7 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { fixtureContent } from '@/data/store.test-support';
-import { FIT_EXCEPTIONS, FIT_VIEWPORTS, fitAllowance } from './pierFitAllowlist';
+import {
+  FIT_EXCEPTIONS,
+  FIT_SEED_EXCEPTIONS,
+  FIT_VIEWPORTS,
+  fitAllowance,
+} from './pierFitAllowlist';
 import { PIER_EXCLUDED } from './pierRequest';
 
 const graph = fixtureContent().graph;
@@ -18,6 +23,23 @@ describe('the pier fit allowlist', () => {
           expect(seen.has(id), `${id} listed twice`).toBe(false);
           seen.add(id);
         }
+      }
+    }
+  });
+
+  it('every seed exception names real content, a later seed, and a viewport the template must fit at', () => {
+    const seen = new Set<string>();
+    for (const known of FIT_SEED_EXCEPTIONS) {
+      const template = graph.templates[known.template];
+      const key = `${known.template}:${known.seed}`;
+      expect(template, key).toBeDefined();
+      expect(known.seed, key).toBeGreaterThan(1);
+      expect(known.reason.length, key).toBeGreaterThan(20);
+      expect(seen.has(key), `${key} listed twice`).toBe(false);
+      seen.add(key);
+      // Where the whole template is let through, a seed needs no entry of its own.
+      for (const viewport of known.at) {
+        expect(template && fitAllowance(template, viewport), `${key} at ${viewport}`).toBeNull();
       }
     }
   });

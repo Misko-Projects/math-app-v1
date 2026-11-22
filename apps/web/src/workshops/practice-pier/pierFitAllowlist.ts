@@ -80,6 +80,58 @@ export const FIT_EXCEPTIONS: Readonly<Partial<Record<ItemFormat, readonly FitExc
   ],
 };
 
+export interface FitSeedException {
+  template: TemplateId;
+  /** A seed (played without a difficulty target, as the check plays) that does not fit. */
+  seed: number;
+  at: readonly FitViewport[];
+  reason: string;
+}
+
+/**
+ * Templates that fit on the first seed, the one the check plays for every template, but not on
+ * every seed: other seeds draw other numbers and layouts. The check plays each seed listed here
+ * too and fails when it fits, so these stay known instead of silently green (#12; the eight-seed
+ * survey with `VITE_FIT_SEEDS=1,2,3,4,5,6,7,8`).
+ */
+export const FIT_SEED_EXCEPTIONS: readonly FitSeedException[] = [
+  {
+    template: 'CNT.05.t1',
+    seed: 3,
+    at: SMALL,
+    reason:
+      'tap-count, K, 13 to 20 objects to count by tapping (here 20): three rows of 80 px targets with the count badges over each row need about 431 px, the area has 366; fix: needs a design for large K sets (smaller badge bands or paging).',
+  },
+  {
+    template: 'CNT.03.t1',
+    seed: 6,
+    at: SMALL,
+    reason:
+      'tap-count, K, a scatter of six or more to count by tapping (here 7): the kit scatter is four cells tall at about 102 px a cell; fix: a wider, shorter scatter for tappable sets in short areas.',
+  },
+  {
+    template: 'CNT.03.t1',
+    seed: 4,
+    at: SMALL,
+    reason:
+      'tap-count, K, a circle of six to count by tapping: the circle is taller than the area at full target size; fix: a tighter circle for tappable sets in short areas.',
+  },
+  {
+    template: 'CNT.02.t3',
+    seed: 6,
+    at: SMALL,
+    reason:
+      'tap-count, K, a picture of ten in a scatter beside the compact number pad: the rows are spread for count badges the picture does not show; fix: no badge bands on a picture that is not counted by tapping.',
+  },
+  {
+    template: 'CNT.19.t2',
+    seed: 2,
+    at: ['1280x800'],
+    reason:
+      'tap-count, equal groups with a third plate of five or more: two rows of plates are taller than the area at 1280 × 800 (at 960 × 600 the template is listed above for every seed); fix: as for the plates above.',
+  },
+];
+
 const registered = new Set<ItemFormat>(registeredFormats());
 
 export type FitAllowance = { kind: 'no-widget' } | { kind: 'misfit'; reason: string };

@@ -15,7 +15,12 @@ import { page } from 'vitest/browser';
 import { type AppContent, loadContent } from '@/app/boot/content';
 import '@/styles.css';
 import { PierItemScreen } from './PierScreen';
-import { FIT_VIEWPORTS, type FitViewport, fitAllowance } from './pierFitAllowlist';
+import {
+  FIT_SEED_EXCEPTIONS,
+  FIT_VIEWPORTS,
+  type FitViewport,
+  fitAllowance,
+} from './pierFitAllowlist';
 
 /**
  * The seeds the check plays: the first one. `VITE_FIT_SEEDS=1,2,3` plays more (a survey: other
@@ -208,8 +213,21 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
         allowed += 1;
       }
     }
+    // The seeds known not to fit (the first seed of their template does): still not fitting.
+    let knownSeeds = 0;
+    for (const known of FIT_SEED_EXCEPTIONS) {
+      const template = content.store.graph.templates[known.template];
+      if (!known.at.includes(viewport) || !template) continue;
+      if (ONLY && !ONLY.includes(template.format)) continue;
+      show(engine.generateItem(template, known.seed), ageModeOf(template));
+      if ((await measure(template.id)).length === 0) {
+        fitsAgain.push(`${known.template} seed ${known.seed}`);
+      } else {
+        knownSeeds += 1;
+      }
+    }
     console.info(
-      `pier fit at ${viewport}: ${templates.length} templates, ${failing.length} do not fit, ${allowed} on the allowlist`,
+      `pier fit at ${viewport}: ${templates.length} templates, ${failing.length} do not fit, ${allowed} on the allowlist, ${knownSeeds} other seeds known not to fit`,
     );
     expect(failing, 'templates that do not fit the workshop area').toEqual([]);
     expect(fitsAgain, 'allowlisted templates that fit: remove them from the list').toEqual([]);
