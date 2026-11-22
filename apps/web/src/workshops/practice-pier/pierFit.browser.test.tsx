@@ -62,6 +62,10 @@ beforeAll(async () => {
   host.style.height = '100%';
   document.body.append(host);
   root = createRoot(host);
+  // Every declared face, before the first measurement: a face is fetched when it is first used,
+  // and a layout measured in its fallback is not the layout a child sees (a slow runner would
+  // otherwise measure the first widget that uses a face before the face arrives).
+  await Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined)));
   await document.fonts.ready;
 });
 
@@ -141,7 +145,7 @@ function misfits(stage: HTMLElement): string[] {
   return found;
 }
 
-/** While working on a widget: the stage's room and the size of each part of the widget's root. */
+/** The stage's room and the size of each part of the widget's root (in a failure's message). */
 function describeParts(): string {
   const stage = document.querySelector<HTMLElement>('[data-testid="pier-stage"]');
   const root = stage?.querySelector<HTMLElement>('.ni-widget')?.firstElementChild;
@@ -169,6 +173,12 @@ async function measure(templateId: string): Promise<string[]> {
     const now = [stage.scrollHeight, stage.scrollWidth, r?.width, r?.height, r?.top].join();
     same = now === last ? same + 1 : 0;
     last = now;
+    if (same >= SETTLED_FRAMES && document.fonts.status === 'loading') {
+      // A face still on its way: measure again once it is in.
+      await document.fonts.ready;
+      same = 0;
+      continue;
+    }
     if (same >= SETTLED_FRAMES) {
       // Only registered formats get here: the fallback means the widget failed to load or render.
       if (widget.querySelector('.ni-placeholder')) return ['the widget did not render (fallback)'];
@@ -210,7 +220,10 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
         console.info(`${template.id} at ${viewport}: ${describeParts()}`);
       }
       if (found.length > 0 && !allowance) {
-        failing.push(`${template.id} (${template.format}, ${template.tier}): ${found.join('; ')}`);
+        // With the parts' sizes, so a failure on another machine can be read from its log.
+        failing.push(
+          `${template.id} (${template.format}, ${template.tier}): ${found.join('; ')} [window ${window.innerWidth}x${window.innerHeight}; ${describeParts()}]`,
+        );
       } else if (found.length === 0 && allowance) {
         fitsAgain.push(template.id);
       } else if (allowance) {
