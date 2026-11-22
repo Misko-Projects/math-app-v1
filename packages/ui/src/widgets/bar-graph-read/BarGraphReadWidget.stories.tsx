@@ -490,12 +490,14 @@ const reducedController: WidgetDemo = createDemoController({ strict: true });
 export const DemoReducedMotion: Story = {
   globals: { motion: 'reduced' },
   args: { config: tallyHowMany, disabled: true, demo: reducedController },
-  play: async ({ canvasElement }) => {
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedController.play({ op: 'count-pictures', args: { id: 'crab' } });
-    // Instant: no per-mark pauses.
-    await expect(performance.now() - started).toBeLessThan(400);
+    // One change, not a count mark by mark: the total is spoken once, and nothing else.
+    await expect(audio.sayPhrases.mock.calls).toEqual([[[{ number: 10 }]]]);
     await waitFor(() =>
       expect(root.querySelectorAll('.ni-chart__stroke[data-counted="true"]')).toHaveLength(10),
     );
