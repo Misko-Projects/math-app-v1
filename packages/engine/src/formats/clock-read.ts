@@ -48,6 +48,10 @@ export const AMPM_SCENES = {
 } as const;
 export type AmPmScene = keyof typeof AMPM_SCENES;
 
+/** Whether `id` is one of the a.m. / p.m. scenes (an own key of `AMPM_SCENES`). */
+export const isAmPmScene = (id: unknown): id is AmPmScene =>
+  typeof id === 'string' && Object.hasOwn(AMPM_SCENES, id);
+
 /**
  * Whether the sun is up at hour `h` (0–23): from 6 in the morning until 6 in the evening. The
  * a.m./p.m. clue (TIM.05): the two times of day one face time can be are always one in daylight
@@ -80,7 +84,8 @@ const configSchema = clockReadConfigSchema.superRefine((c, ctx) => {
   // `AMPM_SCENES`, its half of the day is the answer, and the time is the a.m. or p.m. one the
   // item means (7:00 p.m. is `h: 19`), within the hours that event happens.
   if (c.ampm) {
-    const scene = AMPM_SCENES[c.ampm.scene as AmPmScene];
+    // An own key of the table only: `constructor` or `toString` is not a scene.
+    const scene = isAmPmScene(c.ampm.scene) ? AMPM_SCENES[c.ampm.scene] : undefined;
     if (!scene) {
       ctx.addIssue({
         code: 'custom',

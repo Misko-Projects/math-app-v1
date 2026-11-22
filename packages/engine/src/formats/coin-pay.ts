@@ -133,6 +133,19 @@ function answers(tray: Tray, c: Config, found: ReadonlySet<string>, fewest: numb
   return !c.requireFewest || trayPieces(tray) === fewest;
 }
 
+/**
+ * Whether the tray answers the item, as its checker will judge it (`coins.total`, or
+ * `coins.fewest` with `requireFewest`; `found` ways do not count again): the right amount, the
+ * fewest pieces when asked, and not a way already found. The widget uses it to tell a full tray
+ * that is the answer from one the child has to take a coin back out of.
+ */
+export function trayAnswers(c: Config, order: readonly PurseKind[]): boolean {
+  const tray = trayOf(order);
+  if (trayCents(tray) !== c.target || !trayFitsPurse(tray, c.purse)) return false;
+  const found = new Set((c.found ?? []).map((k) => canonicalKey(k)));
+  return answers(tray, c, found as ReadonlySet<string>, fewestPieces(c.target, c.purse));
+}
+
 const configSchema = coinPayConfigSchema.superRefine((c, ctx) => {
   if (purseKinds(c.purse).length === 0) {
     ctx.addIssue({ code: 'custom', path: ['purse'], message: 'the purse is empty' });

@@ -26,7 +26,7 @@ import { stateChecker } from '../check/state';
 import { AMPM_SCENES, clockRead, isDaylight } from './clock-read';
 import { clockSet } from './clock-set';
 import { coinCount, MAX_COMPARE_SLOTS, MAX_COUNT_CENTS } from './coin-count';
-import { coinPay, MAX_TRAY_PIECES, payTrayCapacity } from './coin-pay';
+import { coinPay, MAX_TRAY_PIECES, payTrayCapacity, trayAnswers } from './coin-pay';
 import { changeTrayCapacity, countUpPath, makeChange } from './make-change';
 import { fewestPieces, purseUnits, trayPieces, waysToPay } from './money';
 import { misplacedTimeMoneyPictures } from './pictures';
@@ -266,6 +266,10 @@ describe('clock-read a.m. / p.m.: the scene is the clue (PR #101 reviews 1 and 2
 
   it('refuses a scene that is not a daily event, a wrong half of the day, and an hour the event does not happen at', () => {
     refused(clockRead, ampm('beach', 7, false), 'ampm.scene');
+    // Names every object has are not scenes (PR #101 review 3).
+    for (const name of ['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf']) {
+      refused(clockRead, ampm(name, 7, false), 'ampm.scene');
+    }
     refused(clockRead, ampm('breakfast', 7, true), 'ampm.isPm');
     refused(clockRead, ampm('dinner', 17, false), 'ampm.isPm');
     // 5 in the afternoon is not breakfast time, and 5 in the morning is not dinner time: the two
@@ -419,6 +423,43 @@ describe('coin-pay bounds', () => {
       mode: 'pay',
       purse: { dollar: 1, quarter: 2, dime: 3, nickel: 2, penny: 5 },
     });
+  });
+
+  it('trayAnswers judges a tray as the checker will (PR #101 review 3)', () => {
+    const checker = (id: 'coins.total' | 'coins.fewest') => stateChecker(id);
+    const rep = (k: 'penny' | 'nickel' | 'dime' | 'quarter', n: number) =>
+      Array.from({ length: n }, () => k);
+    // Plain pay: the amount is all that counts.
+    expect(trayAnswers(pay, ['quarter', 'dime', 'nickel'])).toBe(true);
+    expect(trayAnswers(pay, ['quarter', 'dime'])).toBe(false);
+    expect(trayAnswers(pay, [...rep('nickel', 4), ...rep('dime', 2)])).toBe(true);
+    // Twenty-four pieces that make 40¢ are more than the tray holds: not an answer.
+    expect(trayAnswers(pay, [...rep('nickel', 4), ...rep('penny', 20)])).toBe(false);
+    // Fewest: twelve pieces that make 60¢ are the amount, but not the fewest (2 quarters, a dime).
+    const fewest = {
+      ...pay,
+      target: 60,
+      requireFewest: true,
+      purse: { quarter: 2, dime: 6, nickel: 12 },
+    };
+    const twelve = [...rep('nickel', 12)];
+    expect(twelve).toHaveLength(MAX_TRAY_PIECES);
+    expect(trayAnswers(fewest, twelve)).toBe(false);
+    expect(trayAnswers(fewest, ['quarter', 'quarter', 'dime'])).toBe(true);
+    const value = { coins: { penny: 0, nickel: 12, dime: 0, quarter: 0 } };
+    expect(checker('coins.fewest')?.check({ cents: 60, purse: fewest.purse }, value)).toBe(false);
+    expect(checker('coins.total')?.check({ cents: 60, purse: fewest.purse }, value)).toBe(true);
+    // New way: a full tray that repeats a found way is not an answer.
+    const again = {
+      ...pay,
+      target: 25,
+      mode: 'new-way' as const,
+      purse: { quarter: 1, dime: 2, nickel: 5 },
+      found: ['q0d0n5p0'],
+    };
+    ok(coinPay, again);
+    expect(trayAnswers(again, rep('nickel', 5))).toBe(false);
+    expect(trayAnswers(again, ['quarter'])).toBe(true);
   });
 
   it('the tray never holds more than its bound, by drops or by an answer', () => {

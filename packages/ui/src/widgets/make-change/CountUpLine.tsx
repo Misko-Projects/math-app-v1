@@ -22,6 +22,8 @@ export const LINE_PX = W - 2 * PAD;
 export const MIN_HOP_PX = 32;
 /** A piece over its hop is drawn at this quarter size (a quarter is 28 px, a dime 21). */
 export const RIDER_PX = 28;
+/** How far the paid mark stays from the ends of a hop that passes it, in px. */
+const MARK_INSET_PX = 8;
 /** The least the stretch still to count (from the count so far to the paid mark) is drawn. */
 const MIN_REST_PX = 14;
 /** The width a printed amount takes under the line, in px (34 px numerals, about 19 px a glyph). */
@@ -82,9 +84,9 @@ export interface CountUpLayout {
 }
 
 /**
- * Where everything on the line is drawn. The amounts in order (the price, each landing, the
- * amount paid) are the line's marks; the stretches between them are drawn in proportion to their
- * cents but never under their least width (a hop `MIN_HOP_PX`). The paid amount is printed under
+ * Where everything on the line is drawn. Each hop is one stretch of the line, drawn in proportion
+ * to its cents but never under `MIN_HOP_PX`; the paid mark is at the line's end until the count
+ * reaches it, and inside the hop that passes it when too much is given (it never splits a hop). The paid amount is printed under
  * its mark, moved clear of the printed price (`labelSepPx`) when too much change brings the mark
  * close to it, so the two printed amounts stay apart however much too much is given.
  */
@@ -100,27 +102,35 @@ export function countUpLayout(
     return { i, p, from, to: at };
   });
   const reached = at;
-  // The marks, in order: every landing, and the paid amount where it is not a landing.
-  const marks = [...new Set([price, ...raw.map((h) => h.to), paid])].sort((a, b) => a - b);
-  const stops = new Set([price, ...raw.map((h) => h.to)]);
-  const segs: Segment[] = marks.slice(1).map((m, k) => {
-    const lo = marks[k] as number;
-    // A whole hop, half of a hop the paid mark cuts in two, or the stretch still to count.
-    const whole = stops.has(lo) && stops.has(m);
-    const rest = lo >= reached;
-    return { v: m - lo, min: rest ? MIN_REST_PX : whole ? MIN_HOP_PX : MIN_HOP_PX / 2 };
-  });
+  // The stretches of the line: one a hop, whole (the paid mark never splits a hop, so a hop it
+  // crosses is as wide as every other hop of its piece), and, while there is more to count, the
+  // stretch from the count so far to the paid mark.
+  const segs: Segment[] = raw.map((h) => ({ v: h.to - h.from, min: MIN_HOP_PX }));
+  if (reached < paid) segs.push({ v: paid - reached, min: MIN_REST_PX });
   // One allotment for the whole line, so hops of one piece are one width wherever they fall and a
   // bigger piece never hops shorter than a smaller one, before the paid mark or past it.
   const widths = allot(segs, LINE_PX);
   const xOf = new Map<number, number>([[price, PAD]]);
   let x = PAD;
-  marks.slice(1).forEach((m, k) => {
+  raw.forEach((h, k) => {
     x += widths[k] as number;
-    xOf.set(m, x);
+    xOf.set(h.to, x);
   });
   const px = (v: number) => xOf.get(v) as number;
-  const paidX = px(paid);
+  // The paid mark: at the end of the line while there is more to count; on a landing when the
+  // count has reached it there; else inside the hop that passes it, where the amount falls along
+  // that hop, kept `MARK_INSET_PX` clear of both of the hop's ends so it reads as passed.
+  const paidX = (() => {
+    if (reached < paid) return PAD + LINE_PX;
+    const on = xOf.get(paid);
+    if (on !== undefined) return on;
+    const over = raw.find((h) => h.from < paid && h.to > paid);
+    if (!over) return PAD + LINE_PX;
+    const x1 = px(over.from);
+    const x2 = px(over.to);
+    const at = x1 + ((paid - over.from) / (over.to - over.from)) * (x2 - x1);
+    return Math.min(Math.max(at, x1 + MARK_INSET_PX), x2 - MARK_INSET_PX);
+  })();
   return {
     priceX: PAD,
     paidX,

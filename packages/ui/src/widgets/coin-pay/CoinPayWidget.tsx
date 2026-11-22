@@ -3,6 +3,7 @@ import {
   formatModel,
   parseTrayKey,
   payTrayCapacity,
+  trayAnswers,
   trayCents,
   trayOf,
 } from '@number-island/engine';
@@ -84,10 +85,11 @@ export function CoinPayWidget({
   stateRef.current = state;
   const tray = state.order as MoneyPiece[];
   const total = centsOf(tray);
-  // A full tray that is not the amount: told, spoken once, and the one cue on the coin that
+  // A full tray that does not answer the item (the wrong amount, not the fewest coins when they
+  // are asked for, or a way already found): told, spoken once, and the one cue on the coin that
   // went in last, the one to take back (as make-change).
   const fullShort =
-    interactive && tray.length >= payTrayCapacity(config) && total !== config.target;
+    interactive && tray.length >= payTrayCapacity(config) && !trayAnswers(config, state.order);
   const { say } = useSpeech();
   const saidFull = useRef(false);
   useEffect(() => {

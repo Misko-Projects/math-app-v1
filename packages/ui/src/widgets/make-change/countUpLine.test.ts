@@ -57,6 +57,7 @@ describe('countUpLayout (make-change, U05 #14)', () => {
           fail('misses the paid mark');
         if (l.reached < paid && !(l.paidX > x + 1)) fail('the paid mark is not past the count');
         if (l.reached > paid && !(l.paidX < x - 1)) fail('too much does not land past the mark');
+        if (l.paidX < l.priceX + 8 - 1e-6) fail('the paid mark is on the price mark');
       }
     }
     expect(failed.slice(0, 5)).toEqual([]);
@@ -77,8 +78,6 @@ describe('countUpLayout (make-change, U05 #14)', () => {
         const l = countUpLayout(price, paid, given);
         const byPiece = new Map<string, number>();
         for (const h of l.hops) {
-          // A hop the paid mark cuts in two is drawn in two parts: it is left out.
-          if (h.from < paid && h.to > paid) continue;
           const w = h.x2 - h.x1;
           const seen = byPiece.get(h.p);
           if (seen === undefined) byPiece.set(h.p, w);
@@ -97,6 +96,33 @@ describe('countUpLayout (make-change, U05 #14)', () => {
       }
     }
     expect(failed.slice(0, 5)).toEqual([]);
+  });
+
+  it('a hop the paid mark passes is as wide as the other hops of its piece (PR #101 review 3)', () => {
+    // 65¢ paid with $1.00, three quarters: the second quarter passes the paid mark.
+    const l = countUpLayout(65, 100, ['quarter', 'quarter', 'quarter']);
+    const [a, b, c] = l.hops.map((h) => h.x2 - h.x1) as [number, number, number];
+    expect(b).toBeCloseTo(a);
+    expect(c).toBeCloseTo(a);
+    // The mark is inside that second hop, where 35¢ of its 50¢ so far falls (10 of its 25).
+    const second = l.hops[1] as { x1: number; x2: number };
+    expect(l.paidX).toBeGreaterThan(second.x1);
+    expect(l.paidX).toBeLessThan(second.x2);
+    expect(l.paidX).toBeCloseTo(second.x1 + (10 / 25) * (second.x2 - second.x1));
+    // 99¢ paid with $1.00 and two bills: both bills hop alike, the mark inside the first.
+    const two = countUpLayout(99, 100, ['dollar', 'dollar']);
+    const [first, next] = two.hops as unknown as [
+      { x1: number; x2: number },
+      { x1: number; x2: number },
+    ];
+    expect(first.x2 - first.x1).toBeCloseTo(next.x2 - next.x1);
+    expect(two.paidX).toBeGreaterThan(first.x1);
+    expect(two.paidX).toBeLessThan(first.x2);
+    // A dime past a penny and nickels: the passed hop is still a dime's width.
+    const m = countUpLayout(88, 100, ['dime', 'dime', 'dime']);
+    const widths = m.hops.map((h) => h.x2 - h.x1);
+    expect(widths[1]).toBeCloseTo(widths[0] as number);
+    expect(widths[2]).toBeCloseTo(widths[0] as number);
   });
 
   it('99¢ paid with $1.00: a penny, then two bills too many (PR #101 review 2)', () => {

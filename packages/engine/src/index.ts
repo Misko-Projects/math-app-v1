@@ -90,6 +90,7 @@ export {
   AMPM_SCENES,
   type AmPmScene,
   type ClockReadState,
+  isAmPmScene,
   isDaylight,
   isHourPick,
   readChoiceIds,
@@ -103,7 +104,12 @@ export {
   runningTotal,
   shownPieces,
 } from './formats/coin-count';
-export { type CoinPayState, payTrayCapacity, trayOf } from './formats/coin-pay';
+export {
+  type CoinPayState,
+  payTrayCapacity,
+  trayAnswers,
+  trayOf,
+} from './formats/coin-pay';
 export {
   CL_END_MAX,
   CL_LENGTH_MAX,

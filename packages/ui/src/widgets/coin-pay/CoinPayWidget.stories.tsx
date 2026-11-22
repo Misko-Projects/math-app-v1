@@ -951,3 +951,83 @@ export const FullTrayShort: Story = {
     await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
   },
 };
+
+/**
+ * A full tray that is the amount but not the answer (PR #101 review 3): 60¢ with the fewest
+ * coins, and twelve nickels in the tray where six dimes would do. Check would be wrong and the
+ * purse is off, so the child is told the same way: the note, the spoken line, the cue on the last
+ * coin. A nickel taken back clears them; six dimes are the answer and say nothing.
+ */
+export const FullTrayNotFewest: Story = {
+  parameters: { ui: { audio: spyAudio() } },
+  args: {
+    config: {
+      format: 'coin-pay',
+      target: 60,
+      purse: { dime: 6, nickel: 12 },
+      requireFewest: true,
+      mode: 'pay',
+      showRunningTotal: true,
+    },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < TRAY_PIECES_MAX; i++) await tapPlace(root, 'nickel');
+    await expect(drawnCents(root)).toBe(60);
+    const note = root.querySelector('.ni-money__note') as HTMLElement;
+    await expect(note).toHaveTextContent('The tray is full. Take a coin back.');
+    await expect(
+      audio.say.mock.calls.filter(([key]: unknown[]) => key === 'ui.money.tray-full'),
+    ).toHaveLength(1);
+    await expect(pileTop(root, 'nickel')).toHaveClass('ni-invite');
+    await expectOneInvite(root);
+    await expectFitsArea(canvasElement, root);
+    // A nickel back: the note and the cue go.
+    await userEvent.click(pileTop(root, 'nickel') as HTMLElement);
+    await userEvent.click(pursePad(root));
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    // The fewest coins: all the nickels back, six dimes. Nothing to tell; check sends them.
+    for (let i = 0; i < TRAY_PIECES_MAX - 1; i++) {
+      await userEvent.click(pileTop(root, 'nickel') as HTMLElement);
+      await userEvent.click(pursePad(root));
+    }
+    for (let i = 0; i < 6; i++) await tapPlace(root, 'dime');
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { coins: { penny: 0, nickel: 0, dime: 6, quarter: 0 } },
+    });
+  },
+};
+
+/**
+ * A full new-way tray that repeats a way already found (PR #101 review 3): 25¢, five nickels
+ * found already, and five nickels in the tray again. The same note and cue.
+ */
+export const FullTrayFoundAlready: Story = {
+  args: {
+    config: {
+      ...newWay,
+      target: 25,
+      purse: { quarter: 1, dime: 2, nickel: 5 },
+      found: ['q0d0n5p0'],
+    },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < TRAY_NARROW_PIECES_MAX; i++) await tapPlace(root, 'nickel');
+    await expect(drawnCents(root)).toBe(25);
+    await expect(root.querySelector('.ni-money__note')).toHaveTextContent(
+      'The tray is full. Take a coin back.',
+    );
+    await expect(pileTop(root, 'nickel')).toHaveClass('ni-invite');
+    await expectOneInvite(root);
+    await expectFitsArea(canvasElement, root);
+  },
+};
