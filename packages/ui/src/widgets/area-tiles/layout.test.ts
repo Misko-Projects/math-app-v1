@@ -186,6 +186,49 @@ describe('area-tiles geometry', () => {
       [0, 1],
       [1, 1],
     ]);
+    // A stroke that ends exactly on a grid corner lays its tiles on the way there and on the
+    // corner's own square, never on the square across the corner.
+    expect(cellsBetween(rect(2, 2), { x: 20, y: 60 }, { x: 40, y: 40 }, 40)).toEqual([
+      [1, 0],
+      [1, 1],
+    ]);
+    // A slanted stroke that ends exactly on a grid corner ends on the square of that corner
+    // (the one down and right of it), as the finger's own square is read.
+    expect(cellsBetween(rect(3, 3), { x: 20, y: 20 }, { x: 80, y: 80 }, 40).at(-1)).toEqual([2, 2]);
+    expect(cellsBetween(rect(3, 3), { x: 100, y: 100 }, { x: 40, y: 40 }, 40).at(-1)).toEqual([
+      1, 1,
+    ]);
+    // Every stroke from a square's inside to a grid corner or a point on a grid line, on a
+    // 10 × 6 board and with awkward cell sizes: it ends on the end point's own square, and the
+    // squares on the way are joined edge to edge.
+    for (const cell of [40, 47, 53.5]) {
+      const board = rect(10, 6);
+      const ends: { x: number; y: number }[] = [];
+      for (let gr = 0; gr < 6; gr += 1) {
+        for (let gc = 0; gc < 10; gc += 1) {
+          ends.push({ x: gc * cell, y: gr * cell });
+          ends.push({ x: gc * cell, y: (gr + 0.3) * cell });
+          ends.push({ x: (gc + 0.7) * cell, y: gr * cell });
+        }
+      }
+      for (const from of [
+        { x: 0.31 * cell, y: 0.77 * cell },
+        { x: 9.5 * cell, y: 5.5 * cell },
+        { x: 4.2 * cell, y: 2.9 * cell },
+      ]) {
+        for (const to of ends) {
+          const path = cellsBetween(board, from, to, cell);
+          const what = `${cell}: ${from.x},${from.y} to ${to.x},${to.y}`;
+          expect(path[0], what).toEqual([Math.floor(from.y / cell), Math.floor(from.x / cell)]);
+          expect(path.at(-1), what).toEqual([Math.floor(to.y / cell), Math.floor(to.x / cell)]);
+          for (let k = 1; k < path.length; k += 1) {
+            const [pr, pc] = path[k - 1] as [number, number];
+            const [qr, qc] = path[k] as [number, number];
+            expect(Math.abs(pr - qr) + Math.abs(pc - qc), what).toBe(1);
+          }
+        }
+      }
+    }
     // Every stroke between two square centres of a 10 × 6 board: the squares found are joined
     // edge to edge (none skipped), start at the first and end at the last.
     const board = rect(10, 6);

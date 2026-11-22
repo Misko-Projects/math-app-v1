@@ -274,7 +274,7 @@ export function arrowToward(
  * The region squares a finger crosses between two points (px from the first square's corner),
  * in order. The straight path is walked from grid line to grid line, so every square it enters is
  * found, however fast or slanted the stroke (a path through a corner takes one of the two
- * squares beside it).
+ * squares beside it). It always starts on the first point's square and ends on the last's.
  */
 export function cellsBetween(
   region: Region,
@@ -305,7 +305,10 @@ export function cellsBetween(
   // Each step crosses one grid line: at most the squares between the two ends, both ways.
   const most = Math.abs(endC - c) + Math.abs(endR - r);
   for (let k = 0; k < most && (c !== endC || r !== endR); k += 1) {
-    if (nextC < nextR) {
+    // A side that has reached the end's square never steps again, so the walk always ends on
+    // the square under the finger (also when the path ends on a grid line or a corner, where
+    // rounding could otherwise send it one square past).
+    if (r === endR || (c !== endC && nextC < nextR)) {
       c += stepC;
       nextC += perC;
     } else {
