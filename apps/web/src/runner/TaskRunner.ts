@@ -256,7 +256,11 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       if (attemptNo === 1) session.recordItem();
       // The widget stays mounted for the second try, so the trace (and often the answer) of the
       // first try is still there. One slip is one hit: a misconception is logged once per item.
-      const process = engine.detectProcessMisconceptions(item, r, { ...meta, latencyMs });
+      // The process detectors read the item's whole trace, which on a second try holds both
+      // tries (counting again after "let's count again" would read as a recount), so they judge
+      // the first try only.
+      const process =
+        attemptNo === 1 ? engine.detectProcessMisconceptions(item, r, { ...meta, latencyMs }) : [];
       const matched = [...new Set([...checked.misconceptionIds, ...process])];
       const result: CheckResult = {
         ...checked,

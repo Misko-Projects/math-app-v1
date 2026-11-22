@@ -11,6 +11,7 @@ import {
   defaultChildSettings,
   type EventPayloads,
   type GeneratedItem,
+  type InteractionEvent,
   type PlannedRequest,
   type PlannedTask,
   type ResponseValue,
@@ -329,6 +330,58 @@ describe('TaskRunner', () => {
     ]);
     const hits = (await store.skillStates(CHILD_K))?.skills['CNT.02']?.misconceptionHits ?? [];
     expect(hits.map((h) => h.id)).toEqual(['MC.off-by-one-counting']);
+  });
+
+  it('counting again on the second try is not logged as a recount', async () => {
+    const store = await openStore();
+    const graph = fixtureContent().graph;
+    const { engine: spied, last } = spiedEngine();
+    const { session } = fakeSession();
+    const start = (nonce: number) =>
+      createTaskRunner({
+        engine: spied,
+        store,
+        graph,
+        child,
+        session,
+        request: browseRequest(graph, { skillId: 'CNT.03', templateId: 'CNT.03.t1' }, nonce),
+        hosts: pierPlayable,
+      });
+    const tap = (i: number, ms: number): InteractionEvent => ({ t: 'tap', target: `obj-${i}`, ms });
+    const countOf = () => {
+      const right = engine.itemExampleCorrect(last());
+      return right.kind === 'number' ? right.value : 0;
+    };
+    const pass = (n: number, from: number) => Array.from({ length: n }, (_, i) => tap(i, from + i));
+
+    // The child counts every object once, answers two too many, then counts again as the retry
+    // line asks ("Let's count again. Touch each one once.") and answers right.
+    let runner = await start(3);
+    let n = countOf();
+    expect(n).toBeGreaterThanOrEqual(2);
+    const first = await runner.submit(
+      { kind: 'number', value: n + 2 },
+      { latencyMs: 5000, trace: pass(n, 0) },
+    );
+    expect(first).toMatchObject({ correct: false, retry: true, misconceptionIds: [] });
+    runner.next();
+    const second = await runner.submit(
+      { kind: 'number', value: n },
+      { latencyMs: 5000, trace: [...pass(n, 0), ...pass(n, 100)] },
+    );
+    expect(second).toMatchObject({ correct: true, misconceptionIds: [] });
+    expect((await store.skillStates(CHILD_K))?.skills['CNT.03']?.misconceptionHits ?? []).toEqual(
+      [],
+    );
+
+    // The same two passes before a first answer are a recount, and are logged (the rule is live).
+    runner = await start(4);
+    n = countOf();
+    const recount = await runner.submit(
+      { kind: 'number', value: n },
+      { latencyMs: 5000, trace: [...pass(n, 0), ...pass(n, 100)] },
+    );
+    expect(recount.misconceptionIds).toEqual(['MC.recount-from-one']);
   });
 
   it('finishing while an answer is being written counts that attempt', async () => {
