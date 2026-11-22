@@ -120,7 +120,7 @@ describe('base-ten-trade', () => {
 });
 
 describe('equal-groups', () => {
-  it('builds MUL.11 groups of 30 (4 × 30)', () => {
+  it('refuses groups of tens (MUL.11): a container holds ten at most', () => {
     const c: WidgetConfigOf<'equal-groups'> = {
       format: 'equal-groups',
       groups: 4,
@@ -131,14 +131,15 @@ describe('equal-groups', () => {
       sprite: 'shell',
       maxGroups: 6,
     };
-    expect(issuePaths(equalGroups, c)).toEqual([]);
+    expect(issuePaths(equalGroups, c)).toEqual(['perGroup']);
+    // The model holds the same line: a container never takes more than ten.
     const r = equalGroups.toResponse(
-      play(equalGroups, c, [
+      play(equalGroups, { ...c, perGroup: 10 }, [
         ...[0, 1, 2, 3].map((i) => act('fill-group', { index: i, count: 30 })),
-        act('answer', { value: 120 }),
+        act('answer', { value: 40 }),
       ]),
     );
-    expect(pass('groups.equal', { groups: 4, perGroup: 30, value: 120 }, r)).toBe(true);
+    expect(pass('groups.equal', { groups: 4, perGroup: 10, value: 40 }, r)).toBe(true);
   });
 });
 

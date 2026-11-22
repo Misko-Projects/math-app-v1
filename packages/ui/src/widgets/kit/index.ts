@@ -102,6 +102,18 @@ export {
   WholeBase,
   WholeOutline,
 } from './FractionView';
+export {
+  balancedRows,
+  fiveGap,
+  fivesCell,
+  fivesGrid,
+  type Grid,
+  ITEM_DRAW_SCALE,
+  itemGap,
+  MIN_ITEM_PX,
+  zoneCell,
+  zoneGrid,
+} from './fives';
 export { FLY_MS, useFlight } from './flight';
 export {
   boxCutPaths,
@@ -128,6 +140,7 @@ export {
   gaugeTicks,
   levelY,
 } from './GaugeView';
+export { useGrabUnderFinger } from './grab';
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
@@ -171,6 +184,7 @@ export {
   NumberEntry,
   type NumberEntryProps,
   nextPadKey,
+  padParts,
   TRAY_MAX,
 } from './NumberEntry';
 export {
@@ -233,3 +247,29 @@ export {
   spriteNameKey,
 } from './sprites';
 export { STIMULUS_KINDS, type StimulusKind, stimulusDrawn } from './stimulusKinds';
+export {
+  ACT_GAP_X,
+  ACT_GAP_Y,
+  type AskArrangement,
+  AskEntry,
+  type AskEntryProps,
+  type AskInput,
+  type AskPlan,
+  AskStep,
+  type AskStepProps,
+  actionsSize,
+  buildRoom,
+  COMPACT_ROOM_H,
+  planAsk,
+  roomBox,
+  STEP_GAP,
+  STEPPER_MAX,
+  type Step,
+  StepActions,
+  type StepActionsProps,
+  type StepCue,
+  stepperSize,
+  type TwoStep,
+  UNBOUNDED_H,
+  useTwoStep,
+} from './twoStep';

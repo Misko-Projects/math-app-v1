@@ -515,6 +515,8 @@ place
 places
 plank
 planks
+plate
+plates
 play
 played
 playing
