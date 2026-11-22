@@ -14,19 +14,23 @@ import {
   type CoinKind,
   MONEY_CENTS_MAX,
   PURSE_COUNT_MAX,
+  PURSE_NARROW_UNITS_MAX,
+  PURSE_NO_LINE_UNITS_MAX,
   stimulusSpecSchema,
+  TRAY_NARROW_PIECES_MAX,
   TRAY_PIECES_MAX,
   type WidgetAction,
   type WidgetConfigOf,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { stateChecker } from '../check/state';
-import { clockRead } from './clock-read';
+import { clockRead, isDaylight } from './clock-read';
 import { clockSet } from './clock-set';
 import { coinCount, MAX_COMPARE_SLOTS, MAX_COUNT_CENTS } from './coin-count';
-import { coinPay, MAX_TRAY_PIECES } from './coin-pay';
-import { makeChange } from './make-change';
-import { fewestPieces, trayPieces, waysToPay } from './money';
+import { coinPay, MAX_TRAY_PIECES, payTrayCapacity } from './coin-pay';
+import { changeTrayCapacity, makeChange } from './make-change';
+import { fewestPieces, purseUnits, trayPieces, waysToPay } from './money';
+import { misplacedTimeMoneyPictures } from './pictures';
 import type { FormatModel } from './types';
 
 // biome-ignore lint/suspicious/noExplicitAny: the helpers take models of different formats.
@@ -153,6 +157,44 @@ describe('clock-set bounds', () => {
   });
 });
 
+describe('clock-set: every op answers a time the hands can show (PR #101 review 1)', () => {
+  it.each([60, 30, 15, 5] as const)(
+    'the generic answer op refuses a minute off the %i-minute grid',
+    (precision) => {
+      const c = { ...set, precision, target: { h: 3, m: 0 }, start: { h: 12, m: 0 } };
+      const start = clockSet.initialState(c);
+      for (const args of [{ h: 3, m: 7 }, { values: [3, 7] }, { h: 3, m: 59 }]) {
+        const s = clockSet.apply(start, act('answer', args));
+        // Nothing moves and nothing is answered.
+        expect(s.t).toBe(start.t);
+        expect(clockSet.toResponse(s)).toBeNull();
+      }
+      const on = clockSet.apply(start, act('answer', { h: 3, m: 0 }));
+      expect(clockSet.toResponse(on)).toEqual({ kind: 'state', value: { h: 3, m: 0 } });
+    },
+  );
+
+  it('whatever ops are replayed, the response minute is on the precision grid', () => {
+    for (const precision of [60, 30, 15, 5, 1] as const) {
+      const c = { ...set, precision, target: { h: 3, m: 0 }, start: { h: 12, m: 0 } };
+      let s = clockSet.initialState(c);
+      const ops = [
+        act('answer', { h: 4, m: 13 }),
+        act('drag-minute', { to: 22.4 }),
+        act('answer', { values: [9, 41] }),
+        act('drag-hour', { to: 7 }),
+        act('answer', { h: 23, m: 1 }),
+        act('drag-minute', { to: 58, dir: 'ccw' }),
+      ];
+      for (const op of ops) {
+        s = clockSet.apply(s, op);
+        const r = clockSet.toResponse(s);
+        if (r?.kind === 'state') expect((r.value as { m: number }).m % precision).toBe(0);
+      }
+    }
+  });
+});
+
 describe('clock-read bounds', () => {
   it('accepts the base config', () => ok(clockRead, read));
 
@@ -189,6 +231,79 @@ describe('clock-read bounds', () => {
     ok(clockRead, withLabel('x'.repeat(CLOCK_READ_LABEL_MAX)));
     refused(clockRead, withLabel(''), 'options.0.label');
     refused(clockRead, withLabel('x'.repeat(CLOCK_READ_LABEL_MAX + 1)), 'options.0.label');
+  });
+});
+
+describe('clock-read a.m. / p.m.: the sky tells the two times of day apart (PR #101 review 1)', () => {
+  const ampm = (h: number, isPm: boolean) => ({
+    ...read,
+    time: { h, m: 0 },
+    input: 'pick' as const,
+    ampm: { scene: 'beach', isPm },
+  });
+
+  it('for every face time, one of its two times of day is in daylight and the other in the dark', () => {
+    for (let h = 0; h < 12; h++) expect(isDaylight(h)).not.toBe(isDaylight(h + 12));
+    expect(isDaylight(7)).toBe(true);
+    expect(isDaylight(19)).toBe(false);
+    expect(isDaylight(12)).toBe(true);
+    expect(isDaylight(0)).toBe(false);
+  });
+
+  it('isPm goes with the time of day, so the sky drawn is the clue for the answer', () => {
+    ok(clockRead, ampm(7, false));
+    ok(clockRead, ampm(19, true));
+    ok(clockRead, ampm(0, false));
+    ok(clockRead, ampm(12, true));
+    refused(clockRead, ampm(7, true), 'ampm.isPm');
+    refused(clockRead, ampm(19, false), 'ampm.isPm');
+  });
+});
+
+describe('clock and coins pictures sit only where a layout gives them their own box (PR #101 review 1)', () => {
+  const clock = { kind: 'clock', h: 3, m: 0, numerals: true };
+  const coins = { kind: 'coins', coins: ['penny', 'dime'] };
+
+  it("a format's own picture is the one place", () => {
+    expect(
+      misplacedTimeMoneyPictures({ widget: { format: 'number-pad', stimulus: clock } }),
+    ).toEqual([]);
+    expect(
+      misplacedTimeMoneyPictures({ widget: { format: 'number-pad', stimulus: coins } }),
+    ).toEqual([]);
+  });
+
+  it('a choice card, a compare side, an order card and a hint overlay are reported with their paths', () => {
+    expect(
+      misplacedTimeMoneyPictures({
+        widget: {
+          format: 'numeral-pick',
+          options: [
+            { id: 'a', stimulus: clock },
+            { id: 'b', stimulus: clock },
+          ],
+        },
+      }),
+    ).toEqual(['widget.options.0.stimulus', 'widget.options.1.stimulus']);
+    expect(
+      misplacedTimeMoneyPictures({
+        widget: { format: 'compare', left: coins, right: coins, ask: 'more' },
+      }),
+    ).toEqual(['widget.left', 'widget.right']);
+    expect(
+      misplacedTimeMoneyPictures({
+        widget: { format: 'order', items: [{ id: 'a', stimulus: clock }] },
+      }),
+    ).toEqual(['widget.items.0.stimulus']);
+    expect(
+      misplacedTimeMoneyPictures({ widget: { format: 'number-pad' }, hints: [{ overlay: coins }] }),
+    ).toEqual(['hints.0.overlay']);
+  });
+
+  it('the clock and coin formats, which draw their own clock and coins, carry no such picture', () => {
+    expect(misplacedTimeMoneyPictures({ widget: set })).toEqual([]);
+    expect(misplacedTimeMoneyPictures({ widget: count })).toEqual([]);
+    expect(misplacedTimeMoneyPictures({ widget: { ...read, time: { h: 3, m: 0 } } })).toEqual([]);
   });
 });
 
@@ -264,6 +379,21 @@ describe('coin-pay bounds', () => {
     ).toContain(`the tray holds ${TRAY_PIECES_MAX}`);
   });
 
+  it(`a new-way purse is one row: at most ${PURSE_NARROW_UNITS_MAX} stack units (the bill is 2)`, () => {
+    const c = { ...pay, target: 130, mode: 'new-way' as const };
+    expect(purseUnits({ dollar: 1, quarter: 2, dime: 3 })).toBe(4);
+    expect(purseUnits({ dollar: 1, quarter: 2, dime: 3, nickel: 0 })).toBe(4);
+    ok(coinPay, { ...c, purse: { dollar: 1, quarter: 2, dime: 3 } });
+    ok(coinPay, { ...c, target: 40, purse: { quarter: 1, dime: 3, nickel: 6, penny: 5 } });
+    refused(coinPay, { ...c, purse: { dollar: 1, quarter: 2, dime: 3, nickel: 2 } }, 'purse');
+    // Paying (no list of ways beside the purse) has the room for the bill and all four coins.
+    ok(coinPay, {
+      ...c,
+      mode: 'pay',
+      purse: { dollar: 1, quarter: 2, dime: 3, nickel: 2, penny: 5 },
+    });
+  });
+
   it('the tray never holds more than its bound, by drops or by an answer', () => {
     expect(MAX_TRAY_PIECES).toBe(TRAY_PIECES_MAX);
     const c = { ...pay, target: TRAY_PIECES_MAX, purse: { penny: 'unlimited' as const } };
@@ -304,15 +434,16 @@ describe('coin-pay bounds', () => {
       mode: 'new-way' as const,
       purse: { quarter: 1, dime: 3, nickel: 6, penny: 5 },
     };
-    // Six nickels is the longest way a list shows; five nickels and five pennies is too long.
-    ok(coinPay, { ...c, found: ['q0d0n6p0'] });
+    // A dime and four nickels is the longest way a list shows; six nickels is too long.
+    ok(coinPay, { ...c, found: ['q0d1n4p0'] });
+    refused(coinPay, { ...c, found: ['q0d0n6p0'] }, 'found.0');
     refused(coinPay, { ...c, found: ['q0d0n5p5'] }, 'found.0');
-    expect(issues(coinPay, { ...c, found: ['q0d0n5p5'] }).join(' ')).toContain(
-      `at most ${COIN_FOUND_WAY_PIECES_MAX} pieces`,
-    );
+    expect(COIN_FOUND_WAY_PIECES_MAX).toBeLessThanOrEqual(TRAY_NARROW_PIECES_MAX);
   });
 
-  it('new-way refuses an item whose only ways left do not fit the tray', () => {
+  it(`a new-way tray holds ${TRAY_NARROW_PIECES_MAX} pieces (one row beside the ways found)`, () => {
+    expect(payTrayCapacity({ mode: 'new-way' })).toBe(TRAY_NARROW_PIECES_MAX);
+    expect(payTrayCapacity({ mode: 'pay' })).toBe(TRAY_PIECES_MAX);
     // 20¢ from dimes and pennies: 2 dimes, a dime and 10 pennies (11 pieces), or 20 pennies.
     const c = {
       ...pay,
@@ -320,8 +451,22 @@ describe('coin-pay bounds', () => {
       mode: 'new-way' as const,
       purse: { dime: 2, penny: 'unlimited' as const },
     };
-    ok(coinPay, { ...c, found: ['q0d2n0p0'] });
-    refused(coinPay, { ...c, found: ['q0d2n0p0', 'q0d1n0p10'] }, 'found');
+    ok(coinPay, c);
+    // Once the two dimes are found, every way left is too long for the tray.
+    refused(coinPay, { ...c, found: ['q0d2n0p0'] }, 'found');
+    // An amount whose shortest way is too long is refused outright.
+    refused(
+      coinPay,
+      { ...c, target: TRAY_NARROW_PIECES_MAX + 1, purse: { penny: 'unlimited' } },
+      'purse',
+    );
+    ok(coinPay, { ...c, target: TRAY_NARROW_PIECES_MAX, purse: { penny: 'unlimited' } });
+    // Drops stop at the tray's size.
+    let st = coinPay.initialState({ ...c, target: 6, purse: { penny: 'unlimited' } });
+    for (let i = 0; i < 9; i++) st = coinPay.apply(st, act('drop', { coin: 'penny' }));
+    expect(st.order).toHaveLength(TRAY_NARROW_PIECES_MAX);
+    const before = coinPay.initialState({ ...c, target: 6, purse: { penny: 'unlimited' } });
+    expect(coinPay.apply(before, act('answer', { coins: { penny: 7 } })).order).toEqual([]);
   });
 
   it('every way listed for a small tray fits it, however many the purse has', () => {
@@ -402,30 +547,58 @@ describe('make-change bounds', () => {
     refused(makeChange, { ...change, paid: MONEY_CENTS_MAX + 1 }, 'paid');
   });
 
-  it(`refuses change the tray's ${TRAY_PIECES_MAX} pieces (one hop each) cannot make`, () => {
+  it(`refuses change the tray cannot make: ${TRAY_NARROW_PIECES_MAX} pieces (one hop each) beside the line, ${TRAY_PIECES_MAX} without it`, () => {
+    expect(changeTrayCapacity({ countUpLine: true })).toBe(TRAY_NARROW_PIECES_MAX);
+    expect(changeTrayCapacity({ countUpLine: false })).toBe(TRAY_PIECES_MAX);
     const pennies = { penny: 'unlimited' as const };
-    ok(makeChange, { ...change, price: 100 - TRAY_PIECES_MAX, paid: 100, purse: pennies });
-    refused(
-      makeChange,
-      { ...change, price: 100 - TRAY_PIECES_MAX - 1, paid: 100, purse: pennies },
-      'purse',
-    );
+    for (const [countUpLine, cap] of [
+      [true, TRAY_NARROW_PIECES_MAX],
+      [false, TRAY_PIECES_MAX],
+    ] as const) {
+      ok(makeChange, { ...change, countUpLine, price: 100 - cap, paid: 100, purse: pennies });
+      refused(
+        makeChange,
+        { ...change, countUpLine, price: 100 - cap - 1, paid: 100, purse: pennies },
+        'purse',
+      );
+    }
     refused(makeChange, { ...change, purse: { dime: 'unlimited' } }, 'purse');
     refused(makeChange, { ...change, purse: {} }, 'purse');
   });
 
+  it(`with the count-up line the purse is at most ${PURSE_NARROW_UNITS_MAX} stack units (the bill is 2), without it ${PURSE_NO_LINE_UNITS_MAX}`, () => {
+    const bills = { ...change, price: 85, paid: 200 };
+    ok(makeChange, { ...bills, purse: { dollar: 2, dime: 'unlimited', nickel: 'unlimited' } });
+    ok(makeChange, { ...change, purse: { quarter: 12, dime: 12, nickel: 12, penny: 12 } });
+    const billAndThree = { dollar: 2, quarter: 12, dime: 12, nickel: 12 };
+    refused(makeChange, { ...bills, purse: billAndThree }, 'purse');
+    ok(makeChange, { ...bills, countUpLine: false, purse: billAndThree });
+    const everything = { dollar: 12, quarter: 12, dime: 12, nickel: 12, penny: 12 };
+    refused(makeChange, { ...change, price: 75, purse: everything }, 'purse');
+    refused(makeChange, { ...change, price: 75, countUpLine: false, purse: everything }, 'purse');
+  });
+
   it('the count-up never takes more hops than the tray holds', () => {
-    const c = {
-      ...change,
-      price: 100 - TRAY_PIECES_MAX,
-      paid: 100,
-      purse: { penny: 'unlimited' as const },
-    };
-    let s = makeChange.initialState(c);
-    for (let i = 1; i <= TRAY_PIECES_MAX + 4; i++) {
-      s = makeChange.apply(s, act('count-up', { to: c.price + Math.min(i, TRAY_PIECES_MAX + 4) }));
+    for (const countUpLine of [true, false]) {
+      const cap = changeTrayCapacity({ countUpLine });
+      const c = {
+        ...change,
+        countUpLine,
+        price: 100 - cap,
+        paid: 100,
+        purse: { penny: 'unlimited' as const },
+      };
+      let s = makeChange.initialState(c);
+      for (let i = 1; i <= cap + 4; i++)
+        s = makeChange.apply(s, act('count-up', { to: c.price + i }));
+      expect(s.order).toHaveLength(cap);
+      expect(s.counted).toBe(100);
+      // A drop into the full tray does nothing; one back makes room again.
+      s = makeChange.apply(s, act('drop', { coin: 'penny' }));
+      expect(s.order).toHaveLength(cap);
+      s = makeChange.apply(s, act('drop', { coin: 'penny', to: 'purse' }));
+      s = makeChange.apply(s, act('drop', { coin: 'penny' }));
+      expect(s.order).toHaveLength(cap);
     }
-    expect(s.order).toHaveLength(TRAY_PIECES_MAX);
-    expect(s.counted).toBe(100);
   });
 });

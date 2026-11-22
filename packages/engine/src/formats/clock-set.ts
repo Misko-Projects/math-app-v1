@@ -10,7 +10,7 @@
 // minutes (the long hand goes round with it), so `drag-minute {to: m}` then `drag-hour {to: h}`
 // sets h:m from anywhere. `count-fives {from, to}` (count the long hand's steps by five) and
 // `highlight-hand {hand}` are visual. The generic `answer {h, m}` (or `{values: [h, m]}`) sets the
-// time directly.
+// time directly, when its minute is one the long hand snaps to (else it does nothing).
 
 import { type AnswerSpec, clockSetConfigSchema, type WidgetConfigOf } from '@number-island/shared';
 import {
@@ -146,7 +146,10 @@ export const clockSet: FormatModel<'clock-set', ClockSetState> = {
         const h = vs?.[0] ?? argNumber(a, 'h');
         const m = vs?.[1] ?? argNumber(a, 'm');
         const f = h === undefined || m === undefined ? null : faceMinutes(h, m);
-        return f === null ? s : { ...s, t: f, moved: true };
+        // Only a time the hands can show: a minute off the `precision` grid is not an answer
+        // (the response is always a snapped time, whichever op set it).
+        if (f === null || (f % 60) % s.config.precision !== 0) return s;
+        return { ...s, t: f, moved: true };
       }
       default:
         throw new UnsupportedOpError('clock-set', a.op);

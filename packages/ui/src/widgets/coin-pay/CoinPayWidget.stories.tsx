@@ -1,6 +1,7 @@
 import {
   COIN_FOUND_MAX,
   COIN_FOUND_WAY_PIECES_MAX,
+  TRAY_NARROW_PIECES_MAX,
   TRAY_PIECES_MAX,
   type WidgetConfig,
 } from '@number-island/shared';
@@ -400,6 +401,20 @@ async function expectTrayEnclosesPieces(root: HTMLElement) {
   }
 }
 
+/** The purse's stacks sit in one row, inside the purse. */
+async function expectPurseOneRow(root: HTMLElement) {
+  const stacks = [...root.querySelectorAll<HTMLElement>('[data-zone="purse"] .ni-money__stack')];
+  await expect(stacks.length).toBeGreaterThan(0);
+  const bottoms = stacks.map((el) => el.getBoundingClientRect().bottom);
+  await expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(24);
+  const zone = (root.querySelector('[data-zone="purse"]') as HTMLElement).getBoundingClientRect();
+  for (const el of stacks) {
+    const r = el.getBoundingClientRect();
+    await expect(r.left).toBeGreaterThanOrEqual(zone.left);
+    await expect(r.right).toBeLessThanOrEqual(zone.right);
+  }
+}
+
 /** In a pile every piece shows: each one is offset from the one before by at least `min` px. */
 async function expectPilesReadable(root: HTMLElement, min = 16) {
   for (const pile of root.querySelectorAll<HTMLElement>('[data-zone="tray"] .ni-money__pile')) {
@@ -417,8 +432,6 @@ async function expectPilesReadable(root: HTMLElement, min = 16) {
  * purse dims and takes no more until a penny comes back, and then it does again.
  */
 export const TrayFull: Story = {
-  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
-  tags: ['!visual'],
   args: { config: pennies },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -495,8 +508,6 @@ export const TakeBack: Story = {
  * 5 piles) in the smallest area.
  */
 export const PlaceOverAPile: Story = {
-  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
-  tags: ['!visual'],
   args: { config: { ...stressPurse(), purse: { ...stressPurse().purse, penny: 3 } } },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
@@ -650,7 +661,7 @@ export const FoundMaxLandscapeMin: Story = {
     config: {
       ...newWay,
       purse: { quarter: 1, dime: 3, nickel: 6, penny: 5 },
-      found: ['q0d0n6p0', 'q0d1n4p0', 'q0d2n2p0', 'q0d3n0p0'].slice(0, COIN_FOUND_MAX),
+      found: ['q0d1n4p0', 'q0d2n2p0', 'q0d3n0p0'].slice(0, COIN_FOUND_MAX),
     },
   },
   render: inArea('landscapeMin'),
@@ -666,12 +677,7 @@ export const FoundMaxLandscapeMin: Story = {
         await expect(r.right).toBeLessThanOrEqual(list.right + 0.5);
       }
     }
-    await expect(ways.map((li) => li.children.length)).toEqual([
-      COIN_FOUND_WAY_PIECES_MAX,
-      5,
-      4,
-      3,
-    ]);
+    await expect(ways.map((li) => li.children.length)).toEqual([COIN_FOUND_WAY_PIECES_MAX, 4, 3]);
     for (const k of ['quarter', 'nickel']) await tapPlace(root, k);
     await expectFitsArea(canvasElement, root);
   },
@@ -760,52 +766,132 @@ export const StressLandscapeMin: Story = {
   },
 };
 
+/** Some of `WORST_TRAYS`, each in its own smallest area. */
+const worstTraysRender = (cases: Record<string, number>[]) => (args: WidgetHostProps) => (
+  <div style={{ display: 'grid', gap: 16 }}>
+    {cases.map((tray, i) => {
+      const target = Object.entries(tray).reduce((a, [k, n]) => a + (CENTS[k] ?? 0) * n, 0);
+      const config = { ...stressPurse(), target, purse: tray } as WidgetConfig;
+      // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list of cases
+      return <div key={i}>{inArea('landscapeMin')({ ...args, config })}</div>;
+    })}
+  </div>
+);
+
 /**
- * The widest trays the bound allows, in the smallest area: for each, every piece is drawn inside
- * the tray's outline, every pile shows each of its pieces, the total is true, and nothing clips
- * or scrolls.
+ * For each tray: every piece is drawn inside the tray's outline, every pile shows each of its
+ * pieces, the total is true, the purse is one row, and nothing clips or scrolls.
  */
-export const WorstTraysLandscapeMin: Story = {
-  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
-  tags: ['!visual'],
-  args: { config: stressPurse() },
-  render: (args) => (
-    <div style={{ display: 'grid', gap: 16 }}>
-      {WORST_TRAYS.map((tray, i) => {
-        const target = Object.entries(tray).reduce((a, [k, n]) => a + (CENTS[k] ?? 0) * n, 0);
-        const config = { ...stressPurse(), target, purse: tray } as WidgetConfig;
-        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list of cases
-        return <div key={i}>{inArea('landscapeMin')({ ...args, config })}</div>;
-      })}
-    </div>
-  ),
-  play: async ({ canvasElement }) => {
-    const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
-    await expect(areas).toHaveLength(WORST_TRAYS.length);
-    for (const [i, area] of areas.entries()) {
-      const root = await waitFor(() => {
-        const el = area.querySelector<HTMLElement>(ROOT);
-        if (!el) throw new Error('no widget yet');
-        return el;
-      });
-      const tray = WORST_TRAYS[i] as Record<string, number>;
-      for (const [k, n] of Object.entries(tray)) {
-        for (let j = 0; j < n; j++) await tapPlace(root, k);
-      }
-      await expect(trayDrawn(root)).toEqual(tray);
-      await expectTotalTrue(root);
-      await expectTrayEnclosesPieces(root);
-      await expectPilesReadable(root);
-      await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
-      await expect(area.scrollHeight, `tray ${JSON.stringify(tray)}`).toBeLessThanOrEqual(
-        area.clientHeight + 1,
-      );
-      for (const el of root.querySelectorAll<HTMLElement>('.ni-money__top, .ni-btn')) {
-        const r = el.getBoundingClientRect();
-        const a = area.getBoundingClientRect();
-        await expect(r.bottom).toBeLessThanOrEqual(a.bottom);
-        await expect(r.right).toBeLessThanOrEqual(a.right);
-      }
+async function playWorstTrays(canvasElement: HTMLElement, cases: Record<string, number>[]) {
+  const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
+  await expect(areas).toHaveLength(cases.length);
+  for (const [i, area] of areas.entries()) {
+    const root = await waitFor(() => {
+      const el = area.querySelector<HTMLElement>(ROOT);
+      if (!el) throw new Error('no widget yet');
+      return el;
+    });
+    const tray = cases[i] as Record<string, number>;
+    for (const [k, n] of Object.entries(tray)) {
+      for (let j = 0; j < n; j++) await tapPlace(root, k);
     }
+    await expect(trayDrawn(root)).toEqual(tray);
+    await expectTotalTrue(root);
+    await expectTrayEnclosesPieces(root);
+    await expectPilesReadable(root);
+    await expectPurseOneRow(root);
+    await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+    await expect(area.scrollHeight, `tray ${JSON.stringify(tray)}`).toBeLessThanOrEqual(
+      area.clientHeight + 1,
+    );
+    for (const el of root.querySelectorAll<HTMLElement>('.ni-money__top, .ni-btn')) {
+      const r = el.getBoundingClientRect();
+      const a = area.getBoundingClientRect();
+      await expect(r.bottom).toBeLessThanOrEqual(a.bottom);
+      await expect(r.right).toBeLessThanOrEqual(a.right);
+    }
+  }
+}
+
+/**
+ * The widest trays the bound allows, in the smallest area (three short stories, so each settles
+ * quickly): the longest piles of one kind.
+ */
+export const WorstTraysLongPiles: Story = {
+  args: { config: stressPurse() },
+  render: worstTraysRender(WORST_TRAYS.slice(0, 2)),
+  play: async ({ canvasElement }) => {
+    await playWorstTrays(canvasElement, WORST_TRAYS.slice(0, 2));
+  },
+};
+
+/** The widest trays: five piles, and a long pile beside four others. */
+export const WorstTraysFivePiles: Story = {
+  args: { config: stressPurse() },
+  render: worstTraysRender(WORST_TRAYS.slice(2, 5)),
+  play: async ({ canvasElement }) => {
+    await playWorstTrays(canvasElement, WORST_TRAYS.slice(2, 5));
+  },
+};
+
+/** The widest trays: even piles of coins, and bills beside quarters. */
+export const WorstTraysEvenPiles: Story = {
+  args: { config: stressPurse() },
+  render: worstTraysRender(WORST_TRAYS.slice(5)),
+  play: async ({ canvasElement }) => {
+    await playWorstTrays(canvasElement, WORST_TRAYS.slice(5));
+  },
+};
+
+/** The same worst trays at the K target size (80 px): the purse of all five kinds is one row. */
+export const WorstTraysFivePilesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: stressPurse() },
+  render: worstTraysRender(WORST_TRAYS.slice(2, 4)),
+  play: async ({ canvasElement }) => {
+    await playWorstTrays(canvasElement, WORST_TRAYS.slice(2, 4));
+  },
+};
+
+/**
+ * The widest purse a new-way board takes (the ways found sit beside it), twelve of each kind, at
+ * both target sizes in the smallest area: the purse is one row and nothing scrolls with a full
+ * tray (five pieces on this board) under it (PR #101 review 1).
+ */
+const newWayWidest = (): ConfigFor<'coin-pay'> => ({
+  ...newWay,
+  target: 125,
+  purse: { dollar: 12, quarter: 12, dime: 12 },
+  found: ['b1q1d0n0p0'],
+});
+async function playNewWayWidest(canvasElement: HTMLElement) {
+  const root = await findWidget(canvasElement, ROOT);
+  await expectPurseOneRow(root);
+  // A full new-way tray (five pieces, one row): five quarters make $1.25, the way left.
+  for (const k of ['quarter', 'quarter', 'quarter', 'quarter', 'quarter']) await tapPlace(root, k);
+  await expect(root.querySelectorAll('[data-zone="tray"] [data-piece]')).toHaveLength(
+    TRAY_NARROW_PIECES_MAX,
+  );
+  await expect(root.querySelector('.ni-money')).toHaveAttribute('data-full', 'true');
+  await expectTotalTrue(root);
+  await expectTrayEnclosesPieces(root);
+  await expectPurseOneRow(root);
+  const area = canvasElement.querySelector('.story-widget-area') as HTMLElement;
+  await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+  await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
+}
+export const NewWayWidestPurseLandscapeMin: Story = {
+  args: { config: newWayWidest() },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    await playNewWayWidest(canvasElement);
+  },
+};
+export const NewWayWidestPurseLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: newWayWidest() },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    await playNewWayWidest(canvasElement);
   },
 };

@@ -14,6 +14,8 @@ import {
   COIN_FOUND_WAY_PIECES_MAX,
   coinPayConfigSchema,
   MONEY_CENTS_MAX,
+  PURSE_NARROW_UNITS_MAX,
+  TRAY_NARROW_PIECES_MAX,
   TRAY_PIECES_MAX,
   type WidgetConfigOf,
 } from '@number-island/shared';
@@ -28,6 +30,7 @@ import {
   parseTrayKey,
   purseKinds,
   purseLimit,
+  purseUnits,
   readTray,
   type Tray,
   trayCents,
@@ -54,6 +57,16 @@ export const MAX_PAY_CENTS = MONEY_CENTS_MAX;
  * and a config whose answer needs more is refused, so the tray never has to draw a pile it cannot.
  */
 export const MAX_TRAY_PIECES = TRAY_PIECES_MAX;
+
+/**
+ * The pieces this item's tray holds: `TRAY_NARROW_PIECES_MAX` on the narrow `new-way` board (the
+ * ways found sit beside the purse), else `TRAY_PIECES_MAX`.
+ */
+export const payTrayCapacity = (c: Pick<Config, 'mode'>): number =>
+  c.mode === 'new-way' ? TRAY_NARROW_PIECES_MAX : MAX_TRAY_PIECES;
+
+/** Why a narrow board refuses a wide purse (make-change; coin-pay `new-way`). */
+export const NARROW_PURSE_MESSAGE = `beside the count-up line or the ways found, the purse is one row: at most ${PURSE_NARROW_UNITS_MAX} coin kinds, the dollar bill counting as 2`;
 
 export interface CoinTrayState {
   /** The pieces in the tray, in the order they went in. */
@@ -83,6 +96,7 @@ export function dropPiece(
   coin: unknown,
   to: string | undefined,
   index: number | undefined,
+  capacity: number = MAX_TRAY_PIECES,
 ): PurseKind[] {
   if (!isPurseKind(coin)) return [...order];
   if (to === 'purse') {
@@ -93,14 +107,18 @@ export function dropPiece(
     return [...order.slice(0, at), ...order.slice(at + 1)];
   }
   const inTray = order.filter((k) => k === coin).length;
-  if (inTray >= purseLimit(purse, coin) || order.length >= MAX_TRAY_PIECES) return [...order];
+  if (inTray >= purseLimit(purse, coin) || order.length >= capacity) return [...order];
   return [...order, coin];
 }
 
 /** A tray from the generic `answer {coins}` op, in the purse's order, or null when it does not fit. */
-export function answerOrder(coins: unknown, purse: Purse): PurseKind[] | null {
+export function answerOrder(
+  coins: unknown,
+  purse: Purse,
+  capacity: number = MAX_TRAY_PIECES,
+): PurseKind[] | null {
   const tray = readTray(coins);
-  if (!tray || !trayFitsPurse(tray, purse) || trayPieces(tray) > MAX_TRAY_PIECES) return null;
+  if (!tray || !trayFitsPurse(tray, purse) || trayPieces(tray) > capacity) return null;
   return PIECES_BIG_FIRST.flatMap((k) => Array.from({ length: tray[k] ?? 0 }, () => k));
 }
 
@@ -111,7 +129,7 @@ export function responseTray(order: readonly PurseKind[], purse: Purse): Tray {
 
 /** Whether a tray answers the item (the checker's rule, used by the config's semantic check). */
 function answers(tray: Tray, c: Config, found: ReadonlySet<string>, fewest: number | null) {
-  if (found.has(trayKey(tray)) || trayPieces(tray) > MAX_TRAY_PIECES) return false;
+  if (found.has(trayKey(tray)) || trayPieces(tray) > payTrayCapacity(c)) return false;
   return !c.requireFewest || trayPieces(tray) === fewest;
 }
 
@@ -123,6 +141,9 @@ const configSchema = coinPayConfigSchema.superRefine((c, ctx) => {
   if (c.target < 1 || c.target > MAX_PAY_CENTS) {
     ctx.addIssue({ code: 'custom', path: ['target'], message: `pay 1–${MAX_PAY_CENTS}¢` });
     return;
+  }
+  if (c.mode === 'new-way' && purseUnits(c.purse) > PURSE_NARROW_UNITS_MAX) {
+    ctx.addIssue({ code: 'custom', path: ['purse'], message: NARROW_PURSE_MESSAGE });
   }
   if (c.mode !== 'new-way' && c.found !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['found'], message: 'found is for new-way only' });
@@ -136,11 +157,11 @@ const configSchema = coinPayConfigSchema.superRefine((c, ctx) => {
         path: ['found', i],
         message: `"${key}" is not a way to pay ${c.target}¢`,
       });
-    } else if (!trayFitsPurse(t, c.purse) || trayPieces(t) > MAX_TRAY_PIECES) {
+    } else if (!trayFitsPurse(t, c.purse) || trayPieces(t) > payTrayCapacity(c)) {
       ctx.addIssue({
         code: 'custom',
         path: ['found', i],
-        message: `"${key}" is not a way this purse and tray (${MAX_TRAY_PIECES} pieces) can pay`,
+        message: `"${key}" is not a way this purse and tray (${payTrayCapacity(c)} pieces) can pay`,
       });
     } else if (trayPieces(t) > COIN_FOUND_WAY_PIECES_MAX) {
       ctx.addIssue({
@@ -161,22 +182,24 @@ const configSchema = coinPayConfigSchema.superRefine((c, ctx) => {
     });
     return;
   }
-  if (fewest > MAX_TRAY_PIECES) {
+  if (fewest > payTrayCapacity(c)) {
     ctx.addIssue({
       code: 'custom',
       path: ['purse'],
-      message: `paying ${c.target}¢ takes ${fewest} pieces; the tray holds ${MAX_TRAY_PIECES}`,
+      message: `paying ${c.target}¢ takes ${fewest} pieces; the tray holds ${payTrayCapacity(c)}`,
     });
     return;
   }
   if (
     c.mode === 'new-way' &&
-    !waysToPay(c.target, c.purse, 5000, MAX_TRAY_PIECES).some((t) => answers(t, c, found, fewest))
+    !waysToPay(c.target, c.purse, 5000, payTrayCapacity(c)).some((t) =>
+      answers(t, c, found, fewest),
+    )
   ) {
     ctx.addIssue({
       code: 'custom',
       path: ['found'],
-      message: `every way of at most ${MAX_TRAY_PIECES} pieces is already found`,
+      message: `every way of at most ${payTrayCapacity(c)} pieces is already found`,
     });
   }
 });
@@ -204,22 +227,30 @@ export const coinPay: FormatModel<'coin-pay', CoinPayState> = {
   initialState: (config) => ({ config, order: [], counted: null, totalSaid: false }),
   apply(s, a) {
     const purse = s.config.purse;
+    const cap = payTrayCapacity(s.config);
     switch (a.op) {
       case 'drop':
         return {
           ...s,
-          order: dropPiece(s.order, purse, a.args?.coin, argString(a, 'to'), argNumber(a, 'index')),
+          order: dropPiece(
+            s.order,
+            purse,
+            a.args?.coin,
+            argString(a, 'to'),
+            argNumber(a, 'index'),
+            cap,
+          ),
         };
       case 'count-up': {
         const coin = a.args?.coin;
         const order =
-          coin === undefined ? s.order : dropPiece(s.order, purse, coin, 'tray', undefined);
+          coin === undefined ? s.order : dropPiece(s.order, purse, coin, 'tray', undefined, cap);
         return { ...s, order, counted: trayCents(trayOf(order)) };
       }
       case 'say-total':
         return { ...s, totalSaid: true };
       case 'answer': {
-        const order = answerOrder(a.args?.coins, purse);
+        const order = answerOrder(a.args?.coins, purse, cap);
         return order ? { ...s, order } : s;
       }
       default:

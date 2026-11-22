@@ -66,6 +66,11 @@ export function purseLimit(purse: Purse, kind: PurseKind): number {
   return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : 0;
 }
 
+/** The stack units a purse takes in a row: 1 a coin kind, 2 for the dollar bill. */
+export function purseUnits(purse: Purse): number {
+  return purseKinds(purse).reduce((a, k) => a + (k === 'dollar' ? 2 : 1), 0);
+}
+
 /** The kinds a purse makes available, biggest value first. */
 export function purseKinds(purse: Purse): PurseKind[] {
   return PIECES_BIG_FIRST.filter((k) => purseLimit(purse, k) > 0);

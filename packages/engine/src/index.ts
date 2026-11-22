@@ -86,7 +86,12 @@ export {
   timeOf,
   turnMinuteHand,
 } from './formats/clock';
-export { type ClockReadState, isHourPick, readChoiceIds } from './formats/clock-read';
+export {
+  type ClockReadState,
+  isDaylight,
+  isHourPick,
+  readChoiceIds,
+} from './formats/clock-read';
 export type { ClockHand, ClockSetState } from './formats/clock-set';
 // U05 (#14) money
 export {
@@ -96,7 +101,7 @@ export {
   runningTotal,
   shownPieces,
 } from './formats/coin-count';
-export { type CoinPayState, trayOf } from './formats/coin-pay';
+export { type CoinPayState, payTrayCapacity, trayOf } from './formats/coin-pay';
 export {
   CL_END_MAX,
   CL_LENGTH_MAX,
@@ -146,7 +151,12 @@ export {
   usesOptions,
 } from './formats/fraction-pick';
 export { PATTERN_SHOWN_MAX, patternGiven } from './formats/hundred-chart';
-export { changeOwed, countUpStops, type MakeChangeState } from './formats/make-change';
+export {
+  changeOwed,
+  changeTrayCapacity,
+  countUpStops,
+  type MakeChangeState,
+} from './formats/make-change';
 export {
   isNonStandard,
   type LaidUnit,

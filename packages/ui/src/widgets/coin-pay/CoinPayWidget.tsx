@@ -2,6 +2,7 @@ import {
   type CoinPayState,
   formatModel,
   parseTrayKey,
+  payTrayCapacity,
   trayCents,
   trayOf,
 } from '@number-island/engine';
@@ -299,6 +300,7 @@ export function CoinPayWidget({
       <MoneyBoard
         limits={purseLimits(config.purse)}
         tray={tray}
+        capacity={payTrayCapacity(config)}
         onMove={onMove}
         onSpeak={(p) => {
           if (speakOnTap) money.piece(p, centsOf([p]));

@@ -226,7 +226,11 @@ export function ClockFace({
   );
 }
 
-/** A digital readout: h:mm in big numerals on a dark screen. */
+/**
+ * A digital readout: h:mm in big numerals on a dark screen. The numerals are drawn for the eye;
+ * give it a `label` (its time, as text) wherever it stands by itself, or it is hidden from the
+ * accessibility tree as decoration of a picture that names it.
+ */
 export function DigitalClock({
   h,
   m,
@@ -259,6 +263,7 @@ export function ClockView({
   numerals,
   digital,
   label,
+  maxWidth = 720,
   maxHeight = 300,
 }: {
   h: number;
@@ -266,12 +271,14 @@ export function ClockView({
   numerals: boolean;
   digital?: boolean;
   label?: string;
+  maxWidth?: number;
   maxHeight?: number;
 }) {
-  // Never under 280 px: the numbers stay ≥ 32 px (23 face units at 280 px is 32.2 px).
-  const size = numerals
-    ? Math.max(280, Math.min(300, maxHeight - 16))
-    : Math.max(200, Math.min(300, maxHeight - 16));
+  // A face with numbers is never under 280 px: the numbers stay ≥ 32 px (23 face units at 280 px
+  // is 32.2 px). That is why a clock picture sits only in a format's own picture box (engine
+  // `misplacedTimeMoneyPictures`): a smaller box, such as a choice card, cannot hold one.
+  const room = Math.min(300, maxWidth, maxHeight - 16);
+  const size = numerals ? Math.max(280, room) : Math.max(200, room);
   return (
     <div className="ni-clockview" {...pictureProps(label)}>
       <ClockFace t={faceTime(h, m)} numerals={numerals} size={size} />

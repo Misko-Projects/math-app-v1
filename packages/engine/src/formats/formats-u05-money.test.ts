@@ -324,10 +324,21 @@ describe('coin-pay', () => {
     ]);
     expect(passes('coins.total', target, fresh)).toBe(true);
     const alt = respond(coinPay, newWay, [
+      drop('dime'),
+      ...Array.from({ length: 4 }, () => drop('nickel')),
+    ]);
+    expect(passes('coins.total', target, alt)).toBe(true);
+    // A quarter and five pennies is 30¢ too, but six pieces: the new-way tray holds five
+    // (TRAY_NARROW_PIECES_MAX), so the sixth does not go in and the tray is 29¢.
+    const long = respond(coinPay, newWay, [
       drop('quarter'),
       ...Array.from({ length: 5 }, () => drop('penny')),
     ]);
-    expect(passes('coins.total', target, alt)).toBe(true);
+    expect(long).toEqual({
+      kind: 'state',
+      value: { coins: { penny: 4, nickel: 0, dime: 0, quarter: 1 } },
+    });
+    expect(passes('coins.total', target, long)).toBe(false);
   });
 
   it('features: 0 for the easiest item, per 03 §5.5 otherwise', () => {

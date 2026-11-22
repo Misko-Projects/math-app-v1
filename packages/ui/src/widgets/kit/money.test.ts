@@ -1,4 +1,9 @@
-import { COIN_KINDS, TRAY_PIECES_MAX } from '@number-island/shared';
+import {
+  COIN_KINDS,
+  PURSE_NARROW_UNITS_MAX,
+  TRAY_NARROW_PIECES_MAX,
+  TRAY_PIECES_MAX,
+} from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { pairRatio } from '../../art/core/contrast';
 import { COIN_CENTS, COIN_CONTRAST_PAIRS, coinPx, moneyNameKey, moneyText } from './CoinArt';
@@ -110,6 +115,48 @@ describe('tray piles (U05 #14)', () => {
           for (const [i, p] of piles.entries()) {
             if (p.n > 1) expect(steps[i]).toBeGreaterThanOrEqual(MIN_PILE_STEP_PX);
             expect(widths[i]).toBeLessThanOrEqual(avail);
+          }
+        }
+      }
+    }
+  });
+
+  /** The tray's width beside the count-up line at 906 × 373: 852 − 24 − 360 − 24 − 36. */
+  const NARROW_TRAY_PX = 408;
+  /** The lean of a purse stack (MoneyBoard `STACK_LIFT_PX`) and the gap between stacks. */
+  const STACK_LIFT_PX = 6;
+
+  it('fits every narrow-board purse (PURSE_NARROW_UNITS_MAX units) in one row at both target sizes', () => {
+    for (const coinW of [64, 80]) {
+      const billW = 167;
+      const row = (bill: boolean, coins: number) =>
+        (bill ? billW + STACK_LIFT_PX : 0) +
+        coins * (coinW + STACK_LIFT_PX) +
+        (coins + (bill ? 1 : 0) - 1) * 20;
+      // Four coin kinds; the bill (2 units) and two coin kinds.
+      expect(row(false, PURSE_NARROW_UNITS_MAX)).toBeLessThanOrEqual(NARROW_TRAY_PX);
+      expect(row(true, PURSE_NARROW_UNITS_MAX - 2)).toBeLessThanOrEqual(NARROW_TRAY_PX);
+    }
+  });
+
+  it('fits every narrow-board tray (TRAY_NARROW_PIECES_MAX pieces, PURSE_NARROW_UNITS_MAX kinds) in one row', () => {
+    // The narrow boards' purses: four coin kinds, or the bill and two coin kinds. The tray is as
+    // wide as it is beside the count-up line at 906 × 373 (408 px), at both target sizes.
+    for (const coinW of [64, 80]) {
+      const billW = coinW === 80 ? 175 : 167;
+      for (let total = 1; total <= TRAY_NARROW_PIECES_MAX; total++) {
+        for (const counts of splits(total)) {
+          const [bills = 0, ...coins] = counts;
+          const kinds = coins.filter((n) => n > 0).length + (bills > 0 ? 2 : 0);
+          if (kinds > PURSE_NARROW_UNITS_MAX) continue;
+          const piles = counts
+            .map((n, i): PileSpec => ({ n, w: i === 0 ? billW : coinW, bill: i === 0 }))
+            .filter((p) => p.n > 0);
+          const steps = pileSteps(piles, NARROW_TRAY_PX, 1);
+          const widths = piles.map((p, i) => pileWidth(p, steps[i] as number));
+          expect(pileRows(widths, NARROW_TRAY_PX), `${coinW}: ${JSON.stringify(counts)}`).toBe(1);
+          for (const [i, p] of piles.entries()) {
+            if (p.n > 1) expect(steps[i]).toBeGreaterThanOrEqual(MIN_PILE_STEP_PX);
           }
         }
       }

@@ -400,11 +400,14 @@ The clock models follow #84's "Time formats" conventions above. Face arithmetic 
 | clock-read pick `options` | 3–4 (`CLOCK_READ_OPTIONS_MAX`), distinct ids and labels, labels 1–8 characters (`CLOCK_READ_LABEL_MAX`) |
 | coin-pay `target`, make-change `paid` | 1–1000¢ (`MONEY_CENTS_MAX`); make-change `price` 1–999¢ and under `paid` |
 | A purse count | 0–12 of a kind (`PURSE_COUNT_MAX`) or `'unlimited'` |
-| Pieces in the tray (coin-pay, make-change; one count-up hop a piece) | at most 12 (`TRAY_PIECES_MAX`). A drop into a full tray does nothing; a config whose fewest-piece answer needs more is refused; a new-way item needs an unfound way of at most 12 pieces |
-| coin-pay `found` | at most 4 ways (`COIN_FOUND_MAX`), each a way this purse and tray can pay, at most 6 pieces (`COIN_FOUND_WAY_PIECES_MAX`), none twice |
+| A purse's kinds on a narrow board (make-change with its count-up line; coin-pay `new-way`) | at most 4 stack units, a coin kind 1 and the dollar bill 2 (`PURSE_NARROW_UNITS_MAX`): one row. make-change without the line: 5 (`PURSE_NO_LINE_UNITS_MAX`) |
+| Pieces in the tray (coin-pay, make-change; one count-up hop a piece) | at most 12 (`TRAY_PIECES_MAX`), in two rows of piles; on a narrow board at most 5 (`TRAY_NARROW_PIECES_MAX`), in one row (`payTrayCapacity`, `changeTrayCapacity`). A drop into a full tray does nothing; a config whose fewest-piece answer needs more is refused; a new-way item needs an unfound way that fits the tray |
+| coin-pay `found` | at most 3 ways (`COIN_FOUND_MAX`), each a way this purse and tray can pay, at most 5 pieces (`COIN_FOUND_WAY_PIECES_MAX`), none twice |
 | coin-count purse, the `coins` stimulus | 1–12 coin slots (`COIN_SLOTS_MAX`; a bill takes 3, `BILL_SLOTS`), 6 a purse with `compareWith`; bills of 1, 2, 5, 10 or 20 dollars (`BILL_DOLLARS`) |
 
-- **No tolerance band.** The clock-set response is always a snapped time (the model snaps the long hand to `precision` before it answers) and `clock.time` compares face minutes exactly, so a hand left near the target is either on it or not, the same for the model and the checker.
+- **No tolerance band.** The clock-set response is always a snapped time (the model snaps the long hand to `precision` before it answers, and the generic `answer` op does nothing for a minute off that grid) and `clock.time` compares face minutes exactly, so a hand left near the target is either on it or not, the same for the model and the checker.
+- **a.m. / p.m.** (`clock-read` `ampm`): the clue is the sky the widget draws beside the clock, daylight from 6 in the morning to 6 in the evening (`isDaylight`). A face time's two times of day are always one of each, so `time.h` is the time of day meant (7 p.m. is `h: 19`) and `ampm.isPm` must agree with it.
+- **Where a clock or coins picture sits.** A `clock` or `coins` stimulus is shown only as a format's own picture (`widget.stimulus`); in a choice card, on a compare side, on an order card or in a hint overlay it is a content-check error (`misplacedTimeMoneyPictures`, property 3.picture), because a clock face with numbers needs 280 px.
 - **Taking back.** Each thing a child does is undone where it sits: a coin in the tray goes back with `drop {coin, to: 'purse'}` (the widget: tap or Enter on the coin, then on the purse; or drag it back), which also removes that coin's hop from the count-up line; a hand is turned back the way it came. A typed digit is rubbed out with the pad's backspace.
 
 ## Tests

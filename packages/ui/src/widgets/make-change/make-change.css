@@ -50,6 +50,16 @@
   stroke-width: 4;
   stroke-linecap: round;
 }
+/* A hop that runs off the end of the line (far too much change): dashed, with an arrowhead. */
+.ni-mchange__arc--off {
+  stroke-dasharray: 7 6;
+}
+.ni-mchange__arrow {
+  fill: var(--color-coral-deep);
+  stroke: var(--color-coral-deep);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
 .ni-mchange__stop {
   fill: var(--color-coral-deep);
   stroke: var(--color-cloud);

@@ -34,6 +34,14 @@ export function readChoiceIds(c: Config): string[] {
   return (c.options ?? []).map((o) => o.id);
 }
 
+/**
+ * Whether the sun is up at hour `h` (0–23): from 6 in the morning until 6 in the evening. The
+ * a.m./p.m. clue (TIM.05): the two times of day one face time can be are always one in daylight
+ * and one in the dark (7 a.m. and 7 p.m., 3 p.m. and 3 a.m., noon and midnight), so the sky tells
+ * them apart for every time.
+ */
+export const isDaylight = (h: number): boolean => h >= 6 && h < 18;
+
 /** An hour pick (TIM.09, #84): every option is a numeric `opt-<h>` id, so no minutes are read. */
 export const isHourPick = (c: Config): boolean =>
   c.input === 'pick' &&
@@ -51,6 +59,15 @@ const configSchema = clockReadConfigSchema.superRefine((c, ctx) => {
   }
   if (c.ampm && c.input !== 'pick') {
     ctx.addIssue({ code: 'custom', path: ['input'], message: 'am / pm is picked' });
+  }
+  // The clue is the sky beside the clock (`isDaylight`), drawn from the time of day itself, so the
+  // time has to be the a.m. or p.m. one the item means: 7:00 p.m. is `h: 19`.
+  if (c.ampm && isTime(c.time) && c.time.h >= 12 !== c.ampm.isPm) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['ampm', 'isPm'],
+      message: 'isPm goes with the time of day: h 0–11 is a.m., h 12–23 is p.m.',
+    });
   }
   if (c.input === 'digital-pad' && c.options !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['options'], message: 'the digital pad has no options' });

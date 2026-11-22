@@ -218,6 +218,60 @@ export const AmPm: Story = {
   },
 };
 
+/**
+ * The a.m. / p.m. clue (PR #101 review 1): 7:00 in the morning and 7:00 in the evening show the
+ * same face, and the sky beside it tells them apart before anything is picked: the sun over the sea ("It is day"), or the
+ * moon and stars ("It is night"). Each is a named picture; picking the matching half of the day answers it. In the
+ * smallest area.
+ */
+export const AmPmClue: Story = {
+  args: { config: amPm },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: 16 }}>
+      {inArea('landscapeMin')(args)}
+      {inArea('landscapeMin')({
+        ...args,
+        config: {
+          ...amPm,
+          time: { h: 19, m: 0 },
+          ampm: { scene: 'beach', isPm: true },
+        } as WidgetConfig,
+      })}
+    </div>
+  ),
+  play: async ({ canvasElement, args }) => {
+    const roots = await waitFor(() => {
+      const els = [...canvasElement.querySelectorAll<HTMLElement>(ROOT)];
+      if (els.length < 2) throw new Error('no widgets yet');
+      return els;
+    });
+    const [morning, evening] = roots as [HTMLElement, HTMLElement];
+    // The same face time on both clocks.
+    const faceOf = (root: HTMLElement) => (root.querySelector('.ni-clock') as SVGElement).dataset.t;
+    await expect(faceOf(morning)).toBe(faceOf(evening));
+    // A different, named sky on each, there before any answer.
+    await expect(within(morning).getByRole('img', { name: 'It is day' })).toBeVisible();
+    await expect(within(evening).getByRole('img', { name: 'It is night' })).toBeVisible();
+    await expect(morning.querySelector('.ni-cread__sky')).toHaveAttribute('data-sky', 'day');
+    await expect(evening.querySelector('.ni-cread__sky')).toHaveAttribute('data-sky', 'night');
+    const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
+    for (const [i, root] of [morning, evening].entries()) {
+      const area = areas[i] as HTMLElement;
+      await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
+      await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+      const sky = (root.querySelector('.ni-cread__sky') as SVGElement).getBoundingClientRect();
+      for (const pick of root.querySelectorAll<HTMLElement>('.ni-cread__options .ni-pick')) {
+        const r = pick.getBoundingClientRect();
+        await expect(r.top - sky.bottom).toBeGreaterThanOrEqual(12);
+        await expectTargetSize(pick, 'g1-up');
+      }
+    }
+    await userEvent.click(evening.querySelector('.ni-pick[data-id="pm"]') as HTMLElement);
+    await userEvent.click(within(evening).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenLastCalledWith({ kind: 'choice', id: 'pm' });
+  },
+};
+
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {

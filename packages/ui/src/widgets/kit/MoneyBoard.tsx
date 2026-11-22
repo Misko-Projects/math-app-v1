@@ -1,11 +1,16 @@
-import { type CoinKind, type InteractionEvent, TRAY_PIECES_MAX } from '@number-island/shared';
+import {
+  type CoinKind,
+  type InteractionEvent,
+  TRAY_NARROW_PIECES_MAX,
+  TRAY_PIECES_MAX,
+} from '@number-island/shared';
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import type { PlaceVia } from '../../interaction/useTapToPlace';
 import { useNarrationText, useReducedMotion, useUiPreferences } from '../../preferences/UiProvider';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { BillArt, COIN_CENTS, CoinArt, coinRadius, type MoneyPiece, moneyText } from './CoinArt';
-import { type PileSpec, pileSteps } from './moneyLayout';
+import { MAX_PILE_ROWS, type PileSpec, pileSteps } from './moneyLayout';
 import './money.css';
 
 /**
@@ -71,6 +76,8 @@ export interface MoneyBoardProps {
   limits: Partial<Record<MoneyPiece, number>>;
   /** The pieces in the tray, in the order they went in. */
   tray: readonly MoneyPiece[];
+  /** The most pieces the tray holds (the engine model's capacity; default `TRAY_PIECES_MAX`). */
+  capacity?: number;
   onMove: (piece: MoneyPiece, to: BoardTarget, via: PlaceVia) => void;
   /** Speak a piece's name (tap to select, or a drag that lands). */
   onSpeak: (piece: MoneyPiece) => void;
@@ -92,6 +99,8 @@ export interface MoneyBoardProps {
   trayAside?: ReactNode;
 }
 
+/** The most a purse stack leans, in px (each way). */
+const STACK_LIFT_PX = 6;
 /** A bill's height beside coins at `quarterPx`: 74 px up to a 68 px quarter, then in step. */
 const billHeight = (quarterPx: number) => Math.max(74, Math.round((74 * quarterPx) / 68));
 const billWidth = (quarterPx: number) => (billHeight(quarterPx) * 235) / 104;
@@ -115,6 +124,7 @@ function PieceArt({ piece, quarterPx }: { piece: MoneyPiece; quarterPx: number }
 export function MoneyBoard({
   limits,
   tray,
+  capacity = TRAY_PIECES_MAX,
   onMove,
   onSpeak,
   trace,
@@ -199,8 +209,8 @@ export function MoneyBoard({
       ? 'tray'
       : 'purse'
     : null;
-  // The tray holds `TRAY_PIECES_MAX` pieces (every one is drawn); a full tray takes no more.
-  const full = tray.length >= TRAY_PIECES_MAX;
+  // The tray holds `capacity` pieces (every one is drawn); a full tray takes no more.
+  const full = tray.length >= capacity;
 
   const isHi = (item: BoardItem) => highlight?.item === item;
   const cls = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(' ');
@@ -209,7 +219,10 @@ export function MoneyBoard({
     const n = left(k);
     const counted = Number.isFinite(limits[k] ?? 0);
     const shown = counted ? Math.max(0, n) : 3;
-    const step = shown <= 1 ? 0 : Math.min(k === 'dollar' ? 5 : 4, 28 / (shown - 1));
+    // The stack leans at most `STACK_LIFT_PX` in all, however many pieces it holds, so a row of
+    // stacks is as wide as its pieces and a purse of counted coins never wraps where one of
+    // plenty does not.
+    const step = shown <= 1 ? 0 : Math.min(k === 'dollar' ? 5 : 4, STACK_LIFT_PX / (shown - 1));
     const b = box(k);
     const id: BoardItem = `purse-${k}`;
     const props = drag.itemProps(id, { label: name(k), disabled: n <= 0 || full });
@@ -269,6 +282,8 @@ export function MoneyBoard({
   const steps = pileSteps(
     trayKinds.map((k): PileSpec => ({ n: inTray(k), w: box(k).w, bill: k === 'dollar' })),
     trayWidth,
+    // A narrow board (a tray of at most `TRAY_NARROW_PIECES_MAX`) keeps its piles in one row.
+    capacity <= TRAY_NARROW_PIECES_MAX ? 1 : MAX_PILE_ROWS,
   );
 
   const trayPile = (k: MoneyPiece, at: number) => {

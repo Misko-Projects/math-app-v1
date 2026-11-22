@@ -46,11 +46,16 @@ export function pileRows(widths: readonly number[], avail: number): number {
 }
 
 /**
- * The step of each pile, in px, for a tray `avail` px wide: as roomy as fits in `MAX_PILE_ROWS`
- * rows, squeezed evenly towards `MIN_PILE_STEP_PX` when the tray is crowded, never under it.
+ * The step of each pile, in px, for a tray `avail` px wide: as roomy as fits in `maxRows` rows
+ * (`MAX_PILE_ROWS`; 1 on a narrow board, whose tray holds `TRAY_NARROW_PIECES_MAX` pieces),
+ * squeezed evenly towards `MIN_PILE_STEP_PX` when the tray is crowded, never under it.
  * `avail` ≤ 0 (not measured yet) gives the roomy steps.
  */
-export function pileSteps(piles: readonly PileSpec[], avail: number): number[] {
+export function pileSteps(
+  piles: readonly PileSpec[],
+  avail: number,
+  maxRows: number = MAX_PILE_ROWS,
+): number[] {
   const roomy = piles.map(roomyStep);
   if (avail <= 0) return roomy;
   for (let f = 1; f > 0; f -= 0.05) {
@@ -58,7 +63,7 @@ export function pileSteps(piles: readonly PileSpec[], avail: number): number[] {
       p.n <= 1 ? 0 : Math.max(MIN_PILE_STEP_PX, (roomy[i] as number) * f),
     );
     const widths = piles.map((p, i) => pileWidth(p, steps[i] as number));
-    if (pileRows(widths, avail) <= MAX_PILE_ROWS) return steps;
+    if (pileRows(widths, avail) <= maxRows) return steps;
   }
   return piles.map((p) => (p.n <= 1 ? 0 : MIN_PILE_STEP_PX));
 }

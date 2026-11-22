@@ -136,3 +136,38 @@ export function sharedScaleIssues(
     }
   });
 }
+
+/**
+ * Where a `clock` or `coins` stimulus may sit in a generated item: only as a format's own picture
+ * (`widget.stimulus`), which StimulusView gives the whole picture box. A clock face keeps its
+ * numbers at 32 px only from 280 px across, and a coins picture keeps one scale only in that box,
+ * so one inside a choice card, on a compare side, on an order card or in a hint overlay is not
+ * supported (the clock and coin formats draw their own). Returns the paths found.
+ */
+export function misplacedTimeMoneyPictures(item: { widget: unknown; hints?: unknown }): string[] {
+  const found: string[] = [];
+  const isPicture = (o: Record<string, unknown>) =>
+    (o.kind === 'clock' && typeof o.h === 'number' && typeof o.m === 'number') ||
+    (o.kind === 'coins' && Array.isArray(o.coins));
+  const walk = (v: unknown, path: string, allowed: boolean) => {
+    if (Array.isArray(v)) {
+      v.forEach((x, i) => {
+        walk(x, `${path}.${i}`, false);
+      });
+      return;
+    }
+    if (typeof v !== 'object' || v === null) return;
+    const o = v as Record<string, unknown>;
+    if (isPicture(o)) {
+      if (!allowed) found.push(path);
+      return;
+    }
+    for (const [k, x] of Object.entries(o)) walk(x, `${path}.${k}`, false);
+  };
+  const w = item.widget as Record<string, unknown> | null;
+  if (typeof w === 'object' && w !== null) {
+    for (const [k, x] of Object.entries(w)) walk(x, `widget.${k}`, k === 'stimulus');
+  }
+  walk(item.hints, 'hints', false);
+  return found;
+}

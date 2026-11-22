@@ -329,6 +329,61 @@ export const TurnBack: Story = {
   },
 };
 
+/**
+ * The digital readouts are in the accessibility tree by their time (PR #101 review 1): the time
+ * to make, the elapsed prompt's start time, and the hands' own reading, which follows an
+ * arrow-key turn (it is a polite live region, so the new time is announced).
+ */
+export const DigitalReadoutsAreNamed: Story = {
+  args: { config: matchDigital },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: 24 }}>
+      {renderWidget(args)}
+      {renderWidget({
+        ...args,
+        config: {
+          format: 'clock-set',
+          target: { h: 15, m: 30 },
+          start: { h: 12, m: 0 },
+          precision: 5,
+          showDigital: true,
+          prompt: 'elapsed',
+          elapsed: { from: { h: 14, m: 45 }, minutes: 45 },
+        } as WidgetConfig,
+      })}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const roots = await waitFor(() => {
+      const els = [...canvasElement.querySelectorAll<HTMLElement>(ROOT)];
+      if (els.length < 2) throw new Error('no widgets yet');
+      return els;
+    });
+    const [digital, elapsed] = roots as [HTMLElement, HTMLElement];
+    const card = (root: HTMLElement, name: string) =>
+      root.querySelector(`[data-card="${name}"]`) as HTMLElement;
+    // "Make this time" is followed by the time itself.
+    await expect(card(digital, 'target')).toHaveTextContent('Make this time');
+    await expect(within(card(digital, 'target')).getByRole('img', { name: '11:00' })).toBeVisible();
+    await expect(within(card(digital, 'yours')).getByRole('img', { name: '12:00' })).toBeVisible();
+    await expect(card(digital, 'yours')).toHaveAttribute('aria-live', 'polite');
+    // An arrow-key turn: the reading's name is the new time.
+    handBtn(digital, 'minute').focus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(within(card(digital, 'yours')).getByRole('img', { name: '12:05' })).toBeVisible();
+    handBtn(digital, 'hour').focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    await expect(within(card(digital, 'yours')).getByRole('img', { name: '11:05' })).toBeVisible();
+    // The elapsed prompt: its start time is named too (2:45, the face hour of 14:45).
+    await expect(within(card(elapsed, 'elapsed')).getByRole('img', { name: '2:45' })).toBeVisible();
+    await expect(card(elapsed, 'elapsed')).toHaveTextContent('Add 45 minutes');
+    // No readout is hidden from the tree.
+    for (const el of canvasElement.querySelectorAll('.ni-cset__card .ni-digital')) {
+      await expect(el).not.toHaveAttribute('aria-hidden');
+    }
+  },
+};
+
 /** Tapping the face with no hand chosen says the number nearest the tap (06 §5). */
 export const TapNumberSpeaks: Story = {
   parameters: { ui: { audio: spyAudio() } },

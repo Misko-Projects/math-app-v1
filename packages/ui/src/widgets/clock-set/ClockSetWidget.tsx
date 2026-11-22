@@ -1,4 +1,11 @@
-import { type ClockSetState, formatModel, onFace, snapTime, timeOf } from '@number-island/engine';
+import {
+  type ClockSetState,
+  clockText,
+  formatModel,
+  onFace,
+  snapTime,
+  timeOf,
+} from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
 import {
   type KeyboardEvent,
@@ -474,6 +481,10 @@ export function ClockSetWidget({
             <DigitalClock
               h={timeOf(faceTime(config.target.h, config.target.m)).h}
               m={config.target.m}
+              label={clockText(
+                timeOf(faceTime(config.target.h, config.target.m)).h,
+                config.target.m,
+              )}
             />
           </div>
         ) : null}
@@ -483,6 +494,7 @@ export function ClockSetWidget({
             <DigitalClock
               h={timeOf(faceTime(elapsed.from.h, elapsed.from.m)).h}
               m={elapsed.from.m}
+              label={clockText(timeOf(faceTime(elapsed.from.h, elapsed.from.m)).h, elapsed.from.m)}
             />
             <span className="ni-cset__cardlabel">
               {t('ui.clock.later', { minutes: elapsed.minutes })}
@@ -490,9 +502,10 @@ export function ClockSetWidget({
           </div>
         ) : null}
         {config.showDigital ? (
-          <div className="ni-cset__card" data-card="yours">
+          // A live region: the hands' reading is announced as it changes (a turn by arrow key).
+          <div className="ni-cset__card" data-card="yours" aria-live="polite" aria-atomic="true">
             <span className="ni-cset__cardlabel">{t('ui.clock.yours')}</span>
-            <DigitalClock h={now.h} m={now.m} />
+            <DigitalClock h={now.h} m={now.m} label={clockText(now.h, now.m)} />
           </div>
         ) : null}
       </div>

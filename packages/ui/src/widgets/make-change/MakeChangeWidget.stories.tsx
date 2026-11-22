@@ -1,4 +1,4 @@
-import { TRAY_PIECES_MAX, type WidgetConfig } from '@number-island/shared';
+import { TRAY_NARROW_PIECES_MAX, type WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
@@ -102,6 +102,8 @@ async function expectLineTrue(root: HTMLElement, price: number) {
     await expect(Number(h.dataset.from)).toBe(at);
     at += v;
     await expect(Number(h.dataset.to)).toBe(at);
+    // A hop that runs off the end of the line is not drawn to its length (it is marked `off`).
+    if (h.dataset.off === 'true') continue;
     const box = (h.querySelector('.ni-mchange__arc') as SVGPathElement).getBBox();
     perCent.push(box.width / v);
   }
@@ -222,7 +224,7 @@ async function expectLineReads(root: HTMLElement) {
     await expect(r.left).toBeGreaterThanOrEqual(frame.left - 0.5);
     await expect(r.right).toBeLessThanOrEqual(frame.right + 0.5);
     await expect(r.top).toBeGreaterThanOrEqual(frame.top - 0.5);
-    await expect(h.querySelector('.ni-mchange__stop')).not.toBeNull();
+    if (h.dataset.off !== 'true') await expect(h.querySelector('.ni-mchange__stop')).not.toBeNull();
   }
   const riders = [...line.querySelectorAll<SVGGElement>('.ni-mchange__rider')].map((g) =>
     g.getBoundingClientRect(),
@@ -238,6 +240,86 @@ async function expectLineReads(root: HTMLElement) {
     }
   }
 }
+
+/** The price and paid amounts under the line never run into each other (≥ 4 px between). */
+async function expectEndLabelsApart(root: HTMLElement) {
+  const box = (end: string) =>
+    (
+      root.querySelector(`.ni-mchange__line [data-end="${end}"] text`) as SVGTextElement
+    ).getBoundingClientRect();
+  const price = box('price');
+  const paid = box('paid');
+  await expect(paid.left - price.right).toBeGreaterThanOrEqual(4);
+  const frame = (root.querySelector('.ni-mchange__line') as SVGSVGElement).getBoundingClientRect();
+  await expect(price.left).toBeGreaterThanOrEqual(frame.left - 0.5);
+  await expect(paid.right).toBeLessThanOrEqual(frame.right + 0.5);
+}
+
+/**
+ * Far too much change (PR #101 review 1): 99¢ paid with $1.00, and the child gives a dollar bill.
+ * The line does not stretch until 99¢ and $1.00 are printed on top of each other: the two amounts
+ * stay apart, and the bill's hop runs off the end of the line with an arrow, past the paid mark.
+ * Taking the bill back and giving the penny lands on $1.00. Also the longest amounts ($9.99 and
+ * $10.00) and an overshoot by one penny.
+ */
+export const OverpayKeepsLabelsApart: Story = {
+  args: {
+    config: { ...change65, price: 99, paid: 100, purse: { dollar: 1, penny: 'unlimited' } },
+  },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: 16 }}>
+      {inArea('landscapeMin')(args)}
+      {inArea('landscapeMin')({
+        ...args,
+        config: {
+          ...change65,
+          price: 999,
+          paid: 1000,
+          purse: { dollar: 2, penny: 'unlimited' },
+        } as WidgetConfig,
+      })}
+    </div>
+  ),
+  play: async ({ canvasElement, args }) => {
+    const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
+    for (const [i, price] of [99, 999].entries()) {
+      const area = areas[i] as HTMLElement;
+      const root = await waitFor(() => {
+        const el = area.querySelector<HTMLElement>(ROOT);
+        if (!el) throw new Error('no widget yet');
+        return el;
+      });
+      await expectEndLabelsApart(root);
+      await tapPlace(root, 'dollar');
+      await expectEndLabelsApart(root);
+      await expectLineTrue(root, price);
+      const line = root.querySelector('.ni-mchange__line') as SVGElement;
+      const hop = line.querySelector('.ni-mchange__hop') as SVGGElement;
+      await expect(hop).toHaveAttribute('data-off', 'true');
+      // The hop is drawn, and it ends right of the paid mark.
+      const paidX = (line.querySelector('[data-end="paid"] line') as SVGLineElement).getBBox().x;
+      const arc = (hop.querySelector('.ni-mchange__arc') as SVGPathElement).getBBox();
+      await expect(arc.x + arc.width).toBeGreaterThan(paidX + 40);
+      await expect(hop.querySelector('.ni-mchange__arrow')).not.toBeNull();
+      // One penny too many after that is off the picture, and the labels still stand apart.
+      await tapPlace(root, 'penny');
+      await expectEndLabelsApart(root);
+      await expectLineTrue(root, price);
+      // Back to nothing, then the right change: a penny lands on the paid mark.
+      for (const k of ['penny', 'dollar']) {
+        await userEvent.click(pileTop(root, k) as HTMLElement);
+        await userEvent.click(pursePad(root));
+      }
+      await tapPlace(root, 'penny');
+      await expect(root.dataset.reached).toBe(String(price + 1));
+      await expect(line.querySelector('.ni-mchange__hop')).not.toHaveAttribute('data-off');
+      await expectEndLabelsApart(root);
+      await expectLineTrue(root, price);
+      await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
+    }
+    await expect(args.onInteract).toHaveBeenCalled();
+  },
+};
 
 /**
  * A hop is taken back where its piece sits: tap the coin in the tray, tap the purse (or Enter on
@@ -274,13 +356,11 @@ export const TakeBackAHop: Story = {
 };
 
 /**
- * The hardest lines the bounds allow, in the smallest area: twelve penny hops; and pennies beside
- * a dollar bill (hops of 1¢ on a line 100¢ and more long). Each still reads as one line of hops.
+ * The hardest lines the bounds allow, in the smallest area: a full tray of penny hops; and pennies
+ * beside dollar bills (hops of 1¢ on a line 212¢ long). Each still reads as one line of hops.
  */
 export const HardestLinesLandscapeMin: Story = {
-  // Many cases in one long play function: the page keeps changing, so the visual walk skips it.
-  tags: ['!visual'],
-  args: { config: { ...change65, price: 88, purse: { penny: 'unlimited' } } },
+  args: { config: { ...change65, price: 95, purse: { penny: 'unlimited' } } },
   render: (args) => (
     <div style={{ display: 'grid', gap: 16 }}>
       {inArea('landscapeMin')(args)}
@@ -288,7 +368,7 @@ export const HardestLinesLandscapeMin: Story = {
         ...args,
         config: {
           ...change65,
-          price: 289,
+          price: 288,
           paid: 500,
           purse: { dollar: 2, dime: 'unlimited', penny: 'unlimited' },
         } as WidgetConfig,
@@ -298,9 +378,9 @@ export const HardestLinesLandscapeMin: Story = {
   play: async ({ canvasElement }) => {
     const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
     const cases: [number, string[]][] = [
-      [88, Array.from({ length: 12 }, () => 'penny')],
-      // $2.11 of change in 12 pieces: a penny, a dime, two bills, then pennies again.
-      [289, ['penny', 'dime', 'dollar', 'dollar', ...Array.from({ length: 8 }, () => 'penny')]],
+      [95, Array.from({ length: TRAY_NARROW_PIECES_MAX }, () => 'penny')],
+      // $2.12 of change in 5 pieces: a penny, a dime, two bills, then a penny again.
+      [288, ['penny', 'dime', 'dollar', 'dollar', 'penny']],
     ];
     for (const [i, [price, pieces]] of cases.entries()) {
       const area = areas[i] as HTMLElement;
@@ -310,7 +390,7 @@ export const HardestLinesLandscapeMin: Story = {
         return el;
       });
       for (const k of pieces) await tapPlace(root, k);
-      await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_PIECES_MAX);
+      await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_NARROW_PIECES_MAX);
       await expectLineTrue(root, price);
       await expectLineReads(root);
       await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
@@ -429,6 +509,128 @@ export const DemoInvite: Story = {
   },
 };
 
+/** The purse's stacks sit in one row (their tops share a top edge within the lean of a stack). */
+async function expectPurseOneRow(root: HTMLElement) {
+  const stacks = [...root.querySelectorAll<HTMLElement>('[data-zone="purse"] .ni-money__stack')];
+  await expect(stacks.length).toBeGreaterThan(0);
+  const bottoms = stacks.map((el) => el.getBoundingClientRect().bottom);
+  await expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(24);
+  const zone = (root.querySelector('[data-zone="purse"]') as HTMLElement).getBoundingClientRect();
+  for (const el of stacks) {
+    const r = el.getBoundingClientRect();
+    await expect(r.left).toBeGreaterThanOrEqual(zone.left);
+    await expect(r.right).toBeLessThanOrEqual(zone.right);
+  }
+}
+
+/** The widest purses the count-up board takes, twelve of each kind, with a tray they can fill. */
+const FULL_BOARDS: {
+  purse: Record<string, number>;
+  price: number;
+  paid: number;
+  give: string[];
+}[] = [
+  // The bill and two coin kinds: $2.60 of change in 5 pieces (2 bills, 2 quarters, a dime).
+  {
+    purse: { dollar: 12, quarter: 12, dime: 12 },
+    price: 740,
+    paid: 1000,
+    give: [...rep('dollar', 2), ...rep('quarter', 2), 'dime'],
+  },
+  // Four coin kinds: 66¢ of change in 5 pieces (2 quarters, a dime, a nickel, a penny).
+  {
+    purse: { quarter: 12, dime: 12, nickel: 12, penny: 12 },
+    price: 34,
+    paid: 100,
+    give: [...rep('quarter', 2), 'dime', 'nickel', 'penny'],
+  },
+];
+function rep(k: string, n: number): string[] {
+  return Array.from({ length: n }, () => k);
+}
+
+async function playFullBoards(canvasElement: HTMLElement) {
+  const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
+  await expect(areas).toHaveLength(FULL_BOARDS.length);
+  for (const [i, board] of FULL_BOARDS.entries()) {
+    const area = areas[i] as HTMLElement;
+    const root = await waitFor(() => {
+      const el = area.querySelector<HTMLElement>(ROOT);
+      if (!el) throw new Error('no widget yet');
+      return el;
+    });
+    await expectPurseOneRow(root);
+    for (const k of board.give) await tapPlace(root, k);
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_NARROW_PIECES_MAX);
+    await expect(root.dataset.reached).toBe(String(board.paid));
+    await expectPurseOneRow(root);
+    // The piles are one row too: every pile's top piece shares a bottom edge.
+    const bottoms = [
+      ...root.querySelectorAll<HTMLElement>('[data-zone="tray"] .ni-money__pile'),
+    ].map((el) => el.getBoundingClientRect().bottom);
+    await expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(24);
+    // A full tray takes no more.
+    await expect(root.querySelector('.ni-money')).toHaveAttribute('data-full', 'true');
+    await expectLineTrue(root, board.price);
+    // Nothing scrolls, and every pile's top piece (the bottom row's too) is inside the area, so a
+    // piece is taken back without moving the view.
+    await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+    await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
+    const a = area.getBoundingClientRect();
+    const tops = [...root.querySelectorAll<HTMLElement>('[data-zone="tray"] .ni-money__top')];
+    for (const el of [...tops, check(root)]) {
+      const r = el.getBoundingClientRect();
+      await expect(r.bottom).toBeLessThanOrEqual(a.bottom - 3);
+      await expect(r.right).toBeLessThanOrEqual(a.right - 3);
+    }
+    const lowest = tops.reduce((x, y) =>
+      y.getBoundingClientRect().bottom > x.getBoundingClientRect().bottom ? y : x,
+    );
+    const kind = lowest.dataset.piece as string;
+    const before = trayDrawn(root)[kind] as number;
+    await userEvent.click(lowest);
+    await userEvent.click(pursePad(root));
+    await expect(trayDrawn(root)[kind] ?? 0).toBe(before - 1);
+    await expect(area.scrollTop).toBe(0);
+  }
+}
+
+const fullBoards = (args: WidgetHostProps) => (
+  <div style={{ display: 'grid', gap: 16 }}>
+    {FULL_BOARDS.map((b, i) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list of cases
+      <div key={i}>
+        {inArea('landscapeMin')({
+          ...args,
+          config: { ...change65, price: b.price, paid: b.paid, purse: b.purse } as WidgetConfig,
+        })}
+      </div>
+    ))}
+  </div>
+);
+
+/**
+ * The fullest boards the bounds allow, in the smallest area (PR #101 review 1): a purse of twelve
+ * of every kind it may hold beside the count-up line (the bill and two coin kinds; four coin
+ * kinds), and a full tray (five pieces, one row). The purse stays one row, the piles stay one row,
+ * nothing scrolls, and a piece is taken back where it sits.
+ */
+export const FullPurseAndTrayLandscapeMin: Story = {
+  render: fullBoards,
+  play: async ({ canvasElement }) => {
+    await playFullBoards(canvasElement);
+  },
+};
+
+/** The same fullest boards at the K target size (80 px). */
+export const FullPurseAndTrayLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  render: fullBoards,
+  play: async ({ canvasElement }) => {
+    await playFullBoards(canvasElement);
+  },
+};
+
 /**
  * Evidence audit (06 §4): in K every control is at least 80 px both ways and 12 px from every
  * other control.
@@ -449,23 +651,21 @@ export const SizesG1: Story = {
   },
 };
 
-/** 65¢ of change in 12 coins, the most the tray holds: five pennies, two nickels, five dimes. */
-const STRESS = [
-  ...Array.from({ length: 5 }, () => 'penny'),
-  'nickel',
-  'nickel',
-  ...Array.from({ length: 5 }, () => 'dime'),
-];
+/**
+ * 65¢ of change in 5 coins, the most the tray holds beside the count-up line
+ * (TRAY_NARROW_PIECES_MAX): a quarter and four dimes.
+ */
+const STRESS = ['quarter', 'dime', 'dime', 'dime', 'dime'];
 const stressChange: ConfigFor<'make-change'> = { ...change65, price: 35 };
 
-/** Stress, tablet: 12 coins of change, every hop on the line; nothing clips or scrolls. */
+/** Stress, tablet: a full tray of change, every hop on the line; nothing clips or scrolls. */
 export const StressTablet: Story = {
   args: { config: stressChange },
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const k of STRESS) await tapPlace(root, k);
-    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_PIECES_MAX);
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_NARROW_PIECES_MAX);
     await expectLineTrue(root, 35);
     await expectLineReads(root);
     await expectFitsArea(canvasElement, root);
@@ -473,14 +673,14 @@ export const StressTablet: Story = {
   },
 };
 
-/** Stress, smallest landscape area: the same 12 coins. */
+/** Stress, smallest landscape area: the same full tray. */
 export const StressLandscapeMin: Story = {
   args: { config: stressChange },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const k of STRESS) await tapPlace(root, k);
-    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_PIECES_MAX);
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_NARROW_PIECES_MAX);
     await expectLineTrue(root, 35);
     await expectLineReads(root);
     await expectFitsArea(canvasElement, root);

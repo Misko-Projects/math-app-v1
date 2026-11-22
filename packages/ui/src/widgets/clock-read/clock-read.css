@@ -26,6 +26,11 @@
   align-items: center;
   gap: 24px;
 }
+/* The a.m. / p.m. clue: a picture of the sky, no action. */
+.ni-cread__sky {
+  flex: none;
+  display: block;
+}
 .ni-cread__boxes {
   display: flex;
   align-items: center;

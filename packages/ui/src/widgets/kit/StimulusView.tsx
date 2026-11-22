@@ -251,6 +251,7 @@ export function StimulusView({
             numerals={spec.numerals}
             digital={spec.digital}
             label={name}
+            maxWidth={maxWidth}
             maxHeight={maxHeight}
           />
         </div>

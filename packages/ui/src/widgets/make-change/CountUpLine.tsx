@@ -28,14 +28,37 @@ export interface CountUpLineProps {
   label: string;
 }
 
+/**
+ * The least the paid mark is drawn from the price mark, in px: their two amounts are printed
+ * centred under them (up to "$10.00" in 34 px numerals), so nearer than this they would run into
+ * each other.
+ */
+export const LABEL_SEP_PX = 124;
+/** The line's drawn length between its end marks, in px. */
+export const LINE_PX = W - 2 * PAD;
+
+/**
+ * The line's one scale. It is as long as the count needs (to the amount paid, or past it when
+ * too much change is given), but never so long that the paid mark comes within `LABEL_SEP_PX` of
+ * the price: change given beyond that runs `off` the end of the line (an arrow), still to scale
+ * as far as the line goes. `x(v)` is where amount `v` is drawn (the end of the line for anything
+ * off it).
+ */
 export function countUpScale(price: number, paid: number, given: readonly MoneyPiece[]) {
   const end = Math.max(paid, price + given.reduce((a, p) => a + pieceCents(p), 0));
   const span = Math.max(1, end - price);
-  return { end, x: (v: number) => PAD + ((v - price) / span) * (W - 2 * PAD) };
+  const shown = Math.min(span, (Math.max(1, paid - price) * LINE_PX) / LABEL_SEP_PX);
+  return {
+    end,
+    /** The cents the line shows, from the price. */
+    shown,
+    off: (v: number) => v - price > shown + 1e-9,
+    x: (v: number) => PAD + (Math.min(Math.max(0, v - price), shown) / shown) * LINE_PX,
+  };
 }
 
 export function CountUpLine({ price, paid, given, label }: CountUpLineProps) {
-  const { x } = countUpScale(price, paid, given);
+  const { x, off } = countUpScale(price, paid, given);
   let at = price;
   const hops = given.map((p, i) => {
     const from = at;
@@ -57,6 +80,34 @@ export function CountUpLine({ price, paid, given, label }: CountUpLineProps) {
       <line className="ni-mchange__axis" x1={PAD - 22} x2={W - PAD + 22} y1={LINE_Y} y2={LINE_Y} />
       {hops.map((h) => {
         const x1 = x(h.from);
+        if (off(h.to)) {
+          // Past the end of the line: far too much change. The hop leaves the line with an arrow
+          // (one arrow, for the first hop that goes off; later ones are off the picture).
+          const xe = W - PAD + 16;
+          return (
+            <g
+              key={h.i}
+              className="ni-mchange__hop"
+              data-from={h.from}
+              data-to={h.to}
+              data-piece={h.p}
+              data-off="true"
+            >
+              {off(h.from) ? null : (
+                <>
+                  <path
+                    d={`M${x1} ${LINE_Y - 6}Q${(x1 + xe) / 2} ${LINE_Y - 58} ${xe} ${LINE_Y - 30}`}
+                    className="ni-mchange__arc ni-mchange__arc--off"
+                  />
+                  <path
+                    d={`M${xe - 9} ${LINE_Y - 36}L${xe + 3} ${LINE_Y - 27}L${xe - 11} ${LINE_Y - 22}Z`}
+                    className="ni-mchange__arrow"
+                  />
+                </>
+              )}
+            </g>
+          );
+        }
         const x2 = x(h.to);
         // A hop is as tall as it is long (up to 36 px), so a penny's hop is a small bump, not a spike.
         const top = LINE_Y - 12 - Math.min(36, 4 + (x2 - x1) * 0.6);

@@ -1076,6 +1076,13 @@ ui.clock.am:
 ui.clock.pm:
   text: "p.m."
   level: "2"
+# The a.m. / p.m. clue beside the clock (clock-read `ampm`): what the sky looks like then.
+ui.clock.sky-day:
+  text: "It is day"
+  level: "2"
+ui.clock.sky-night:
+  text: "It is night"
+  level: "2"
 ui.clock.start:
   text: "It starts at"
   level: "2"

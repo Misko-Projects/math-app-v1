@@ -2,11 +2,13 @@ import {
   type ClockReadState,
   formatModel,
   hourAngle,
+  isDaylight,
   minuteAngle,
   readChoiceIds,
 } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useRef, useState } from 'react';
+import { paint } from '../../art/core/paint';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { HandPointerIcon } from '../../primitives/icons';
@@ -61,6 +63,89 @@ const BOXES: PadBox[] = [
 
 const isNumber = (s: string) => /^\d+$/.test(s);
 const isTimeLabel = (s: string) => /^\d{1,2}:\d{2}$/.test(s);
+
+/**
+ * The a.m. / p.m. clue (TIM.05): the sky outside at that time of day, the sun over the sea in
+ * daylight and the moon and stars in the dark. A face time is two times of day, one of each
+ * (engine `isDaylight`), so this picture is what lets a child tell 7 in the morning from 7 at
+ * night. A named picture, with no action.
+ */
+function SkyClue({ day, label }: { day: boolean; label: string }) {
+  return (
+    <svg
+      className="ni-cread__sky"
+      data-sky={day ? 'day' : 'night'}
+      role="img"
+      aria-label={label}
+      viewBox="0 0 160 96"
+      width={160}
+      height={96}
+      focusable="false"
+    >
+      <rect
+        x="1.5"
+        y="1.5"
+        width="157"
+        height="93"
+        rx="14"
+        fill={paint(day ? 'sky-light' : 'ink')}
+        stroke={paint('ink')}
+        strokeWidth={3}
+      />
+      {day ? (
+        <g>
+          {Array.from({ length: 8 }, (_, i) => {
+            const a = (i * Math.PI) / 4;
+            return (
+              <line
+                // biome-ignore lint/suspicious/noArrayIndexKey: the sun's rays are positional
+                key={i}
+                x1={80 + Math.cos(a) * 26}
+                y1={42 + Math.sin(a) * 26}
+                x2={80 + Math.cos(a) * 34}
+                y2={42 + Math.sin(a) * 34}
+                stroke={paint('sun-deep')}
+                strokeWidth={4}
+                strokeLinecap="round"
+              />
+            );
+          })}
+          <circle
+            cx="80"
+            cy="42"
+            r="19"
+            fill={paint('sunshine')}
+            stroke={paint('ink')}
+            strokeWidth={2.5}
+          />
+          <path
+            d="M3 78Q30 70 56 78T108 78T157 78L157 86Q157 93 150 93L10 93Q3 93 3 86Z"
+            fill={paint('sea-deep')}
+          />
+        </g>
+      ) : (
+        <g>
+          <path
+            d="M96 22A24 24 0 1 0 110 62A19 19 0 1 1 96 22Z"
+            fill={paint('paper')}
+            stroke={paint('paper')}
+            strokeWidth={1}
+            strokeLinejoin="round"
+          />
+          {[
+            [34, 26, 3.2],
+            [52, 58, 2.6],
+            [128, 30, 2.8],
+            [136, 66, 3.2],
+            [28, 72, 2.4],
+          ].map(([x, y, r]) => (
+            <circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill={paint('sunshine')} />
+          ))}
+        </g>
+      )}
+    </svg>
+  );
+}
 
 export function ClockReadWidget({
   config,
@@ -284,6 +369,12 @@ export function ClockReadWidget({
       >
         {face}
         <div className="ni-cread__answer">
+          {config.ampm ? (
+            <SkyClue
+              day={isDaylight(config.time.h)}
+              label={t(isDaylight(config.time.h) ? 'ui.clock.sky-day' : 'ui.clock.sky-night')}
+            />
+          ) : null}
           <fieldset
             className="ni-cread__options"
             aria-label={t('ui.widget.choices')}

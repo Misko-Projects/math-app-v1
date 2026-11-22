@@ -11,6 +11,9 @@
 import {
   type AnswerSpec,
   makeChangeConfigSchema,
+  PURSE_NARROW_UNITS_MAX,
+  PURSE_NO_LINE_UNITS_MAX,
+  TRAY_NARROW_PIECES_MAX,
   type WidgetConfigOf,
 } from '@number-island/shared';
 import {
@@ -19,10 +22,18 @@ import {
   dropPiece,
   MAX_PAY_CENTS,
   MAX_TRAY_PIECES,
+  NARROW_PURSE_MESSAGE,
   responseTray,
   trayOf,
 } from './coin-pay';
-import { fewestPieces, PIECE_CENTS, PIECES_BIG_FIRST, purseKinds, trayCents } from './money';
+import {
+  fewestPieces,
+  PIECE_CENTS,
+  PIECES_BIG_FIRST,
+  purseKinds,
+  purseUnits,
+  trayCents,
+} from './money';
 import {
   argNumber,
   argString,
@@ -34,6 +45,13 @@ import {
 type Config = WidgetConfigOf<'make-change'>;
 
 export interface MakeChangeState extends FormatState<'make-change'>, CoinTrayState {}
+
+/**
+ * The pieces this item's tray holds: `TRAY_NARROW_PIECES_MAX` beside the count-up line (one hop
+ * a piece), else `TRAY_PIECES_MAX`.
+ */
+export const changeTrayCapacity = (c: Pick<Config, 'countUpLine'>): number =>
+  c.countUpLine ? TRAY_NARROW_PIECES_MAX : MAX_TRAY_PIECES;
 
 /** The change owed. */
 export const changeOwed = (c: Pick<Config, 'price' | 'paid'>): number => c.paid - c.price;
@@ -69,6 +87,14 @@ const configSchema = makeChangeConfigSchema.superRefine((c, ctx) => {
   }
   if (purseKinds(c.purse).length === 0) {
     ctx.addIssue({ code: 'custom', path: ['purse'], message: 'the purse is empty' });
+  } else if (c.countUpLine && purseUnits(c.purse) > PURSE_NARROW_UNITS_MAX) {
+    ctx.addIssue({ code: 'custom', path: ['purse'], message: NARROW_PURSE_MESSAGE });
+  } else if (purseUnits(c.purse) > PURSE_NO_LINE_UNITS_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['purse'],
+      message: `the purse is one row: at most ${PURSE_NO_LINE_UNITS_MAX} coin kinds, the dollar bill counting as 2`,
+    });
   } else {
     const fewest = fewestPieces(changeOwed(c), c.purse);
     if (fewest === null) {
@@ -77,12 +103,12 @@ const configSchema = makeChangeConfigSchema.superRefine((c, ctx) => {
         path: ['purse'],
         message: `the purse cannot make ${changeOwed(c)}¢ of change`,
       });
-    } else if (fewest > MAX_TRAY_PIECES) {
+    } else if (fewest > changeTrayCapacity(c)) {
       // One hop of the count-up line a piece: the line and the tray draw at most this many.
       ctx.addIssue({
         code: 'custom',
         path: ['purse'],
-        message: `${changeOwed(c)}¢ of change takes ${fewest} pieces; the tray holds ${MAX_TRAY_PIECES}`,
+        message: `${changeOwed(c)}¢ of change takes ${fewest} pieces; the tray holds ${changeTrayCapacity(c)}`,
       });
     }
   }
@@ -106,11 +132,19 @@ export const makeChange: FormatModel<'make-change', MakeChangeState> = {
   initialState: (config) => ({ config, order: [], counted: null, totalSaid: false }),
   apply(s, a) {
     const purse = s.config.purse;
+    const cap = changeTrayCapacity(s.config);
     switch (a.op) {
       case 'drop':
         return {
           ...s,
-          order: dropPiece(s.order, purse, a.args?.coin, argString(a, 'to'), argNumber(a, 'index')),
+          order: dropPiece(
+            s.order,
+            purse,
+            a.args?.coin,
+            argString(a, 'to'),
+            argNumber(a, 'index'),
+            cap,
+          ),
         };
       case 'count-up': {
         const to = argNumber(a, 'to');
@@ -118,12 +152,12 @@ export const makeChange: FormatModel<'make-change', MakeChangeState> = {
         const step = to - (s.config.price + trayCents(trayOf(s.order)));
         const coin = PIECES_BIG_FIRST.find((k) => PIECE_CENTS[k] === step);
         if (!coin) return s;
-        const order = dropPiece(s.order, purse, coin, 'tray', undefined);
+        const order = dropPiece(s.order, purse, coin, 'tray', undefined, cap);
         if (order.length === s.order.length) return s;
         return { ...s, order, counted: to };
       }
       case 'answer': {
-        const order = answerOrder(a.args?.coins, purse);
+        const order = answerOrder(a.args?.coins, purse, cap);
         return order ? { ...s, order } : s;
       }
       default:

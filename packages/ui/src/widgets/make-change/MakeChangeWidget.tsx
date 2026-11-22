@@ -1,4 +1,10 @@
-import { formatModel, type MakeChangeState, trayCents, trayOf } from '@number-island/engine';
+import {
+  changeTrayCapacity,
+  formatModel,
+  type MakeChangeState,
+  trayCents,
+  trayOf,
+} from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
 import { useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
@@ -242,6 +248,7 @@ export function MakeChangeWidget({
       <MoneyBoard
         limits={purseLimits(config.purse)}
         tray={given}
+        capacity={changeTrayCapacity(config)}
         onMove={onMove}
         onSpeak={(p) => {
           if (speakOnTap) money.piece(p, centsOf([p]));
