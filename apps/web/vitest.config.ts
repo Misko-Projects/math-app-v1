@@ -11,6 +11,8 @@ export default defineProject({
     name: 'web',
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
+    // The pier fit check runs in a browser (vitest.fit.config.ts).
+    exclude: ['src/**/*.browser.test.tsx'],
     restoreMocks: true,
     unstubGlobals: true,
   },

@@ -9,6 +9,7 @@ export default defineConfig({
       'packages/ui/vitest.unit.config.ts',
       'apps/*/vitest.config.ts',
       'apps/web/vitest.sync.config.ts',
+      'apps/web/vitest.fit.config.ts',
       'tools/*/vitest.config.ts',
       'scripts/vitest.config.ts',
     ],
