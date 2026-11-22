@@ -29,6 +29,70 @@ export interface ArrayBuildState extends FormatState<'array-build'> {
 
 const shown = (c: Config): boolean => c.mode === 'read' || c.mode === 'split';
 
+/**
+ * The supported domain (U04 #13). Fixed numbers, the same in every widget area and age mode: a
+ * board of ARRAY_SIDE_MAX rows and columns draws every sprite at least 22 px wide in the smallest
+ * widget area (906 × 373).
+ */
+export const ARRAY_SIDE_MAX = 10;
+/** `new-way` lists at most this many rectangles already found (one line of numerals). */
+export const ARRAY_FOUND_MAX = 2;
+
+/**
+ * The largest number the answer control offers (`read`, `split`): from the board's size, never
+ * from the answer. 0 to 20 for a board of at most 20 cells, otherwise 0 to 100.
+ */
+export function arrayAnswerMax(c: Pick<Config, 'maxRows' | 'maxCols'>): number {
+  return c.maxRows * c.maxCols <= 20 ? 20 : ARRAY_SIDE_MAX * ARRAY_SIDE_MAX;
+}
+
+const sameSpec = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Why an item's answer is not the one this config asks for (FormatModel.answerIssues): `read`
+ * answers rows × cols as a number; `split` and `build-dims` are checked by `array.dims` with this
+ * config's rows, cols and orientation rule; `build-total` and `new-way` by `array.area` with this
+ * config's total and found list.
+ */
+export function arrayAnswerIssues(c: Config, answer: AnswerSpec): string[] {
+  const rows = c.rows ?? 0;
+  const cols = c.cols ?? 0;
+  if (c.mode === 'read') {
+    if (answer.kind !== 'number') return ['read answers a number'];
+    return answer.value === rows * cols
+      ? []
+      : [`the picture shows ${rows * cols}, the answer is ${answer.value}`];
+  }
+  const out: string[] = [];
+  if (c.mode === 'split' || c.mode === 'build-dims') {
+    if (answer.kind !== 'state' || answer.checker !== 'array.dims') {
+      return [`${c.mode} answers array.dims`];
+    }
+    const t = answer.target;
+    if (t.rows !== rows || t.cols !== cols) {
+      out.push(`the target is ${String(t.rows)} × ${String(t.cols)}, the widget ${rows} × ${cols}`);
+    }
+    if ((t.requireSplit === true) !== (c.mode === 'split')) {
+      out.push('requireSplit is set exactly for split');
+    }
+    if (c.mode === 'build-dims' && (t.orientationMatters === true) !== c.orientationMatters) {
+      out.push('the target and the widget disagree on whether orientation matters');
+    }
+    return out;
+  }
+  if (answer.kind !== 'state' || answer.checker !== 'array.area') {
+    return [`${c.mode} answers array.area`];
+  }
+  const t = answer.target;
+  if (t.total !== c.total) {
+    out.push(`the target total is ${String(t.total)}, the widget ${String(c.total)}`);
+  }
+  if (c.mode === 'new-way' ? !sameSpec(t.found, c.found) : t.found !== undefined) {
+    out.push('the target lists other found rectangles than the widget');
+  }
+  return out;
+}
+
 /** Every rectangle (rows ≤ maxRows, cols ≤ maxCols) of area `total`, as [rows, cols]. */
 export function rectanglesOf(c: Config, total: number): [number, number][] {
   const out: [number, number][] = [];
@@ -44,6 +108,22 @@ export function alreadyFound(found: readonly [number, number][] | undefined, r: 
 }
 
 const configSchema = arrayBuildConfigSchema.superRefine((c, ctx) => {
+  for (const side of ['maxRows', 'maxCols'] as const) {
+    if (c[side] > ARRAY_SIDE_MAX) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [side],
+        message: `the board has at most ${ARRAY_SIDE_MAX} rows and columns (${side} is ${c[side]})`,
+      });
+    }
+  }
+  if (c.found && c.found.length > ARRAY_FOUND_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['found'],
+      message: `at most ${ARRAY_FOUND_MAX} found rectangles are listed (${c.found.length} given)`,
+    });
+  }
   const needDims = c.mode !== 'build-total' && c.mode !== 'new-way';
   if (needDims) {
     // A shown array must fit as drawn; a built one may fit turned when orientation is free.
@@ -72,6 +152,24 @@ const configSchema = arrayBuildConfigSchema.superRefine((c, ctx) => {
     return;
   }
   if (c.mode === 'new-way') {
+    const total = c.total;
+    const found = c.found ?? [];
+    const fitsGrid = (r: number, k: number) =>
+      (r <= c.maxRows && k <= c.maxCols) || (k <= c.maxRows && r <= c.maxCols);
+    if (found.some(([r, k]) => r < 1 || k < 1 || r * k !== total || !fitsGrid(r, k))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['found'],
+        message: `every found rectangle has ${total} in all and fits the board`,
+      });
+    }
+    if (found.some(([r, k], i) => alreadyFound(found.slice(0, i), r, k))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['found'],
+        message: 'a found rectangle is listed once (3 × 4 and 4 × 3 are the same)',
+      });
+    }
     if (!c.found) {
       ctx.addIssue({ code: 'custom', path: ['found'], message: 'new-way lists the arrays found' });
     } else if (rectanglesOf(c, c.total).every(([r, k]) => alreadyFound(c.found, r, k))) {
@@ -86,6 +184,7 @@ const productOf = (c: Config): number => c.total ?? (c.rows ?? 0) * (c.cols ?? 0
 export const arrayBuild: FormatModel<'array-build', ArrayBuildState> = {
   format: 'array-build',
   configSchema,
+  answerIssues: arrayAnswerIssues,
   features: {
     product: { weight: 0.3, doc: '(product − 1) / 10' },
     'factor.over5': { weight: 0.4, doc: 'a side is longer than 5' },
@@ -117,11 +216,11 @@ export const arrayBuild: FormatModel<'array-build', ArrayBuildState> = {
         if (shown(c)) return s;
         const r = Math.trunc(argNumber(a, 'rows') ?? 0);
         const k = Math.trunc(argNumber(a, 'cols') ?? 0);
-        return {
-          ...s,
-          rows: Math.max(0, Math.min(c.maxRows, r)),
-          cols: Math.max(0, Math.min(c.maxCols, k)),
-        };
+        const rows = Math.max(0, Math.min(c.maxRows, r));
+        const cols = Math.max(0, Math.min(c.maxCols, k));
+        // An empty board has neither rows nor columns.
+        if (rows === 0 || cols === 0) return { ...s, rows: 0, cols: 0 };
+        return { ...s, rows, cols };
       }
       case 'add-row': {
         if (shown(c)) return s;

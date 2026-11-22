@@ -1,0 +1,131 @@
+/*
+ * array-build widget (U04, 03 §5.5). Build: the kit's work panel (arrows, a limit note), the
+ * board and the action beside it. Ask: the array as a static picture, the kit NumberEntry and the
+ * actions (kit twoStep). Every sprite is drawn at one size in its own cell. Sizes come from
+ * layout.ts; nothing here sets a part's size.
+ */
+
+.ni-abw {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  /* Safe centring in the host; the root's width is the room, never its content's (kit room.ts). */
+  margin: auto;
+  contain: inline-size;
+}
+.ni-abw__build {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* kit STEP_GAP */
+  gap: 24px;
+}
+
+/* ---------- the board: one surface for a finger; its cells are a picture ---------- */
+
+.ni-abw__board {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 2px solid var(--color-sand-deep);
+  border-radius: 12px;
+  background: var(--color-paper);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.ni-abw__board[data-live="true"] {
+  cursor: pointer;
+  touch-action: none;
+}
+/* The ring is drawn inside the board, clear of the pad and the action beside it. */
+.ni-abw .ni-abw__board.ni-invite {
+  outline-offset: -5px;
+  border-radius: 12px;
+  animation: none;
+}
+.ni-abw__cells {
+  position: relative;
+  flex: none;
+  pointer-events: none;
+}
+/* Every cell the rectangle may use: a dot at its centre (one mark for one cell). */
+.ni-abw__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--color-sand-deep) 0 3px, transparent 3.5px);
+}
+/* The child's rectangle. */
+.ni-abw__rect {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  border: 3px solid var(--color-ink);
+  border-radius: 10px;
+  background: var(--color-cloud);
+}
+/* Demo counting: the rows counted so far. */
+.ni-abw__lit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  border: 4px solid var(--color-sea-deep);
+  border-radius: 10px;
+  background: var(--color-sunshine-light);
+}
+.ni-abw__sprite {
+  position: absolute;
+  display: block;
+}
+.ni-abw__sprite > .ni-sprite {
+  position: relative;
+  display: block;
+  /* kit ITEM_DRAW_SCALE: the picture uses the margin its box leaves; neighbours never touch. */
+  transform: scale(1.3);
+}
+/* The split line: an ink bar in the gap it opens, from the top of the array to its bottom. */
+.ni-abw__line {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: var(--color-ink);
+}
+
+/* ---------- new-way: the rectangles found before ---------- */
+
+.ni-abw__found {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.ni-abw__way {
+  padding: 0 10px;
+  border: 2px solid var(--color-ink);
+  border-radius: 10px;
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 34px;
+  white-space: nowrap;
+}
+
+.ni-abw__entry {
+  display: block;
+}
+/* The ring on the answer control is drawn inside it (as the kit's cards and keys). */
+.ni-abw .ni-invite {
+  outline-offset: -5px;
+}

@@ -1203,3 +1203,54 @@ ui.widget.es.opt.odd:
   text: "Odd"
   level: "2"
 # end equal-share
+
+# U04 array-build widget (packages/ui/src/widgets/array-build): keys under ui.widget.ab.*
+ui.widget.ab.board:
+  text: "Make your rows here"
+  level: "2"
+ui.widget.ab.pad:
+  text: "Row buttons"
+  level: "2"
+ui.widget.ab.pad.row-more:
+  text: "One more row"
+  level: "2"
+ui.widget.ab.pad.row-less:
+  text: "Take a row away"
+  level: "2"
+ui.widget.ab.pad.col-more:
+  text: "One more in each row"
+  level: "2"
+ui.widget.ab.pad.col-less:
+  text: "One less in each row"
+  level: "2"
+ui.widget.ab.pad.line-left:
+  text: "Move the line left"
+  level: "2"
+ui.widget.ab.pad.line-right:
+  text: "Move the line right"
+  level: "2"
+ui.widget.ab.count.none:
+  text: "No rows yet"
+  level: "2"
+ui.widget.ab.count.one:
+  text: "1 row of {cols}"
+  level: "2"
+ui.widget.ab.count.rows:
+  text: "{rows} rows of {cols}"
+  level: "2"
+ui.widget.ab.count.line:
+  text: "The line is after {n}"
+  level: "2"
+ui.widget.ab.found:
+  text: "You made these before"
+  level: "2"
+ui.widget.ab.note.rows:
+  text: "No more rows fit here."
+  level: "2"
+ui.widget.ab.note.cols:
+  text: "The rows are as long as they can be."
+  level: "2"
+ui.widget.ab.note.line:
+  text: "Put the line in first."
+  level: "2"
+# end array-build

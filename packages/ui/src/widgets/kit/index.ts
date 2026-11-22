@@ -227,3 +227,25 @@ export {
   UNBOUNDED_H,
   useTwoStep,
 } from './twoStep';
+export {
+  cellAt,
+  lineAt,
+  NOTE_LINE_H,
+  NOTE_LINES,
+  PANEL_GAP,
+  PANEL_HEAD_H,
+  PANEL_MIN_W,
+  PadArrowIcon,
+  type PadButton,
+  padBox,
+  panelBox,
+  planWork,
+  type SurfacePoint,
+  type SurfacePointerOptions,
+  useSurfacePointer,
+  type WorkInput,
+  WorkPanel,
+  type WorkPanelProps,
+  type WorkPlan,
+} from './gridWork';
+export { DEMO_KEY_MS, DEMO_PICK_MS, demoEnterAnswer, useModelState } from './modelState';

@@ -744,3 +744,71 @@
   align-items: center;
   gap: 24px;
 }
+
+/* ---------- gridWork: the panel beside a grid a child works on ---------- */
+
+.ni-work {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.ni-work__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+.ni-work__pad {
+  position: relative;
+  flex: none;
+}
+.ni-work__btn {
+  position: absolute;
+  display: block;
+  line-height: 0;
+}
+/*
+ * Rings are drawn inside the button and do not pulse (the pulse grows the button), so the full
+ * 12 px to the next one stays clear.
+ */
+.ni-work .ni-invite {
+  outline-offset: -5px;
+  animation: none;
+}
+.ni-work__foot {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+}
+.ni-work__note {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 30px;
+  text-align: center;
+}
+[data-age-mode="k"] .ni-work__note {
+  font-size: 28px;
+}
+.ni-work__note:empty {
+  display: none;
+}
+.ni-work__count {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 40px;
+}
