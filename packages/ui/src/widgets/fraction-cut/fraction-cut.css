@@ -61,7 +61,8 @@
   stroke: var(--color-ink-soft);
   stroke-width: 4;
   stroke-dasharray: 8 6;
-  stroke-linecap: round;
+  /* Butt ends: nothing is painted behind the hub, outside the seam that takes the cut back. */
+  stroke-linecap: butt;
   pointer-events: none;
 }
 

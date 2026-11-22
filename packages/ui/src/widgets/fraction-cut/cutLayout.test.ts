@@ -11,6 +11,8 @@ import {
   cutLayout,
   ghostOutline,
   knivesClear,
+  RADIAL_SEAM_SHARE,
+  radialSeamHalfWidth,
   sectorOffsets,
 } from './cutLayout';
 
@@ -161,5 +163,54 @@ describe('the cut whole reads as one whole (PR #100 evidence review)', () => {
     expect([2, 3, 4].map(cutGapPx)).toEqual([CUT_GAP_PX, CUT_GAP_PX, CUT_GAP_PX]);
     expect(cutGapPx(6)).toBeLessThan(CUT_GAP_PX);
     expect(cutGapPx(12)).toBeLessThan(cutGapPx(6));
+  });
+});
+
+describe('radial seams leave the pieces to the pieces (PR #100 review round 4)', () => {
+  /** Whether a point `rho` from the hub and `delta` degrees off the cut lies in the seam's wedge. */
+  const inSeam = (rho: number, delta: number, narrow: number, r: number, maxWidth: number) => {
+    const rad = (delta * Math.PI) / 180;
+    const along = rho * Math.cos(rad);
+    const across = Math.abs(rho * Math.sin(rad));
+    return along >= 0 && along <= r && across <= radialSeamHalfWidth(along, narrow, maxWidth);
+  };
+
+  it('every part count: a tap clearly inside a sector, at any radius to the rim, is the sector’s', () => {
+    for (let parts = 2; parts <= 12; parts += 1) {
+      const sector = 360 / parts;
+      for (const r of [60, 108, 240]) {
+        for (const maxWidth of [64, 80, 1e6]) {
+          for (const share of [0.05, 0.25, 0.5, 0.72, 0.9, 1]) {
+            // From a quarter of the sector off either cut to its middle.
+            for (const t of [0.25, 0.3, 0.5]) {
+              const fromLeft = inSeam(r * share, t * sector, sector, r, maxWidth);
+              const fromRight = inSeam(r * share, (1 - t) * sector, sector, r, maxWidth);
+              expect(fromLeft || fromRight, `${parts} parts, r ${r}, ${share}, ${t}`).toBe(false);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('the reported tap (fourths, 90 % up the cut, a quarter radius to the side) is the piece’s', () => {
+    const r = 108;
+    const rho = Math.hypot(0.9 * r, 0.25 * r);
+    const delta = (Math.atan2(0.25, 0.9) * 180) / Math.PI;
+    expect(inSeam(rho, delta, 90, r, 80)).toBe(false);
+    // With the two-fifths wedge of round 3 it was the seam's (the defect).
+    expect(0.25 * r).toBeLessThan(0.9 * r * Math.tan((0.2 * 90 * Math.PI) / 180));
+  });
+
+  it('the cut itself is the seam’s from the hub to the rim, and the seam never passes a target', () => {
+    for (let parts = 2; parts <= 12; parts += 1) {
+      const sector = 360 / parts;
+      for (const share of [0, 0.1, 0.5, 1])
+        expect(inSeam(108 * share, 0, sector, 108, 64)).toBe(true);
+      expect(radialSeamHalfWidth(1e6, sector, 64)).toBe(32);
+      // A tenth of the sector on each side of the cut.
+      expect(inSeam(100, RADIAL_SEAM_SHARE * sector * 0.9, sector, 1e6, 1e6)).toBe(true);
+      expect(inSeam(100, RADIAL_SEAM_SHARE * sector * 1.2, sector, 1e6, 1e6)).toBe(false);
+    }
   });
 });

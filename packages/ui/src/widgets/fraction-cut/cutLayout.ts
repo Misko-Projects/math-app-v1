@@ -264,3 +264,44 @@ export function sectorOffsets(sectors: readonly SectorPart[], shift: number) {
     return { dx: shift * Math.sin(mid), dy: -shift * Math.cos(mid) };
   });
 }
+
+/**
+ * The share of the narrower neighbouring sector's angle a radial seam takes on each side of its
+ * cut. A tenth each side (a fifth in all): the cut itself and a finger's edge beside it, never a
+ * place a child would call "inside the piece" (two fifths in all swallowed taps a quarter of a
+ * radius from the cut at the rim: PR #100 review round 4, s_79bccd4918c4).
+ */
+export const RADIAL_SEAM_SHARE = 0.1;
+
+/** Half the width of a radial seam's wedge at `rho` from the hub (same units as `maxWidth`). */
+export function radialSeamHalfWidth(rho: number, narrow: number, maxWidth: number): number {
+  const tan = Math.tan((RADIAL_SEAM_SHARE * Math.min(180, narrow) * Math.PI) / 180);
+  return Math.min(maxWidth / 2, Math.max(0, rho) * tan);
+}
+
+/**
+ * The touch area of a radial cut: a wedge from the hub to the rim along the radius. At every
+ * distance from the hub it takes RADIAL_SEAM_SHARE of the narrower sector beside it on each side
+ * (so a tap clearly inside a sector is the sector's, at the rim too) and it is never wider than
+ * `maxWidth`. It covers the whole visible cut.
+ */
+export function radialSeamPath(
+  cx: number,
+  cy: number,
+  r: number,
+  angle: number,
+  narrow: number,
+  maxWidth: number,
+): string {
+  const a = (angle * Math.PI) / 180;
+  const d = { x: Math.sin(a), y: -Math.cos(a) };
+  const n = { x: Math.cos(a), y: Math.sin(a) };
+  const tan = Math.tan((RADIAL_SEAM_SHARE * Math.min(180, narrow) * Math.PI) / 180);
+  // Where the wedge reaches its full width (the rim, if it never does).
+  const turn = Math.min(r, maxWidth / 2 / tan);
+  const at = (rho: number, side: number) => {
+    const w = radialSeamHalfWidth(rho, narrow, maxWidth) * side;
+    return `${cx + rho * d.x + w * n.x} ${cy + rho * d.y + w * n.y}`;
+  };
+  return `M${cx} ${cy}L${at(turn, 1)}L${at(r, 1)}L${at(r, -1)}L${at(turn, -1)}Z`;
+}

@@ -53,6 +53,8 @@ import {
   circleShiftPx,
   cutLayout,
   ghostOutline,
+  radialSeamHalfWidth,
+  radialSeamPath,
   sectorOffsets,
 } from './cutLayout';
 import './fraction-cut.css';
@@ -71,9 +73,10 @@ import './fraction-cut.css';
  * - **Filling** (when the item asks to shade): tap a part (again to empty it), or drag the fill
  *   drop onto a part, or tap the drop and then a part; the filled parts are counted aloud.
  * - **Taking back:** tap a cut itself (the seam between two parts; Tab to it and press Enter) and
- *   the parts join again there; tap a filled part to empty it. The seam is a finger wide where
- *   the parts leave room, and never wider than two fifths of the narrower part beside it, so a
- *   part always keeps its own middle. The Take back button undoes the last cut, fill or mend,
+ *   the parts join again there; tap a filled part to empty it. A straight seam is a finger wide
+ *   where the parts leave room, and never wider than two fifths of the narrower part beside it;
+ *   a radial seam is a wedge from the hub to the rim that takes a tenth of each neighbouring
+ *   sector (`radialSeamPath`). Either way a tap clearly inside a part is the part's. The Take back button undoes the last cut, fill or mend,
  *   whatever the size of the parts. With `thenName`, the fraction is typed on stacked boxes;
  *   Check is under them.
  *
@@ -167,33 +170,6 @@ const polar = (cx: number, cy: number, r: number, deg: number): [number, number]
   const a = (deg * Math.PI) / 180;
   return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
 };
-
-/**
- * The touch area of a radial cut: a wedge from the centre to the rim along the radius, two fifths
- * of the narrower sector beside it wide (so each sector keeps its own middle at every distance
- * from the centre) and never wider than `maxWidth`. It covers the whole visible cut, hub to rim.
- */
-export function radialSeamPath(
-  cx: number,
-  cy: number,
-  r: number,
-  angle: number,
-  narrow: number,
-  maxWidth: number,
-): string {
-  const a = (angle * Math.PI) / 180;
-  const d = { x: Math.sin(a), y: -Math.cos(a) };
-  const n = { x: Math.cos(a), y: Math.sin(a) };
-  const tan = Math.tan((0.2 * Math.min(180, narrow) * Math.PI) / 180);
-  const half = maxWidth / 2;
-  // Where the wedge reaches its full width (the rim, if it never does).
-  const turn = Math.min(r, half / tan);
-  const at = (rho: number, side: number) => {
-    const w = Math.min(half, rho * tan) * side;
-    return `${cx + rho * d.x + w * n.x} ${cy + rho * d.y + w * n.y}`;
-  };
-  return `M${cx} ${cy}L${at(turn, 1)}L${at(r, 1)}L${at(r, -1)}L${at(turn, -1)}Z`;
-}
 
 /** The dotted path of a guide line, in design units. */
 function guidePath(frame: ShapeFrame, g: GuidedLine): string {
@@ -834,7 +810,7 @@ export function FractionCutWidget({
         });
         const narrow = Math.min(sec.a1 - sec.a0, before.a1 - before.a0, 180);
         // The wedge's width at the rim, in CSS px.
-        const rimWidth = 2 * frame.r * Math.tan((0.2 * narrow * Math.PI) / 180) * scale;
+        const rimWidth = 2 * radialSeamHalfWidth(frame.r, narrow, knifePx / scale) * scale;
         add({
           id: line !== undefined ? `cut-line-${line}` : `cut-r-${Math.round(angle * 10) / 10}`,
           args: line !== undefined ? { line } : { angle },
@@ -965,6 +941,8 @@ export function FractionCutWidget({
       >
         <svg
           className="ni-fcut__svg"
+          // The circle the parts are cut from, in the drawing's own units (stories measure by it).
+          data-circle={frame.kind === 'circle' ? `${frame.cx} ${frame.cy} ${frame.r}` : undefined}
           role="presentation"
           viewBox={`0 0 ${frame.width} ${frame.height}`}
           width={frame.width * scale}
