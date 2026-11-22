@@ -59,6 +59,11 @@ function quarterFor(slots: number, compare: boolean) {
   return 60;
 }
 
+/** The width one row of a small purse may take beside the pad in a roomy area, in px. */
+const ROOMY_ROW_PX = 740;
+/** The largest a quarter is drawn there (a lone coin does not fill the board). */
+const ROOMY_QUARTER_MAX_PX = 150;
+
 const BOXES_CENTS: PadBox[] = [{ id: 'cents', maxDigits: 4 }];
 const BOXES_DOLLARS: PadBox[] = [
   { id: 'dollars', maxDigits: 3 },
@@ -75,7 +80,7 @@ export function CoinCountWidget({
 }: WidgetProps<Config>) {
   const t = useNarrationText();
   const money = useMoneySpeech();
-  const { speakOnTap, ageMode } = useUiPreferences();
+  const { speakOnTap } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
   const [roomy, areaRef] = useRoomy();
@@ -323,18 +328,18 @@ export function CoinCountWidget({
   // One coin scale for the whole item: both purses of a comparison draw a quarter the same size.
   const slotsOf = (src: { coins: readonly unknown[]; bills: readonly unknown[] } | undefined) =>
     (src?.coins.length ?? 0) + 3 * (src?.bills.length ?? 0);
-  // A roomy area draws the same purse a third larger, a small purse (up to 8 slots) larger
-  // still (less so in K, whose targets are already 80 px), so a few coins fill the space as a
-  // full purse does (kit `useRoomy`).
+  // A roomy area draws the same purse a third larger (kit `useRoomy`). A small purse (up to 8
+  // slots, one purse) is drawn larger still, as large as lets all of it stand in ONE row beside
+  // the pad (`ROOMY_ROW_PX`), so a few coins fill the space and never wrap into rows too tall for
+  // the area.
+  const slots = Math.max(slotsOf(config), slotsOf(config.compareWith));
+  const base = quarterFor(slots, compare);
   const quarterPx = Math.round(
-    quarterFor(Math.max(slotsOf(config), slotsOf(config.compareWith)), compare) *
-      (roomy
-        ? Math.max(slotsOf(config), slotsOf(config.compareWith)) <= 8 && !compare
-          ? ageMode === 'k'
-            ? 1.6
-            : 2
-          : 1.3
-        : 1),
+    !roomy
+      ? base
+      : compare || slots > 8
+        ? base * 1.3
+        : Math.max(base, Math.min(ROOMY_QUARTER_MAX_PX, ROOMY_ROW_PX / slots - 28)),
   );
 
   const purse = (side: Side) => {

@@ -37,12 +37,12 @@ const change65: ConfigFor<'make-change'> = {
   countUpLine: true,
 };
 
-/** Paid $2 for 85¢: change past a dollar (a bill in the purse), no line. */
+/** Paid $2 for 85¢: change past a dollar (a bill and two coin kinds in the purse), no line. */
 const crossDollar: ConfigFor<'make-change'> = {
   format: 'make-change',
   price: 85,
   paid: 200,
-  purse: { dollar: 2, quarter: 'unlimited', dime: 'unlimited', nickel: 'unlimited' },
+  purse: { dollar: 2, dime: 'unlimited', nickel: 'unlimited' },
   countUpLine: false,
 };
 
@@ -544,6 +544,7 @@ const FULL_BOARDS: {
   price: number;
   paid: number;
   give: string[];
+  noLine?: boolean;
 }[] = [
   // The bill and two coin kinds: $2.60 of change in 5 pieces (2 bills, 2 quarters, a dime).
   {
@@ -558,6 +559,22 @@ const FULL_BOARDS: {
     price: 34,
     paid: 100,
     give: [...rep('quarter', 2), 'dime', 'nickel', 'penny'],
+  },
+  // Without the count-up line (PR #101 review 2): the same bound, the bill and two coin kinds.
+  {
+    purse: { dollar: 12, quarter: 12, dime: 12 },
+    price: 740,
+    paid: 1000,
+    give: [...rep('dollar', 2), ...rep('quarter', 2), 'dime'],
+    noLine: true,
+  },
+  // Without the line, four coin kinds.
+  {
+    purse: { quarter: 12, dime: 12, nickel: 12, penny: 12 },
+    price: 34,
+    paid: 100,
+    give: [...rep('quarter', 2), 'dime', 'nickel', 'penny'],
+    noLine: true,
   },
 ];
 function rep(k: string, n: number): string[] {
@@ -576,7 +593,12 @@ async function playFullBoards(canvasElement: HTMLElement) {
     });
     await expectPurseOneRow(root);
     for (const k of board.give) await tapPlace(root, k);
-    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(TRAY_NARROW_PIECES_MAX);
+    await expect(root.querySelectorAll('[data-zone="tray"] [data-piece]')).toHaveLength(
+      TRAY_NARROW_PIECES_MAX,
+    );
+    await expect(root.querySelectorAll('.ni-mchange__hop')).toHaveLength(
+      board.noLine ? 0 : TRAY_NARROW_PIECES_MAX,
+    );
     await expect(root.dataset.reached).toBe(String(board.paid));
     await expectPurseOneRow(root);
     // The piles are one row too: every pile's top piece shares a bottom edge.
@@ -586,7 +608,7 @@ async function playFullBoards(canvasElement: HTMLElement) {
     await expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(24);
     // A full tray takes no more.
     await expect(root.querySelector('.ni-money')).toHaveAttribute('data-full', 'true');
-    await expectLineTrue(root, board.price);
+    if (!board.noLine) await expectLineTrue(root, board.price);
     // Nothing scrolls, and every pile's top piece (the bottom row's too) is inside the area, so a
     // piece is taken back without moving the view.
     await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
@@ -617,7 +639,13 @@ const fullBoards = (args: WidgetHostProps) => (
       <div key={i}>
         {inArea('landscapeMin')({
           ...args,
-          config: { ...change65, price: b.price, paid: b.paid, purse: b.purse } as WidgetConfig,
+          config: {
+            ...change65,
+            price: b.price,
+            paid: b.paid,
+            purse: b.purse,
+            countUpLine: !b.noLine,
+          } as WidgetConfig,
         })}
       </div>
     ))}
@@ -626,8 +654,8 @@ const fullBoards = (args: WidgetHostProps) => (
 
 /**
  * The fullest boards the bounds allow, in the smallest area (PR #101 review 1): a purse of twelve
- * of every kind it may hold beside the count-up line (the bill and two coin kinds; four coin
- * kinds), and a full tray (five pieces, one row). The purse stays one row, the piles stay one row,
+ * of every kind it may hold (the bill and two coin kinds; four coin kinds), with the count-up
+ * line and without it, and a full tray (five pieces, one row). The purse stays one row, the piles stay one row,
  * nothing scrolls, and a piece is taken back where it sits.
  */
 export const FullPurseAndTrayLandscapeMin: Story = {

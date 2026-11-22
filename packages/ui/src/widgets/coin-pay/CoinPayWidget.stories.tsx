@@ -849,6 +849,26 @@ export const WorstTraysEvenPiles: Story = {
   },
 };
 
+/** The longest piles at the K target size (80 px). */
+export const WorstTraysLongPilesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: stressPurse() },
+  render: worstTraysRender(WORST_TRAYS.slice(0, 2)),
+  play: async ({ canvasElement }) => {
+    await playWorstTrays(canvasElement, WORST_TRAYS.slice(0, 2));
+  },
+};
+
+/** The even piles, the long pile beside four others, and bills beside quarters, in K. */
+export const WorstTraysEvenPilesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: stressPurse() },
+  render: worstTraysRender(WORST_TRAYS.slice(4)),
+  play: async ({ canvasElement }) => {
+    await playWorstTrays(canvasElement, WORST_TRAYS.slice(4));
+  },
+};
+
 /** The same worst trays at the K target size (80 px): the purse of all five kinds is one row. */
 export const WorstTraysFivePilesK: Story = {
   globals: { ageMode: 'k' },

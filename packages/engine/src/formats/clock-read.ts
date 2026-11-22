@@ -35,10 +35,25 @@ export function readChoiceIds(c: Config): string[] {
 }
 
 /**
+ * The scenes an a.m. / p.m. item can show (TIM.05; the daily events of time.sequence, drawn as the
+ * `event-<id>` sprites): each with the hours of the day it can happen in, all in one half of the
+ * day. The scene is the clue a child reads: lunch is after noon, waking up is in the morning.
+ */
+export const AMPM_SCENES = {
+  'wake-up': { from: 5, to: 8 },
+  breakfast: { from: 6, to: 9 },
+  lunch: { from: 12, to: 13 },
+  dinner: { from: 17, to: 19 },
+  bedtime: { from: 19, to: 21 },
+} as const;
+export type AmPmScene = keyof typeof AMPM_SCENES;
+
+/**
  * Whether the sun is up at hour `h` (0–23): from 6 in the morning until 6 in the evening. The
  * a.m./p.m. clue (TIM.05): the two times of day one face time can be are always one in daylight
  * and one in the dark (7 a.m. and 7 p.m., 3 p.m. and 3 a.m., noon and midnight), so the sky tells
- * them apart for every time.
+ * them apart for every time. The sky is drawn with the scene of an a.m. / p.m. item as a second,
+ * agreeing clue; the scene (`AMPM_SCENES`) is the one that names the half of the day.
  */
 export const isDaylight = (h: number): boolean => h >= 6 && h < 18;
 
@@ -60,14 +75,34 @@ const configSchema = clockReadConfigSchema.superRefine((c, ctx) => {
   if (c.ampm && c.input !== 'pick') {
     ctx.addIssue({ code: 'custom', path: ['input'], message: 'am / pm is picked' });
   }
-  // The clue is the sky beside the clock (`isDaylight`), drawn from the time of day itself, so the
-  // time has to be the a.m. or p.m. one the item means: 7:00 p.m. is `h: 19`.
-  if (c.ampm && isTime(c.time) && c.time.h >= 12 !== c.ampm.isPm) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['ampm', 'isPm'],
-      message: 'isPm goes with the time of day: h 0–11 is a.m., h 12–23 is p.m.',
-    });
+  // The clue is the scene: a daily event the child knows the half of the day of (breakfast is in
+  // the morning, bedtime at night), drawn and named beside the clock. So the scene is one of
+  // `AMPM_SCENES`, its half of the day is the answer, and the time is the a.m. or p.m. one the
+  // item means (7:00 p.m. is `h: 19`), within the hours that event happens.
+  if (c.ampm) {
+    const scene = AMPM_SCENES[c.ampm.scene as AmPmScene];
+    if (!scene) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ampm', 'scene'],
+        message: `the a.m. / p.m. scene is a daily event: ${Object.keys(AMPM_SCENES).join(', ')}`,
+      });
+    } else if (isTime(c.time)) {
+      if (c.time.h >= 12 !== c.ampm.isPm) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ampm', 'isPm'],
+          message: 'isPm goes with the time of day: h 0–11 is a.m., h 12–23 is p.m.',
+        });
+      }
+      if (c.time.h < scene.from || c.time.h > scene.to) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ampm', 'scene'],
+          message: `${c.ampm.scene} happens from ${scene.from}:00 to ${scene.to}:59; the time is ${c.time.h}:${String(c.time.m).padStart(2, '0')}`,
+        });
+      }
+    }
   }
   if (c.input === 'digital-pad' && c.options !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['options'], message: 'the digital pad has no options' });

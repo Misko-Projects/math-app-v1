@@ -138,11 +138,15 @@ export function sharedScaleIssues(
 }
 
 /**
- * Where a `clock` or `coins` stimulus may sit in a generated item: only as a format's own picture
- * (`widget.stimulus`), which StimulusView gives the whole picture box. A clock face keeps its
- * numbers at 32 px only from 280 px across, and a coins picture keeps one scale only in that box,
- * so one inside a choice card, on a compare side, on an order card or in a hint overlay is not
- * supported (the clock and coin formats draw their own). Returns the paths found.
+ * A `clock` or `coins` stimulus is not yet shown anywhere in a generated item: no format's layout
+ * is proven to hold one in the smallest widget area. A clock face keeps its numbers at 32 px only
+ * from 280 px across (taller, with its frame, than a format that stacks its answer under the
+ * picture can spare), and a coins picture keeps one scale only in a full picture box. The clock
+ * and coin formats draw their own clock and coins (their configs carry a time and pieces, never a
+ * stimulus); a time or an amount in a prompt is said and printed, not drawn. So one found
+ * anywhere in an item (a format's own picture, a choice card, a compare side, an order card, a
+ * hint overlay) is a content-check error, until a layout for it is built and proven. Returns the
+ * paths found.
  */
 export function misplacedTimeMoneyPictures(item: { widget: unknown; hints?: unknown }): string[] {
   const found: string[] = [];
@@ -166,7 +170,7 @@ export function misplacedTimeMoneyPictures(item: { widget: unknown; hints?: unkn
   };
   const w = item.widget as Record<string, unknown> | null;
   if (typeof w === 'object' && w !== null) {
-    for (const [k, x] of Object.entries(w)) walk(x, `widget.${k}`, k === 'stimulus');
+    for (const [k, x] of Object.entries(w)) walk(x, `widget.${k}`, false);
   }
   walk(item.hints, 'hints', false);
   return found;

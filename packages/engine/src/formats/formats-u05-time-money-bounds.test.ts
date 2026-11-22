@@ -15,7 +15,6 @@ import {
   MONEY_CENTS_MAX,
   PURSE_COUNT_MAX,
   PURSE_NARROW_UNITS_MAX,
-  PURSE_NO_LINE_UNITS_MAX,
   stimulusSpecSchema,
   TRAY_NARROW_PIECES_MAX,
   TRAY_PIECES_MAX,
@@ -24,7 +23,7 @@ import {
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { stateChecker } from '../check/state';
-import { clockRead, isDaylight } from './clock-read';
+import { AMPM_SCENES, clockRead, isDaylight } from './clock-read';
 import { clockSet } from './clock-set';
 import { coinCount, MAX_COMPARE_SLOTS, MAX_COUNT_CENTS } from './coin-count';
 import { coinPay, MAX_TRAY_PIECES, payTrayCapacity } from './coin-pay';
@@ -234,43 +233,69 @@ describe('clock-read bounds', () => {
   });
 });
 
-describe('clock-read a.m. / p.m.: the sky tells the two times of day apart (PR #101 review 1)', () => {
-  const ampm = (h: number, isPm: boolean) => ({
+describe('clock-read a.m. / p.m.: the scene is the clue (PR #101 reviews 1 and 2)', () => {
+  const ampm = (scene: string, h: number, isPm: boolean) => ({
     ...read,
     time: { h, m: 0 },
     input: 'pick' as const,
-    ampm: { scene: 'beach', isPm },
+    ampm: { scene, isPm },
   });
 
-  it('for every face time, one of its two times of day is in daylight and the other in the dark', () => {
+  it('every scene happens in one half of the day, so naming it answers a.m. or p.m.', () => {
+    for (const [scene, hours] of Object.entries(AMPM_SCENES)) {
+      expect(hours.from, scene).toBeLessThanOrEqual(hours.to);
+      // Never across noon or midnight.
+      expect(hours.from >= 12, scene).toBe(hours.to >= 12);
+    }
+    expect(Object.keys(AMPM_SCENES)).toEqual([
+      'wake-up',
+      'breakfast',
+      'lunch',
+      'dinner',
+      'bedtime',
+    ]);
+  });
+
+  it('accepts a daily event at a time it happens, with the half of the day it is in', () => {
+    ok(clockRead, ampm('breakfast', 7, false));
+    ok(clockRead, ampm('wake-up', 5, false));
+    ok(clockRead, ampm('lunch', 12, true));
+    ok(clockRead, ampm('dinner', 17, true));
+    ok(clockRead, ampm('bedtime', 19, true));
+  });
+
+  it('refuses a scene that is not a daily event, a wrong half of the day, and an hour the event does not happen at', () => {
+    refused(clockRead, ampm('beach', 7, false), 'ampm.scene');
+    refused(clockRead, ampm('breakfast', 7, true), 'ampm.isPm');
+    refused(clockRead, ampm('dinner', 17, false), 'ampm.isPm');
+    // 5 in the afternoon is not breakfast time, and 5 in the morning is not dinner time: the two
+    // 5:00s (the case a sky alone cannot settle) are told apart by what is happening.
+    refused(clockRead, ampm('breakfast', 17, true), 'ampm.scene');
+    refused(clockRead, ampm('dinner', 5, false), 'ampm.scene');
+    ok(clockRead, ampm('wake-up', 5, false));
+  });
+
+  it('the sky drawn beside the scene differs between the two times of day of any face time', () => {
     for (let h = 0; h < 12; h++) expect(isDaylight(h)).not.toBe(isDaylight(h + 12));
     expect(isDaylight(7)).toBe(true);
     expect(isDaylight(19)).toBe(false);
-    expect(isDaylight(12)).toBe(true);
-    expect(isDaylight(0)).toBe(false);
-  });
-
-  it('isPm goes with the time of day, so the sky drawn is the clue for the answer', () => {
-    ok(clockRead, ampm(7, false));
-    ok(clockRead, ampm(19, true));
-    ok(clockRead, ampm(0, false));
-    ok(clockRead, ampm(12, true));
-    refused(clockRead, ampm(7, true), 'ampm.isPm');
-    refused(clockRead, ampm(19, false), 'ampm.isPm');
   });
 });
 
-describe('clock and coins pictures sit only where a layout gives them their own box (PR #101 review 1)', () => {
+describe('a clock or coins stimulus is not shown in any format yet (PR #101 reviews 1 and 2)', () => {
   const clock = { kind: 'clock', h: 3, m: 0, numerals: true };
   const coins = { kind: 'coins', coins: ['penny', 'dime'] };
 
-  it("a format's own picture is the one place", () => {
+  it("a format's own picture is reported too: no layout is proven to hold one", () => {
     expect(
       misplacedTimeMoneyPictures({ widget: { format: 'number-pad', stimulus: clock } }),
-    ).toEqual([]);
+    ).toEqual(['widget.stimulus']);
+    expect(
+      misplacedTimeMoneyPictures({ widget: { format: 'numeral-pick', stimulus: clock } }),
+    ).toEqual(['widget.stimulus']);
     expect(
       misplacedTimeMoneyPictures({ widget: { format: 'number-pad', stimulus: coins } }),
-    ).toEqual([]);
+    ).toEqual(['widget.stimulus']);
   });
 
   it('a choice card, a compare side, an order card and a hint overlay are reported with their paths', () => {
@@ -303,6 +328,8 @@ describe('clock and coins pictures sit only where a layout gives them their own 
   it('the clock and coin formats, which draw their own clock and coins, carry no such picture', () => {
     expect(misplacedTimeMoneyPictures({ widget: set })).toEqual([]);
     expect(misplacedTimeMoneyPictures({ widget: count })).toEqual([]);
+    expect(misplacedTimeMoneyPictures({ widget: pay })).toEqual([]);
+    expect(misplacedTimeMoneyPictures({ widget: change })).toEqual([]);
     expect(misplacedTimeMoneyPictures({ widget: { ...read, time: { h: 3, m: 0 } } })).toEqual([]);
   });
 });
@@ -547,14 +574,11 @@ describe('make-change bounds', () => {
     refused(makeChange, { ...change, paid: MONEY_CENTS_MAX + 1 }, 'paid');
   });
 
-  it(`refuses change the tray cannot make: ${TRAY_NARROW_PIECES_MAX} pieces (one hop each) beside the line, ${TRAY_PIECES_MAX} without it`, () => {
-    expect(changeTrayCapacity({ countUpLine: true })).toBe(TRAY_NARROW_PIECES_MAX);
-    expect(changeTrayCapacity({ countUpLine: false })).toBe(TRAY_PIECES_MAX);
+  it(`refuses change the tray's ${TRAY_NARROW_PIECES_MAX} pieces (one hop each) cannot make, with or without the line`, () => {
     const pennies = { penny: 'unlimited' as const };
-    for (const [countUpLine, cap] of [
-      [true, TRAY_NARROW_PIECES_MAX],
-      [false, TRAY_PIECES_MAX],
-    ] as const) {
+    for (const countUpLine of [true, false]) {
+      expect(changeTrayCapacity({ countUpLine })).toBe(TRAY_NARROW_PIECES_MAX);
+      const cap = TRAY_NARROW_PIECES_MAX;
       ok(makeChange, { ...change, countUpLine, price: 100 - cap, paid: 100, purse: pennies });
       refused(
         makeChange,
@@ -566,16 +590,29 @@ describe('make-change bounds', () => {
     refused(makeChange, { ...change, purse: {} }, 'purse');
   });
 
-  it(`with the count-up line the purse is at most ${PURSE_NARROW_UNITS_MAX} stack units (the bill is 2), without it ${PURSE_NO_LINE_UNITS_MAX}`, () => {
+  it(`the purse is one row, at most ${PURSE_NARROW_UNITS_MAX} stack units (the bill is 2), with or without the line`, () => {
     const bills = { ...change, price: 85, paid: 200 };
-    ok(makeChange, { ...bills, purse: { dollar: 2, dime: 'unlimited', nickel: 'unlimited' } });
-    ok(makeChange, { ...change, purse: { quarter: 12, dime: 12, nickel: 12, penny: 12 } });
     const billAndThree = { dollar: 2, quarter: 12, dime: 12, nickel: 12 };
-    refused(makeChange, { ...bills, purse: billAndThree }, 'purse');
-    ok(makeChange, { ...bills, countUpLine: false, purse: billAndThree });
     const everything = { dollar: 12, quarter: 12, dime: 12, nickel: 12, penny: 12 };
-    refused(makeChange, { ...change, price: 75, purse: everything }, 'purse');
-    refused(makeChange, { ...change, price: 75, countUpLine: false, purse: everything }, 'purse');
+    for (const countUpLine of [true, false]) {
+      ok(makeChange, {
+        ...bills,
+        countUpLine,
+        purse: { dollar: 2, dime: 'unlimited', nickel: 'unlimited' },
+      });
+      ok(makeChange, {
+        ...change,
+        countUpLine,
+        purse: { quarter: 12, dime: 12, nickel: 12, penny: 12 },
+      });
+      refused(makeChange, { ...bills, countUpLine, purse: billAndThree }, 'purse');
+      refused(makeChange, { ...change, countUpLine, price: 75, purse: everything }, 'purse');
+    }
+    // PR #101 review 2: the accepted no-line board with twelve pieces of change (six bills and
+    // two each of three coins) is refused now, for its purse and for its change.
+    const big = { ...change, countUpLine: false, price: 320, paid: 1000 };
+    refused(makeChange, { ...big, purse: billAndThree }, 'purse');
+    refused(makeChange, { ...big, purse: { dollar: 12, quarter: 12 } }, 'purse');
   });
 
   it('the count-up never takes more hops than the tray holds', () => {

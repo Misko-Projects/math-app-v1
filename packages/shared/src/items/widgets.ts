@@ -728,16 +728,14 @@ export const PURSE_COUNT_MAX = 12;
 export const TRAY_PIECES_MAX = 12;
 /**
  * The widest purse a narrow money board shows, in stack units (a coin kind is 1, the dollar bill
- * 2). make-change (beside its count-up line) and coin-pay `new-way` (beside the ways found) leave
+ * 2). make-change (beside its tags and count-up line) and coin-pay `new-way` (beside the ways found) leave
  * the board about 417 px at 906 × 373: one row of four coin stacks, or of the bill and two, at
  * the K target size, so the purse is never two rows over a tray of two.
  */
 export const PURSE_NARROW_UNITS_MAX = 4;
-/** make-change without its count-up line has room for one more stack: the bill and three coins. */
-export const PURSE_NO_LINE_UNITS_MAX = 5;
 /**
- * The most pieces the tray of a narrow money board holds (make-change beside its count-up line,
- * coin-pay `new-way` beside the ways found): one row of piles under a one-row purse, each piece
+ * The most pieces the tray of a narrow money board holds (make-change, with or without its
+ * count-up line; coin-pay `new-way` beside the ways found): one row of piles under a one-row purse, each piece
  * showing, at the K target size in 906 × 373. An item's answer always fits.
  */
 export const TRAY_NARROW_PIECES_MAX = 5;

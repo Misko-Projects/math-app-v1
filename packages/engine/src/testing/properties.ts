@@ -604,12 +604,12 @@ export function runTemplateProperties(
     for (const at of misplacedCharts(item)) {
       fail(seed, '3.chart', `${at}: a chart stimulus is shown only on a compare side`);
     }
-    // A clock or coins stimulus is a format's own picture, nowhere smaller (formats/pictures.ts).
+    // No layout is proven to hold a clock or coins stimulus yet (formats/pictures.ts).
     for (const at of misplacedTimeMoneyPictures(item)) {
       fail(
         seed,
         '3.picture',
-        `${at}: a clock or coins stimulus is shown only as the format's own picture (widget.stimulus)`,
+        `${at}: a clock or coins stimulus is not shown in any format yet (use clock-read, clock-set or the coin formats)`,
       );
     }
     if (item.widget.format !== t.format)

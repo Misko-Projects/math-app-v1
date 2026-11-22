@@ -12,7 +12,6 @@ import {
   type AnswerSpec,
   makeChangeConfigSchema,
   PURSE_NARROW_UNITS_MAX,
-  PURSE_NO_LINE_UNITS_MAX,
   TRAY_NARROW_PIECES_MAX,
   type WidgetConfigOf,
 } from '@number-island/shared';
@@ -21,7 +20,6 @@ import {
   type CoinTrayState,
   dropPiece,
   MAX_PAY_CENTS,
-  MAX_TRAY_PIECES,
   NARROW_PURSE_MESSAGE,
   responseTray,
   trayOf,
@@ -47,11 +45,12 @@ type Config = WidgetConfigOf<'make-change'>;
 export interface MakeChangeState extends FormatState<'make-change'>, CoinTrayState {}
 
 /**
- * The pieces this item's tray holds: `TRAY_NARROW_PIECES_MAX` beside the count-up line (one hop
- * a piece), else `TRAY_PIECES_MAX`.
+ * The pieces a make-change tray holds: `TRAY_NARROW_PIECES_MAX`, one hop of the count-up line a
+ * piece. The board sits beside the price and paid tags (and the line, when it has one), so it is
+ * a narrow board either way: a one-row purse over a one-row tray.
  */
-export const changeTrayCapacity = (c: Pick<Config, 'countUpLine'>): number =>
-  c.countUpLine ? TRAY_NARROW_PIECES_MAX : MAX_TRAY_PIECES;
+export const changeTrayCapacity = (_c?: Pick<Config, 'countUpLine'>): number =>
+  TRAY_NARROW_PIECES_MAX;
 
 /** The change owed. */
 export const changeOwed = (c: Pick<Config, 'price' | 'paid'>): number => c.paid - c.price;
@@ -87,14 +86,8 @@ const configSchema = makeChangeConfigSchema.superRefine((c, ctx) => {
   }
   if (purseKinds(c.purse).length === 0) {
     ctx.addIssue({ code: 'custom', path: ['purse'], message: 'the purse is empty' });
-  } else if (c.countUpLine && purseUnits(c.purse) > PURSE_NARROW_UNITS_MAX) {
+  } else if (purseUnits(c.purse) > PURSE_NARROW_UNITS_MAX) {
     ctx.addIssue({ code: 'custom', path: ['purse'], message: NARROW_PURSE_MESSAGE });
-  } else if (purseUnits(c.purse) > PURSE_NO_LINE_UNITS_MAX) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['purse'],
-      message: `the purse is one row: at most ${PURSE_NO_LINE_UNITS_MAX} coin kinds, the dollar bill counting as 2`,
-    });
   } else {
     const fewest = fewestPieces(changeOwed(c), c.purse);
     if (fewest === null) {

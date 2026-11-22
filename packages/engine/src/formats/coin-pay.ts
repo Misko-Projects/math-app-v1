@@ -66,7 +66,7 @@ export const payTrayCapacity = (c: Pick<Config, 'mode'>): number =>
   c.mode === 'new-way' ? TRAY_NARROW_PIECES_MAX : MAX_TRAY_PIECES;
 
 /** Why a narrow board refuses a wide purse (make-change; coin-pay `new-way`). */
-export const NARROW_PURSE_MESSAGE = `beside the count-up line or the ways found, the purse is one row: at most ${PURSE_NARROW_UNITS_MAX} coin kinds, the dollar bill counting as 2`;
+export const NARROW_PURSE_MESSAGE = `on this board (make-change; coin-pay new-way) the purse is one row: at most ${PURSE_NARROW_UNITS_MAX} coin kinds, the dollar bill counting as 2`;
 
 export interface CoinTrayState {
   /** The pieces in the tray, in the order they went in. */

@@ -19,11 +19,13 @@ import {
   ClockFace,
   faceTime,
   NumberPadKeys,
+  ObjectSprite,
   type PadBox,
   PadBoxView,
   type PadKey,
   PickCard,
   polarPoint,
+  spriteNameKey,
   useAlive,
   useDemoPause,
   useInviteHand,
@@ -65,10 +67,10 @@ const isNumber = (s: string) => /^\d+$/.test(s);
 const isTimeLabel = (s: string) => /^\d{1,2}:\d{2}$/.test(s);
 
 /**
- * The a.m. / p.m. clue (TIM.05): the sky outside at that time of day, the sun over the sea in
- * daylight and the moon and stars in the dark. A face time is two times of day, one of each
- * (engine `isDaylight`), so this picture is what lets a child tell 7 in the morning from 7 at
- * night. A named picture, with no action.
+ * The sky of the a.m. / p.m. clue (TIM.05): the sun over the sea in daylight, the moon and stars
+ * in the dark. It stands beside the scene (`ampm.scene`: a daily event such as breakfast or
+ * bedtime, drawn and named), which is what tells a child the half of the day; the sky agrees
+ * with it. A named picture, with no action.
  */
 function SkyClue({ day, label }: { day: boolean; label: string }) {
   return (
@@ -370,10 +372,20 @@ export function ClockReadWidget({
         {face}
         <div className="ni-cread__answer">
           {config.ampm ? (
-            <SkyClue
-              day={isDaylight(config.time.h)}
-              label={t(isDaylight(config.time.h) ? 'ui.clock.sky-day' : 'ui.clock.sky-night')}
-            />
+            <div className="ni-cread__clue">
+              <span
+                className="ni-cread__scene"
+                data-scene={config.ampm.scene}
+                role="img"
+                aria-label={t(spriteNameKey(`event-${config.ampm.scene}`))}
+              >
+                <ObjectSprite sprite={`event-${config.ampm.scene}`} />
+              </span>
+              <SkyClue
+                day={isDaylight(config.time.h)}
+                label={t(isDaylight(config.time.h) ? 'ui.clock.sky-day' : 'ui.clock.sky-night')}
+              />
+            </div>
           ) : null}
           <fieldset
             className="ni-cread__options"

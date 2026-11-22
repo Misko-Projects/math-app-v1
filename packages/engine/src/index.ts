@@ -87,6 +87,8 @@ export {
   turnMinuteHand,
 } from './formats/clock';
 export {
+  AMPM_SCENES,
+  type AmPmScene,
   type ClockReadState,
   isDaylight,
   isHourPick,

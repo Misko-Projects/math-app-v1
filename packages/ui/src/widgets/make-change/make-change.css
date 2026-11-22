@@ -50,6 +50,12 @@
   stroke-width: 4;
   stroke-linecap: round;
 }
+/* Joins a paid amount printed clear of the price to its mark. */
+.ni-mchange__leader {
+  stroke: var(--color-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
 .ni-mchange__stop {
   fill: var(--color-coral-deep);
   stroke: var(--color-cloud);

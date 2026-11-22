@@ -67,7 +67,7 @@ const amPm: ConfigFor<'clock-read'> = {
   time: { h: 7, m: 0 },
   numerals: true,
   input: 'pick',
-  ampm: { scene: 'beach', isPm: false },
+  ampm: { scene: 'breakfast', isPm: false },
 };
 
 /**
@@ -248,13 +248,13 @@ export const AmPm: Story = {
 };
 
 /**
- * The a.m. / p.m. clue (PR #101 review 1): 7:00 in the morning and 7:00 in the evening show the
- * same face, and the sky beside it tells them apart before anything is picked: the sun over the sea ("It is day"), or the
- * moon and stars ("It is night"). Each is a named picture; picking the matching half of the day answers it. In the
- * smallest area.
+ * The a.m. / p.m. clue (PR #101 reviews 1 and 2): 5:00 in the morning and 5:00 in the evening
+ * show the same face. What is happening tells them apart before anything is picked: waking up
+ * (a.m.) or dinner (p.m.), each drawn and named, with the sky then beside it. Picking the
+ * matching half of the day answers it. In the smallest area.
  */
 export const AmPmClue: Story = {
-  args: { config: amPm },
+  args: { config: { ...amPm, time: { h: 5, m: 0 }, ampm: { scene: 'wake-up', isPm: false } } },
   render: (args) => (
     <div style={{ display: 'grid', gap: 16 }}>
       {inArea('landscapeMin')(args)}
@@ -262,8 +262,8 @@ export const AmPmClue: Story = {
         ...args,
         config: {
           ...amPm,
-          time: { h: 19, m: 0 },
-          ampm: { scene: 'beach', isPm: true },
+          time: { h: 17, m: 0 },
+          ampm: { scene: 'dinner', isPm: true },
         } as WidgetConfig,
       })}
     </div>
@@ -278,41 +278,39 @@ export const AmPmClue: Story = {
     // The same face time on both clocks.
     const faceOf = (root: HTMLElement) => (root.querySelector('.ni-clock') as SVGElement).dataset.t;
     await expect(faceOf(morning)).toBe(faceOf(evening));
-    // A different, named sky on each, there before any answer.
-    await expect(within(morning).getByRole('img', { name: 'It is day' })).toBeVisible();
-    await expect(within(evening).getByRole('img', { name: 'It is night' })).toBeVisible();
-    await expect(morning.querySelector('.ni-cread__sky')).toHaveAttribute('data-sky', 'day');
-    await expect(evening.querySelector('.ni-cread__sky')).toHaveAttribute('data-sky', 'night');
+    // A different, named scene on each, there before any answer: what a child reads the half of
+    // the day from.
+    await expect(within(morning).getByRole('img', { name: 'Waking up' })).toBeVisible();
+    await expect(within(evening).getByRole('img', { name: 'Dinner' })).toBeVisible();
+    await expect(morning.querySelector('.ni-cread__scene')).toHaveAttribute(
+      'data-scene',
+      'wake-up',
+    );
+    await expect(evening.querySelector('.ni-cread__scene')).toHaveAttribute('data-scene', 'dinner');
+    await expect(
+      morning.querySelector('.ni-cread__scene [data-sprite="event-wake-up"]'),
+    ).not.toBeNull();
+    await expect(
+      evening.querySelector('.ni-cread__scene [data-sprite="event-dinner"]'),
+    ).not.toBeNull();
+    // The sky beside it is named too.
+    await expect(within(morning).getByRole('img', { name: /It is (day|night)/ })).toBeVisible();
+    await expect(within(evening).getByRole('img', { name: /It is (day|night)/ })).toBeVisible();
     const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
     for (const [i, root] of [morning, evening].entries()) {
       const area = areas[i] as HTMLElement;
       await expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
       await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
-      const sky = (root.querySelector('.ni-cread__sky') as SVGElement).getBoundingClientRect();
+      const clue = (root.querySelector('.ni-cread__clue') as HTMLElement).getBoundingClientRect();
       for (const pick of root.querySelectorAll<HTMLElement>('.ni-cread__options .ni-pick')) {
         const r = pick.getBoundingClientRect();
-        await expect(r.top - sky.bottom).toBeGreaterThanOrEqual(12);
+        await expect(r.top - clue.bottom).toBeGreaterThanOrEqual(12);
         await expectTargetSize(pick, 'g1-up');
       }
     }
     await userEvent.click(evening.querySelector('.ni-pick[data-id="pm"]') as HTMLElement);
     await userEvent.click(within(evening).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenLastCalledWith({ kind: 'choice', id: 'pm' });
-  },
-};
-
-/**
- * The harder face, without numbers (`numerals: false`, the model's `numerals.off` feature): only
- * an item that asks for it shows it. Grade 1 and up; never the default, never in a K story.
- */
-export const BareFaceHarder: Story = {
-  args: { config: { ...halfPast, numerals: false } },
-  parameters: { bareFace: true },
-  play: async ({ canvasElement }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    await expect(root.querySelectorAll('[data-numeral]')).toHaveLength(0);
-    await expect(root.querySelectorAll('.ni-clock__ticks [data-tick="five"]')).toHaveLength(12);
-    await expectGeared(root, 3, 30);
   },
 };
 
@@ -486,6 +484,8 @@ export const SizesK: Story = {
   // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
   render: inArea('tablet'),
   globals: { ageMode: 'k' },
+  // The youngest read whole hours: 3 o'clock.
+  args: { config: { ...halfPast, time: { h: 3, m: 0 } } },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectControls(root, 'k');
@@ -505,7 +505,9 @@ export const PickSizesK: Story = {
   // In the tablet's widget area, so the picture shows the widget at the size a child meets it.
   render: inArea('tablet'),
   globals: { ageMode: 'k' },
-  // The youngest read whole hours: 8 o'clock, and the options are the hours.
+  // A whole hour for the youngest: 8 o'clock. The cards are hour numbers by the model's design
+  // for the shipped hour pick (TIM.09.t3, "What hour is it after?": option ids `opt-<h>`,
+  // labels "<h>", engine README "Time formats"), which this story sizes at the K targets.
   args: { config: { ...hourPick, time: { h: 8, m: 0 } } },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);

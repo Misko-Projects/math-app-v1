@@ -26,7 +26,23 @@
   align-items: center;
   gap: 24px;
 }
-/* The a.m. / p.m. clue: a picture of the sky, no action. */
+/* The a.m. / p.m. clue: what is happening (the scene) and the sky then; pictures, no action. */
+.ni-cread__clue {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.ni-cread__scene {
+  flex: none;
+  display: block;
+  width: 96px;
+  height: 96px;
+  box-sizing: border-box;
+  padding: 6px;
+  border: 3px solid var(--color-ink);
+  border-radius: 14px;
+  background: var(--color-paper);
+}
 .ni-cread__sky {
   flex: none;
   display: block;

@@ -152,7 +152,13 @@
 }
 /* A roomy area: a small purse still stands tall enough to fill the space (06 §2). */
 .ni-ccount[data-roomy="true"] .ni-ccount__board .ni-ccount__purse {
-  min-height: 216px;
+  min-width: 780px;
+  min-height: 244px;
+  /* The coins stand in the middle of the taller board, not along its top edge. */
+  align-content: center;
+}
+.ni-ccount[data-roomy="true"] {
+  justify-content: space-around;
 }
 .ni-ccount__side .ni-ccount__purse {
   flex: 1;

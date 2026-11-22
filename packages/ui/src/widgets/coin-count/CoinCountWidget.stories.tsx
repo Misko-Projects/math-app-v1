@@ -421,6 +421,72 @@ export const TabletArea: Story = {
 };
 
 /** The smallest landscape area (960 × 600 → 906 × 373): twelve coins beside the pad, no scroll. */
+/**
+ * Small purses of the biggest coin on the tablet (PR #101 review 2): one to eight quarters. Each
+ * purse stands in ONE row, the whole widget fits its area, and the answer box and Check are in
+ * view. Five quarters is the case that wrapped into two rows too tall for the area.
+ */
+const quarterPurses = [1, 3, 5, 6, 8];
+async function playQuarterPurses(canvasElement: HTMLElement, mode: 'k' | 'g1-up') {
+  const areas = [...canvasElement.querySelectorAll<HTMLElement>('.story-widget-area')];
+  await expect(areas).toHaveLength(quarterPurses.length);
+  for (const [i, area] of areas.entries()) {
+    const root = await waitFor(() => {
+      const el = area.querySelector<HTMLElement>(ROOT);
+      if (!el) throw new Error('no widget yet');
+      return el;
+    });
+    const pieces = [...root.querySelectorAll<HTMLElement>('.ni-ccount__piece')];
+    await expect(pieces).toHaveLength(quarterPurses[i] as number);
+    const tops = pieces.map((el) => el.getBoundingClientRect().top);
+    await expect(
+      Math.max(...tops) - Math.min(...tops),
+      `${quarterPurses[i]} quarters`,
+    ).toBeLessThan(4);
+    await expect(area.scrollHeight, `${quarterPurses[i]} quarters`).toBeLessThanOrEqual(
+      area.clientHeight + 1,
+    );
+    await expect(area.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+    const a = area.getBoundingClientRect();
+    for (const el of root.querySelectorAll<HTMLElement>('button, [role="button"]')) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0) continue;
+      await expect(r.bottom).toBeLessThanOrEqual(a.bottom - 3);
+      await expect(r.top).toBeGreaterThanOrEqual(a.top + 3);
+    }
+    await expectControls(root, mode);
+  }
+}
+const quarterPursesRender = (args: WidgetHostProps) => (
+  <div style={{ display: 'grid', gap: 16 }}>
+    {quarterPurses.map((n) => (
+      <div key={n}>
+        {inArea('tablet')({
+          ...args,
+          config: {
+            ...mixed,
+            coins: Array.from({ length: n }, () => 'quarter'),
+            arrangement: 'sorted',
+          } as WidgetConfig,
+        })}
+      </div>
+    ))}
+  </div>
+);
+export const QuartersTablet: Story = {
+  render: quarterPursesRender,
+  play: async ({ canvasElement }) => {
+    await playQuarterPurses(canvasElement, 'g1-up');
+  },
+};
+export const QuartersTabletK: Story = {
+  globals: { ageMode: 'k' },
+  render: quarterPursesRender,
+  play: async ({ canvasElement }) => {
+    await playQuarterPurses(canvasElement, 'k');
+  },
+};
+
 /** The bound on the tablet: a purse of twelve coins (COIN_SLOTS_MAX), every one a target. */
 export const TwelveTablet: Story = {
   args: { config: twelve },

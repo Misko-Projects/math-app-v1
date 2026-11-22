@@ -115,7 +115,7 @@ const readAmPm: WidgetConfigOf<'clock-read'> = {
   time: { h: 7, m: 0 },
   numerals: true,
   input: 'pick',
-  ampm: { scene: 'beach', isPm: false },
+  ampm: { scene: 'breakfast', isPm: false },
 };
 
 // ---------- face arithmetic ----------

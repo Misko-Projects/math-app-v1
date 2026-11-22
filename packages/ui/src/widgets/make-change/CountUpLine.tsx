@@ -24,12 +24,14 @@ export const MIN_HOP_PX = 32;
 export const RIDER_PX = 28;
 /** The least the stretch still to count (from the count so far to the paid mark) is drawn. */
 const MIN_REST_PX = 14;
+/** The width a printed amount takes under the line, in px (34 px numerals, about 19 px a glyph). */
+const amountWidth = (cents: number): number => moneyText(cents).length * 19;
 /**
- * The least the paid mark is drawn from the price mark, in px: their two amounts are printed
- * centred under them (up to "$10.00" in 34 px numerals), so nearer than this they would run into
- * each other.
+ * The least the printed paid amount stands from the printed price, centre to centre, in px: half
+ * of each and 8 px between, so the two never run into each other ("99¢" and "$1.00": 84 px).
  */
-export const LABEL_SEP_PX = 112;
+export const labelSepPx = (price: number, paid: number): number =>
+  (amountWidth(price) + amountWidth(paid)) / 2 + 8;
 
 export interface CountUpLineProps {
   price: number;
@@ -67,6 +69,12 @@ export interface CountUpLayout {
   /** Where the price and the paid marks are drawn. */
   priceX: number;
   paidX: number;
+  /**
+   * Where the paid amount is printed: under its mark, or, when too much change has brought the
+   * mark close to the price, moved right to stand clear of the printed price (a short leader
+   * joins it to its mark).
+   */
+  paidLabelX: number;
   /** One hop a piece, in the order given: from where the count stood to where it lands. */
   hops: { i: number; p: MoneyPiece; from: number; to: number; x1: number; x2: number }[];
   /** The count after the last piece. */
@@ -76,9 +84,9 @@ export interface CountUpLayout {
 /**
  * Where everything on the line is drawn. The amounts in order (the price, each landing, the
  * amount paid) are the line's marks; the stretches between them are drawn in proportion to their
- * cents but never under their least width (a hop `MIN_HOP_PX`), and the paid mark is kept
- * `LABEL_SEP_PX` from the price mark, so the two printed amounts stay apart however much too much
- * is given.
+ * cents but never under their least width (a hop `MIN_HOP_PX`). The paid amount is printed under
+ * its mark, moved clear of the printed price (`labelSepPx`) when too much change brings the mark
+ * close to it, so the two printed amounts stay apart however much too much is given.
  */
 export function countUpLayout(
   price: number,
@@ -102,16 +110,9 @@ export function countUpLayout(
     const rest = lo >= reached;
     return { v: m - lo, min: rest ? MIN_REST_PX : whole ? MIN_HOP_PX : MIN_HOP_PX / 2 };
   });
-  const paidAt = marks.indexOf(paid);
-  const before = segs.slice(0, paidAt);
-  const after = segs.slice(paidAt);
-  const afterMin = after.reduce((a, s) => a + s.min, 0);
-  let widths = allot(segs, LINE_PX);
-  const beforeW = widths.slice(0, paidAt).reduce((a, x) => a + x, 0);
-  const need = Math.min(LABEL_SEP_PX, LINE_PX - afterMin);
-  if (before.length > 0 && after.length > 0 && beforeW < need) {
-    widths = [...allot(before, need), ...allot(after, LINE_PX - need)];
-  }
+  // One allotment for the whole line, so hops of one piece are one width wherever they fall and a
+  // bigger piece never hops shorter than a smaller one, before the paid mark or past it.
+  const widths = allot(segs, LINE_PX);
   const xOf = new Map<number, number>([[price, PAD]]);
   let x = PAD;
   marks.slice(1).forEach((m, k) => {
@@ -119,16 +120,21 @@ export function countUpLayout(
     xOf.set(m, x);
   });
   const px = (v: number) => xOf.get(v) as number;
+  const paidX = px(paid);
   return {
     priceX: PAD,
-    paidX: px(paid),
+    paidX,
+    paidLabelX: Math.min(
+      Math.max(paidX, PAD + labelSepPx(price, paid)),
+      Math.max(paidX, W - amountWidth(paid) / 2 - 2),
+    ),
     hops: raw.map((h) => ({ ...h, x1: px(h.from), x2: px(h.to) })),
     reached,
   };
 }
 
 export function CountUpLine({ price, paid, given, label, scale = 1 }: CountUpLineProps) {
-  const { priceX, paidX, hops, reached } = countUpLayout(price, paid, given);
+  const { priceX, paidX, paidLabelX, hops, reached } = countUpLayout(price, paid, given);
   const height = LINE_Y + 50;
   return (
     <svg
@@ -178,14 +184,17 @@ export function CountUpLine({ price, paid, given, label, scale = 1 }: CountUpLin
         );
       })}
       {[
-        { v: price, x: priceX, cls: 'price' },
-        { v: paid, x: paidX, cls: 'paid' },
-      ].map(({ v, x, cls }) => (
+        { v: price, x: priceX, at: priceX, cls: 'price' },
+        { v: paid, x: paidX, at: paidLabelX, cls: 'paid' },
+      ].map(({ v, x, at, cls }) => (
         <g key={cls} data-end={cls}>
           <line className="ni-mchange__tick" x1={x} x2={x} y1={LINE_Y - 14} y2={LINE_Y + 14} />
+          {at !== x ? (
+            <line className="ni-mchange__leader" x1={x} x2={at} y1={LINE_Y + 14} y2={LINE_Y + 20} />
+          ) : null}
           <text
             className="ni-mchange__numeral"
-            x={x}
+            x={at}
             y={LINE_Y + 14 + NUMERAL_PX * 0.85}
             fontSize={NUMERAL_PX}
             textAnchor="middle"

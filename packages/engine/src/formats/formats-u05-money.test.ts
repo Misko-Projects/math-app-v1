@@ -170,7 +170,7 @@ const changeCross: WidgetConfigOf<'make-change'> = {
   format: 'make-change',
   price: 85,
   paid: 200,
-  purse: { dollar: 'unlimited', quarter: 'unlimited', dime: 'unlimited', nickel: 'unlimited' },
+  purse: { dollar: 'unlimited', dime: 'unlimited', nickel: 'unlimited' },
   countUpLine: false,
 };
 
