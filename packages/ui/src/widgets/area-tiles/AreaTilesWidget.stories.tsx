@@ -534,8 +534,11 @@ export const DecomposePad: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(cursorLine(root)).toBe('cursor-v-2');
+    // The cursor's line is dashed until it is drawn, and solid once it is.
+    await expect(root.querySelector('.ni-atw__cursordash')).not.toBeNull();
     await press(root, 'cut');
     await expect(drawn(root)).toEqual(['v-2']);
+    await expect(root.querySelector('.ni-atw__cursordash')).toBeNull();
     // The same button erases the line where it is.
     await press(root, 'cut');
     await expect(drawn(root)).toEqual([]);

@@ -91,7 +91,10 @@
   stroke-width: 8;
   stroke-linecap: round;
 }
-/* The cursors: one square, or one grid line (dashed: not drawn yet, or the line to erase). */
+/*
+ * The cursors: one square, or one grid line. The line cursor is a sunshine band under the line;
+ * the line itself is dashed until it is drawn, and solid (a split) once it is.
+ */
 .ni-atw__cursor {
   fill: none;
   stroke: var(--color-ink);
@@ -99,12 +102,15 @@
   stroke-dasharray: 8 6;
 }
 .ni-atw__cursorline {
-  stroke: var(--color-cloud);
-  stroke-width: 4;
+  stroke: var(--color-sunshine);
+  stroke-width: 18;
   stroke-linecap: round;
-  stroke-dasharray: 2 10;
-  paint-order: stroke;
-  filter: drop-shadow(0 0 0 var(--color-ink)) drop-shadow(0 0 2px var(--color-ink));
+}
+.ni-atw__cursordash {
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 10 10;
 }
 
 /* ---------- side lengths ---------- */

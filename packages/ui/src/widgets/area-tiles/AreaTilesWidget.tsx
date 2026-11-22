@@ -32,7 +32,7 @@ import {
   type WorkPlan,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
-import { FillRowIcon, LineDownIcon, TilesIcon } from './icons';
+import { FillRowIcon, LineAcrossIcon, LineDownIcon, TilesIcon } from './icons';
 import {
   askPlanFor,
   boxGridSegments,
@@ -239,6 +239,7 @@ export function AreaTilesWidget({
   };
   const tiled = (s: State, r: number, c: number) => s.tiles[r * region.w + c] === true;
 
+  const hasLine = (s: State, l: Line) => s.splits.some((x) => x.dir === l.dir && x.at === l.at);
   /** Lays a tile on (r, c), or takes it back. */
   const setTile = (r: number, c: number, on: boolean) =>
     act({ op: 'place-tile', args: on ? { r, c } : { r, c, remove: true } });
@@ -652,6 +653,14 @@ export function AreaTilesWidget({
           ) : (
             lines(outlineSegments(region, u), 'ni-atw__outline', 'o')
           )}
+          {live && lining && line
+            ? lines(
+                splitSegments(region, line.dir, line.at, u),
+                'ni-atw__cursorline',
+                'c',
+                `cursor-${line.dir}-${line.at}`,
+              )
+            : null}
           {state.splits.flatMap((s) =>
             lines(
               splitSegments(region, s.dir, s.at, u),
@@ -671,13 +680,8 @@ export function AreaTilesWidget({
               rx={4}
             />
           ) : null}
-          {live && lining && line
-            ? lines(
-                splitSegments(region, line.dir, line.at, u),
-                'ni-atw__cursorline',
-                'c',
-                `cursor-${line.dir}-${line.at}`,
-              )
+          {live && lining && line && !hasLine(state, line)
+            ? lines(splitSegments(region, line.dir, line.at, u), 'ni-atw__cursordash', 'd')
             : null}
         </svg>
       </div>
@@ -756,7 +760,7 @@ export function AreaTilesWidget({
           col: 0,
           row: 0,
           label: 'ui.widget.at.pad.cut',
-          icon: <LineDownIcon />,
+          icon: line?.dir === 'h' ? <LineAcrossIcon /> : <LineDownIcon />,
           onPress: () => onPad('cut'),
         },
         ...arrows,
