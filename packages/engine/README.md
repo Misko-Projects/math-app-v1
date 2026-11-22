@@ -284,6 +284,29 @@ Both models state and enforce the domain their widgets draw. Every bound is a fi
 - **One source for the answer** (`FormatModel.answerIssues`, content-check property 3.answer). equal-share `each` and `leftover`: the answer is `share.fair` with a target of this config's `items`, `recipients` and `allowLeftover`, and `value` the fair share (items ÷ recipients, rounded down) or what is left over; `fair-or-not`: `yes` exactly when every pre-dealt count is the same; `even-odd`: the parity of `items`. equal-groups `read`: the number is `groupsUnknown(config)`; `build`: `groups.equal` with this config's `groups` and `perGroup`, and `value` the unknown.
 - **Every op a child can do has an undo.** equal-share: `deal {to, count: -1}` returns an item to the pile; `set-aside-leftover {back: true}` returns what the seagull holds. equal-groups: `fill-group {index, count}` with a smaller count; `add-group {remove: index}` takes an empty added container away again (only where the number of groups is asked; a filled container stays).
 
+### Array and area models (U04 #13: array-build, area-tiles)
+
+Both models state and enforce the domain their widgets draw. Every bound is a fixed number, the same in every widget area and age mode; the widgets' layout tests fit every config of the domain in the smallest area (906 × 373) at Grade 1 sizes (and at kindergarten sizes wherever the kit's answer control itself fits). A config outside the domain fails the schema, so content-check rejects it (property 3).
+
+| Format | Input | Bound |
+|---|---|---|
+| array-build | `maxRows`, `maxCols` | 1 to 10 (`ARRAY_SIDE_MAX`): every sprite is drawn at least 22 px wide |
+| | `rows`, `cols` (`build-dims`, `read`, `split`) | 1 to the board's; a built array may fit turned when orientation is free; `split` needs 2 columns |
+| | `total` (`build-total`, `new-way`) | some rectangle of that total fits the board |
+| | `found` (`new-way`) | at most 2 rectangles (`ARRAY_FOUND_MAX`), each of `total` and on the board, none listed twice (3 × 4 and 4 × 3 are the same), and one new rectangle is left |
+| | the answer control's range (`read`, `split`) | `arrayAnswerMax(config)`: 0 to 20 on a board of at most 20 cells, otherwise 0 to 100; from the board, never from the answer |
+| area-tiles | `region.w`, `region.h` to read (`count`, `multiply`) | 1 to 10 (`AREA_SIDE_MAX`): every unit square at least 26 px |
+| | `region.w`, `region.h` to work on (`tile`, `decompose`, `partition`: `areaWorked(mode)`) | at most 10 wide (`AREA_WORK_W_MAX`) and 6 tall (`AREA_WORK_H_MAX`): every unit square at least 40 px |
+| | `region.mask` | not empty; one connected shape; it touches every side of its `w` × `h` box (`fillsBox`). The decimal grid's mask is exempt from the last two (it shades part of one whole) |
+| | `sideLabels` | rectangles only (an L's other sides would have no label), and only on a region to read (`count`, `multiply`) |
+| | `gridShown` | what the child must read is on screen: `count` and `decompose` show the unit squares (`gridShown`, or the decimal grid); `multiply` shows the side lengths or the unit squares. `tile` and `partition` may be plain |
+| | `decimalGrid` | mode `count`, 10 × 10 |
+| | the answer control's range | `areaAnswerMax(config)`: 0 to 20 for a box of at most 20 squares, otherwise 0 to 100 |
+
+- **One source for the answer** (`FormatModel.answerIssues`, content-check property 3.answer). array-build `read`: the number is `rows × cols`; `build-dims` and `split`: `array.dims` with this config's `rows` and `cols`, `requireSplit` exactly for `split`, and `orientationMatters` as the config says; `build-total` and `new-way`: `array.area` with this config's `total` and (for `new-way` only) its `found` list. area-tiles `count` and `multiply`: the number is the mask's area; `tile` and `decompose`: `tiles.cover` with this mask, `value` its area, and for `decompose` the flag and the region's `w` and `h`; `partition`: `array.dims` with `rows` = `h` and `cols` = `w`, without `requireSplit`.
+- **Rows are not columns.** `drag-rect {rows, cols}` keeps them apart in the state and the response; only an `array.dims` target without `orientationMatters` accepts the turned array. An empty board has neither (`drag-rect` with a zero side empties it).
+- **Every op a child can do has an undo.** array-build: `drag-rect` with a smaller rectangle, down to the empty board; `split-at` moves the line to any other gap, and `split-at {remove: true}` takes it out again. area-tiles: `place-tile {r, c, remove: true}` takes a tile back from where it lies (also after `fill-row`); `draw-split` on a drawn line erases it.
+
 ### Pattern and puzzle formats (K01: pattern.repeat, pattern.grow, puzzle.grid; pattern-extend's model is U05's, see "Patterns and data models"; puzzle-grid's is U04's, see below)
 
 - **pattern-extend** `extend` and `fill` answer state `pattern.tokens { expected }`: the response is `{ tokens }`, the tokens placed in the blanks (the `null` entries of `sequence`) in reading order, each the same unit as expected (`{ sprite, color? }`, `{ n }` or `{ tiles }`, every field equal). `fill` hides the tokens ending one before the last, after at least one whole core. `core` answers `select.exactSet { values }`: the indices of the first repeat of the core (the prompt asks to mark it from the start). `rule` answers `number`, the step. `palette` holds the units a repeating pattern uses (A, B, C order) and is empty for number patterns, which are typed. Solutions use `place-token {index, token}` per blank, or `highlight {index}` and `bracket-core {from, to}`, after a first line that places nothing. The property test's near misses take away the last token or swap one for its neighbour.

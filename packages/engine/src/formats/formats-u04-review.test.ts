@@ -326,7 +326,8 @@ describe('review round 2 (s_837d2818b4af)', () => {
       unit: 'sq-units',
       decimalGrid: false,
     };
-    expect(issuePaths(areaTiles, one)).toEqual(['region']);
+    // A region with an empty margin in its box is refused too (U04 bounds).
+    expect(issuePaths(areaTiles, one)).toEqual(['region', 'region.mask']);
     expect(issuePaths(areaTiles, { ...one, region: { w: 2, h: 1, mask: '11' } })).toEqual([]);
   });
 });

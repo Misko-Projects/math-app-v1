@@ -1,0 +1,414 @@
+/**
+ * Pure geometry for the area-tiles widget (03 §5.5). Everything is in CSS px, measured from the
+ * top-left of the region's bounding box (its first cell), one cell pitch `p` per grid square.
+ * The mask is row-major '1'/'0', like the engine's (`packages/engine/src/formats/area-tiles.ts`).
+ */
+
+import type { AgeMode } from '../../tokens/tokens';
+import type { Size } from '../kit/arrange';
+import { planWork, type WorkPlan } from '../kit/gridWork';
+import { type AskPlan, planAsk } from '../kit/twoStep';
+
+export interface Segment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface Region {
+  w: number;
+  h: number;
+  mask: string;
+}
+
+/** Whether cell (r, c) is part of the region (outside the box is never). */
+export function inRegion({ w, h, mask }: Region, r: number, c: number): boolean {
+  return r >= 0 && c >= 0 && r < h && c < w && mask[r * w + c] === '1';
+}
+
+/** The region's cells in reading order, as [r, c]. */
+export function regionCells(region: Region): [number, number][] {
+  const out: [number, number][] = [];
+  for (let r = 0; r < region.h; r += 1) {
+    for (let c = 0; c < region.w; c += 1) if (inRegion(region, r, c)) out.push([r, c]);
+  }
+  return out;
+}
+
+/** Rows that hold at least one region cell. */
+export function rowsWithCells(region: Region): number[] {
+  const out: number[] = [];
+  for (let r = 0; r < region.h; r += 1) {
+    for (let c = 0; c < region.w; c += 1) {
+      if (inRegion(region, r, c)) {
+        out.push(r);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Unit edges joined into maximal straight runs. `horizontal(k, i)` says whether the unit edge on
+ * horizontal line k (y = k·p) between x = i·p and (i + 1)·p is drawn; `vertical(k, i)` likewise
+ * for the vertical line x = k·p between y = i·p and (i + 1)·p.
+ */
+function joinRuns(
+  region: Region,
+  p: number,
+  horizontal: (k: number, i: number) => boolean,
+  vertical: (k: number, i: number) => boolean,
+): Segment[] {
+  const out: Segment[] = [];
+  for (let k = 0; k <= region.h; k += 1) {
+    let start = -1;
+    for (let i = 0; i <= region.w; i += 1) {
+      const on = i < region.w && horizontal(k, i);
+      if (on && start < 0) start = i;
+      if (!on && start >= 0) {
+        out.push({ x1: start * p, y1: k * p, x2: i * p, y2: k * p });
+        start = -1;
+      }
+    }
+  }
+  for (let k = 0; k <= region.w; k += 1) {
+    let start = -1;
+    for (let i = 0; i <= region.h; i += 1) {
+      const on = i < region.h && vertical(k, i);
+      if (on && start < 0) start = i;
+      if (!on && start >= 0) {
+        out.push({ x1: k * p, y1: start * p, x2: k * p, y2: i * p });
+        start = -1;
+      }
+    }
+  }
+  return out;
+}
+
+/** The region's outline: every edge between a region cell and a non-region cell (or the box). */
+export function outlineSegments(region: Region, p: number): Segment[] {
+  const at = (r: number, c: number) => inRegion(region, r, c);
+  return joinRuns(
+    region,
+    p,
+    (k, i) => at(k - 1, i) !== at(k, i),
+    (k, i) => at(i, k - 1) !== at(i, k),
+  );
+}
+
+/** Grid lines inside the region: every edge between two region cells. */
+export function innerGridSegments(region: Region, p: number): Segment[] {
+  const at = (r: number, c: number) => inRegion(region, r, c);
+  return joinRuns(
+    region,
+    p,
+    (k, i) => at(k - 1, i) && at(k, i),
+    (k, i) => at(i, k - 1) && at(i, k),
+  );
+}
+
+/** Every inner grid line of the whole w × h box (the decimal grid's hundredths). */
+export function boxGridSegments(w: number, h: number, p: number): Segment[] {
+  const out: Segment[] = [];
+  for (let c = 1; c < w; c += 1) out.push({ x1: c * p, y1: 0, x2: c * p, y2: h * p });
+  for (let r = 1; r < h; r += 1) out.push({ x1: 0, y1: r * p, x2: w * p, y2: r * p });
+  return out;
+}
+
+/**
+ * Where a full-length split line shows: `dir` 'v' after column `at` (x = at·p) or 'h' after row
+ * `at` (y = at·p), drawn only where it cuts the region: along edges with region cells on both sides
+ * (an L's line stops at its notch, and never runs along the outline).
+ */
+export function splitSegments(region: Region, dir: 'v' | 'h', at: number, p: number): Segment[] {
+  const touch = (r: number, c: number) => inRegion(region, r, c);
+  return joinRuns(
+    region,
+    p,
+    (k, i) => dir === 'h' && k === at && touch(k - 1, i) && touch(k, i),
+    (k, i) => dir === 'v' && k === at && touch(i, k - 1) && touch(i, k),
+  );
+}
+
+// ---------- the plans (kit gridWork, kit twoStep) ----------
+
+export type AreaMode = 'tile' | 'count' | 'multiply' | 'decompose' | 'partition';
+
+export interface AreaShape {
+  mode: AreaMode;
+  region: Region;
+  sideLabels: boolean;
+}
+
+/** Whether the child works on the region (lays tiles or draws lines). */
+export const worked = (mode: AreaMode): boolean =>
+  mode === 'tile' || mode === 'decompose' || mode === 'partition';
+
+/** A unit square to read is never drawn smaller than this; one to work on, than WORK_CELL. */
+export const MIN_CELL = 26;
+export const MIN_WORK_CELL = 40;
+export const MAX_CELL: Readonly<Record<AgeMode, number>> = { k: 144, 'g1-up': 144 };
+/** The outline's room round the squares, each side. */
+export const FRAME = 4;
+/** The side-length labels: a row above the region and a column left of it. */
+export const LABEL = { top: 48, left: 60 } as const;
+
+/** Side lengths are labelled on a region to read (the schema refuses them on one to work on). */
+export const labelled = (c: AreaShape): boolean => c.sideLabels && !worked(c.mode);
+
+const extraFor = (c: AreaShape): Size => ({
+  w: 2 * FRAME + (labelled(c) ? LABEL.left : 0),
+  h: 2 * FRAME + (labelled(c) ? LABEL.top : 0),
+});
+
+/** The step with the region and its pad (`room` is the kit's `buildRoom`). */
+export function workPlan(c: AreaShape, room: Size, ageMode: AgeMode): WorkPlan {
+  return planWork({
+    room,
+    ageMode,
+    pad: { cols: 3, rows: 2 },
+    head: false,
+    cols: c.region.w,
+    rows: c.region.h,
+    extra: extraFor(c),
+    minCell: MIN_WORK_CELL,
+    maxCell: MAX_CELL[ageMode],
+  });
+}
+
+/** The ask step's picture of the region in `box`: no pad, nothing to touch. */
+export function picturePlan(c: AreaShape, box: Size, ageMode: AgeMode): WorkPlan {
+  return planWork({
+    room: box,
+    ageMode,
+    pad: { cols: 0, rows: 0 },
+    head: false,
+    cols: c.region.w,
+    rows: c.region.h,
+    extra: extraFor(c),
+    minCell: MIN_CELL,
+    maxCell: MAX_CELL[ageMode],
+  });
+}
+
+/** The ask step: the answer control at full size, and the region as large as the rest allows. */
+export function askPlanFor(
+  c: AreaShape,
+  max: number,
+  room: Size,
+  button: Size,
+  ageMode: AgeMode,
+): AskPlan {
+  return planAsk({
+    ageMode,
+    max,
+    button,
+    actions: worked(c.mode) ? 2 : 1,
+    room,
+    pictureScore: (box) => {
+      const p = picturePlan(c, box, ageMode);
+      return p.fits ? p.cell : 0;
+    },
+  });
+}
+
+// ---------- the cursors the pad's arrows move ----------
+
+export type Dir = 'up' | 'down' | 'left' | 'right';
+const STEP: Record<Dir, [number, number]> = {
+  up: [-1, 0],
+  down: [1, 0],
+  left: [0, -1],
+  right: [0, 1],
+};
+
+/** The next region cell from (r, c) in a direction (past any notch); null at the region's end. */
+export function nextCell(region: Region, r: number, c: number, dir: Dir): [number, number] | null {
+  const [dr, dc] = STEP[dir];
+  for (let k = 1; k < Math.max(region.w, region.h); k += 1) {
+    const rr = r + dr * k;
+    const cc = c + dc * k;
+    if (rr < 0 || cc < 0 || rr >= region.h || cc >= region.w) return null;
+    if (inRegion(region, rr, cc)) return [rr, cc];
+  }
+  return null;
+}
+
+/**
+ * The arrow that brings the square cursor one step nearer to a square: the first step of a
+ * shortest route through `nextCell` (an arrow that would not move the cursor is never given).
+ * Null when the cursor is there, or the square cannot be reached.
+ */
+export function arrowToward(
+  region: Region,
+  from: readonly [number, number],
+  to: readonly [number, number],
+): Dir | null {
+  const key = (r: number, c: number) => r * region.w + c;
+  if (key(from[0], from[1]) === key(to[0], to[1])) return null;
+  const seen = new Set([key(from[0], from[1])]);
+  let frontier: { at: [number, number]; first: Dir }[] = [];
+  const dirs: Dir[] = ['up', 'down', 'left', 'right'];
+  const expand = (at: readonly [number, number], first: Dir | null) => {
+    const out: { at: [number, number]; first: Dir }[] = [];
+    for (const d of dirs) {
+      const n = nextCell(region, at[0], at[1], d);
+      if (!n || seen.has(key(n[0], n[1]))) continue;
+      seen.add(key(n[0], n[1]));
+      out.push({ at: n, first: first ?? d });
+    }
+    return out;
+  };
+  frontier = expand(from, null);
+  while (frontier.length > 0) {
+    const hit = frontier.find((f) => key(f.at[0], f.at[1]) === key(to[0], to[1]));
+    if (hit) return hit.first;
+    frontier = frontier.flatMap((f) => expand(f.at, f.first));
+  }
+  return null;
+}
+
+/**
+ * The region squares a finger crosses between two points (px from the first square's corner),
+ * in order. The straight path is walked from grid line to grid line, so every square it enters is
+ * found, however fast or slanted the stroke (a path through a corner takes one of the two
+ * squares beside it). It always starts on the first point's square and ends on the last's.
+ */
+export function cellsBetween(
+  region: Region,
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  cell: number,
+): [number, number][] {
+  const x0 = a.x / cell;
+  const y0 = a.y / cell;
+  const dx = b.x / cell - x0;
+  const dy = b.y / cell - y0;
+  let c = Math.floor(x0);
+  let r = Math.floor(y0);
+  const endC = Math.floor(b.x / cell);
+  const endR = Math.floor(b.y / cell);
+  const stepC = Math.sign(dx);
+  const stepR = Math.sign(dy);
+  // How far along the path (0 … 1) the next grid line of each kind is, and one square more.
+  let nextC = dx === 0 ? Number.POSITIVE_INFINITY : ((stepC > 0 ? c + 1 : c) - x0) / dx;
+  let nextR = dy === 0 ? Number.POSITIVE_INFINITY : ((stepR > 0 ? r + 1 : r) - y0) / dy;
+  const perC = dx === 0 ? Number.POSITIVE_INFINITY : Math.abs(1 / dx);
+  const perR = dy === 0 ? Number.POSITIVE_INFINITY : Math.abs(1 / dy);
+  const out: [number, number][] = [];
+  const visit = () => {
+    if (inRegion(region, r, c)) out.push([r, c]);
+  };
+  visit();
+  // Each step crosses one grid line: at most the squares between the two ends, both ways.
+  const most = Math.abs(endC - c) + Math.abs(endR - r);
+  for (let k = 0; k < most && (c !== endC || r !== endR); k += 1) {
+    // A side that has reached the end's square never steps again, so the walk always ends on
+    // the square under the finger (also when the path ends on a grid line or a corner, where
+    // rounding could otherwise send it one square past).
+    if (r === endR || (c !== endC && nextC < nextR)) {
+      c += stepC;
+      nextC += perC;
+    } else {
+      r += stepR;
+      nextR += perR;
+    }
+    visit();
+  }
+  return out;
+}
+
+export interface Line {
+  dir: 'v' | 'h';
+  at: number;
+}
+
+/** Whether the region has a line there (1 … w − 1 down, 1 … h − 1 across) that cuts it. */
+export function lineCuts(region: Region, line: Line): boolean {
+  return splitSegments(region, line.dir, line.at, 1).length > 0;
+}
+
+/** Every line that cuts the region. */
+export function cutLines(region: Region): Line[] {
+  const out: Line[] = [];
+  for (let at = 1; at < region.w; at += 1) out.push({ dir: 'v', at });
+  for (let at = 1; at < region.h; at += 1) out.push({ dir: 'h', at });
+  return out.filter((l) => lineCuts(region, l));
+}
+
+/** Where the line cursor starts: the middle up-and-down line, else the middle one across. */
+export function firstLine(region: Region): Line | null {
+  const lines = cutLines(region);
+  const pick = (dir: 'v' | 'h') => {
+    const own = lines.filter((l) => l.dir === dir);
+    return own[Math.floor((own.length - 1) / 2)] ?? null;
+  };
+  return pick('v') ?? pick('h');
+}
+
+/**
+ * The line cursor after an arrow: left and right step through the up-and-down lines, up and down
+ * through the lines across. From a line of the other kind the cursor turns to the nearest line of
+ * the arrow's kind (`last` remembers where each kind was). Null: there is no such line.
+ */
+export function nextLine(
+  region: Region,
+  cur: Line,
+  dir: Dir,
+  last: { v: number | null; h: number | null },
+): Line | null {
+  const kind = dir === 'left' || dir === 'right' ? 'v' : 'h';
+  const own = cutLines(region)
+    .filter((l) => l.dir === kind)
+    .map((l) => l.at);
+  if (own.length === 0) return null;
+  if (cur.dir !== kind) {
+    const want = last[kind] ?? own[Math.floor((own.length - 1) / 2)];
+    return { dir: kind, at: own.includes(want as number) ? (want as number) : (own[0] as number) };
+  }
+  const step = dir === 'left' || dir === 'up' ? -1 : 1;
+  const i = own.indexOf(cur.at) + step;
+  return i < 0 || i >= own.length ? null : { dir: kind, at: own[i] as number };
+}
+
+/**
+ * The line a finger drew: a stroke that runs more down than across draws the up-and-down line
+ * nearest to its middle, and the other way round. Null when the region has no such line.
+ */
+export function lineFromStroke(
+  region: Region,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  cell: number,
+): Line | null {
+  const down = Math.abs(to.y - from.y) >= Math.abs(to.x - from.x);
+  const lines = cutLines(region).filter((l) => l.dir === (down ? 'v' : 'h'));
+  if (lines.length === 0) return null;
+  const mid = down ? (from.x + to.x) / 2 : (from.y + to.y) / 2;
+  let best = lines[0] as Line;
+  for (const l of lines) {
+    if (Math.abs(l.at * cell - mid) < Math.abs(best.at * cell - mid)) best = l;
+  }
+  return best;
+}
+
+/** The line nearest to a point (either kind). Null when the region has none. */
+export function lineNear(region: Region, p: { x: number; y: number }, cell: number): Line | null {
+  let best: { line: Line; d: number } | null = null;
+  for (const line of cutLines(region)) {
+    const d = Math.abs(line.at * cell - (line.dir === 'v' ? p.x : p.y));
+    if (!best || d < best.d) best = { line, d };
+  }
+  return best?.line ?? null;
+}
+
+/** How many squares each row of the region has (top to bottom). */
+export function rowCounts(region: Region): number[] {
+  const out: number[] = [];
+  for (let r = 0; r < region.h; r += 1) {
+    out.push(region.mask.slice(r * region.w, (r + 1) * region.w).split('1').length - 1);
+  }
+  return out;
+}
