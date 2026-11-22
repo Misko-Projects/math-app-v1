@@ -22,7 +22,13 @@ export {
   zoomed,
   zoomFor,
 } from './arrange';
-export { ChartView, type ChartViewProps, chartBox } from './ChartView';
+export {
+  CategoryLabel,
+  ChartView,
+  type ChartViewProps,
+  chartBox,
+  useMeasuredBox,
+} from './ChartView';
 export { type ChartGeometry, chartGeometry, type SlotGeometry } from './chartLayout';
 export { useCommitBarrier } from './commit';
 export {
@@ -161,6 +167,7 @@ export {
   shapeSetUnit,
   squareCorners,
 } from './ShapeView';
+export { Stepper, type StepperProps } from './Stepper';
 export {
   BaseTenView,
   ExpressionView,

@@ -1,14 +1,16 @@
 import type { ChartSpec } from '@number-island/shared';
 import { type CSSProperties, type ReactNode, useLayoutEffect, useState } from 'react';
 import { outline, paint } from '../../art/core/paint';
-import { useNarrationText } from '../../preferences/UiProvider';
+import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
 import { CATEGORY_MARKS, type PaletteColor } from '../../tokens/tokens';
 import { pictureProps } from './a11y';
 import {
   type Box,
   type ChartGeometry,
   chartGeometry,
+  LABEL_FONT_PX,
   NUMERAL_PX,
+  nameWidth,
   type SlotGeometry,
 } from './chartLayout';
 import { ObjectSprite } from './sprites';
@@ -50,6 +52,17 @@ export interface ChartViewProps {
   counted?: { id: string; n: number } | null;
   /** Space above and below a horizontal chart's rows (default 12; a build board needs less). */
   padY?: number;
+  /**
+   * Print the category names beside their pictures (default). A data board that sits next to a
+   * named chart shows the pictures alone, so its marks keep the room.
+   */
+  names?: boolean;
+  /**
+   * The graph widgets' label style: names at `LABEL_FONT_PX` on one line, in a label cell sized
+   * for the longest name. Only for charts whose names are bounded (the bar-graph formats check
+   * them, `graphLabelIssues`); a `chart` stimulus keeps the kit's default label, which wraps.
+   */
+  widgetLabels?: boolean;
   className?: string;
 }
 
@@ -116,21 +129,26 @@ const at = (b: Box): CSSProperties => ({ left: b.x, top: b.y, width: b.w, height
 export function CategoryLabel({
   slot,
   orientation,
+  names = true,
 }: {
   slot: SlotGeometry;
   orientation: 'vertical' | 'horizontal';
+  names?: boolean;
 }) {
   const t = useNarrationText();
   const box = slot.labelBox ?? { x: 0, y: 0, w: 64, h: 64 };
+  // With no name beside it the picture has the whole cell.
   const sprite = Math.round(
-    Math.min(orientation === 'vertical' ? box.h * 0.5 : box.h * 0.6, box.w * 0.45, 52),
+    names
+      ? Math.min(orientation === 'vertical' ? box.h * 0.5 : box.h * 0.6, box.w * 0.45, 52)
+      : Math.min(box.h * 0.8, box.w * 0.8, 52),
   );
   return (
     <span className="ni-chart__labelface" data-orientation={orientation}>
       <span className="ni-chart__labelsprite" style={{ width: sprite, height: sprite }}>
         <ObjectSprite sprite={slot.id} />
       </span>
-      {slot.label ? <span className="ni-chart__name">{t(slot.label)}</span> : null}
+      {slot.label && names ? <span className="ni-chart__name">{t(slot.label)}</span> : null}
     </span>
   );
 }
@@ -148,11 +166,22 @@ export function ChartView({
   readLine = null,
   counted = null,
   padY,
+  names = true,
+  widgetLabels = false,
   className,
 }: ChartViewProps) {
   const t = useNarrationText();
+  const { ageMode } = useUiPreferences();
+  const labelFont = LABEL_FONT_PX[ageMode === 'k' ? 'k' : 'g1-up'];
+  const longest = names ? Math.max(0, ...chart.categories.map((c) => [...t(c.label)].length)) : 0;
   const size = chartBox(chart, maxWidth, maxHeight, target);
-  const g = chartGeometry(chart, { ...size, target, values, padY });
+  const g = chartGeometry(chart, {
+    ...size,
+    target,
+    values,
+    padY,
+    ...(widgetLabels ? { labelFont, nameWidth: nameWidth(longest, labelFont) } : {}),
+  });
   const interactive = Boolean(renderLabel || renderOverlay);
   const name = label ?? t('ui.widget.picture');
   const cls = ['ni-chart', className].filter(Boolean).join(' ');
@@ -161,6 +190,7 @@ export function ChartView({
   return (
     <div
       className={cls}
+      data-labels={widgetLabels ? 'widget' : undefined}
       data-kind={chart.kind}
       data-orientation={g.orientation}
       data-scale={chart.scale}
@@ -307,6 +337,13 @@ export function ChartView({
               className="ni-chart__tally"
               data-slot={s.id}
               data-marks={s.value}
+              // A data board (pictures without names) draws short strokes thinner, so the gaps
+              // between them stay open.
+              style={
+                widgetLabels && !names
+                  ? ({ '--tally-stroke': Math.max(3, Math.min(5, g.mark * 0.12)) } as CSSProperties)
+                  : undefined
+              }
             >
               {s.tally.map((group, gi) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: a tally group's place is its identity
@@ -393,15 +430,15 @@ export function ChartView({
       )}
       {g.key ? (
         <span className="ni-chart__key" style={at(g.key)} aria-hidden="true">
-          <span className="ni-chart__keysprite">
-            <ObjectSprite sprite={g.slots[0]?.id ?? 'pebble'} />
-          </span>
+          {/* The key is about every picture, whatever its row: an empty picture tile (the frame
+              every picture sits in), never one row's picture. */}
+          <span className="ni-chart__keysprite" data-any="true" />
           <span className="ni-chart__keytext">= {chart.scale}</span>
         </span>
       ) : null}
       {g.slots.map((s) => {
         if (!s.labelBox) return null;
-        const content = <CategoryLabel slot={s} orientation={g.orientation} />;
+        const content = <CategoryLabel slot={s} orientation={g.orientation} names={names} />;
         return (
           <span
             key={`label-${s.id}`}

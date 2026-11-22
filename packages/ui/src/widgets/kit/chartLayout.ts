@@ -96,7 +96,21 @@ export interface ChartLayoutOptions {
   values?: readonly number[];
   /** Space above and below the rows of a horizontal chart (default 12). */
   padY?: number;
+  /** Font size of the category names (`LABEL_FONT_PX`: 24 px, 28 px in kindergarten mode). */
+  labelFont?: number;
+  /** Width the longest category name needs at `labelFont` (`nameWidth`). */
+  nameWidth?: number;
 }
+
+/** Category names: 24 px, 28 px in kindergarten mode (one label style for the graph widgets). */
+export const LABEL_FONT_PX = { k: 28, 'g1-up': 24 } as const;
+
+/**
+ * The width a category name of `chars` letters is given at `font` px: 0.56 em a letter, which
+ * holds the widest island names ("fireflies", "Pebblings") in the body font. The chart stories
+ * assert that every name lies inside its label cell.
+ */
+export const nameWidth = (chars: number, font: number): number => Math.ceil(chars * font * 0.56);
 
 export const NUMERAL_PX = 32;
 /** Gridlines of a bar graph are at least this far apart (closer ones are thinned out). */
@@ -119,14 +133,36 @@ export function labelStride(spacing: number, min: number): number {
   return 100;
 }
 
+/**
+ * The axis a bar chart draws: `base` (the chart's own top) rounded up to the next labelled tick,
+ * and the stride the ticks are labelled with. The top labelled gridline is then at or above every
+ * bar, and a bar is read from a labelled line plus at most `stride − 1` minor steps. `plot` is
+ * the axis length in px, `minSpacing` the room one numeral needs. `ticksFor` labels with exactly
+ * this stride (choosing it again from the final spacing could pick one that does not divide the
+ * top).
+ */
+export function labelledAxis(
+  base: number,
+  scale: number,
+  plot: number,
+  minSpacing: number,
+): { top: number; stride: number } {
+  for (const stride of [1, 2, 5, 10, 20, 50]) {
+    const top = Math.ceil(base / (stride * scale) - 1e-9) * stride * scale;
+    if ((plot / (top / scale)) * stride >= minSpacing) return { top, stride };
+  }
+  // No stride leaves room for two numerals: label the ends only.
+  const steps = Math.max(1, Math.round(base / scale));
+  return { top: steps * scale, stride: steps };
+}
+
 function ticksFor(
   chart: Pick<ChartSpec, 'axisMax' | 'scale'>,
   toPos: (v: number) => number,
-  minSpacing: number,
+  stride: number,
 ): AxisTick[] {
   const values = axisTicks(chart);
   const spacing = Math.abs(toPos(chart.scale) - toPos(0));
-  const stride = labelStride(spacing, minSpacing);
   // Gridlines closer than GRID_MIN_PX would read as a texture, not as counts: then only the
   // labelled ticks and the ones halfway between them (the fives between tens) keep a line.
   const lineEvery =
@@ -192,7 +228,7 @@ export function tallyLength(count: number, stroke: number): number {
 function lineGeometry(
   chart: ChartSpec,
   values: number[],
-  o: Required<Omit<ChartLayoutOptions, 'values' | 'padY'>>,
+  o: Required<Omit<ChartLayoutOptions, 'values' | 'padY' | 'labelFont' | 'nameWidth'>>,
 ): ChartGeometry {
   const slots = chartSlots(chart);
   const left = PAD + 24;
@@ -286,10 +322,15 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const axisH = chart.kind === 'bar' ? NUMERAL_PX + 22 : 0;
     // A table is a label column and a count column that share the width it has.
     const tableW = Math.round(Math.min(132, Math.max(72, (o.width - 2 * PAD) * 0.38)));
+    // The label cell holds the sprite, the name on one line and the cell's padding.
+    const named =
+      opts.nameWidth === undefined
+        ? null
+        : Math.round(Math.min(52, o.target * 0.6)) + 8 + opts.nameWidth + 16;
     const labelW =
       chart.kind === 'table'
-        ? Math.max(o.target, Math.min(200, o.width - 2 * PAD - tableW - o.gap))
-        : Math.min(200, Math.max(o.target, 150, Math.round(o.width * 0.24)));
+        ? Math.max(o.target, Math.min(named ?? 200, o.width - 2 * PAD - tableW - o.gap))
+        : (named ?? Math.min(200, Math.max(o.target, 150, Math.round(o.width * 0.24))));
     const avail = o.height - keyH - axisH - 2 * padY;
     const rowH = Math.max(o.target, Math.min(104, (avail - (n - 1) * o.gap) / n));
     const rowsH = n * rowH + (n - 1) * o.gap;
@@ -306,7 +347,10 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const symRowW = chart.kind === 'picture' ? symCols * MARK_MIN_PX + (symCols - 1) * sgap : 0;
     const plot = { x: plotX, y: y0, w: Math.max(40, symRowW, plotR - plotX), h: rowsH };
     const width = Math.max(o.width, plot.x + plot.w + (o.width - plotR));
-    const unit = plot.w / top;
+    // Bars: the axis runs to a labelled tick (the last numeral is centred on the plot's end).
+    const axis = labelledAxis(top, scale, plot.w, numW + 10);
+    const barTop = chart.kind === 'bar' ? axis.top : top;
+    const unit = plot.w / barTop;
     const toPos = (v: number) => plot.x + v * unit;
     const sym = Math.max(
       MARK_MIN_PX,
@@ -349,7 +393,8 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
           return { ...base, cell: { x: plot.x, y, w: tableW, h: rowH } };
       }
     });
-    const ticks = chart.kind === 'bar' ? ticksFor(chart, toPos, numW + 10) : [];
+    const ticks =
+      chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, axis.stride) : [];
     const axisY = y0 + rowsH + 6;
     return {
       kind: chart.kind,
@@ -369,7 +414,11 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
 
   // Vertical: columns, labels underneath, the value axis on the left (bar graphs).
   const axisW = chart.kind === 'bar' ? numW + 14 : 0;
-  const labelH = Math.max(o.target, 76);
+  // The label cell holds the sprite above the name's one line.
+  const labelH = Math.max(
+    o.target,
+    opts.labelFont === undefined ? 76 : 60 + Math.ceil(opts.labelFont * 1.1),
+  );
   const x0 = PAD + axisW;
   const colW = Math.max(o.target, Math.min(170, (o.width - x0 - PAD - (n - 1) * o.gap) / n));
   const colsW = n * colW + (n - 1) * o.gap;
@@ -386,7 +435,10 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
       : Math.max(60, symColH, o.height - topPad - labelH - o.gap - PAD);
   const baseY = topPad + plotH;
   const plot = { x: x0, y: topPad, w: colsW, h: plotH };
-  const unit = plotH / top;
+  // Bars: the axis runs to a labelled tick, so the top labelled gridline is at or above every bar.
+  const axis = labelledAxis(top, scale, plotH, NUMERAL_PX * 0.9);
+  const barTop = chart.kind === 'bar' ? axis.top : top;
+  const unit = plotH / barTop;
   const toPos = (v: number) => baseY - v * unit;
   const sym = Math.max(
     MARK_MIN_PX,
@@ -442,7 +494,7 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
         : Math.max(o.height, baseY + o.gap + labelH + PAD),
     plot,
     slots: geo,
-    ticks: chart.kind === 'bar' ? ticksFor(chart, toPos, NUMERAL_PX * 0.9) : [],
+    ticks: chart.kind === 'bar' ? ticksFor({ axisMax: barTop, scale }, toPos, axis.stride) : [],
     axisLine: chart.kind === 'bar' ? [x0 - 6, baseY, x0 + colsW + 6, baseY] : null,
     valueToPos: toPos,
     mark: chart.kind === 'picture' ? sym : stroke,

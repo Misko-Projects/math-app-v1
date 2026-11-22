@@ -51,6 +51,38 @@ export {
   heavier,
   sideValue,
 } from './formats/balance';
+export {
+  BUILD_BAR_MAX,
+  BUILD_DATA_TALLY_MAX,
+  BUILD_LINE_POSITIONS_MAX,
+  BUILD_PICTURES_MAX,
+  GRAPH_ANSWER_MAX,
+  GRAPH_BAR_ROWS_MAX,
+  GRAPH_BAR_STEPS_MAX,
+  GRAPH_COLUMNS_MAX,
+  GRAPH_LABEL_CHARS_MAX,
+  GRAPH_LINE_POSITIONS_MAX,
+  GRAPH_LINE_STACK_MAX,
+  GRAPH_PICTURES_MAX,
+  GRAPH_ROWS_MAX,
+  GRAPH_TALLY_MAX,
+  GRAPH_VERTICAL_TOP_MAX,
+  graphLabelIssues,
+} from './formats/bar-graph';
+export {
+  type BarGraphBuildState,
+  BUILD_DATA_MEASUREMENTS_MAX,
+  BUILD_DATA_OBJECTS_MAX,
+  barGraphBuildAnswerIssues,
+  buildTargets,
+} from './formats/bar-graph-build';
+export {
+  asksCategory,
+  type BarGraphReadState,
+  barGraphReadAnswer,
+  barGraphReadAnswerIssues,
+  readAnswerMax,
+} from './formats/bar-graph-read';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
 export {
   type BaseTenTradeState,
@@ -147,6 +179,26 @@ export {
   type NumberLinePlaceState,
   snapPlacement,
 } from './formats/number-line-place';
+export {
+  blankIndexes,
+  coreValues,
+  MAX_TILES,
+  PATTERN_BLANKS_MAX,
+  PATTERN_COLORS,
+  PATTERN_LENGTH_MAX,
+  PATTERN_NUMBER_MAX,
+  PATTERN_SHAPES,
+  PATTERN_TABLE_ROWS_MAX,
+  PATTERN_TRANSLATE_LENGTH_MAX,
+  PATTERN_TYPED_LENGTH_MAX,
+  PATTERN_UNITS_MAX,
+  type PatternExtendState,
+  patternAnswerIssues,
+  smallestPeriod,
+  tableBlanks,
+  tokenFamily,
+  tokenNumber,
+} from './formats/pattern-extend';
 export {
   designRectangles,
   type PerimeterWalkState,

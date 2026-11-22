@@ -23,6 +23,10 @@ export const widgetRegistry: WidgetRegistry = {
   'fraction-pick': () => import('./fraction-pick/FractionPickWidget'),
   'fraction-cut': () => import('./fraction-cut/FractionCutWidget'),
   'fraction-line': () => import('./fraction-line/FractionLineWidget'),
+  // U05 (#14) patterns and data
+  'pattern-extend': () => import('./pattern-extend/PatternExtendWidget'),
+  'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
+  'bar-graph-build': () => import('./bar-graph-build/BarGraphBuildWidget'),
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),

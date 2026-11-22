@@ -211,7 +211,7 @@ The balance and story-problem models (U04, #13) follow these conventions, so the
 - **compare** and **order** (frac.compare) show `fraction` pictures with one part shaded. Order values are the piece size in 24ths of the whole (24 ÷ den: 2 → 12, 8 → 3), direction `desc`, so the answer is biggest piece first; the order model's `magnitude` is 0 for them. With the `symbols` representation (FRA.08's abstract tier) an order card has no picture and is labelled with its part count (`"<den>"`), so the child orders by "more parts, smaller pieces" alone. FRA.08 has no fraction-cut template: cutting one shape compares nothing, so all its constructed practice orders pieces of wholes cut differently (PR #84 review round 2).
 - **MC.fraction-unequal-parts** predicts `yes` on an unfair fair-or-not item, the unequal picture with as many parts on a halves or fourths pick, a cut moving half a part from the first region to the second (`unequalRegions`), a partition with the first mark moved 0.4 of a part (`unequalCuts`), the pre-dealt share left as it is on `fix`, and 0 on `moves`; it matches every cut or partition with the right count that is not even. **MC.fraction-bigger-denominator** predicts the side cut into more parts, or the order reversed. **MC.unequal-share** has no prediction: it matches a `share.fair` response with unequal shares, or a leftover that could go round again.
 
-### Data formats (K01: data.sort, data.chart; bar-graph-read and bar-graph-build have no model yet)
+### Data formats (K01: data.sort, data.chart; the bar-graph-read and bar-graph-build models are U05's, see "Patterns and data models")
 
 - **Charts** (`ChartSpec`) use scale 1 and two or three categories. Category ids are the island object (noun) ids (`fish`, `crab`, `shell`, `firefly`: art-kit sprites, so every chart and sort draws; shared things are `shell`, `fish`, `crab`, `pebble`) and labels `noun.<id>.many`. Picture graphs, tally charts and tables are horizontal, bar graphs vertical; `axisMax` is at least 5.
 - **bar-graph-read** answers `number` for `how-many` (the one category in `question.categories`), `total` (every category) and `difference` (first − second of `question.categories`, always positive), and `choice` with a category id for `most` and `least`, whose `question.categories` lists every category. A most or least item never has a tie, and the chart's categories are its options (the property test needs two or more). Solutions use `count-pictures {id}` (picture graphs, tally charts, tables) or `read-axis {id}` (bar graphs) per category, then `answer`.
@@ -220,6 +220,42 @@ The balance and story-problem models (U04, #13) follow these conventions, so the
 - **number-pad** (data.chart) shows a picture graph (`kind: picture` only) as a `scene` stimulus, one group of pictures per category, because StimulusView draws no `chart` (PR #84 review), and asks for the total or the difference. StimulusView wraps the groups, so two can share a line: its hints talk about groups, never rows; (data.sort) an `objects` picture of one kind among `distractors` of another, counting the asked kind.
 - **shape-sort** sorts (data.sort): object cards carry props `{ kind }` with bins `noun.<kind>.many`; shape cards carry `{ shape, color, size }`, sorted by colour (`word.red`, `word.blue`, `word.yellow`), shape (`shape.<kind>.many`) or size (`word.big`, `word.small`, scale 1.5 or 0.6). Response `{ bins }` (`sort.byRule`, as for the geo sorts). A sort shows no count or order, so it is DAT.01 practice only: DAT.10 (count each group and order the groups) has no shape-sort template (PR #84 review round 2).
 - **order** (data.sort): one objects picture per group, no label, put in order from the fewest; values are the counts, which are all different.
+
+### Patterns and data models (U05 #14: pattern-extend, bar-graph-read, bar-graph-build)
+
+The three models state and enforce the domain their widgets support. Every bound is a fixed number, the same in every widget area and age mode; the widget stories show each one in the smallest area (906 × 373) at kindergarten sizes. A config outside the domain fails the model's `configSchema`, so content-check property 3.widget refuses the item.
+
+| Format | Input | Bound |
+|---|---|---|
+| pattern-extend | places in a pattern | 2 to 12 (`PATTERN_LENGTH_MAX`); numbers or tile stacks 6 (`PATTERN_TYPED_LENGTH_MAX`); `translate` 6 (`PATTERN_TRANSLATE_LENGTH_MAX`) |
+| | blanks (`extend`, `fill`) | 1 to 4 (`PATTERN_BLANKS_MAX`) |
+| | different units: shown, palette, `translateTo` | at most 4 (`PATTERN_UNITS_MAX`); a picture palette has at least 2 |
+| | numbers | whole, 0 to 999 (`PATTERN_NUMBER_MAX`, three digits on the pad); a number pattern has no palette; the schema does not guess a pattern's rule from its shown terms: whether the terms asked for can be entered is checked against the item's answer (`patternAnswerIssues`: a number 0 to 999, a stack of 1 to 20) |
+| | tile stacks | 1 to 20 tiles (`MAX_TILES`) |
+| | `rule` | the shown numbers grow by one whole step of 1 or more |
+| | `table` | not supported yet: the schema refuses the mode (the widget has no table layout for the smallest area; the model keeps the ops) |
+| bar-graph-read, bar-graph-build | rows of a picture graph, tally chart or table | at most 3 (`GRAPH_ROWS_MAX`); only bars stand upright |
+| | rows of horizontal bars, or of a picture graph with a key (scale above 1) | at most 2 (`GRAPH_BAR_ROWS_MAX`) |
+| | bar graph axis | at most 10 steps of the scale (`GRAPH_BAR_STEPS_MAX`): the widget draws the axis to a labelled line at or above the tallest bar and labels every step, every second or every fifth, so a bar is read from a labelled line plus at most 4 steps |
+| | columns of vertical bars | at most 3 (`GRAPH_COLUMNS_MAX`); the top as drawn (the steps rounded up to five, times the scale) at most 99 (`GRAPH_VERTICAL_TOP_MAX`): tens stop at 50 |
+| | picture graph top | a whole number of pictures (`axisMax` a multiple of `scale`) |
+| | line plot scale | starts at 0 or above |
+| | category name | one word of at most 9 letters (`GRAPH_LABEL_CHARS_MAX`; `labelIssues`, property 3.label) |
+| | tally row, table count | at most 20 (`GRAPH_TALLY_MAX`) |
+| bar-graph-read | pictures in a row | at most 10 (`GRAPH_PICTURES_MAX`) |
+| | line plot | at most 13 positions (`GRAPH_LINE_POSITIONS_MAX`), 6 Xs on one (`GRAPH_LINE_STACK_MAX`) |
+| | values and the answer | whole numbers; the answer 0 to 999 (`GRAPH_ANSWER_MAX`) |
+| | `most`, `least` | asked of every category the chart shows (the widget offers each as a choice); never of a line plot |
+| bar-graph-build | blocks in a bar | at most 10 (`BUILD_BAR_MAX`) |
+| | pictures in a row | at most 6 (`BUILD_PICTURES_MAX`) |
+| | line plot | at most 4 positions (`BUILD_LINE_POSITIONS_MAX`), 6 Xs on one |
+| | data board | at most 20 objects (`BUILD_DATA_OBJECTS_MAX`), 10 measurements (`BUILD_DATA_MEASUREMENTS_MAX`), 10 marks in a tally row (`BUILD_DATA_TALLY_MAX`) |
+
+- **One source for the answer** (`FormatModel.answerIssues`, content-check property 3.answer). bar-graph-read: the item's answer must equal `barGraphReadAnswer(config)` (the count or the category the question asks for; a tie or a count the pad cannot type fails the schema). bar-graph-build: the `chart.values` target must equal `buildTargets(config)`. pattern-extend: `extend` and `fill` expect one token per blank that the widget can hold (a palette unit, a number 0 to 999, a stack of 1 to 20 tiles); `core` expects the first repeat (places 0 to p − 1, p the smallest period); `rule` expects the step the pattern shows; `translate` expects `{ source: sequence, units: translateTo }`.
+- **Any whole repeat is the core.** `coreValues` answers a marked run that is exactly one repeat (it starts on a multiple of the period and is one period long) as the first repeat, so marking the second AB of AB AB AB is as right as marking the first. A run that starts inside a repeat is sent as marked.
+- **bar-graph-read** `answer {}` (no id) puts a picked category back; `answer {value}` takes only a whole number 0 to 999.
+- **bar-graph-build** `add-picture` takes only a step that fits: a picture that would pass the axis top, or more than the row holds taken away, changes nothing (clipping would leave part of a picture no step can undo). `answer {values}` takes only counts the marks can show.
+- **pattern-extend** `rule`: `answer {}` (no value) erases the typed step, so the model holds what the pad shows.
 
 ### Time formats (K01: time.clock, time.sequence; clock-set and clock-read have no model yet)
 
@@ -230,7 +266,7 @@ The balance and story-problem models (U04, #13) follow these conventions, so the
 - **order** (time.sequence): one objects picture per daily event (sprite `event-<id>`: wake-up, breakfast, lunch, dinner, bedtime), no label; values are the event's place in the day (1–5), `direction: asc`. On the timeline template one event is pre-placed through `fixed` on its own slot. Solutions start with a line that places nothing, then `drag {id, slot}` for every slot that is not fixed.
 - **shape-sort** `sort` (time.sequence): `event` cards (no `isPm`, which would show the bin), target props `{ part: 'morning' | 'night' }`, bins `b0` (`word.morning`) and `b1` (`word.night`); `sort.byRule`. Solutions `drag-card {id, bin}`.
 
-### Pattern and puzzle formats (K01: pattern.repeat, pattern.grow, puzzle.grid; pattern-extend has no model yet, puzzle-grid's is U04's, see below)
+### Pattern and puzzle formats (K01: pattern.repeat, pattern.grow, puzzle.grid; pattern-extend's model is U05's, see "Patterns and data models"; puzzle-grid's is U04's, see below)
 
 - **pattern-extend** `extend` and `fill` answer state `pattern.tokens { expected }`: the response is `{ tokens }`, the tokens placed in the blanks (the `null` entries of `sequence`) in reading order, each the same unit as expected (`{ sprite, color? }`, `{ n }` or `{ tiles }`, every field equal). `fill` hides the tokens ending one before the last, after at least one whole core. `core` answers `select.exactSet { values }`: the indices of the first repeat of the core (the prompt asks to mark it from the start). `rule` answers `number`, the step. `palette` holds the units a repeating pattern uses (A, B, C order) and is empty for number patterns, which are typed. Solutions use `place-token {index, token}` per blank, or `highlight {index}` and `bracket-core {from, to}`, after a first line that places nothing. The property test's near misses take away the last token or swap one for its neighbour.
 - **Pattern units** (pattern.repeat) come from the params: `theme` picks three units from `OBJECT_THEMES` (island sprites) or, with the `shapes` representation, `SHAPE_THEMES` (a shape kind as the sprite plus a colour; every unit differs in both). pattern.repeat and pattern.grow emit the pattern-extend format features they use (`core.len`, `hidden.middle`, `step.notOne`) themselves.

@@ -34,6 +34,18 @@ export interface FormatModel<F extends ItemFormat, S extends FormatState<F>> {
    * rules a widget relies on (counts within capacity, options distinct, and so on).
    */
   configSchema: z.ZodType<WidgetConfigOf<F>>;
+  /**
+   * Why an item's answer is not the one this config asks for (empty: it is). Models whose widget
+   * derives "done" or the answer from the config implement it, so the checker's target and the
+   * widget can never disagree; the template properties run it on every generated item (3.answer).
+   */
+  answerIssues?(config: WidgetConfigOf<F>, answer: AnswerSpec): string[];
+  /**
+   * Why a label the widget prints does not fit it (empty: every one does). `text` gives a
+   * narration key's words (undefined when the key has none); the template properties run it on
+   * every generated item (3.label).
+   */
+  labelIssues?(config: WidgetConfigOf<F>, text: (key: string) => string | undefined): string[];
   /** Format features (03 §5.5) with their default weights and docs. */
   features: Record<string, { weight: number; doc: string }>;
   /** Raw format feature values for a built item. Every value is 0 for the easiest item. */
