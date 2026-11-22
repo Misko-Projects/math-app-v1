@@ -17,8 +17,9 @@
 // - `mend` takes one cut back where it is: `mend {line}` (a guided line), `mend {dir, at}` (the
 //   straight cut at `at`: every two parts that meet along it and make a rectangle together join),
 //   `mend {angle}` (that radius; `through: true` also the opposite one). A joined part is filled
-//   only when every piece of it was. A guided line whose cut is gone can be cut again. A circle
-//   mended down to one radius is whole again (the last radius, only a slit, goes too). `mend`
+//   only when every piece of it was. A guided line whose cut is gone can be cut again. The
+//   other half of a free diameter goes with it (a lone free radius is no cut); a guided line's
+//   own radius left alone stays, as a slit that is drawn and can be mended. `mend`
 //   is what the child's touch on a cut sends; it is not an authored demo op (FORMAT_SUPPORT).
 // - `answer {values: [a, b]}` names the fraction (`thenName`); a and b are whole numbers 0 to 99.
 //
@@ -222,14 +223,24 @@ function mendRects(s: FractionCutState, dir: 'v' | 'h', at: number): FractionCut
   return { ...s, rects: sortRects(rects) };
 }
 
-/** Takes radii away; a sector that joins is filled only when every piece of it was. */
-function mendRadii(s: FractionCutState, angles: readonly number[]): FractionCutState {
+/**
+ * Takes radii away; a sector that joins is filled only when every piece of it was. `keep` are
+ * radii that are cuts in their own right (a guided line's): one of those left alone stays, as a
+ * slit the child can see and mend. Any other lone radius goes too.
+ */
+function mendRadii(
+  s: FractionCutState,
+  angles: readonly number[],
+  keep: readonly number[] = [],
+): FractionCutState {
   const gone = angles.map(normAngle);
   let radii = s.radii.filter((r) => !gone.some((a) => sameAngle(r, a)));
   if (radii.length === s.radii.length) return s;
-  // One radius left is only a slit in a whole circle: it goes too, so nothing unseen is left
-  // behind for the next cut to meet (PR #100 review, s_1319069ce1c7).
-  if (radii.length < 2) radii = [];
+  // The other half of a free diameter, left alone, goes too: a diameter is one cut (PR #100
+  // review, s_1319069ce1c7). A guided line's own radius stays cut (s_211a083e756e).
+  if (radii.length === 1 && !keep.some((a) => sameAngle(radii[0] as number, normAngle(a)))) {
+    radii = [];
+  }
   const sectors = sectorsOf(radii).map((p) => {
     // The old sectors inside the new one (their middles lie in it).
     const inside = s.sectors.filter((q) => {
@@ -362,15 +373,28 @@ export const fractionCut: FormatModel<'fraction-cut', FractionCutState> = {
       case 'mend': {
         const guides = cutGuides(c);
         const line = argNumber(a, 'line');
+        // The radii of the other guided lines that are cut: each is a cut of its own.
+        const guidedRadii = (except?: number) =>
+          s.linesCut.flatMap((i) => {
+            const g = guides[i];
+            return i !== except && g?.kind === 'radii' ? g.angles : [];
+          });
         let next = s;
         if (line !== undefined) {
           const g = guides[line];
           if (!Number.isInteger(line) || !g || !s.linesCut.includes(line)) return s;
-          next = g.kind === 'radii' ? mendRadii(s, g.angles) : mendRects(s, g.kind, g.at);
+          next =
+            g.kind === 'radii'
+              ? mendRadii(s, g.angles, guidedRadii(line))
+              : mendRects(s, g.kind, g.at);
         } else if (isCircle(c)) {
           const angle = argNumber(a, 'angle');
           if (angle === undefined) return s;
-          next = mendRadii(s, a.args?.through === true ? [angle, angle + 180] : [angle]);
+          next = mendRadii(
+            s,
+            a.args?.through === true ? [angle, angle + 180] : [angle],
+            guidedRadii(),
+          );
         } else {
           const dir = argString(a, 'dir');
           const at = argNumber(a, 'at');

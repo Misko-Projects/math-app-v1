@@ -55,6 +55,16 @@
   stroke-dasharray: none;
 }
 
+/* A lone radius (a slit in a whole circle): a cut the child can see, drawn like a cut edge. */
+.ni-fcut__slit {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 4;
+  stroke-dasharray: 8 6;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
 /* Seams: each cut is a target that takes that cut back (tap, or Enter on it). */
 .ni-fcut__seam {
   fill: none;

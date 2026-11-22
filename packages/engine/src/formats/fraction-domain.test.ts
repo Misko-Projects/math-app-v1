@@ -643,3 +643,48 @@ describe('PR #100 review round 1 (s_1319069ce1c7)', () => {
     expect(checked).toBeGreaterThan(100);
   });
 });
+
+describe('PR #100 review round 2 (s_211a083e756e)', () => {
+  it('guided radii are cuts of their own: mending one leaves the other, as a slit', () => {
+    const c = cut({ shape: 'circle', parts: 3 });
+    const two = playCut(c, [act('cut', { line: 0 }), act('cut', { line: 1 })]);
+    expect(partCount(two)).toBe(2);
+    const back = fractionCut.apply(two, act('mend', { line: 0 }));
+    expect(back.linesCut).toEqual([1]);
+    expect(back.radii).toHaveLength(1);
+    expect(partCount(back)).toBe(1);
+    const again = fractionCut.apply(back, act('cut', { line: 0 }));
+    expect(again.linesCut).toEqual([1, 0]);
+    expect(partCount(again)).toBe(2);
+    // And the slit itself can be mended: the whole is whole, both knives are back.
+    const whole = fractionCut.apply(back, act('mend', { line: 1 }));
+    expect(whole.radii).toEqual([]);
+    expect(whole.linesCut).toEqual([]);
+  });
+
+  it('every odd guided circle: any one line mended leaves every other line cut', () => {
+    for (const parts of [3, 5, 7, 9, 11]) {
+      const c = cut({ shape: 'circle', parts });
+      const all = playCut(
+        c,
+        Array.from({ length: parts }, (_, l) => act('cut', { line: l })),
+      );
+      expect(partCount(all)).toBe(parts);
+      for (let n = 2; n <= parts; n += 1) {
+        // Only the first n lines cut, then each of them mended in turn.
+        const some = playCut(
+          c,
+          Array.from({ length: n }, (_, l) => act('cut', { line: l })),
+        );
+        for (let l = 0; l < n; l += 1) {
+          const back = fractionCut.apply(some, act('mend', { line: l }));
+          expect(
+            [...back.linesCut].sort((x, y) => x - y),
+            `${parts} ${n} ${l}`,
+          ).toEqual(Array.from({ length: n }, (_, i) => i).filter((i) => i !== l));
+          expect(back.radii, `${parts} ${n} ${l}`).toHaveLength(n - 1);
+        }
+      }
+    }
+  });
+});

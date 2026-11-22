@@ -964,18 +964,50 @@ export const FreeDiameterTakenBack: Story = {
   },
 };
 
-/** A guided circle in thirds: the first radius is only a slit, and it has a seam to take it back. */
+/**
+ * A guided circle in thirds: the first radius is only a slit. It is drawn (a dashed cut line,
+ * before any hover or focus), and a finger on it takes it back. Each guided radius is a cut of
+ * its own: with two cut, mending the first leaves the second (PR #100 review round 2).
+ */
 export const SlitHasASeam: Story = {
   args: { config: circleThirds },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    const slit = () => root.querySelector<SVGPathElement>('.ni-fcut__slit');
     await userEvent.click(knife(root, 0));
     await expect(root).toHaveAttribute('data-parts', '1');
+    // The cut shows without hover or focus: a stroked line with a length on screen.
+    const line = slit() as SVGPathElement;
+    await expect(line).not.toBeNull();
+    const style = getComputedStyle(line);
+    await expect(Number.parseFloat(style.strokeWidth)).toBeGreaterThanOrEqual(3);
+    await expect(style.strokeOpacity).toBe('1');
+    await expect(style.stroke).not.toBe('none');
+    const box = line.getBoundingClientRect();
+    await expect(Math.max(box.width, box.height)).toBeGreaterThan(40);
+    // A finger at the middle of the drawn line lands on its seam, and takes the cut back.
     await expect(seams(root)).toHaveLength(1);
+    const mid = line.getPointAtLength(line.getTotalLength() * 0.65);
+    const ctm = line.getScreenCTM() as DOMMatrix;
+    const at0 = new DOMPoint(mid.x, mid.y).matrixTransform(ctm);
+    await expect(document.elementFromPoint(at0.x, at0.y)).toBe(seams(root)[0]);
     await userEvent.click(seams(root)[0] as SVGPathElement);
     await expect(seams(root)).toHaveLength(0);
-    // The knife for that line is back.
+    await expect(slit()).toBeNull();
     await expect(knife(root, 0)).toBeVisible();
+    // Two radii cut: mending the first leaves the second cut; only knife 0 returns.
+    await userEvent.click(knife(root, 0));
+    await userEvent.click(knife(root, 1));
+    await expect(root).toHaveAttribute('data-parts', '2');
+    const first = seams(root).find((el) => el.getAttribute('data-seam') === 'cut-line-0');
+    await userEvent.click(first as SVGPathElement);
+    await expect(root).toHaveAttribute('data-parts', '1');
+    await expect(seams(root).map((el) => el.getAttribute('data-seam'))).toEqual(['cut-line-1']);
+    await expect(slit()).not.toBeNull();
+    await expect(knives(root).map((k) => k.getAttribute('data-knife'))).toContain('0');
+    await expect(knives(root).map((k) => k.getAttribute('data-knife'))).not.toContain('1');
+    await userEvent.click(knife(root, 0));
+    await expect(root).toHaveAttribute('data-parts', '2');
   },
 };
 

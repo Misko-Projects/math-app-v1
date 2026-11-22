@@ -1021,6 +1021,17 @@ export function FractionCutWidget({
               );
             })}
           </g>
+          {frame.kind === 'circle' && state.radii.length === 1 ? (
+            // One radius is a slit in a whole circle: drawn as the cut it is, so the child sees
+            // where the knife went (and where to touch to take it back).
+            <path
+              className="ni-fcut__slit"
+              d={(() => {
+                const [x, y] = polar(frame.cx, frame.cy, frame.r, state.radii[0] as number);
+                return `M${frame.cx} ${frame.cy}L${x} ${y}`;
+              })()}
+            />
+          ) : null}
           {seams.length > 0 ? (
             <g
               className="ni-fcut__seams"
