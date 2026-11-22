@@ -1,8 +1,8 @@
 import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
-import { useNarrationText } from '../../preferences/UiProvider';
+import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -11,13 +11,18 @@ import {
   NumberPadKeys,
   type PadKey,
   padValue,
+  roomBox,
+  Scaled,
   StimulusView,
+  useActionSize,
   useAlive,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
+  useWidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
+import { planPad } from './layout';
 import './number-pad.css';
 
 /**
@@ -26,6 +31,9 @@ import './number-pad.css';
  * number shows large in its blank; tapping a blank makes it the one being typed into. "Check"
  * stays off until every blank has a number (never auto-submits, 06 §4).
  *
+ * Laid out in the measured room (`planPad`, layout.ts): the keys and Check take what the room's
+ * height allows, the question is drawn to fit the rest, its picture first, so nothing scrolls.
+ *
  * Demo ops (03 §5.5): `type {blank, value}`, `highlight {token}`, `show-stimulus`, plus `answer`.
  */
 
@@ -33,6 +41,27 @@ const OPS = ['type', 'highlight', 'show-stimulus', 'answer'] as const;
 const KEY_MS = 340;
 
 type Config = ConfigFor<'number-pad'>;
+
+/** Between the picture and the text under it (`.ni-npw__ask` gap). */
+const ASK_PART_GAP = 16;
+/** The least a picture is given before the whole question is scaled instead. */
+const MIN_PICTURE_H = 96;
+
+/** The element's own height (layout px, before any transform), kept up to date. */
+function useOwnHeight(ref: React.RefObject<HTMLElement | null>): number {
+  const [h, setH] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setH(el.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return h;
+}
 
 const UNIT_PREFIX: Partial<Record<NonNullable<Config['unit']>, string>> = { dollars: '$' };
 const UNIT_SUFFIX: Partial<Record<NonNullable<Config['unit']>, string>> = {
@@ -70,6 +99,13 @@ export function NumberPadWidget({
   const textsRef = useRef(texts);
   const rootRef = useRef<HTMLDivElement | null>(null);
   textsRef.current = texts;
+  const { ageMode } = useUiPreferences();
+  const actRef = useRef<HTMLDivElement | null>(null);
+  const textRef = useRef<HTMLDivElement | null>(null);
+  const unzoomed = useRef(1);
+  const button = useActionSize(actRef, unzoomed, ageMode);
+  const plan = planPad(roomBox(useWidgetRoom(rootRef)), button, ageMode);
+  const textH = useOwnHeight(textRef);
 
   const interactive = !disabled && !demoBusy;
   const values = texts.map(padValue);
@@ -255,6 +291,12 @@ export function NumberPadWidget({
       : []),
   ]);
   const looseBlanks = blanks.filter((b) => !blankIdsInText.has(b.id));
+  const hasText = Boolean(expression) || looseBlanks.length > 0;
+  // The picture takes the question's height less the text under it; the text keeps its size.
+  const pictureH = Math.max(
+    MIN_PICTURE_H,
+    Math.min(expression ? 220 : 300, plan.ask.h - (hasText ? textH + ASK_PART_GAP : 0)),
+  );
 
   return (
     <div
@@ -262,39 +304,57 @@ export function NumberPadWidget({
       className="ni-npw"
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
+      data-layout={plan.stacked ? 'stack' : 'side'}
+      data-check={plan.check}
       style={handRootStyle}
     >
-      <div className="ni-npw__ask">
-        {stimulus.kind !== 'none' ? (
-          <div
-            className={highlight === 'stimulus' ? 'ni-invite ni-npw__stimulus' : 'ni-npw__stimulus'}
-          >
-            <StimulusView
-              spec={stimulus}
-              maxWidth={640}
-              maxHeight={expression ? 220 : 300}
-              renderBlank={expressionInStimulus ? renderBlank : undefined}
-            />
+      <div className="ni-npw__ask" style={{ width: plan.ask.w, maxHeight: plan.ask.h }}>
+        <Scaled maxWidth={plan.ask.w} maxHeight={plan.ask.h}>
+          <div className="ni-npw__parts">
+            {stimulus.kind !== 'none' ? (
+              <div
+                className={
+                  highlight === 'stimulus' ? 'ni-invite ni-npw__stimulus' : 'ni-npw__stimulus'
+                }
+              >
+                <StimulusView
+                  spec={stimulus}
+                  maxWidth={Math.min(640, plan.ask.w)}
+                  maxHeight={pictureH}
+                  renderBlank={expressionInStimulus ? renderBlank : undefined}
+                />
+              </div>
+            ) : null}
+            {hasText ? (
+              <div ref={textRef} className="ni-npw__text">
+                {expression ? (
+                  <div className="ni-npw__expr">
+                    <ExpressionView expr={expression} renderBlank={renderBlank} />
+                  </div>
+                ) : null}
+                {looseBlanks.length > 0 ? (
+                  <div className="ni-npw__answers">{looseBlanks.map((b) => renderBlank(b.id))}</div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        {expression ? (
-          <div className="ni-npw__expr">
-            <ExpressionView expr={expression} renderBlank={renderBlank} />
-          </div>
-        ) : null}
-        {looseBlanks.length > 0 ? (
-          <div className="ni-npw__answers">{looseBlanks.map((b) => renderBlank(b.id))}</div>
-        ) : null}
+        </Scaled>
       </div>
-      <div className="ni-npw__controls">
+      <div ref={actRef} className="ni-npw__controls">
         <NumberPadKeys
           onKey={onKey}
           onEnter={submit}
           allowDecimal={blanks.some((b) => b.allowDecimal)}
           disabled={!interactive}
           highlighted={pressedKey}
+          shape={plan.shape}
+          compact={plan.compact}
         />
-        <CheckButton onPress={submit} disabled={!interactive || !complete} />
+        <CheckButton
+          onPress={submit}
+          disabled={!interactive || !complete}
+          compact={plan.check === 'beside'}
+        />
       </div>
       {inviteHand}
     </div>

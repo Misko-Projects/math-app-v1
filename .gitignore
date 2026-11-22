@@ -17,3 +17,4 @@ playwright-report/
 blob-report/
 e2e/.cache/
 docs/build/.published.json
+apps/web/src/**/__fit__/

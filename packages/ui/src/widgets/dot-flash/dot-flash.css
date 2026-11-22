@@ -1,39 +1,72 @@
-/* dot-flash widget (U03): the flash board and "look again" on the left, the answer on the right. */
+/*
+ * dot-flash widget (U03): the flash board and "look again" on the left, the answer on the right.
+ * The widget fills a room with a set height (DotFlashWidget sets it): the board takes what the
+ * controls leave, up to its full size; layout.ts `planFlash` picks the controls.
+ */
 
 .ni-flash {
   /* Positioned: Pip's invite hand is placed in widget coordinates. */
   position: relative;
-  display: grid;
-  grid-template-columns: auto auto;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px 64px;
+  gap: clamp(24px, 5%, 64px);
   box-sizing: border-box;
   width: 100%;
-  max-width: 1180px;
-  padding: 12px 24px;
+  /* Safe centring in the host, and a width the content never pushes out (the room is measured). */
+  margin: auto;
+  contain: inline-size;
 }
-
+.ni-flash[data-layout="stack"] {
+  flex-direction: column;
+  gap: 16px;
+}
 .ni-flash__look {
   display: flex;
+  flex: 0 1 580px;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  justify-content: center;
+  gap: 16px;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
 }
-
-/* A fixed board, so showing and hiding never moves anything else. */
+.ni-flash[data-layout="stack"] .ni-flash__look {
+  flex: 1 1 0;
+  width: 100%;
+  max-width: 580px;
+  align-self: center;
+}
+/* Under the board: "look again", and in a short room the entered number and "check". */
+.ni-flash__under {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+/*
+ * The board: its full size where the room allows, never growing with its picture (the picture is
+ * drawn to fit the measured board), so showing and hiding never moves anything else.
+ */
 .ni-flash__board {
   position: relative;
   display: grid;
+  flex: 0 1 360px;
   place-items: center;
   box-sizing: border-box;
-  width: 580px;
-  max-width: 100%;
-  height: 360px;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
+}
+/* The demo's ring stands outside the board's edge. */
+.ni-flash__board.ni-invite {
+  overflow: visible;
 }
 .ni-flash__picture .ni-stimulus {
   border: 0;
@@ -86,6 +119,7 @@
 /* Pip's hand: left/top are measured onto the invited control (DotFlashWidget). */
 .ni-flash__answer {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 32px;
 }
@@ -115,6 +149,14 @@
 .ni-flash__tray .ni-pick {
   min-height: calc(var(--target-min) * 1.4);
 }
+/* A short room: the kit's plain cards. */
+.ni-flash__tray[data-cards="plain"] {
+  --tray-card-scale: 1;
+  --tray-gap: var(--target-gap);
+}
+.ni-flash__tray[data-cards="plain"] .ni-pick {
+  min-height: calc(var(--target-min) * 1.15);
+}
 
 [data-reduced-motion="true"] .ni-flash__board .ni-flash__cover {
   transition-duration: 0ms;
@@ -122,12 +164,5 @@
 @media (prefers-reduced-motion: reduce) {
   .ni-flash__board .ni-flash__cover {
     transition-duration: 0ms;
-  }
-}
-
-@media (max-width: 900px), (orientation: portrait) {
-  .ni-flash {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
   }
 }

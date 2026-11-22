@@ -523,6 +523,14 @@
   border: 0;
   min-width: 0;
 }
+/* Compact keys (short rooms): the age mode's minimum target; a key keeps 4 px below for its ledge. */
+.ni-pad[data-keys="compact"] {
+  grid-template-columns: repeat(3, var(--target-min));
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}
+.ni-pad[data-keys="compact"][data-shape="4x3"] {
+  grid-template-columns: repeat(4, var(--target-min));
+}
 /* No decimal key: 0 spans the first two columns, so the bottom row has no empty cell. */
 .ni-pad__key--wide {
   grid-column: span 2;

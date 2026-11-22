@@ -19,6 +19,10 @@ import { PierItemScreen } from './PierScreen';
 
 /** The seed the check plays: the first one. */
 const SEED = 1;
+/** While working on a widget: `VITE_FIT_ONLY=number-pad,dot-flash` checks only those formats. */
+const ONLY = (import.meta.env.VITE_FIT_ONLY as string | undefined)?.split(',');
+/** `VITE_FIT_SHOTS=ADD.01.t4,…` saves a screenshot of those templates beside this file. */
+const SHOTS = (import.meta.env.VITE_FIT_SHOTS as string | undefined)?.split(',') ?? [];
 /** Rounding: a box may read a fraction of a pixel past its container. */
 const SLACK_PX = 1;
 /** Frames with the same measurements before a layout counts as settled. */
@@ -154,6 +158,7 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
     const fitsAgain: string[] = [];
     let allowed = 0;
     for (const template of templates) {
+      if (ONLY && !ONLY.includes(template.format)) continue;
       const allowance = fitAllowance(template, viewport);
       if (allowance?.kind === 'no-widget') {
         allowed += 1;
@@ -161,6 +166,9 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
       }
       show(engine.generateItem(template, SEED), ageModeOf(template));
       const found = await measure(template.id);
+      if (SHOTS.includes(template.id)) {
+        await page.screenshot({ path: `__fit__/${template.id}-${viewport}.png` });
+      }
       if (found.length > 0 && !allowance) {
         failing.push(`${template.id} (${template.format}, ${template.tier}): ${found.join('; ')}`);
       } else if (found.length === 0 && allowance) {

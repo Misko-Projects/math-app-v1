@@ -1,24 +1,44 @@
-/* number-pad widget (U03). Landscape: the question on the left, the pad and "check" on the right. */
+/*
+ * number-pad widget (U03). The question on the left, the pad and "check" on the right; the sizes
+ * come from the measured room (layout.ts `planPad`): the gaps here match its ASK_GAP and CHECK_GAP.
+ */
 
 .ni-npw {
   /* Positioned: Pip's invite hand is placed in widget coordinates. */
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 32px 48px;
+  justify-content: center;
+  gap: 24px;
   box-sizing: border-box;
   width: 100%;
-  max-width: 1180px;
-  padding: 16px 24px;
+  /* Safe centring in the host, and a width the content never pushes out (the room is measured). */
+  margin: auto;
+  contain: inline-size;
+}
+/* Narrow, tall rooms: the controls under the question. */
+.ni-npw[data-layout="stack"] {
+  flex-direction: column;
 }
 .ni-npw__ask {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+.ni-npw__parts {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
-  min-width: 0;
+  gap: 16px;
+}
+.ni-npw__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }
 .ni-npw__stimulus {
   max-width: 100%;
@@ -33,7 +53,6 @@
 }
 .ni-npw__answers {
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   gap: 20px;
 }
@@ -66,15 +85,11 @@
 }
 .ni-npw__controls {
   display: flex;
+  flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
-
-/* Portrait or narrow: stack the pad under the question. */
-@media (max-width: 900px), (orientation: portrait) {
-  .ni-npw {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-  }
+.ni-npw[data-check="beside"] .ni-npw__controls {
+  flex-direction: row;
 }
