@@ -86,6 +86,58 @@ ui.island.empty:
   text: "The Storehouse is empty. Help a friend to fill it!"
   voice: pip
   level: K
+# Building and the Numbered Road on the island (I01 part 2, apps/web/src/island/building).
+ui.build.open:
+  text: "Build"
+  level: K
+ui.build.build:
+  text: "Build it"
+  level: K
+ui.build.upgrade:
+  text: "Make it bigger"
+  level: K
+ui.build.short:
+  text: "We need more things first. Help a friend!"
+  level: K
+ui.build.noroom:
+  text: "There is no place for it now."
+  level: K
+ui.build.locked.building:
+  text: "Build this one first."
+  level: K
+ui.build.locked.road:
+  text: "Make the road longer first."
+  level: K
+ui.build.locked.residents:
+  text: "A friend has to move in first."
+  level: K
+ui.build.locked.practice:
+  text: "Play more to open this."
+  level: K
+ui.build.place:
+  text: "Tap where you want to build."
+  level: K
+ui.build.spot:
+  text: "Build here, {n}"
+  level: K
+ui.build.working:
+  text: "Building!"
+  level: K
+ui.build.done:
+  text: "We did it!"
+  level: K
+ui.build.skip:
+  text: "Go on"
+  level: K
+ui.build.prev:
+  text: "Back"
+  level: K
+ui.road.next:
+  text: "Lay the next stone"
+  level: K
+ui.road.short:
+  text: "We need a stone for the road. Help a friend!"
+  level: K
 ui.winddown.done:
   text: "Great playing! See you next time!"
   voice: pip

@@ -19,9 +19,17 @@ import { CHILD_G2, CHILD_K, profile } from '@/data/store.test-support';
 import { remediationQueue } from '@/runner/remediationQueue';
 import { practicePier } from '@/workshops/practice-pier';
 import { WorkshopHost } from '@/workshops/WorkshopHost';
+import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS, manualClock } from './building/clock';
 import { ChildHomePage } from './ChildHomePage';
 import { FIRST_PROBLEM_BUDGET_MS, firstProblem } from './firstProblem';
 import { PlayLayout } from './PlayLayout';
+import { planIslandRequests } from './planRequests';
+
+// The island's planner, called through: the tests can see when the island plans and with what.
+vi.mock('./planRequests', async (original) => {
+  const actual = await original<typeof import('./planRequests')>();
+  return { ...actual, planIslandRequests: vi.fn(actual.planIslandRequests) };
+});
 
 // Entering a workshop loads its code and writes to the local database: under a full test run that
 // can take longer than the library's one second, so the waits here are given room.
@@ -117,12 +125,13 @@ describe('<ChildHomePage>: the island', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 
-  it('draws the map from the island fold: the sandbar, and no road stone before one is laid', async () => {
+  it('draws the map from the island fold: the sandbar, no stone laid, and the first one to lay', async () => {
     await renderHome();
     const home = await screen.findByTestId('child-home');
     const scene = home.querySelector('[data-scene="island"]');
     expect(scene).toBeTruthy();
-    expect(scene?.querySelectorAll('[data-hit="next"]')).toHaveLength(0);
+    await waitFor(() => expect(scene?.querySelectorAll('[data-hit="next"]')).toHaveLength(1));
+    expect(scene?.querySelectorAll('[data-state="laid"]')).toHaveLength(0);
     expect(scene?.querySelectorAll('[data-building]')).toHaveLength(0);
   });
 
@@ -435,3 +444,401 @@ describe('the Storehouse (05 §3)', () => {
     expect(screen.queryByTestId('storehouse-piles')).toBeNull();
   });
 });
+
+describe('building on the island (05 §6, 06 §2 Build; #22 part 2)', () => {
+  const produce = (app: AppServices, materials: Record<string, number>) =>
+    app.store.append(
+      'material.produced',
+      { sessionId: 's0', requestId: 'r0', workshopId: 'practice-pier', materials },
+      { childId: CHILD_K },
+    );
+  const clockFor = () => {
+    const clock = manualClock();
+    const real = buildClock.current;
+    buildClock.current = clock;
+    const prev = restore;
+    restore = () => {
+      buildClock.current = real;
+      prev();
+    };
+    return clock;
+  };
+  const openSheet = async () => {
+    await bubbles();
+    const open = screen.getByRole('button', { name: 'Build' }) as HTMLButtonElement;
+    // Enabled once the island and the Storehouse are read.
+    await waitFor(() => expect(open.disabled).toBe(false));
+    fireEvent.click(open);
+    return screen.findByTestId('build-sheet');
+  };
+  /** The card of a building, paging forward through the sheet until it shows. */
+  const cardOf = (sheet: HTMLElement, id: string) => {
+    const seen: string[] = [];
+    for (let p = Number(sheet.getAttribute('data-pages')); p > 0; p -= 1) {
+      const card = sheet.querySelector<HTMLElement>(`[data-card="${id}"]`);
+      if (card) return card;
+      for (const c of sheet.querySelectorAll('[data-card]'))
+        seen.push(`${c.getAttribute('data-card')}:${c.getAttribute('data-state')}`);
+      if (p > 1) fireEvent.click(screen.getByTestId('build-next'));
+    }
+    throw new Error(`no card for ${id} among ${seen.join(', ')}`);
+  };
+
+  it('a recipe the family cannot pay shows what is missing as pictures, and cannot be started', async () => {
+    const { app } = await renderHome({
+      before: async (a) => void (await produce(a, { stone: 3 })),
+    });
+    const sheet = await openSheet();
+    // Two cards a page; the first home is the first thing a new family can work towards.
+    expect(sheet.querySelectorAll('[data-card]')).toHaveLength(2);
+    const cottage = cardOf(sheet, 'shell-cottage');
+    expect(cottage.getAttribute('data-state')).toBe('short');
+    const stone = cottage.querySelector('[data-material="stone"]') as HTMLElement;
+    expect(stone.getAttribute('aria-label')).toBe('road stones: 3 / 5');
+    expect(stone.querySelectorAll('[data-unit="have"]')).toHaveLength(3);
+    expect(stone.querySelectorAll('[data-unit="missing"]')).toHaveLength(2);
+    // Kindergarten: one ten-frame, no numeral.
+    expect(stone.querySelectorAll('[data-pile="ten-frame"]')).toHaveLength(1);
+    expect(stone.textContent).toBe('');
+    const light = cottage.querySelector('[data-material="light"]') as HTMLElement;
+    expect(light.querySelectorAll('[data-unit="missing"]')).toHaveLength(3);
+    expect(within(cottage).queryByRole('button', { name: 'Build it' })).toBeNull();
+    expect((await types(app)).filter((t) => t === 'building.placed')).toHaveLength(0);
+  });
+
+  it('from grade 1 a recipe is base-ten with its numeral', async () => {
+    await renderHome({
+      child: CHILD_G2,
+      grade: '2',
+      before: async (a) => void (await produce(a, { stone: 5, light: 3 })),
+    });
+    const sheet = await openSheet();
+    const stone = cardOf(sheet, 'shell-cottage').querySelector(
+      '[data-material="stone"]',
+    ) as HTMLElement;
+    expect(stone.querySelector('[data-pile="ones"]')?.children).toHaveLength(5);
+    expect(stone.textContent).toBe('5');
+  });
+
+  it('a locked building shows what unlocks it, and the sheet pages instead of scrolling', async () => {
+    const { say } = await renderHome();
+    const sheet = await openSheet();
+    const pages = Number(sheet.getAttribute('data-pages'));
+    expect(pages).toBeGreaterThan(1);
+    const dock = cardOf(sheet, 'ten-boat-dock');
+    expect(dock.getAttribute('data-state')).toBe('locked');
+    // The picture of the home that unlocks it, and the line that says so.
+    expect(
+      within(dock).getByTestId('card-why').querySelector('[data-building="shell-cottage"]'),
+    ).toBeTruthy();
+    say.mockClear();
+    fireEvent.click(within(dock).getByRole('button', { name: 'Hear it again' }));
+    expect(say).toHaveBeenCalledWith('ui.build.locked.building', undefined);
+    expect(within(dock).queryByRole('button', { name: 'Build it' })).toBeNull();
+  });
+
+  it('build: choose the card, tap a highlighted plot, the construction step, then the island again', async () => {
+    const clock = clockFor();
+    const { app, say } = await renderHome({
+      before: async (a) => void (await produce(a, { stone: 5, light: 3 })),
+    });
+    const sheet = await openSheet();
+    const cottage = cardOf(sheet, 'shell-cottage');
+    expect(cottage.getAttribute('data-state')).toBe('ready');
+    expect(cottage.querySelectorAll('[data-unit="missing"]')).toHaveLength(0);
+    fireEvent.click(within(cottage).getByRole('button', { name: 'Build it' }));
+    // The sheet closes and the island asks for a plot: the one free plot of the sandbar.
+    const targets = await screen.findByTestId('plot-targets');
+    expect(screen.queryByTestId('build-sheet')).toBeNull();
+    expect(screen.queryByTestId('requests')).toBeNull();
+    expect(say).toHaveBeenCalledWith('ui.build.place', undefined);
+    const plots = within(targets).getAllByRole('button');
+    expect(plots.map((b) => b.getAttribute('data-plot'))).toEqual(['3,4']);
+    const home = screen.getByTestId('child-home');
+    expect(home.querySelectorAll('[data-plot-marker]')).toHaveLength(1);
+    expect(home.querySelectorAll('[data-hit="next"]')).toHaveLength(0);
+    await act(async () => {
+      fireEvent.click(plots[0] as HTMLElement);
+    });
+    // Written at once: the building, its exact cost, and the resident who moves in.
+    const step = await screen.findByTestId('construction');
+    expect(step.getAttribute('data-instance')).toBe('shell-cottage');
+    expect((await types(app)).slice(-3)).toEqual([
+      'building.placed',
+      'material.spent',
+      'resident.arrived',
+    ]);
+    expect((await app.store.inventory()).materials).toMatchObject({ stone: 0, light: 0 });
+    await waitFor(() =>
+      expect(home.querySelector('[data-building="shell-cottage"][data-stage="1"]')).toBeTruthy(),
+    );
+    expect(screen.queryByTestId('plot-targets')).toBeNull();
+    // The step ends on the clock (or with Skip), and the island plans again.
+    act(() => clock.advance(CONSTRUCTION_MS - 1));
+    expect(screen.queryByTestId('construction')).toBeTruthy();
+    act(() => clock.advance(1));
+    expect(screen.queryByTestId('construction')).toBeNull();
+    expect(say).toHaveBeenCalledWith('ui.build.done', undefined);
+    expect((await bubbles()).length).toBeGreaterThan(0);
+  });
+
+  it('the construction step can be skipped, and choosing a plot can be called off', async () => {
+    const clock = clockFor();
+    const { app } = await renderHome({
+      before: async (a) => void (await produce(a, { stone: 5, light: 3 })),
+    });
+    let sheet = await openSheet();
+    fireEvent.click(
+      within(cardOf(sheet, 'shell-cottage')).getByRole('button', { name: 'Build it' }),
+    );
+    await screen.findByTestId('plot-targets');
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    expect(screen.queryByTestId('plot-targets')).toBeNull();
+    expect((await types(app)).filter((t) => t === 'building.placed')).toHaveLength(0);
+    sheet = await openSheet();
+    fireEvent.click(
+      within(cardOf(sheet, 'shell-cottage')).getByRole('button', { name: 'Build it' }),
+    );
+    await act(async () => {
+      fireEvent.click(
+        within(await screen.findByTestId('plot-targets')).getAllByRole('button')[0] as HTMLElement,
+      );
+    });
+    await screen.findByTestId('construction');
+    fireEvent.click(screen.getByRole('button', { name: 'Go on' }));
+    expect(screen.queryByTestId('construction')).toBeNull();
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('an upgrade is bought from the sheet and the building stands a level higher', async () => {
+    clockFor();
+    const { app } = await renderHome({
+      before: async (a) => {
+        await produce(a, { stone: 8, light: 5 });
+        await a.store.append(
+          'building.placed',
+          { instanceId: 'shell-cottage', buildingId: 'shell-cottage', plot: [3, 4] },
+          { childId: CHILD_K },
+        );
+      },
+    });
+    const sheet = await openSheet();
+    const cottage = cardOf(sheet, 'shell-cottage');
+    expect(cottage.getAttribute('data-level')).toBe('2');
+    await act(async () => {
+      fireEvent.click(within(cottage).getByRole('button', { name: 'Make it bigger' }));
+    });
+    await screen.findByTestId('construction');
+    expect((await types(app)).slice(-3)).toEqual([
+      'building.upgraded',
+      'material.spent',
+      'resident.arrived',
+    ]);
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId('child-home')
+          .querySelector('[data-building="shell-cottage"][data-stage="2"]'),
+      ).toBeTruthy(),
+    );
+  });
+});
+
+describe('the Numbered Road (05 §3; #22 part 2)', () => {
+  it('lays the next stone for one stone and counts on to it aloud, a stone at a time', async () => {
+    const clock = manualClock();
+    const real = buildClock.current;
+    buildClock.current = clock;
+    const prev = restore;
+    restore = () => {
+      buildClock.current = real;
+      prev();
+    };
+    const { app, say } = await renderHome({
+      before: async (a) => {
+        await a.store.append(
+          'material.produced',
+          {
+            sessionId: 's0',
+            requestId: 'r0',
+            workshopId: 'practice-pier',
+            materials: { stone: 2 },
+          },
+          { childId: CHILD_K },
+        );
+        await a.store.append('road.extended', { to: 2 }, { childId: CHILD_K });
+      },
+    });
+    const phrases = vi.spyOn(app.audio, 'sayPhrases');
+    await bubbles();
+    const home = screen.getByTestId('child-home');
+    const next = await screen.findByRole('button', { name: 'Lay the next stone' });
+    expect(next.getAttribute('data-stone')).toBe('3');
+    expect(next.getAttribute('data-affordable')).toBe('true');
+    expect(home.querySelectorAll('[data-hit="next"]')).toHaveLength(1);
+    await act(async () => {
+      fireEvent.click(next);
+    });
+    await waitFor(async () => expect((await app.store.island()).roadLength).toBe(3));
+    expect((await types(app)).slice(-2)).toEqual(['road.extended', 'material.spent']);
+    // The walk: 1, 2, 3, each said as it is counted, on the build clock.
+    const counted = () =>
+      phrases.mock.calls.map(([parts]) => (parts[0] as { number?: number }).number);
+    await waitFor(() => expect(counted()).toEqual([1]));
+    expect(home.querySelector('[data-stone="1"][data-state="counting"]')).toBeTruthy();
+    await act(async () => clock.advance(COUNT_STEP_MS));
+    expect(counted()).toEqual([1, 2]);
+    await act(async () => clock.advance(COUNT_STEP_MS));
+    expect(counted()).toEqual([1, 2, 3]);
+    expect(home.querySelector('[data-stone="3"][data-state="counting"]')).toBeTruthy();
+    await act(async () => clock.advance(COUNT_STEP_MS));
+    expect(home.querySelector('[data-state="counting"]')).toBeNull();
+    expect(clock.pending()).toBe(0);
+    // A tap on the stone itself lays the next one with the last stone the family has.
+    await waitFor(() =>
+      expect(screen.getByTestId('road-next').getAttribute('data-stone')).toBe('4'),
+    );
+    await act(async () => {
+      fireEvent.pointerUp(home.querySelector('[data-hit="next"]') as Element);
+    });
+    await waitFor(async () => expect((await app.store.island()).roadLength).toBe(4));
+    // No stone left: the next stone says what it needs and nothing is written.
+    await waitFor(() =>
+      expect(screen.getByTestId('road-next').getAttribute('data-affordable')).toBe('false'),
+    );
+    const before = await types(app);
+    say.mockClear();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('road-next'));
+    });
+    await waitFor(() => expect(say).toHaveBeenCalledWith('ui.road.short', undefined));
+    expect(await types(app)).toEqual(before);
+  });
+
+  it('a number still being said holds the walk on its stone, however long it takes', async () => {
+    const clock = manualClock();
+    const real = buildClock.current;
+    buildClock.current = clock;
+    const prev = restore;
+    restore = () => {
+      buildClock.current = real;
+      prev();
+    };
+    const { app } = await renderHome({
+      before: async (a) => {
+        await a.store.append(
+          'material.produced',
+          {
+            sessionId: 's0',
+            requestId: 'r0',
+            workshopId: 'practice-pier',
+            materials: { stone: 1 },
+          },
+          { childId: CHILD_K },
+        );
+        await a.store.append('road.extended', { to: 1 }, { childId: CHILD_K });
+      },
+    });
+    // Each number's line ends only when the test says so (a long number: "one hundred ten").
+    const lines: (() => void)[] = [];
+    const phrases = vi
+      .spyOn(app.audio, 'sayPhrases')
+      .mockImplementation(() => new Promise<void>((resolve) => lines.push(resolve)));
+    const cancel = vi.spyOn(app.audio, 'cancelSpeech');
+    await bubbles();
+    const home = screen.getByTestId('child-home');
+    const lay = await screen.findByRole('button', { name: 'Lay the next stone' });
+    await act(async () => {
+      fireEvent.click(lay);
+    });
+    await waitFor(() => expect(phrases).toHaveBeenCalledTimes(1));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    // The clock runs far past the step: the first number is still being said, so the walk waits
+    // and nothing cuts the line off.
+    await act(async () => clock.advance(10 * COUNT_STEP_MS));
+    expect(phrases).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(home.querySelector('[data-stone="1"][data-state="counting"]')).toBeTruthy();
+    // The line ends: the walk moves on to the new stone, and ends when that one is said.
+    await act(async () => lines[0]?.());
+    expect(phrases).toHaveBeenCalledTimes(2);
+    expect(home.querySelector('[data-stone="2"][data-state="counting"]')).toBeTruthy();
+    await act(async () => lines[1]?.());
+    expect(home.querySelector('[data-stone="2"][data-state="counting"]')).toBeTruthy();
+    await act(async () => clock.advance(COUNT_STEP_MS));
+    expect(home.querySelector('[data-state="counting"]')).toBeNull();
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('a road stone that brings a resident makes the island plan again, with them', async () => {
+    const clock = manualClock();
+    const real = buildClock.current;
+    buildClock.current = clock;
+    const prev = restore;
+    restore = () => {
+      buildClock.current = real;
+      prev();
+    };
+    const { app } = await renderHome({
+      before: async (a) => {
+        await a.store.append(
+          'material.produced',
+          {
+            sessionId: 's0',
+            requestId: 'r0',
+            workshopId: 'practice-pier',
+            materials: { stone: 1 },
+          },
+          { childId: CHILD_K },
+        );
+        // The first shore is open (Hobb lives there) and the road is one stone short of 20.
+        await a.store.append(
+          'resident.arrived',
+          { residentId: 'hobb', homeInstanceId: null, via: 'home' },
+          { childId: CHILD_K },
+        );
+        await a.store.append('road.extended', { to: 19 }, { childId: CHILD_K });
+      },
+    });
+    const planner = vi.mocked(planIslandRequests);
+    await bubbles();
+    const lay = await screen.findByRole('button', { name: 'Lay the next stone' });
+    expect(lay.getAttribute('data-stone')).toBe('20');
+    const residentsPlanned = () =>
+      Object.keys(planner.mock.calls.at(-1)?.[1].island.residents ?? {}).sort();
+    expect(residentsPlanned()).toEqual(['hobb']);
+    const plans = planner.mock.calls.length;
+    // Stone 20 brings Toma: without any other action, the island plans again and Toma is there.
+    await act(async () => {
+      fireEvent.click(lay);
+    });
+    await waitFor(async () =>
+      expect(Object.keys((await app.store.island()).residents).sort()).toEqual(['hobb', 'toma']),
+    );
+    await waitFor(() => expect(planner.mock.calls.length).toBeGreaterThan(plans));
+    expect(residentsPlanned()).toEqual(['hobb', 'toma']);
+    // A stone that brings nobody does not plan again.
+    await a11yStone(app);
+    const after = planner.mock.calls.length;
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('road-next'));
+    });
+    await waitFor(async () => expect((await app.store.island()).roadLength).toBe(21));
+    await settle();
+    expect(planner.mock.calls.length).toBe(after);
+  });
+});
+
+/** One more stone in the Storehouse, and the road button showing it can be paid. */
+async function a11yStone(app: AppServices) {
+  await act(async () => {
+    await app.store.append(
+      'material.produced',
+      { sessionId: 's0', requestId: 'r1', workshopId: 'practice-pier', materials: { stone: 1 } },
+      { childId: CHILD_K },
+    );
+  });
+  await waitFor(() =>
+    expect(screen.getByTestId('road-next').getAttribute('data-affordable')).toBe('true'),
+  );
+}

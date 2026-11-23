@@ -10,12 +10,18 @@
 //   (`material.produced`), and the island plans again, so the next bubbles reflect what was just
 //   played (02 §5.4).
 // - The Storehouse button opens the family's piles (`Storehouse`).
+// - Building (05 §6; part 2, `building/`): the Build button opens the recipe cards; a new building
+//   then asks for one of the highlighted plots, and a build or an upgrade plays its construction
+//   step (skippable). While a plot is chosen or a building goes up, the requests step aside.
+// - The Numbered Road (05 §3): the next stone waits at the road's end. A tap on it (or on its
+//   button) lays it for one stone from the Storehouse, and the walk counts on to it aloud.
 //
 // Wind-down (04 §6.4, 05 §8): no item is ever in progress here, so the session ends at once with
 // the signal's reason and the sunset plays; one that came during a request plays on return.
 
 import type { ChildProfile, PlannedRequest, Recipe } from '@number-island/shared';
 import {
+  BigButton,
   BuildingArtView,
   buildingArtFor,
   HORIZON_Y,
@@ -28,6 +34,7 @@ import {
   Pebbling,
   PlacedBuilding,
   pebblingFromResident,
+  plotBox,
   ReplayButton,
   SCENE_H,
   SCENE_W,
@@ -36,7 +43,16 @@ import {
   useNarrationText,
   useSpeech,
 } from '@number-island/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { devFlag } from '@/app/devFlag';
@@ -51,10 +67,15 @@ import { childContext } from '@/runner/childContext';
 import { remediationQueue } from '@/runner/remediationQueue';
 import { loadRunner, useRaise } from '@/runner/useRequestRunner';
 import { workshopFor } from '@/workshops/registry';
+import { HammerIcon, StoneChip } from './building/BuildIcons';
+import { offeredPlots, PlotTargets, useSceneMap } from './building/PlotTargets';
+import { useIslandBuild } from './building/useIslandBuild';
 import { firstProblem } from './firstProblem';
 import { useHub } from './hub';
 import { isRemediation, planIslandRequests } from './planRequests';
 import { Storehouse } from './Storehouse';
+
+const BuildSheet = lazy(() => import('./building/BuildSheet'));
 
 /** The narrowest view of the map, in scene units: the sandbar fills the screen on day one. */
 const MIN_VIEW_W = 800;
@@ -85,11 +106,29 @@ export function IslandHub({
   const { gameData, graph } = content.store;
   const [requests, setRequests] = useState<PlannedRequest[] | null>(null);
   const [storehouseOpen, setStorehouseOpen] = useState(false);
+  // Counts the builds of this visit: the island plans again after each (a new workshop or a new
+  // resident changes what the planner may use).
+  const [builds, setBuilds] = useState(0);
+  const build = useIslandBuild(
+    child,
+    useCallback(() => setBuilds((n) => n + 1), []),
+  );
+  const sceneBox = useRef<HTMLDivElement>(null);
 
   // The island waits for a request that is still being written (the child just left it).
   const idle = hub.picked === null;
   const made = hub.result ? units(hub.result.materials) : [];
-  const line = made.length > 0 ? 'ui.island.made' : 'ui.island.hello';
+  // What the island is busy with: choosing a plot, or a building going up.
+  const busy = build.placing !== null || build.construction !== null;
+  // The requests step aside for it, and for the walk along the road, which they would cover.
+  const aside = busy || build.counting !== null;
+  const line = build.placing
+    ? 'ui.build.place'
+    : build.construction
+      ? 'ui.build.working'
+      : made.length > 0
+        ? 'ui.island.made'
+        : 'ui.island.hello';
 
   // The guide speaks once per visit: the greeting, or what the request just made.
   const greeted = useRef(false);
@@ -121,8 +160,8 @@ export function IslandHub({
   }, [controller, sessionId, onWindDown]);
 
   // The plan: when the island opens, and again after each request (`planKey` changes).
-  const planKey = hub.result?.requestId ?? '';
-  // biome-ignore lint/correctness/useExhaustiveDependencies: planKey re-plans after a request
+  const planKey = `${hub.result?.requestId ?? ''}:${builds}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: planKey re-plans after a request or a build
   useEffect(() => {
     if (!idle || sessionId === '') return;
     let alive = true;
@@ -137,6 +176,7 @@ export function IslandHub({
         graph,
         gameData,
         island: await store.island(),
+        inventory: await store.inventory(),
         now: store.now(),
         minutes: Math.max(1, Math.ceil(budgetMinutes - controller.activeMs() / 60_000)),
         ...(remediation ? { remediation } : {}),
@@ -199,11 +239,69 @@ export function IslandHub({
       h,
     };
   }, [gameData.island, rings]);
-  // The stones already laid; laying the next one is the Road Crew's (a later part).
+  // The road: the stones laid and, when one can be laid, the next one as its target. While a
+  // plot is chosen the next stone steps aside, so its target takes no tap meant for a plot.
+  const roadTo = build.next && !busy ? build.next.n : (island?.roadLength ?? 0);
   const road = useMemo(
-    () => gameData.island.road.filter((s) => s.n <= (island?.roadLength ?? 0)),
-    [gameData.island.road, island?.roadLength],
+    () => gameData.island.road.filter((s) => s.n <= roadTo),
+    [gameData.island.road, roadTo],
   );
+  const sceneMap = useSceneMap(sceneBox, crop);
+  // The buttons that lie over the map while a plot is chosen (the corners, the guide's replay,
+  // the way back), as boxes inside the scene, measured after they are laid out: the way back
+  // only mounts with the placement, so it cannot be read while that render is computed.
+  const [controls, setControls] = useState<
+    { left: number; top: number; right: number; bottom: number }[]
+  >([]);
+  const placingId = build.placing?.building.id ?? null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measured again when the map is (a resize)
+  useLayoutEffect(() => {
+    const scene = sceneBox.current;
+    const home = scene?.closest('[data-testid="child-home"]');
+    if (placingId === null || !scene || !home) return;
+    const box = scene.getBoundingClientRect();
+    setControls(
+      Array.from(home.querySelectorAll('button'))
+        .filter((b) => !b.closest('[data-testid="plot-targets"]') && !b.closest('dialog'))
+        .map((b) => b.getBoundingClientRect())
+        .filter((r) => r.width > 0)
+        .map((r) => ({
+          left: r.left - box.left,
+          top: r.top - box.top,
+          right: r.right - box.left,
+          bottom: r.bottom - box.top,
+        })),
+    );
+  }, [placingId, sceneMap]);
+  const targets = useMemo(
+    () =>
+      build.placing
+        ? offeredPlots(
+            build.placing.anchors,
+            build.placing.building.footprint,
+            sceneMap,
+            // A point under another button of this screen takes no plot.
+            (left, top) =>
+              controls.some(
+                (r) => left >= r.left && left <= r.right && top >= r.top && top <= r.bottom,
+              ),
+          )
+        : [],
+    [build.placing, sceneMap, controls],
+  );
+  const plotMarkers = useMemo(
+    () =>
+      build.placing
+        ? targets.map((t) => ({ plot: t.plot, footprint: build.placing?.building.footprint }))
+        : [],
+    [build.placing, targets],
+  );
+  // Where the building going up stands, in CSS px, for the construction step's picture.
+  const site = (() => {
+    if (!build.construction || !sceneMap) return null;
+    const b = plotBox(build.construction.plot, build.construction.footprint);
+    return sceneMap.point(b.x + b.w / 2, b.y);
+  })();
   const buildings = Object.entries(island?.buildings ?? {})
     .map(([instanceId, b]) => ({
       instanceId,
@@ -220,13 +318,23 @@ export function IslandHub({
   return (
     <div className="relative h-dvh min-h-[600px] w-full overflow-hidden" data-testid="child-home">
       <main className="absolute inset-0">
-        <div className="absolute inset-0 overflow-hidden">
+        {/* The next stone's tap target is art (`data-hit="next"`); its accessible control is the
+            road button under the Storehouse. */}
+        <div
+          ref={sceneBox}
+          className="absolute inset-0 overflow-hidden"
+          onPointerUp={(e) => {
+            if ((e.target as Element).closest?.('[data-hit="next"]')) build.layStone();
+          }}
+        >
           <IslandScene
             className="absolute inset-0 size-full"
             fit="fill"
             island={{ rings: gameData.island.rings, road }}
             ringsUnlocked={rings}
             roadLength={island?.roadLength ?? 0}
+            counting={build.counting}
+            plotMarkers={plotMarkers}
             crop={crop}
             title="The island, seen from above, in a calm sea."
           >
@@ -242,6 +350,22 @@ export function IslandHub({
               ) : null;
             })}
           </IslandScene>
+          {build.placing ? <PlotTargets targets={targets} onPick={build.place} /> : null}
+          {build.construction ? (
+            <div
+              className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full"
+              style={site ?? { left: '50%', top: '50%' }}
+              data-testid="construction"
+              data-instance={build.construction.instanceId}
+            >
+              <span
+                className="motion-loop flex size-20 items-center justify-center rounded-full bg-paper/95 shadow-soft ring-4 ring-sunshine"
+                style={{ animation: 'var(--animate-pulse-soft)' }}
+              >
+                <HammerIcon size={56} />
+              </span>
+            </div>
+          ) : null}
         </div>
         {/* Top left: Home (back to "Who is playing?") and who is playing. */}
         <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10 flex items-center gap-4">
@@ -267,7 +391,34 @@ export function IslandHub({
             onPress={() => setStorehouseOpen(true)}
             data={{ 'data-testid': 'storehouse-open' }}
           />
-          {made.length > 0 ? (
+          <IconButton
+            label="ui.build.open"
+            icon={<HammerIcon size={56} />}
+            tone="cloud"
+            disabled={busy || !build.ready}
+            onPress={build.openSheet}
+            data={{ 'data-testid': 'build-open' }}
+          />
+          {build.next ? (
+            <IconButton
+              label="ui.road.next"
+              icon={
+                // Wider than the button's icon box, and centred on it.
+                <span className="flex" style={{ flex: 'none', margin: -10 }}>
+                  <StoneChip n={build.next.n} />
+                </span>
+              }
+              tone="cloud"
+              disabled={busy}
+              onPress={build.layStone}
+              data={{
+                'data-testid': 'road-next',
+                'data-stone': String(build.next.n),
+                'data-affordable': String(build.hasStone),
+              }}
+            />
+          ) : null}
+          {made.length > 0 && !aside ? (
             <div
               className="flex max-w-[15rem] flex-wrap items-center justify-end gap-1 rounded-[20px] bg-paper/95 px-3 py-2 shadow-soft ring-4 ring-sunshine"
               role="img"
@@ -286,7 +437,26 @@ export function IslandHub({
         {/* The requests: a bubble over each resident, the recommended one first. They lie above
             the parent gate's hint, which opens over this row on a narrow screen: a request and
             its speaker stay whole targets while the hint shows. */}
-        {requests ? (
+        {busy ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] z-30 flex justify-center *:pointer-events-auto">
+            {build.placing ? (
+              <BigButton
+                label="ui.btn.close"
+                icon={<icons.CloseIcon />}
+                tone="cloud"
+                onPress={build.cancelPlacing}
+              />
+            ) : (
+              <BigButton
+                label="ui.build.skip"
+                icon={<icons.ArrowIcon />}
+                tone="cloud"
+                onPress={build.skipConstruction}
+              />
+            )}
+          </div>
+        ) : null}
+        {requests && !aside ? (
           <ul
             className="absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] pointer-events-none z-20 flex items-end justify-center gap-6 px-4"
             aria-label={text('ui.island.requests')}
@@ -356,6 +526,19 @@ export function IslandHub({
           }
         />
       </footer>
+      {/* Loaded when it is first opened, and kept: closing returns the focus as any sheet does. */}
+      {build.sheetUsed ? (
+        <Suspense fallback={null}>
+          <BuildSheet
+            open={build.sheetOpen}
+            onClose={build.closeSheet}
+            cards={build.cards}
+            gameData={gameData}
+            mode={child.grade === 'K' ? 'ten-frames' : 'base-ten'}
+            onBuy={build.buy}
+          />
+        </Suspense>
+      ) : null}
       <Sheet
         open={storehouseOpen}
         onClose={() => setStorehouseOpen(false)}

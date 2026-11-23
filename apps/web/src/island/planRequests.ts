@@ -8,6 +8,7 @@ import type * as EngineModule from '@number-island/engine';
 import type {
   ChildContext,
   GameData,
+  InventoryState,
   IslandState,
   LearnerState,
   MisconceptionId,
@@ -26,15 +27,17 @@ export function planIslandRequests(
     graph: SkillGraph;
     gameData: Pick<GameData, 'buildings' | 'residents'>;
     island: IslandState;
+    /** The Storehouse (which of a workshop's products is scarcer). */
+    inventory?: Pick<InventoryState, 'materials'>;
     now: number;
     minutes: number;
     /** A remediation queued in an earlier request (04 §6.4 rule 5): the plan starts with it. */
     remediation?: { skillId: SkillId; misconceptionId: MisconceptionId };
   },
 ): PlannedRequest[] {
-  const { remediation, gameData, ...rest } = input;
+  const { remediation, gameData, inventory, ...rest } = input;
   const plan = engine.planSession(
-    { ...rest, workshopsAvailable: workshopCapabilities(gameData, input.island) },
+    { ...rest, workshopsAvailable: workshopCapabilities(gameData, input.island, inventory) },
     remediation ? { remediation } : {},
   );
   return plan.requests
