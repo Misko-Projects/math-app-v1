@@ -2050,14 +2050,14 @@ export const PierTabletAdd: Story = {
   args: { config: pierAdd, tier: 'concrete' },
 };
 // Rooms between the two viewports, one story each.
-export const PierQuarterRegroup: Story = pierTrade(pierRegroup99, 'quarter', 'in-side');
+export const PierQuarterRegroup: Story = pierTrade(pierRegroup99, 'quarter', 'usual');
 export const PierHalfRegroup: Story = pierTrade(pierRegroup99, 'half', 'usual');
 export const PierThreeQuartersRegroup: Story = pierTrade(pierRegroup99, 'threeQuarters', 'usual');
 
 /**
  * Add with a trade where the room is too small for it at countable sizes (960 × 600: the
  * three-column mat is 645 × 256 px at 18 px pieces, with the tray, the equation, the pad and
- * Check to place): the widget keeps its 20 px pieces and its design height, and the room scrolls
+ * Check to place): the widget keeps countable pieces and its design height, and the room scrolls
  * (the pier fit check lists MDA.08.t1 at this viewport). It never squeezes the pieces.
  */
 const pierAddIn = (room: PierRoom): Story => ({
@@ -2067,8 +2067,8 @@ const pierAddIn = (room: PierRoom): Story => ({
     const root = await findWidget(canvasElement, ROOT);
     await stableLayout(root);
     if (root.dataset.arrange === 'tall') {
-      await expect(unitOf(root)).toBe(20);
-      await expectCountable(root);
+      await expect(unitOf(root)).toBeGreaterThanOrEqual(18);
+      await expectCountable(root, 18);
     } else {
       await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
       await expectCountable(root, 18);

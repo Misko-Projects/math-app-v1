@@ -579,9 +579,9 @@ export function readSideSize(
 }
 
 /**
- * Read mode's panel in a room `height` px tall: the first that fits of the answer over the keys
- * over "check", then the answer and "check" beside the keys; in each, the keys as roomy as fit
- * (kit `PAD_KEYS_CHOICES`: never under the minimum target). The last when none fits.
+ * Read mode's panel in a room `height` px tall: the keys as roomy as fit (kit
+ * `PAD_KEYS_CHOICES`: never under the minimum target), with the answer over them and "check"
+ * under them if that fits, else both beside them. The last choice when none fits.
  */
 export function readSide(
   height: number,
@@ -590,8 +590,8 @@ export function readSide(
   ageMode: AgeMode,
 ): ReadSide {
   let last: ReadSide | null = null;
-  for (const beside of [false, true]) {
-    for (const keys of PAD_KEYS_CHOICES) {
+  for (const keys of PAD_KEYS_CHOICES) {
+    for (const beside of [false, true]) {
       last = { ...keys, beside, ...readSideSize(keys, beside, blank, button, ageMode) };
       if (last.h <= height) return last;
     }
