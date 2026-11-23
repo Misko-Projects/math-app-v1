@@ -79,6 +79,46 @@
   border-radius: var(--radius-pebble);
 }
 
+/* In the side panel of a short room: its own height, smaller type, a narrower answer. */
+.ni-btt__problem[data-in-side="true"] {
+  padding: 6px 8px;
+}
+.ni-btt__problem[data-in-side="true"] .ni-expr {
+  gap: 0 10px;
+  font-size: 36px;
+}
+.ni-btt__problem[data-in-side="true"] .ni-btt__answer {
+  min-width: calc(var(--target-min) * 1.15);
+  min-height: 56px;
+  font-size: 36px;
+}
+.ni-btt__goal[data-in-side="true"] {
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+}
+/* The hidden copy of that card, measured to plan the layout (never seen or reached). */
+.ni-btt__measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  display: flex;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+.ni-btt__measure > * {
+  flex: none;
+}
+.ni-btt__checkcopy {
+  display: inline-flex;
+  /* As in the side panel: "check" at the target size. */
+  --target-big: var(--target-min);
+}
+
 /* Goal chips (regroup-to): "0 [flat] 12 [rod] 3 [unit]". */
 .ni-btt__goal {
   gap: 28px;
@@ -614,6 +654,16 @@
 .ni-btt__padrow {
   display: flex;
   align-items: flex-end;
+}
+/* A short room: the problem card in the side panel, "check" beside it over a 4 × 3 pad. */
+.ni-btt__side[data-problem="true"] {
+  justify-content: center;
+}
+.ni-btt__padrow--problem {
+  align-items: center;
+}
+.ni-btt__side .ni-pad[data-shape="4x3"] {
+  grid-template-columns: repeat(4, var(--target-min));
 }
 
 /* The column algorithm, as a child writes it: start, operand with its sign, a line, the result. */

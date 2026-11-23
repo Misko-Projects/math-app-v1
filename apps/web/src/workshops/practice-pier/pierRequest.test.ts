@@ -36,21 +36,29 @@ describe('what the Practice Pier plays', () => {
     expect(skills.length).toBe(
       Object.values(graph.skills).filter((s) => s.templates.length > 0).length,
     );
-    // PV.09 has an excluded template (t3): the skill's request skips it, and picking it alone
-    // gives an empty request.
+    // Every PV.09 template is played: the pictorial base-ten-trade one (t3) fits the area now (#13).
     const all = browseRequest(graph, { skillId: 'PV.09', templateId: null }, 1);
     expect(all.tasks.map((t) => t.templateId)).toEqual([
       'PV.09.t1',
       'PV.09.t2',
+      'PV.09.t3',
       'PV.09.t4',
       'PV.09.t5',
     ]);
-    expect(new Set(all.tasks.map((t) => t.seed)).size).toBe(4);
-    expect(browseRequest(graph, { skillId: 'PV.09', templateId: 'PV.09.t3' }, 1).tasks).toEqual([]);
+    expect(new Set(all.tasks.map((t) => t.seed)).size).toBe(5);
+    // A template the pier cannot play is skipped, and picking it alone gives an empty request.
+    const balance = Object.values(graph.templates).find((t) => t.format === 'balance');
+    if (!balance) throw new Error('no balance template in the content');
+    const skill = browseRequest(graph, { skillId: balance.skillId, templateId: null }, 1);
+    expect(skill.tasks.map((t) => t.templateId)).not.toContain(balance.id);
+    expect(
+      browseRequest(graph, { skillId: balance.skillId, templateId: balance.id }, 1).tasks,
+    ).toEqual([]);
     const one = browseRequest(graph, { skillId: 'PV.09', templateId: 'PV.09.t4' }, 1);
     expect(one.tasks.map((t) => t.templateId)).toEqual(['PV.09.t4']);
     // The numeral-pick templates with wide cards under a picture fit now (#12) and are played.
-    for (const id of ['ADD.23.t3', 'CMP.09.t4', 'CMP.13.t4']) {
+    // So are the two pictorial base-ten-trade templates (#13).
+    for (const id of ['ADD.23.t3', 'CMP.09.t4', 'CMP.13.t4', 'PV.01.t4', 'PV.09.t3']) {
       const template = graph.templates[id];
       expect(template && pierPlayable(template), id).toBe(true);
     }

@@ -12,10 +12,16 @@ import {
   spyAudio,
 } from '../../test-support/storyHelpers';
 import {
+  areaBox,
+  expectFitsRoom,
   expectPointerOn,
   expectTraceOrdered,
   findWidget,
+  inRoom,
+  type PierRoom,
   renderWidget,
+  resizeRoom,
+  stableLayout,
   traceOf,
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
@@ -356,11 +362,16 @@ async function expectNoReveal(root: HTMLElement, result: number) {
 
 /** Every control a child taps, for size and gap checks. */
 function controls(root: HTMLElement) {
-  return [
-    ...root.querySelectorAll<HTMLElement>(
-      '[data-place-item], [data-place-target], .ni-btt__speak, .ni-btt__trade, .ni-btn, button.ni-btt__box, .ni-pad__key',
-    ),
-  ].filter((el, i, all) => all.indexOf(el) === i);
+  return (
+    [
+      ...root.querySelectorAll<HTMLElement>(
+        '[data-place-item], [data-place-target], .ni-btt__speak, .ni-btt__trade, .ni-btn, button.ni-btt__box, .ni-pad__key',
+      ),
+    ]
+      // Not the hidden, inert copies the widget measures to plan its side panel.
+      .filter((el) => el.closest('[inert]') === null)
+      .filter((el, i, all) => all.indexOf(el) === i)
+  );
 }
 
 // ---------- adding ----------
@@ -1962,5 +1973,222 @@ export const DemoUnsupportedOp: Story = {
       'write-digit',
       'answer',
     ]);
+  },
+};
+
+// ---------- the Practice Pier's rooms (#13): 858 × 358 at 960 × 600, 1178 × 558 at 1280 × 800 ----------
+
+/** PV.01.t4 at its fullest (n = 99): 8 tens and 19 ones to regroup into 9 tens and 9 ones. */
+const pierRegroup99: Config = {
+  format: 'base-ten-trade',
+  start: { hundreds: 0, tens: 8, ones: 19 },
+  goal: 'regroup-to',
+  regroupTarget: { hundreds: 0, tens: 9, ones: 9 },
+  showAlgorithm: false,
+  thenAsk: false,
+};
+/** PV.09.t3 at its fullest (n = 49): split a ten, 4 tens 9 ones into 3 tens 19 ones. */
+const pierSplit49: Config = {
+  format: 'base-ten-trade',
+  start: { hundreds: 0, tens: 4, ones: 9 },
+  goal: 'regroup-to',
+  regroupTarget: { hundreds: 0, tens: 3, ones: 19 },
+  showAlgorithm: false,
+  thenAsk: false,
+};
+/** MDA.08.t1 as generated: 69 + 8 with a trade, then the answer on the pad. */
+const pierAdd: Config = {
+  format: 'base-ten-trade',
+  start: { hundreds: 0, tens: 6, ones: 9 },
+  operation: { op: '+', operand: { hundreds: 0, tens: 0, ones: 8 } },
+  goal: 'compute',
+  showAlgorithm: false,
+  thenAsk: true,
+};
+
+const PIER_ACTIONS = '.ni-pad__key, .ni-btn.ni-tone-sun, .ni-btt__trade';
+const unitOf = (root: HTMLElement) =>
+  (root.querySelector('.ni-btt__mat [data-piece^="ones-"]') as HTMLElement).getBoundingClientRect()
+    .width;
+
+const pierTrade = (config: Config, room: PierRoom, arrange: 'usual' | 'in-side'): Story => ({
+  args: { config, tier: 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom(room),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+    await expect(root).toHaveAttribute('data-arrange', arrange);
+    // Pieces a child can count (the floor is 18 px), none overlapping.
+    await expectCountable(root, 18);
+  },
+});
+
+/**
+ * 960 × 600, regroup: the goal chips stand in a column in the side panel with Check under them,
+ * so the mat keeps the room's height and its 19 to 20 px pieces. Same task: group ten ones,
+ * check, one response.
+ */
+export const PierSmallRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'small', 'in-side'),
+  tags: ['!visual'],
+  play: async (ctx) => {
+    await pierTrade(pierRegroup99, 'small', 'in-side').play?.(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    await userEvent.click(trade(root, 'ones', 'tens'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 9, ones: 9 });
+    await expectFitsRoom(ctx.canvasElement, root, 'g1-up', PIER_ACTIONS);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(ctx.args.onResponse).toHaveBeenCalledTimes(1);
+  },
+};
+export const PierSmallSplit: Story = {
+  ...pierTrade(pierSplit49, 'small', 'in-side'),
+  tags: ['!visual'],
+};
+export const PierTabletRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'tablet', 'usual'),
+  tags: ['!visual'],
+};
+export const PierTabletSplit: Story = {
+  ...pierTrade(pierSplit49, 'tablet', 'usual'),
+  tags: ['!visual'],
+};
+/** 1280 × 800, add with a trade: the equation over the mat, the tray under it, the pad beside. */
+export const PierTabletAdd: Story = {
+  ...pierTrade(pierAdd, 'tablet', 'usual'),
+  tags: ['!visual'],
+  args: { config: pierAdd, tier: 'concrete' },
+};
+// Rooms between the two viewports, one story each.
+export const PierQuarterRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'quarter', 'usual'),
+  tags: ['!visual'],
+};
+export const PierHalfRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'half', 'usual'),
+  tags: ['!visual'],
+};
+export const PierThreeQuartersRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'threeQuarters', 'usual'),
+  tags: ['!visual'],
+};
+
+/**
+ * Add with a trade where the room is too small for it at countable sizes (960 × 600: the
+ * three-column mat is 645 × 256 px at 18 px pieces, with the tray, the equation, the pad and
+ * Check to place): the widget keeps countable pieces and its design height, and the room scrolls
+ * (the pier fit check lists MDA.08.t1 at this viewport). It never squeezes the pieces.
+ */
+const pierAddIn = (room: PierRoom): Story => ({
+  args: { config: pierAdd, tier: 'concrete' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom(room),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    if (root.dataset.arrange === 'tall') {
+      await expect(unitOf(root)).toBeGreaterThanOrEqual(18);
+      await expectCountable(root, 18);
+    } else {
+      await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+      await expectCountable(root, 18);
+    }
+  },
+});
+export const PierSmallAddScrolls: Story = {
+  ...pierAddIn('small'),
+  tags: ['!visual'],
+  play: async (ctx) => {
+    await pierAddIn('small').play?.(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-arrange', 'tall');
+  },
+};
+export const PierQuarterAdd: Story = { ...pierAddIn('quarter'), tags: ['!visual'] };
+export const PierHalfAdd: Story = { ...pierAddIn('half'), tags: ['!visual'] };
+export const PierThreeQuartersAdd: Story = { ...pierAddIn('threeQuarters'), tags: ['!visual'] };
+
+const pierResized = (
+  config: Config,
+  from: PierRoom,
+  to: PierRoom,
+  after: 'usual' | 'in-side' | 'tall',
+): Story => ({
+  args: { config, tier: config.goal === 'compute' ? 'concrete' : 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom(from),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root.dataset.arrange).toBeDefined();
+    resizeRoom(canvasElement, to);
+    await stableLayout(root);
+    await expect(areaBox(canvasElement).clientHeight).toBe(to === 'small' ? 358 : 558);
+    await waitFor(() => expect(root).toHaveAttribute('data-arrange', after));
+    // Whatever the room became, the pieces are ones a child can count.
+    await expect(unitOf(root)).toBeGreaterThanOrEqual(18);
+    await expectCountable(root, 18);
+    if (after !== 'tall') await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+  },
+});
+/**
+ * A resize while the item is on screen. Where the problem card goes is chosen for the smallest
+ * room the item has had: growing the room re-sizes the mat and moves nothing to another place;
+ * shrinking it chooses again for the smaller room.
+ */
+export const PierResizeRegroupGrows: Story = {
+  ...pierResized(pierRegroup99, 'small', 'tablet', 'in-side'),
+  tags: ['!visual'],
+};
+export const PierResizeRegroupShrinks: Story = {
+  ...pierResized(pierRegroup99, 'tablet', 'small', 'in-side'),
+  tags: ['!visual'],
+};
+/**
+ * Add with a trade (MDA.08.t1): opened at 1280 × 800 and shrunk to 960 × 600 with the operand
+ * still in the tray, it keeps countable pieces and scrolls (never 8 px pieces); opened at
+ * 960 × 600, where it scrolls, and grown to 1280 × 800, it fits the room.
+ */
+export const PierResizeAddShrinks: Story = {
+  ...pierResized(pierAdd, 'tablet', 'small', 'tall'),
+  tags: ['!visual'],
+};
+export const PierResizeAddGrows: Story = {
+  ...pierResized(pierAdd, 'small', 'tablet', 'usual'),
+  tags: ['!visual'],
+};
+
+/**
+ * Keyboard focus survives the change of arrangement: with the trade made at 1280 × 800 and the
+ * focus on Check, the room shrinks to 960 × 600 (Check moves into the side panel's short-room
+ * place); Check still has the focus, and Space submits the one response.
+ */
+export const PierResizeKeepsFocusOnCheck: Story = {
+  args: { config: pierRegroup99, tier: 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root).toHaveAttribute('data-arrange', 'usual');
+    await userEvent.click(trade(root, 'ones', 'tens'));
+    await settled(root);
+    const check = () => within(root).getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check()).toBeEnabled());
+    const before = check();
+    before.focus();
+    await expect(before).toHaveFocus();
+    resizeRoom(canvasElement, 'small');
+    await waitFor(() => expect(root).toHaveAttribute('data-arrange', 'in-side'));
+    await stableLayout(root);
+    await expect(check()).toHaveFocus();
+    await userEvent.keyboard(' ');
+    await waitFor(() => expect(args.onResponse).toHaveBeenCalledTimes(1));
   },
 };

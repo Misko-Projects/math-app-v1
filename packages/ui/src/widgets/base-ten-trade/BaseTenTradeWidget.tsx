@@ -38,7 +38,10 @@ import {
   useAlive,
   useDemoPause,
   useInviteHand,
+  useSmallestRoom,
   useSubmitGuard,
+  useWidgetRoom,
+  type WidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import { breakGhosts, bundleGhosts, EASE, type Ghost, moveGhosts } from './fx';
@@ -46,6 +49,7 @@ import {
   ageSizes,
   answerPlaces,
   type Box,
+  BUDGET,
   COL_PAD,
   chooseSide,
   colInsets,
@@ -56,6 +60,7 @@ import {
   growCaps,
   holderMargins,
   holderWidth,
+  itemFit,
   itemUnit,
   MAT_BORDER,
   naturalLayout,
@@ -67,10 +72,12 @@ import {
   placeTaken,
   planCaps,
   planMat,
+  ROOT_PAD_Y,
   ROW_GAP,
   SIDE_GAP,
   stateCaps,
   stripWidth,
+  U_FLOOR,
 } from './layout';
 import './base-ten-trade.css';
 
@@ -93,6 +100,9 @@ import './base-ten-trade.css';
  */
 
 const OPS = ['trade', 'combine', 'take', 'write-digit', 'answer'] as const;
+const budgetIn = (room: WidgetRoom | null) =>
+  room && Number.isFinite(room.height) ? Math.min(BUDGET, room.height) : BUDGET;
+
 const KEY_MS = 340;
 const FLASH_MS = 900;
 const POP_MS = 320;
@@ -661,7 +671,16 @@ function TradeMat({
   const [pressedKey, setPressedKey] = useState<PadKey | null>(null);
   const [demoHi, setDemoHi] = useState<string | null>(null);
   /** Measured widths (px): the mat's area, the side panel and its parts (pad, "check", card). */
-  const [box, setBox] = useState({ main: 0, side: 0, pad: 0, check: 0, card: 0 });
+  const [box, setBox] = useState({
+    main: 0,
+    side: 0,
+    pad: 0,
+    check: 0,
+    card: 0,
+    problemW: 0,
+    problemH: 0,
+    checkIcon: 0,
+  });
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
@@ -705,19 +724,28 @@ function TradeMat({
     if (!el || !root) return;
     const width = (sel: string) => root.querySelector(sel)?.getBoundingClientRect().width ?? 0;
     const measure = () => {
+      const inSide = root
+        .querySelector('.ni-btt__measure .ni-btt__problem')
+        ?.getBoundingClientRect();
       const next = {
         main: el.getBoundingClientRect().width,
         side: width('.ni-btt__side'),
         pad: width('.ni-btt__side .ni-pad'),
         check: width('.ni-btt__checkwrap'),
         card: width('.ni-btt__work'),
+        problemW: Math.ceil(inSide?.width ?? 0),
+        problemH: Math.ceil(inSide?.height ?? 0),
+        checkIcon: Math.ceil(width('.ni-btt__measure .ni-btt__checkcopy')),
       };
       setBox((prev) =>
         prev.main === next.main &&
         prev.side === next.side &&
         prev.pad === next.pad &&
         prev.check === next.check &&
-        prev.card === next.card
+        prev.card === next.card &&
+        prev.problemW === next.problemW &&
+        prev.problemH === next.problemH &&
+        prev.checkIcon === next.checkIcon
           ? prev
           : next,
       );
@@ -748,25 +776,87 @@ function TradeMat({
     return [planned, now];
   }, [baseCaps, state.mat, state.taken, state.pending, trayEmpty, isPlus, isMinus]);
   const path = useMemo(() => pathStates(config), [config]);
+  // The widget is as tall as its room (06 §1). Where the problem card goes (over the mat, or in
+  // the side panel of a short room) is chosen for the smallest room the item has had
+  // (`useSmallestRoom`), with the parts as mounted: a room that grows re-sizes the layout it has,
+  // one that shrinks is chosen for again. `tall`: the item fits that room neither way with pieces
+  // a child can count (U_FLOOR), so it keeps its design height and its host scrolls; that is no
+  // arrangement to keep, so it is chosen again in whatever room comes next.
+  const room = useWidgetRoom(rootRef);
+  const arranged = useRef<'usual' | 'in-side' | 'tall' | null>(null);
+  const planRoom = useSmallestRoom(room, rootRef, arranged.current === 'tall');
+  const arrangedFor = useRef(planRoom);
+  if (arrangedFor.current !== planRoom) arranged.current = null;
+  const budget = arranged.current === 'tall' ? BUDGET : budgetIn(room);
   // Where the algorithm, the pad and "check" go, and the height left for the mat (layout.ts):
   // when K's side can't stack them, the arrangement at which every step of the item fits.
-  const { side } = useMemo(
-    () =>
-      chooseSide({
-        age,
-        goal: config.goal,
-        showWork,
-        thenAsk: config.thenAsk,
-        answerInWork,
-        places,
-        // The mat's area and the side panel together, with the grid gap between them.
-        contentW: box.main > 0 ? box.main + GAP + box.side : 0,
-        parts: box,
-        base: baseCaps,
-        path,
-      }),
-    [age, config, showWork, answerInWork, places, box, baseCaps, path],
-  );
+  const { side } = useMemo(() => {
+    const measured = planRoom !== null && box.main > 0;
+    const chosen = chooseSide({
+      age,
+      goal: config.goal,
+      showWork,
+      thenAsk: config.thenAsk,
+      answerInWork,
+      places,
+      budget: arranged.current ? budget : budgetIn(planRoom),
+      arrange: arranged.current === 'tall' ? 'usual' : (arranged.current ?? undefined),
+      // The mat's area and the side panel together, with the grid gap between them.
+      contentW: box.main > 0 ? box.main + GAP + box.side : 0,
+      parts: {
+        ...box,
+        problem: box.problemW > 0 ? { w: box.problemW, h: box.problemH } : undefined,
+        checkIcon: box.checkIcon > 0 ? box.checkIcon : undefined,
+      },
+      base: baseCaps,
+      path,
+    });
+    if (!measured || arranged.current) return chosen;
+    const fit = itemFit({
+      age,
+      width: chosen.width,
+      height: chosen.side.spaceH,
+      base: baseCaps,
+      path,
+    });
+    const fitsRoom =
+      fit.fits && fit.unit >= U_FLOOR && chosen.side.sideH <= budgetIn(planRoom) - 2 * ROOT_PAD_Y;
+    arranged.current = !fitsRoom ? 'tall' : chosen.side.problemInSide ? 'in-side' : 'usual';
+    arrangedFor.current = planRoom;
+    if (fitsRoom) return chosen;
+    return chooseSide({
+      age,
+      goal: config.goal,
+      showWork,
+      thenAsk: config.thenAsk,
+      answerInWork,
+      places,
+      arrange: 'usual',
+      contentW: box.main + GAP + box.side,
+      parts: box,
+      base: baseCaps,
+      path,
+    });
+  }, [age, config, showWork, answerInWork, places, box, baseCaps, path, budget, planRoom]);
+  const { problemInSide, padWide } = side;
+  // A change of arrangement moves the pad and "check" to another place in the side panel, which
+  // mounts them anew. Whichever of them had the keyboard focus keeps it: noted here, before the
+  // change is committed, and given back to its replacement after.
+  const sideRef = useRef<HTMLDivElement | null>(null);
+  const focusedControl = () => {
+    const el = document.activeElement;
+    if (!el || !sideRef.current?.contains(el)) return null;
+    const key = el.closest<HTMLElement>('.ni-pad__key')?.dataset.key;
+    if (key !== undefined) return `.ni-pad__key[data-key="${key}"]`;
+    return el.closest('.ni-btt__checkwrap') ? '.ni-btt__checkwrap .ni-btn' : null;
+  };
+  const hadFocus = useRef<string | null>(null);
+  hadFocus.current = focusedControl();
+  useLayoutEffect(() => {
+    const sel = hadFocus.current;
+    if (sel === null || focusedControl() !== null) return;
+    sideRef.current?.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true });
+  });
   const { workInSide, checkBeside, showProblemRow, problemH, cardH, spaceH, sideH } = side;
   const spaceW = box.main > 0 ? box.main : 900;
   // One scale for the whole item, chosen so every step on the expected path fits.
@@ -1351,14 +1441,18 @@ function TradeMat({
 
   // ---------- render ----------
 
-  const problem = (() => {
+  // `inSide`: the card as the side panel of a short room holds it (its own height, smaller type,
+  // the goal chips in a column). `copy`: the hidden one that is measured to plan that layout.
+  const problemCard = (inSide: boolean, copy = false) => {
+    const cardStyle = inSide ? undefined : { height: cardH };
     if (config.goal === 'regroup-to') {
       const goal = config.regroupTarget ?? config.start;
       return (
         <fieldset
           className="ni-btt__problem ni-btt__goal"
-          aria-label={t('ui.widget.btt.goal')}
-          style={{ height: cardH }}
+          aria-label={copy ? undefined : t('ui.widget.btt.goal')}
+          data-in-side={inSide ? 'true' : undefined}
+          style={cardStyle}
         >
           {columns.map((c) => (
             <span key={c} className="ni-btt__chip">
@@ -1387,7 +1481,7 @@ function TradeMat({
       ],
     };
     return (
-      <div className="ni-btt__problem" style={{ height: cardH }}>
+      <div className="ni-btt__problem" data-in-side={inSide ? 'true' : undefined} style={cardStyle}>
         <ExpressionView
           expr={expr}
           renderBlank={() => (
@@ -1406,7 +1500,8 @@ function TradeMat({
         />
       </div>
     );
-  })();
+  };
+  const problem = problemCard(false);
 
   const work = showWork ? (
     <WorkCard
@@ -1725,12 +1820,17 @@ function TradeMat({
       onEnter={submit}
       disabled={!interactive}
       highlighted={pressedKey}
+      shape={padWide ? '4x3' : '3x4'}
     />
   );
   // Wrapped so its width can be measured (chooseSide); the wrapper is exactly the button's box.
   const check = (
     <span className="ni-btt__checkwrap">
-      <CheckButton onPress={submit} disabled={!interactive || !canSubmit} />
+      <CheckButton
+        onPress={submit}
+        disabled={!interactive || !canSubmit}
+        compact={problemInSide === true}
+      />
     </span>
   );
 
@@ -1742,6 +1842,7 @@ function TradeMat({
       data-disabled={disabled ? 'true' : undefined}
       data-goal={config.goal}
       data-op={op?.op}
+      data-arrange={arranged.current ?? undefined}
       style={handRootStyle}
     >
       <div ref={mainRef} className="ni-btt__main">
@@ -1781,9 +1882,29 @@ function TradeMat({
         {tray}
         {nest}
       </div>
-      <div className="ni-btt__side" style={{ paddingTop: sideTop, gap: SIDE_GAP }}>
+      <div
+        ref={sideRef}
+        className="ni-btt__side"
+        data-problem={problemInSide ? 'true' : undefined}
+        style={{ paddingTop: sideTop, gap: SIDE_GAP }}
+      >
         {workInSide ? work : null}
-        {checkBeside ? (
+        {problemInSide && padWide ? (
+          // A short room: the problem and "check" side by side, the 4 × 3 pad under them.
+          <>
+            <div className="ni-btt__padrow ni-btt__padrow--problem" style={{ gap: SIDE_GAP }}>
+              {problemCard(true)}
+              {check}
+            </div>
+            {padKeys}
+          </>
+        ) : problemInSide ? (
+          <>
+            {problemCard(true)}
+            {config.thenAsk ? padKeys : null}
+            {check}
+          </>
+        ) : checkBeside ? (
           // K with the algorithm above: "check" stands beside the pad's foot, so the algorithm,
           // the pad and "check" all fit beside the mat and the mat keeps the widget's height.
           <div className="ni-btt__padrow" style={{ gap: SIDE_GAP }}>
@@ -1800,6 +1921,15 @@ function TradeMat({
       </div>
       <div ref={fxRef} className="ni-btt__fx" aria-hidden="true" />
       {inviteHand}
+      {showWork ? null : (
+        // The problem card as the side panel would hold it: hidden, inert, measured (chooseSide).
+        <div className="ni-btt__measure" aria-hidden="true" inert>
+          {problemCard(true, true)}
+          <span className="ni-btt__checkcopy">
+            <CheckButton onPress={() => undefined} disabled compact />
+          </span>
+        </div>
+      )}
     </div>
   );
 }

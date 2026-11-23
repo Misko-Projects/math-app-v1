@@ -367,6 +367,24 @@
   box-sizing: border-box;
   min-width: 0;
 }
+/* A short room (layout.ts sidePlan `split`): the goal and chips beside the tray and "check". */
+.ni-btb__side[data-split="true"] {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-content: center;
+  justify-content: center;
+  justify-items: center;
+}
+.ni-btb__side[data-split="true"] > .ni-btb__ask {
+  grid-row: 1 / 3;
+  grid-column: 1;
+}
+.ni-btb__side[data-split="true"] > :not(.ni-btb__ask) {
+  grid-column: 2;
+}
+.ni-btb__side[data-split="true"] > .ni-btb__tray {
+  width: auto;
+}
 /*
  * The side-panel measurer: hidden, inert copies of the panel's parts, each at its own size, laid in
  * a row at the widget's top left (out of flow, never seen or reached).
@@ -671,4 +689,19 @@
 }
 .ni-btb__side--pad {
   gap: 20px;
+}
+/* A short room (layout.ts readSide): the answer and "check" beside the keys. */
+.ni-btb__side--pad[data-beside="true"] {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-content: center;
+  justify-content: center;
+  justify-items: center;
+}
+.ni-btb__side--pad[data-beside="true"] > .ni-pad {
+  grid-row: 1 / 3;
+  grid-column: 1;
+}
+.ni-btb__side--pad[data-beside="true"] > :not(.ni-pad) {
+  grid-column: 2;
 }

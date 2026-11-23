@@ -140,6 +140,8 @@ function misfits(stage: HTMLElement): string[] {
     if (by > SLACK_PX) outside = Math.max(outside, by);
   }
   if (outside > 0) found.push(`a control ${over(outside)} px outside the area`);
+  // A widget that shrank its pieces under the size a child can count says so (base-ten-build).
+  if (stage.querySelector('[data-fits="false"]')) found.push('pieces drawn under their floor');
   for (const el of stage.querySelectorAll<HTMLElement>('*')) {
     const tall = el.scrollHeight - el.clientHeight > SLACK_PX;
     const wide = el.scrollWidth - el.clientWidth > SLACK_PX;

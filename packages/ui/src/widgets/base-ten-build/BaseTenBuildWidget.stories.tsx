@@ -13,10 +13,16 @@ import {
   spyAudio,
 } from '../../test-support/storyHelpers';
 import {
+  areaBox,
+  expectFitsRoom,
   expectPointerOn,
   expectTraceOrdered,
   findWidget,
+  inRoom,
+  type PierRoom,
   renderWidget,
+  resizeRoom,
+  stableLayout,
   traceOf,
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
@@ -2648,3 +2654,189 @@ const stockStory = (ageMode: 'k' | 'g1-up'): Story => ({
 export const GuardAgreesAfterStockMovesG1 = stockStory('g1-up');
 /** And in K. */
 export const GuardAgreesAfterStockMovesK = stockStory('k');
+
+// ---------- the Practice Pier's rooms (#13): 858 × 358 at 960 × 600, 1178 × 558 at 1280 × 800 ----------
+
+/** CPS.04.t3 at its fullest (K): a goal, two chips and two piles beside the mat. */
+const pierExactK: Config = {
+  format: 'base-ten-build',
+  target: 19,
+  mode: 'build-exact',
+  pieces: TENS_ONES,
+  exact: { tens: 1, ones: 9 },
+  wholeIs: 'unit',
+};
+/** PV.09.t2 at its fullest: 39 ones to group, a rods pile with a stock tag. */
+const pierOnes39: Config = {
+  format: 'base-ten-build',
+  target: 39,
+  mode: 'build-exact',
+  pieces: TENS_ONES,
+  limits: { tens: 0 },
+  exact: { tens: 3, ones: 9 },
+  wholeIs: 'unit',
+  prebuilt: { hundreds: 0, tens: 0, ones: 39 },
+};
+/** MDA.09.t1 at its fullest mat: 8 tens and 9 ones to start from, no goal card. */
+const pierAdd: Config = {
+  format: 'base-ten-build',
+  target: 99,
+  mode: 'build',
+  pieces: TENS_ONES,
+  wholeIs: 'unit',
+  prebuilt: { hundreds: 0, tens: 8, ones: 9 },
+};
+/** PV.01.t2 at its fullest: read 99 and type it. */
+const pierRead: Config = {
+  format: 'base-ten-build',
+  target: 99,
+  mode: 'read',
+  pieces: TENS_ONES,
+  wholeIs: 'unit',
+  prebuilt: { hundreds: 0, tens: 9, ones: 9 },
+};
+
+/** How the side panel is arranged: what a resize must never change. */
+const panel = (root: HTMLElement) => {
+  const side = root.querySelector<HTMLElement>('.ni-btb__side:not(.ni-btb__measure)');
+  return [
+    side?.dataset.split ?? '-',
+    side?.dataset.beside ?? '-',
+    root.querySelector('.ni-pad')?.getAttribute('data-shape') ?? '-',
+  ].join(' ');
+};
+const PIER_ACTIONS =
+  '.ni-pad__key, .ni-btn.ni-tone-sun, .ni-btb__trade, [data-place-item^="tray-"]';
+
+const pierMat = (config: Config, room: PierRoom, expected: string, k = false): Story => ({
+  ...(k ? { globals: { ageMode: 'k' } } : {}),
+  args: { config, tier: config.mode === 'read' ? 'pictorial' : 'concrete' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom(room),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsRoom(canvasElement, root, k ? 'k' : 'g1-up', PIER_ACTIONS);
+    await expect(panel(root)).toBe(expected);
+    // Pieces a child can count: never under the floor, nothing overlapping.
+    await expect(root.querySelector('[data-fits="false"]')).toBeNull();
+    await expectUnit(root, 18);
+    await expectNoOverlapFast(root);
+  },
+});
+
+/**
+ * 960 × 600, build-exact in K: the mat takes the room's height; the goal and the chips stand
+ * beside the tray and Check (stacked, the panel is taller than the room). Same task: tap a ten
+ * and nine ones onto the mat, check, one response.
+ */
+export const PierSmallExactK: Story = {
+  ...pierMat(pierExactK, 'small', 'true - -', true),
+  tags: ['!visual'],
+  play: async (ctx) => {
+    await pierMat(pierExactK, 'small', 'true - -', true).play?.(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    await tapPlace(root, 'tens', 1);
+    await tapPlace(root, 'ones', 9);
+    await expectFitsRoom(ctx.canvasElement, root, 'k', PIER_ACTIONS);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(ctx.args.onResponse).toHaveBeenCalledTimes(1);
+  },
+};
+export const PierSmallOnes39: Story = {
+  ...pierMat(pierOnes39, 'small', 'true - -'),
+  tags: ['!visual'],
+};
+export const PierSmallAdd: Story = { ...pierMat(pierAdd, 'small', '- - -'), tags: ['!visual'] };
+/** 960 × 600, read: the answer and Check beside the 64 px keys. */
+export const PierSmallRead: Story = {
+  ...pierMat(pierRead, 'small', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierTabletExactK: Story = {
+  ...pierMat(pierExactK, 'tablet', '- - -', true),
+  tags: ['!visual'],
+};
+export const PierTabletOnes39: Story = {
+  ...pierMat(pierOnes39, 'tablet', '- - -'),
+  tags: ['!visual'],
+};
+export const PierTabletAdd: Story = { ...pierMat(pierAdd, 'tablet', '- - -'), tags: ['!visual'] };
+export const PierTabletRead: Story = {
+  ...pierMat(pierRead, 'tablet', '- - 3x4'),
+  tags: ['!visual'],
+};
+// Rooms between the two viewports, one story each.
+export const PierQuarterExactK: Story = {
+  ...pierMat(pierExactK, 'quarter', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierHalfExactK: Story = {
+  ...pierMat(pierExactK, 'half', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierThreeQuartersExactK: Story = {
+  ...pierMat(pierExactK, 'threeQuarters', '- - -', true),
+  tags: ['!visual'],
+};
+export const PierQuarterRead: Story = {
+  ...pierMat(pierRead, 'quarter', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierHalfRead: Story = {
+  ...pierMat(pierRead, 'half', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierThreeQuartersRead: Story = {
+  ...pierMat(pierRead, 'threeQuarters', '- true 3x4'),
+  tags: ['!visual'],
+};
+
+const pierResized = (
+  config: Config,
+  from: PierRoom,
+  to: PierRoom,
+  after: string,
+  k = false,
+): Story => ({
+  ...(k ? { globals: { ageMode: 'k' } } : {}),
+  args: { config, tier: 'concrete' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom(from),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    const before = panel(root);
+    resizeRoom(canvasElement, to);
+    await stableLayout(root);
+    await expect(areaBox(canvasElement).clientHeight).toBe(to === 'small' ? 358 : 558);
+    // A room that grew moves nothing; one that shrank has the panel that fits it.
+    if (to === 'tablet') await expect(panel(root)).toBe(before);
+    await expect(panel(root)).toBe(after);
+    // The mat and the whole side panel are in the room as it is now.
+    await expectFitsRoom(canvasElement, root, k ? 'k' : 'g1-up', PIER_ACTIONS);
+    await expectUnit(root, 18);
+  },
+});
+/**
+ * A resize while the item is on screen. The side panel's arrangement is the one for the smallest
+ * room the item has had: growing the room re-sizes the mat and moves nothing to another place;
+ * shrinking it gives the panel that fits, so the keys and Check stay in the area.
+ */
+export const PierResizeExactGrows: Story = {
+  ...pierResized(pierExactK, 'small', 'tablet', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierResizeExactShrinks: Story = {
+  ...pierResized(pierExactK, 'tablet', 'small', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierResizeReadGrows: Story = {
+  ...pierResized(pierRead, 'small', 'tablet', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierResizeReadShrinks: Story = {
+  ...pierResized(pierRead, 'tablet', 'small', '- true 3x4'),
+  tags: ['!visual'],
+};

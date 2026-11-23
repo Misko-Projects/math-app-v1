@@ -5,7 +5,7 @@
 //   child, so its tasks are left out. `PIER_EXCLUDED` lists the templates whose widget puts a
 //   control the child needs below the workshop area on the 1280 × 800 tablet, each with the
 //   reason (#20 part 1, "Does not fit yet": measured per template in the pier; the fix belongs to
-//   the widget, and the entry goes when it lands).
+//   the widget, and the entry goes when it lands). It is empty since #13.
 // - `planPierRequest`: the session planner with no themed workshop built, so every request falls
 //   back to the pier (04 §6.3); the first request with a playable item is taken. The request
 //   picker and the warmup arrive with the island hub (I01).
@@ -25,14 +25,8 @@ import type {
 } from '@number-island/shared';
 import { registeredFormats } from '@number-island/ui';
 
-const CHECK_BELOW = 'the Check button is below the workshop area at 1280 × 800';
-
 /** Templates with a widget that the pier does not play yet, and why. */
-export const PIER_EXCLUDED: Readonly<Record<TemplateId, string>> = {
-  // base-ten-trade, pictorial: the trade controls and Check are below the area.
-  'PV.01.t4': CHECK_BELOW,
-  'PV.09.t3': CHECK_BELOW,
-};
+export const PIER_EXCLUDED: Readonly<Record<TemplateId, string>> = {};
 
 const registered = new Set<ItemFormat>(registeredFormats());
 

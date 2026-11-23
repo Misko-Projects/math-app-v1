@@ -109,7 +109,10 @@ export function ageSizes(age: AgeMode): AgeSizes {
 
 // ---------- the widget's rows and side panel ----------
 
-/** The widget's design height at 1280 × 800 (06 §2 widget area), padding included. */
+/**
+ * The widget's tallest, padding included: the measured room's height up to this (06 §1), and what
+ * a host that grows with its content gets.
+ */
 export const BUDGET = 660;
 export const ROOT_PAD_Y = 6;
 /** The space kit.css keeps under each number-pad key for its shadow (`.ni-pad__key` margin). */
@@ -133,6 +136,13 @@ export interface SideLayout {
   spaceH: number;
   /** The side panel's content height. */
   sideH: number;
+  /**
+   * A short room: the problem card (the expression, or the goal chips in a column) sits in the
+   * side panel instead of over the mat, so the mat keeps the widget's whole height.
+   */
+  problemInSide?: true;
+  /** With the problem in the side: the pad is 4 × 3 (three rows) and "check" beside the card. */
+  padWide?: true;
 }
 
 /**
@@ -155,14 +165,40 @@ export function sideLayout(o: {
   answerInWork: boolean;
   places: number;
   allowBeside?: boolean;
+  /** The widget's height, padding included (default BUDGET). */
+  budget?: number;
+  /**
+   * The short-room arrangement: the problem card in the side panel, `inSide` being that card's
+   * box as measured. The pad stays 3 × 4 over "check" when that fits under the card; else it is
+   * 4 × 3 and "check" stands beside the card.
+   */
+  inSide?: { w: number; h: number };
 }): SideLayout {
   const sz = ageSizes(o.age);
-  const limit = BUDGET - 2 * ROOT_PAD_Y;
+  const limit = (o.budget ?? BUDGET) - 2 * ROOT_PAD_Y;
   const workH = WORK_H + (o.age === 'k' ? 16 : 0);
   // The pad's keys and "check" are target-sized (base-ten-trade.css: .ni-btt__side); each pad
   // row is the target plus the key's 4 px shadow margin (kit.css .ni-pad__key).
   const padH = 4 * (sz.target + PAD_KEY_SHADOW) + 3 * 12;
   const checkH = sz.target + 6;
+  if (o.inSide) {
+    const card = o.inSide.h;
+    const stacked = card + SIDE_GAP + (o.thenAsk ? padH + SIDE_GAP : 0) + checkH;
+    const padWide = o.thenAsk && stacked > limit;
+    const wideH = 3 * (sz.target + PAD_KEY_SHADOW) + 2 * 12;
+    return {
+      wideWork: false,
+      workInSide: false,
+      checkBeside: false,
+      showProblemRow: false,
+      problemH: 0,
+      cardH: card,
+      spaceH: limit,
+      sideH: padWide ? Math.max(card, checkH) + SIDE_GAP + wideH : stacked,
+      problemInSide: true,
+      ...(padWide ? { padWide: true as const } : {}),
+    };
+  }
   const work = o.showWork ? workH + SIDE_GAP : 0;
   const fullSide = work + (o.thenAsk ? padH + SIDE_GAP : 0) + checkH;
   const besideSide = work + Math.max(padH, checkH);
@@ -200,10 +236,24 @@ export interface SideParts {
   pad: number;
   check: number;
   card: number;
+  /** The problem card as it is drawn in the side panel (a hidden copy is measured): w × h. */
+  problem?: { w: number; h: number };
+  /** "Check" without its caption, as it stands beside or under that card (measured likewise). */
+  checkIcon?: number;
 }
 
+/** The 4 × 3 pad's width (base-ten-trade.css: target-sized keys, 12 px apart). */
+export const widePadWidth = (age: AgeMode) => 4 * ageSizes(age).target + 3 * 12;
+
 /** The side panel's width for a layout, from its parts' widths. */
-export function sideWidth(s: SideLayout, parts: SideParts): number {
+export function sideWidth(s: SideLayout, parts: SideParts, age: AgeMode = 'g1-up'): number {
+  if (s.problemInSide) {
+    const problem = parts.problem?.w ?? 0;
+    const check = parts.checkIcon ?? parts.check;
+    return s.padWide
+      ? Math.max(problem + SIDE_GAP + check, widePadWidth(age))
+      : Math.max(problem, parts.pad, check);
+  }
   const card = s.workInSide ? parts.card : 0;
   return s.checkBeside
     ? Math.max(card, parts.pad + SIDE_GAP + parts.check)
@@ -215,6 +265,12 @@ export function sideWidth(s: SideLayout, parts: SideParts): number {
  * "check" stacked: the one at which every step of the item fits (itemFit), at the bigger unit; a
  * tie keeps the algorithm in the problem row. `contentW` is the widget's width for the mat and
  * the side panel together (the grid gap, GAP, between them included).
+ *
+ * Without an algorithm there is a third way, for short rooms (`parts.problem` measured): the
+ * problem card in the side panel (sideLayout `inSide`), so the mat has the whole height. It is
+ * taken when the usual layout does not fit the height (its side panel, or the item at any unit)
+ * or draws the pieces smaller. `arrange` holds the answer once it is made (the widget keeps the
+ * one made for the smallest room the item has had), so a room that grows re-sizes the layout.
  */
 export function chooseSide(
   o: Parameters<typeof sideLayout>[0] & {
@@ -222,20 +278,37 @@ export function chooseSide(
     parts: SideParts;
     base: MatCaps;
     path: readonly MatState[];
+    arrange?: 'usual' | 'in-side';
   },
 ): { side: SideLayout; width: number } {
-  const { contentW, parts, base, path, ...args } = o;
-  const widthFor = (s: SideLayout) => contentW - GAP - sideWidth(s, parts);
-  const beside = sideLayout({ ...args, allowBeside: true });
-  const row = sideLayout({ ...args, allowBeside: false });
-  if (!beside.checkBeside) return { side: beside, width: widthFor(beside) };
-  if (contentW <= 0) return { side: row, width: 0 };
+  const { contentW, parts, base, path, arrange, ...args } = o;
+  const widthFor = (s: SideLayout) => contentW - GAP - sideWidth(s, parts, args.age);
   const fit = (s: SideLayout) =>
     itemFit({ age: args.age, width: widthFor(s), height: s.spaceH, base, path });
-  const a = fit(beside);
-  const b = fit(row);
-  const useBeside = (a.fits && !b.fits) || (a.fits === b.fits && a.unit > b.unit);
-  const side = useBeside ? beside : row;
+  const usual = (): SideLayout => {
+    const beside = sideLayout({ ...args, allowBeside: true });
+    const row = sideLayout({ ...args, allowBeside: false });
+    if (!beside.checkBeside) return beside;
+    if (contentW <= 0) return row;
+    const a = fit(beside);
+    const b = fit(row);
+    return (a.fits && !b.fits) || (a.fits === b.fits && a.unit > b.unit) ? beside : row;
+  };
+  const inSide = (): SideLayout | null =>
+    parts.problem && !args.showWork ? sideLayout({ ...args, inSide: parts.problem }) : null;
+  const pick = (): SideLayout => {
+    const u = usual();
+    const s = arrange === 'usual' ? null : inSide();
+    if (!s || contentW <= 0) return u;
+    if (arrange === 'in-side') return s;
+    const limit = (args.budget ?? BUDGET) - 2 * ROOT_PAD_Y;
+    const fu = fit(u);
+    const fs = fit(s);
+    const okU = fu.fits && u.sideH <= limit;
+    const okS = fs.fits && s.sideH <= limit;
+    return okS && (!okU || fs.unit > fu.unit) ? s : u;
+  };
+  const side = pick();
   return { side, width: widthFor(side) };
 }
 
