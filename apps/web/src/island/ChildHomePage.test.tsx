@@ -1266,7 +1266,8 @@ describe("the island's name (05 §10 step 3; #22 part 4)", () => {
       'Lighthouse Island',
       'Boat Island',
     ]);
-    const okay = within(sheet).getByRole('button', { name: 'Okay!' }) as HTMLButtonElement;
+    // The sheet is a dialog: its controls are there once it has opened.
+    const okay = (await within(sheet).findByRole('button', { name: 'Okay!' })) as HTMLButtonElement;
     expect(okay.disabled).toBe(true);
     fireEvent.click(names[2] as HTMLElement);
     expect(say).toHaveBeenCalledWith('game.island.name.stone', undefined);
