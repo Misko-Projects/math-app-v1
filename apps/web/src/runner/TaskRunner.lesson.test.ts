@@ -477,6 +477,94 @@ describe('TaskRunner: lessons', () => {
     expect(asStep(runner.current())._lead).toBeNull();
   });
 
+  /** Plays CNT.03 the short way (both shortening rules) up to its first scaffolded item. */
+  async function toScaffolded(play: Awaited<ReturnType<typeof start>>) {
+    const first = script().examples.find((e) => e.phase === 'faded');
+    if (!first) throw new Error('no faded example');
+    asStep(watch(play.runner));
+    play.runner.lessonAnswer(engine.itemExampleCorrect(first.item), { latencyMs: 1000 });
+    return asItem(play.runner.next());
+  }
+
+  it('no practice item starts after a wind-down that came during the outro', async () => {
+    let winding = false;
+    const play = await start({ session: { windingDown: () => winding } });
+    expect(script().outro).not.toBeNull();
+    await toScaffolded(play);
+    await play.runner.submit(engine.itemExampleCorrect(play.lastItem()), { latencyMs: 3000 });
+    expect(asStep(play.runner.next()).phase).toBe('outro');
+    const made = play.lastItem();
+    winding = true;
+    expect(play.runner.next()).toBeNull();
+    expect(play.runner.endReason()).toBe('wind-down');
+    // The practice item planned after the lesson was never generated.
+    expect(play.lastItem()).toBe(made);
+    expect((await play.attempts()).every((a) => a.context === 'lesson')).toBe(true);
+  });
+
+  it('a resolved scaffolded item keeps its lesson step when the child leaves from the feedback', async () => {
+    const play = await start();
+    await toScaffolded(play);
+    await play.runner.submit(engine.itemExampleCorrect(play.lastItem()), { latencyMs: 3000 });
+    // Home, without "next".
+    await play.runner.finish();
+    const events = await play.store.events();
+    const types = events.map((e) => e.type);
+    expect((await play.steps()).map(brief).filter((l) => l.startsWith('scaffolded'))).toEqual([
+      'scaffolded:0:0:child:done',
+    ]);
+    expect(await play.attempts()).toHaveLength(1);
+    expect(types.lastIndexOf('lesson.step')).toBeLessThan(types.indexOf('request.completed'));
+    expect(types.indexOf('attempt')).toBeLessThan(types.lastIndexOf('lesson.step'));
+  });
+
+  it('a resolved scaffolded item keeps its lesson step when the wind-down comes before "next"', async () => {
+    let winding = false;
+    const play = await start({ session: { windingDown: () => winding } });
+    await toScaffolded(play);
+    // Wrong, then right: no shortening, so a second scaffolded item would follow.
+    await play.runner.submit(wrong, { latencyMs: 4000 });
+    play.runner.next();
+    await play.runner.submit(engine.itemExampleCorrect(play.lastItem()), { latencyMs: 4000 });
+    winding = true;
+    expect(play.runner.next()).toBeNull();
+    expect(play.runner.endReason()).toBe('wind-down');
+    await play.runner.finish();
+    expect((await play.steps()).map(brief).filter((l) => l.startsWith('scaffolded'))).toEqual([
+      'scaffolded:0:0:child:done',
+    ]);
+    expect(await play.attempts()).toHaveLength(2);
+  });
+
+  it('frustration in a scaffolded item: the easy item and the break offer come next, not more lesson', async () => {
+    const lesson = script();
+    expect(lesson.scaffolded.count).toBeGreaterThan(1);
+    const play = await start();
+    await toScaffolded(play);
+    // Two long idle periods, a wrong answer, then right on the retry (04 §6.4 rule 4).
+    play.runner.idle();
+    play.runner.idle();
+    await play.runner.submit(wrong, { latencyMs: 4000 });
+    play.runner.next();
+    await play.runner.submit(engine.itemExampleCorrect(play.lastItem()), { latencyMs: 4000 });
+    // The first thing after the feedback is the easy item, not the second scaffolded item.
+    const easy = asItem(play.runner.next());
+    expect(easy.task.context).not.toBe('lesson');
+    expect(play.runner.breakOffered()).toBe(false);
+    await play.runner.submit(engine.itemExampleCorrect(play.lastItem()), { latencyMs: 4000 });
+    expect(play.runner.breakOffered()).toBe(true);
+    await play.runner.finish();
+    const logged = (await play.steps()).map(brief);
+    expect(logged.filter((l) => l.startsWith('scaffolded'))).toEqual([
+      'scaffolded:0:0:child:done',
+      ...Array.from(
+        { length: lesson.scaffolded.count - 1 },
+        (_, i) => `scaffolded:${i + 1}:0:child:skipped`,
+      ),
+    ]);
+    expect(logged.some((l) => l.startsWith('outro'))).toBe(false);
+  });
+
   it('no new part of a lesson starts after the wind-down', async () => {
     let winding = false;
     const { runner } = await start({ session: { windingDown: () => winding } });

@@ -528,22 +528,25 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
             path: `__fit__/lesson-${skillId}-${example.phase}${example.example}-${viewport}.png`,
           });
         }
-        // The lesson's own buttons: a child can hit them, and the line can be read.
+        // The lesson's own buttons: a child can hit them, and the line can be read. No widget's
+        // allowance covers these.
+        const controls: string[] = [];
         const header = document.querySelector<HTMLElement>('[data-testid="pier"] header');
         for (const button of header?.querySelectorAll<HTMLElement>('button:not(.ni-bubble)') ??
           []) {
           const r = button.getBoundingClientRect();
           if (Math.min(r.width, r.height) < MIN_TARGET_PX - SLACK_PX) {
-            misfit.push(`a lesson button of ${Math.round(r.width)}x${Math.round(r.height)} px`);
+            controls.push(`a lesson button of ${Math.round(r.width)}x${Math.round(r.height)} px`);
           }
         }
         const words = header?.querySelector<HTMLElement>('.ni-bubble__text');
         if (words && Number.parseFloat(getComputedStyle(words).fontSize) < MIN_TEXT_PX) {
-          misfit.push(`the line is set in ${getComputedStyle(words).fontSize}`);
+          controls.push(`the line is set in ${getComputedStyle(words).fontSize}`);
         }
         if (header && header.scrollWidth - header.clientWidth > SLACK_PX) {
-          misfit.push(`the top row is ${header.scrollWidth - header.clientWidth} px too wide`);
+          controls.push(`the top row is ${header.scrollWidth - header.clientWidth} px too wide`);
         }
+        if (controls.length > 0) failing.push(`${id}: ${controls.join('; ')}`);
         if (misfit.includes(FALLBACK)) {
           failing.push(`${id}: ${FALLBACK}`);
           continue;

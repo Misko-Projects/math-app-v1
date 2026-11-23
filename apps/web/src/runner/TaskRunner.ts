@@ -222,6 +222,8 @@ interface LessonRun {
   pos: LessonPos;
   /** The lesson follows the skill's test-out items, which did not pass (03 §6.5). */
   afterTestOut: boolean;
+  /** A frustration signal came in a scaffolded item: the easy item is next, not more lesson. */
+  cut: boolean;
 }
 
 interface Current {
@@ -366,7 +368,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
           .slice(0, i)
           .some((t) => isItem(t) && t.skillId === planned.skillId);
         if (afterTestOut && (state.skills[planned.skillId]?.practicedAt ?? null) !== null) continue;
-        lesson = { index: i, planned, script, pos: { at: 'intro' }, afterTestOut };
+        lesson = { index: i, planned, script, pos: { at: 'intro' }, afterTestOut, cut: false };
         return;
       }
       const tpl = presentedTemplate(planned);
@@ -500,6 +502,8 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   };
 
   const leaveLesson = (run: LessonRun): RunnerTask | null => {
+    // No item starts after the wind-down, whatever the lesson ended on (04 §6.4 rule 6).
+    if (windDown()) return null;
     present(run.index + 1);
     if (!current && !lesson && !ended) ended = 'complete';
     return shownTask();
@@ -597,12 +601,27 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   const afterScaffold = (run: LessonRun, cur: Current): RunnerTask | null => {
     const { count } = run.script.scaffolded;
     const n = cur.scaffold ?? 0;
-    const scaffolded = (item: number, outcome: 'done' | 'skipped') =>
-      writeStep(run, { phase: 'scaffolded', example: item, step: 0, actor: 'child', outcome });
-    scaffolded(n, 'done');
+    const skipRest = () => {
+      for (let i = n + 1; i < count; i += 1) {
+        writeStep(run, {
+          phase: 'scaffolded',
+          example: i,
+          step: 0,
+          actor: 'child',
+          outcome: 'skipped',
+        });
+      }
+    };
+    // Frustration (04 §6.4 rule 4): the easy item and the break offer come now, so the lesson
+    // ends here; what is left of it is skipped.
+    if (run.cut) {
+      skipRest();
+      current = null;
+      return leaveLesson(run);
+    }
     // Shortening (03 §6.2): item 1 right with no hint → the rest are skipped.
     if (n === 0 && cur.clean) {
-      for (let i = 1; i < count; i += 1) scaffolded(i, 'skipped');
+      skipRest();
       return enterOutro(run);
     }
     return enterScaffold(run, n + 1);
@@ -852,6 +871,21 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       } else {
         cur.outcome = 'resolved';
         resolved += 1;
+        // A scaffolded lesson item is done when it is resolved, like its attempt: a child who
+        // leaves from the feedback, or a wind-down before "next", loses neither.
+        if (cur.scaffold !== undefined && lesson) {
+          const step: EventPayloads['lesson.step'] = {
+            sessionId: session.sessionId,
+            skillId: lesson.script.skillId,
+            templateId: lesson.script.templateId,
+            phase: 'scaffolded',
+            example: cur.scaffold,
+            step: 0,
+            actor: 'child',
+            outcome: 'done',
+          };
+          await store.append('lesson.step', step, { childId });
+        }
         if (result.correct) earned += 1;
         if (decision.action === 'continue') {
           if (decision.tierOverrides) tierOverrides = { ...decision.tierOverrides };
@@ -863,6 +897,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
           request.tasks.splice(cur.index + 1, 0, ...confidence);
           if (confidence.length > 0) confidenceAt = cur.index + 1;
           else breakPending = true;
+          if (cur.scaffold !== undefined && lesson) lesson.cut = true;
         } else if (decision.action === 'end-request') {
           ended = decision.reason;
         }

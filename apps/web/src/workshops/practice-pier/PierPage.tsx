@@ -58,6 +58,7 @@ import { type AnswerTime, createAnswerTime } from '@/runner/answerTime';
 import { childContext } from '@/runner/childContext';
 import { createIdleWatch, type IdleWatch } from '@/runner/idleWatch';
 import { remediationQueue } from '@/runner/remediationQueue';
+import { createSayAgain, type SayAgain } from '@/runner/sayAgain';
 import {
   createTaskRunner,
   type PierItemTask,
@@ -458,10 +459,16 @@ function PierRequest({
   /** The lines of the child's turn, then the widget is theirs with the part to do invited. */
   const giveTurn = async (turn: PierLessonStep, stale: () => boolean) => {
     setPhase('lesson');
-    for (const s of turn._turnLines) {
-      await sayLine(s.say, s.vars);
-      if (stale()) return;
-    }
+    again.reset();
+    const hearLines = async () => {
+      for (const s of turn._turnLines) {
+        await sayLine(s.say, s.vars);
+        if (stale()) return;
+      }
+    };
+    await hearLines();
+    await again.drain(hearLines, stale);
+    if (stale()) return;
     setLine({ say: turn.narration, vars: turn.vars });
     // No hand on the child's turn: a widget's invitation points at the exact target, which for
     // the last step is the answer itself. The hand is the demo's.
@@ -472,7 +479,9 @@ function PierRequest({
   // A lesson step: its line with its action in the widget's demo mode, then the next step. One
   // play per step (StrictMode runs effects twice; a demo action must not).
   const started = useRef<PierLessonStep | null>(null);
-  const againAsked = useRef(false);
+  const sayAgain = useRef<SayAgain | null>(null);
+  sayAgain.current ??= createSayAgain();
+  const again = sayAgain.current;
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new step is what plays
   useEffect(() => {
     if (!step || !runner || started.current === step) return;
@@ -480,7 +489,7 @@ function PierRequest({
     playing.current += 1;
     const mine = playing.current;
     const stale = () => playing.current !== mine || !mounted.current || left.current;
-    againAsked.current = false;
+    again.reset();
     setCue(null);
     setPicture(null);
     void (async () => {
@@ -494,10 +503,7 @@ function PierRequest({
         if (stale()) return;
       }
       await Promise.all([sayLine(step.narration, step.vars), step.demo ? act(step.demo) : null]);
-      while (againAsked.current && !stale()) {
-        againAsked.current = false;
-        await sayLine(step.narration, step.vars);
-      }
+      await again.drain(() => sayLine(step.narration, step.vars), stale);
       if (stale()) return;
       show(runner, runner.next() as PierTask | null);
     })();
@@ -523,6 +529,7 @@ function PierRequest({
       // The demo does the child's steps, on a fresh widget brought to where the turn began.
       void (async () => {
         setPhase('lesson');
+        again.reset();
         await restartWidget();
         for (const action of turn._prior) {
           if (stale()) return;
@@ -531,6 +538,7 @@ function PierRequest({
         for (const s of turn._turn ?? []) {
           if (stale()) return;
           await Promise.all([sayLine(s.say, s.vars), s.action ? act(s.action) : null]);
+          await again.drain(() => sayLine(s.say, s.vars), stale);
         }
         if (stale()) return;
         show(runner, runner.next() as PierTask | null);
@@ -685,9 +693,10 @@ function PierRequest({
   const lessonControls = step
     ? {
         onReplay: () => {
-          // While the step plays, its line comes once more before the next step; on the child's
-          // turn and after it, it is said again at once.
-          if (phaseNow.current === 'lesson') againAsked.current = true;
+          // While the lesson plays by itself (a demo step, the hand-over of a turn, the demo
+          // taking a turn over), the line on screen comes once more before it moves on; on the
+          // child's turn and after it, it is said again at once.
+          if (phaseNow.current === 'lesson') again.ask();
           else void audio.say(step.narration, step.vars).catch(() => {});
         },
         onSkip: step._canSkip
