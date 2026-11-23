@@ -58,7 +58,7 @@ import { childContext } from '@/runner/childContext';
 import { remediationQueue } from '@/runner/remediationQueue';
 import { loadRunner, useRaise } from '@/runner/useRequestRunner';
 import { workshopFor } from '@/workshops/registry';
-import { HammerIcon } from './build/BuildIcons';
+import { HammerIcon, StoneChip } from './build/BuildIcons';
 import { offeredPlots, PlotTargets, useSceneMap } from './build/PlotTargets';
 import { useIslandBuild } from './build/useIslandBuild';
 import { firstProblem } from './firstProblem';
@@ -358,21 +358,9 @@ export function IslandHub({
             <IconButton
               label="ui.road.next"
               icon={
-                // The stone to lay, as a numeral a child reads (32 px), on a stone still to come.
-                <span
-                  className="flex items-center justify-center rounded-full bg-sand font-display font-bold leading-none text-ink"
-                  style={{
-                    // Wider than the button's icon box, and centred on it.
-                    flex: 'none',
-                    width: 68,
-                    height: 68,
-                    margin: '-10px',
-                    fontSize: build.next.n < 1000 ? 32 : 26,
-                    outline: '3px dashed rgb(36 59 83 / 0.8)',
-                    outlineOffset: -3,
-                  }}
-                >
-                  {build.next.n}
+                // Wider than the button's icon box, and centred on it.
+                <span className="flex" style={{ flex: 'none', margin: -10 }}>
+                  <StoneChip n={build.next.n} />
                 </span>
               }
               tone="cloud"
