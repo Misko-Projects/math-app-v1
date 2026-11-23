@@ -5,5 +5,11 @@
     "outDir": "build/tsc/node",
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "content-assets.ts", "vitest.config.ts", "vitest.sync.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "content-assets.ts",
+    "vitest.config.ts",
+    "vitest.sync.config.ts",
+    "vitest.fit.config.ts"
+  ]
 }

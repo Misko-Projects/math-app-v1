@@ -7,6 +7,7 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
+import { expectAreaFit, inArea } from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -369,5 +370,78 @@ export const DemoReducedMotion: Story = {
     await reducedController.play({ op: 'answer', args: { value: 85 } });
     await expect(within(root).getByRole('button', { name: 'Box 1: 85' })).toBeVisible();
     await expect(within(root).getByRole('button', { name: 'Box 2:' })).toBeVisible();
+  },
+};
+
+// ---------- in the workshop's widget area (#12: nothing scrolls, Check always in view) ----------
+
+/** The controls and parts of a number-pad widget, for `expectAreaFit`. */
+const areaFit = (root: HTMLElement, ageMode: 'k' | 'g1-up', story: string) => ({
+  ageMode,
+  story,
+  controls: {
+    keys: [...root.querySelectorAll('.ni-pad__key')],
+    blanks: [...root.querySelectorAll('.ni-npw__blank')],
+    check: [within(root).getByRole('button', { name: 'Check' })],
+  },
+  parts: [...root.querySelectorAll('.ni-npw__stimulus, .ni-npw__expr')],
+});
+
+/** A picture over an expression, as ADD.02 plays it in K: seven shells and `4 + 3 = □`. */
+const pictureSum: ConfigFor<'number-pad'> = {
+  format: 'number-pad',
+  stimulus: { kind: 'ten-frame', frames: 1, filled: [7] },
+  expression: {
+    tokens: [
+      { t: 'num', v: 4 },
+      { t: 'op', v: '+' },
+      { t: 'num', v: 3 },
+      { t: 'rel', v: '=' },
+      { t: 'blank', id: 'x' },
+    ],
+  },
+  blanks: [{ id: 'x', maxDigits: 2 }],
+  unit: null,
+};
+
+/**
+ * The smallest area (906 × 373) in K: a 3 × 4 pad of 80 px keys is 372 px tall, so the pad turns
+ * 4 × 3 with Check beside it, and the picture takes the height the expression leaves.
+ */
+export const LandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: pictureSum, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, areaFit(root, 'k', 'number-pad 906x373 K'));
+    await expect(root.querySelector('.ni-pad')).toHaveAttribute('data-shape', '4x3');
+    // The same task: type 7, check, one `number` response.
+    await userEvent.click(key(root, '7'));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
+  },
+};
+
+/** The smallest area from Grade 1: the 3 × 4 pad of 64 px keys with Check beside it. */
+export const LandscapeMinG1: Story = {
+  args: { config: twoBlanks, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'number-pad 906x373 G1'));
+    await expect(root.querySelector('.ni-pad')).toHaveAttribute('data-shape', '3x4');
+  },
+};
+
+/** The tablet area (1226 × 493) in K: the 3 × 4 pad of big keys, Check beside it. */
+export const TabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: countPicture, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, areaFit(root, 'k', 'number-pad tablet K'));
+    await expect(root.querySelector('.ni-pad')).toHaveAttribute('data-shape', '3x4');
   },
 };

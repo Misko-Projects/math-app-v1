@@ -298,6 +298,8 @@ export interface NumberPadKeysProps {
    * `--target-min`, never below.
    */
   shape?: '3x4' | '4x3';
+  /** Keys of the age mode's minimum target instead of --target-big (short rooms). */
+  compact?: boolean;
 }
 
 const ROWS: (PadKey | null)[][] = [
@@ -347,6 +349,7 @@ export function NumberPadKeys({
   highlighted = null,
   speak,
   shape = '3x4',
+  compact = false,
 }: NumberPadKeysProps) {
   const t = useNarrationText();
   const prefs = useUiPreferences();
@@ -389,6 +392,7 @@ export function NumberPadKeys({
     <fieldset
       className="ni-pad"
       data-shape={shape}
+      data-keys={compact ? 'compact' : undefined}
       aria-label={t('ui.widget.pad')}
       disabled={disabled}
     >

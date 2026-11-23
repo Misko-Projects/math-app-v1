@@ -414,9 +414,9 @@ describe('TaskRunner', () => {
   it('drops an inserted task the pier cannot show', async () => {
     const store = await openStore();
     const graph = fixtureContent().graph;
-    const request = browseRequest(graph, { skillId: 'ADD.23', templateId: null }, 5);
+    const request = browseRequest(graph, { skillId: 'PV.01', templateId: null }, 5);
     const excluded = Object.keys(PIER_EXCLUDED)[0] as string;
-    expect(excluded).toBe('ADD.23.t3');
+    expect(excluded).toBe('PV.01.t4');
     const playable = request.tasks[0] as PlannedTask;
     let inserted = false;
     const { engine: base, last } = spiedEngine();

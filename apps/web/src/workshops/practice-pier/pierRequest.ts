@@ -29,10 +29,6 @@ const CHECK_BELOW = 'the Check button is below the workshop area at 1280 × 800'
 
 /** Templates with a widget that the pier does not play yet, and why. */
 export const PIER_EXCLUDED: Readonly<Record<TemplateId, string>> = {
-  // numeral-pick with a picture above a 2 × 2 grid of wide cards (equations, number sentences).
-  'ADD.23.t3': CHECK_BELOW,
-  'CMP.09.t4': CHECK_BELOW,
-  'CMP.13.t4': CHECK_BELOW,
   // base-ten-trade, pictorial: the trade controls and Check are below the area.
   'PV.01.t4': CHECK_BELOW,
   'PV.09.t3': CHECK_BELOW,

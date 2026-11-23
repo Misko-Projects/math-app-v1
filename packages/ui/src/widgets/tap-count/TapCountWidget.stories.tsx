@@ -1,6 +1,6 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   clearSpies,
@@ -9,6 +9,7 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
+import { goNext, stepButton } from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -1697,5 +1698,374 @@ export const OrdinalElevenFromRight: Story = {
     await userEvent.click(checkButton(root));
     checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-10' });
+  },
+};
+
+// ---------- count, then answer (#12: short areas, where the tray and full-size objects ----------
+// ---------- cannot share one screen) ----------
+
+/** The Practice Pier's workshop area inside its padding at 960 × 600 in K (measured: #12). */
+const PIER_MIN_K = { w: 858, h: 366 };
+/** The 960 × 600 widget area inside the card's padding and border (906 × 373 → 852 × 319). */
+const MIN_INNER = { w: 852, h: 319 };
+
+/** Nothing scrolls in the host box, and every one of `els` lies inside it at target size. */
+async function expectInHost(root: HTMLElement, els: readonly Element[], ageMode: 'k' | 'g1-up') {
+  await settle(root);
+  const host = root.closest('.story-host-box') as HTMLElement;
+  await expect(host.scrollHeight, 'does not scroll down').toBeLessThanOrEqual(
+    host.clientHeight + 1,
+  );
+  await expect(host.scrollWidth, 'does not scroll across').toBeLessThanOrEqual(
+    host.clientWidth + 1,
+  );
+  const box = host.getBoundingClientRect();
+  await expect(els.length).toBeGreaterThan(0);
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    await expect(r.top, 'top').toBeGreaterThanOrEqual(box.top - 0.5);
+    await expect(r.bottom, 'bottom').toBeLessThanOrEqual(box.bottom + 0.5);
+    await expect(r.left, 'left').toBeGreaterThanOrEqual(box.left - 0.5);
+    await expect(r.right, 'right').toBeLessThanOrEqual(box.right + 0.5);
+    await expectTargetSize(el as HTMLElement, ageMode);
+  }
+  await expectTargetGaps(els as HTMLElement[]);
+}
+
+const answerControls = (root: HTMLElement) => [
+  ...root.querySelectorAll('.ni-entry button, .ni-stepper button, .ni-tapc__asktray .ni-pick'),
+  stepButton(root, 'back'),
+  stepButton(root, 'check'),
+];
+
+/**
+ * CNT.02.t1 (K) in the smallest area: seven leaves at full target size and the 0–10 tray need
+ * 382 px, the area has 319. The child counts with the whole area; Next comes with the last leaf;
+ * the answer step shows the numeral cards (and the leaves small where they fit), with Back to
+ * count again. The
+ * response and the tap trace are the one-screen ones, plus `next`.
+ */
+export const CountThenAnswerMinK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { area: MIN_INNER },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expect(tray(root)).toBeNull();
+    await expectInHost(root, objects(root), 'k');
+    // No Next before every leaf is counted (as the tray shows only then on one screen).
+    await expect(stepButton(root, 'next')).toBeNull();
+    for (let i = 0; i < 7; i++) await userEvent.click(obj(root, i));
+    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    await expectInHost(root, [...objects(root), stepButton(root, 'next')], 'k');
+    await goNext(root);
+    await expectInHost(root, answerControls(root), 'k');
+    // Here the numeral cards and the two buttons leave no room to draw seven leaves at a size a
+    // child can count (32 px cells), so the step shows the cards alone; Back shows the leaves.
+    await expect(root.querySelector('.ni-tapc__askpic')).toBeNull();
+    // Back shows the counted leaves again, marks and all.
+    await userEvent.click(stepButton(root, 'back'));
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    await goNext(root);
+    // The answer is a pick among the numeral cards, as on one screen: `opt-7`.
+    await expect(root.querySelector('.ni-entry')).toHaveAttribute('data-kind', 'tray');
+    await userEvent.click(within(root).getByRole('button', { name: '7' }));
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.slice(0, 8)).toEqual([
+      ...Array.from({ length: 7 }, (_, i) => `tap:obj-${i}`),
+      'tap:next',
+    ]);
+    await expect(trace.slice(8)).toEqual(['tap:back', 'tap:next', 'tap:opt-7']);
+    await expectTraceOrdered(traceOf(args.onInteract));
+  },
+};
+
+/** CNT.05.t1 seed 1: twelve leaves (the kit lays a line of twelve as ten and two). */
+const twelveLeaves: ConfigFor<'tap-count'> = {
+  ...leaves,
+  set: { count: 12, sprite: 'leaf', layout: 'line', layoutSeed: 598165036 },
+};
+
+/**
+ * CNT.05.t1 (K) in the pier's area at 960 × 600: ten K targets in a row are 920 px, so the line
+ * wraps into two rows of six, with the step button beside them; then the answer step.
+ */
+export const CountTwelveThenAnswerPierK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: twelveLeaves },
+  parameters: { area: PIER_MIN_K },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expect(objects(root)).toHaveLength(12);
+    await expectInHost(root, objects(root), 'k');
+    for (let i = 0; i < 12; i++) await userEvent.click(obj(root, i));
+    await expectInHost(root, [...objects(root), stepButton(root, 'next')], 'k');
+    await goNext(root);
+    await expectInHost(root, answerControls(root), 'k');
+    // Review of #106: the answer stays a direct pick among 0–20 (never the stepper or the pad).
+    await expect(root.querySelector('.ni-entry')).toHaveAttribute('data-kind', 'tray');
+    await expect(root.querySelectorAll('.ni-entry .ni-pick')).toHaveLength(21);
+    await expect(root.querySelector('.ni-stepper')).toBeNull();
+    await userEvent.click(within(root).getByRole('button', { name: '12' }));
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 12 });
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => `${e.t}:${e.target}`)
+        .slice(-2),
+    ).toEqual(['tap:next', 'tap:opt-12']);
+  },
+};
+
+/**
+ * The arrangement is chosen once, when the item is first laid out: a room that shrinks mid-item
+ * (a rotation, a resize) scrolls rather than swap the child's screen for the two steps.
+ */
+export const ArrangementKeptOnResize: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settle(root);
+    await userEvent.click(obj(root, 0));
+    const host = root.closest('.story-host-box') as HTMLElement;
+    host.style.width = `${MIN_INNER.w}px`;
+    host.style.height = `${MIN_INNER.h}px`;
+    await settle(root);
+    await waitFor(() => expect(host.scrollHeight).toBeGreaterThan(host.clientHeight));
+    await expect(root).not.toHaveAttribute('data-step');
+    await expect(tray(root)).not.toBeNull();
+    await expect(marks(root)).toEqual([1]);
+  },
+};
+
+/**
+ * CNT.19.t2 seed 2 in the pier's room on a 1200 × 700 screen, about 1098 × 458 (review of #106):
+ * 29 crabs on three plates are taller than the room, so the item is count-then-answer, and its
+ * answer step keeps the numeral cards 0–30 (the kit would hand out the number pad above 20), all
+ * in view with Back and Check. The four-row tray fits here only beside the compact step buttons
+ * (76 px), which is the size the first, once-only choice plans with.
+ */
+export const CountTwentyNineThenAnswerTablet: Story = {
+  args: { config: groupsOfTen },
+  parameters: { area: { w: 1098, h: 458 } },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    for (let i = 0; i < 29; i++) await userEvent.click(obj(root, i));
+    await goNext(root);
+    await expect(root.querySelectorAll('.ni-tapc__asktray .ni-pick')).toHaveLength(31);
+    await expect(root.querySelector('.ni-pad')).toBeNull();
+    await expectInHost(root, answerControls(root), 'g1-up');
+    await userEvent.click(within(root).getByRole('button', { name: '29' }));
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 29 });
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => `${e.t}:${e.target}`)
+        .slice(-2),
+    ).toEqual(['tap:next', 'tap:opt-29']);
+  },
+};
+
+/** CNT.19.t2 seed 1: 24 crabs on two full plates and a plate of four. */
+const twentyFour: ConfigFor<'tap-count'> = {
+  ...groupsOfTen,
+  set: { ...groupsOfTen.set, count: 24, groups: [10, 10, 4] },
+};
+
+/**
+ * CNT.19.t2 seed 1 on the tablet area (review of #106): the plates alone fit, but the 0–30 tray
+ * that comes with the last count would not fit under them, and the arrangement is chosen once.
+ * So the tray's height counts from the start: the item is count-then-answer from its first
+ * layout, and the answer step shows every numeral card with Back and Check.
+ */
+export const CountTwentyFourThenAnswerTablet: Story = {
+  args: { config: twentyFour },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expectInHost(root, objects(root), 'g1-up');
+    for (let i = 0; i < 24; i++) await userEvent.click(obj(root, i));
+    await goNext(root);
+    await expect(root.querySelectorAll('.ni-tapc__asktray .ni-pick')).toHaveLength(31);
+    await expectInHost(root, answerControls(root), 'g1-up');
+    await userEvent.click(within(root).getByRole('button', { name: '24' }));
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 24 });
+  },
+};
+
+/**
+ * CNT.19.t2 with 29 crabs in the pier's area at 960 × 600 in Grade 1 (858 × 358; review of
+ * #106): no tray of 31 cards fits an answer step there, so the item stays on one screen, as it
+ * was before the steps existed. It scrolls (the template is on the fit allowlist), from its
+ * top-left corner: no numeral card lies left of or above where the area can scroll to, and Check
+ * is reachable.
+ */
+export const TwentyNineOneScreenPierG1: Story = {
+  args: { config: groupsOfTen },
+  parameters: { area: { w: 858, h: 358 } },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settle(root);
+    await expect(root).not.toHaveAttribute('data-step');
+    for (let i = 0; i < 29; i++) await userEvent.click(obj(root, i));
+    await expect(tray(root)).toHaveAttribute('data-shown', 'true');
+    await expect(root).not.toHaveAttribute('data-step');
+    await expect(root.querySelector('.ni-tapc__asktray')).toBeNull();
+    const host = root.closest('.story-host-box') as HTMLElement;
+    host.scrollTop = 0;
+    host.scrollLeft = 0;
+    const origin = host.getBoundingClientRect();
+    const reachable = [...tray(root).querySelectorAll('.ni-pick'), checkButton(root)];
+    await expect(reachable).toHaveLength(32);
+    for (const el of reachable) {
+      const r = el.getBoundingClientRect();
+      await expect(r.left, 'not left of the scroll origin').toBeGreaterThanOrEqual(origin.left);
+      await expect(r.top, 'not above the scroll origin').toBeGreaterThanOrEqual(origin.top);
+      await expect(r.right - origin.left, 'within the scrollable width').toBeLessThanOrEqual(
+        host.scrollWidth,
+      );
+      await expect(r.bottom - origin.top, 'within the scrollable height').toBeLessThanOrEqual(
+        host.scrollHeight,
+      );
+    }
+    await userEvent.click(within(root).getByRole('button', { name: '29' }));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 29 });
+  },
+};
+
+/** The pier's room for a landscape screen (measured at 960 × 600 and 1280 × 800 in Grade 1). */
+const pierRoom = (vw: number) => ({ w: vw - 102, h: Math.round(vw * 0.625) - 242 });
+const SWEEP_COUNTS = [21, 25, 29, 30];
+interface SweepCase {
+  w: number;
+  h: number;
+  n: number;
+  key: number;
+}
+
+/** Mounts the plates item afresh for each case the play function sends (`ni-sweep`). */
+function PlatesSweep(args: WidgetHostProps) {
+  const [c, setCase] = useState<SweepCase>({ ...pierRoom(960), n: 21, key: 0 });
+  useEffect(() => {
+    const next = (e: Event) => setCase((e as CustomEvent<SweepCase>).detail);
+    window.addEventListener('ni-sweep', next);
+    return () => window.removeEventListener('ni-sweep', next);
+  }, []);
+  const config: ConfigFor<'tap-count'> = {
+    ...groupsOfTen,
+    set: { ...groupsOfTen.set, count: c.n, groups: [10, 10, c.n - 20] },
+  };
+  return (
+    <Fragment key={c.key}>
+      {renderInArea(
+        { ...args, config: config as WidgetConfig },
+        { parameters: { area: { w: c.w, h: c.h } } },
+      )}
+    </Fragment>
+  );
+}
+
+/**
+ * CNT.19.t2 with 21 to 30 crabs, over the pier's rooms from 960 × 600 to 1280 × 800: whichever
+ * arrangement the item takes (one screen that scrolls, or count-then-answer), once every crab is
+ * counted all 31 numeral cards and Check can be reached: none lies left of or above where the
+ * area scrolls to, and all are within its scrollable size.
+ */
+const platesSweep = (vw: number): Story => ({
+  args: { config: groupsOfTen },
+  render: (args) => <PlatesSweep {...args} />,
+  play: async ({ canvasElement }) => {
+    const room = pierRoom(vw);
+    for (const [k, n] of SWEEP_COUNTS.entries()) {
+      const what = `${n} crabs in ${room.w} × ${room.h}`;
+      window.dispatchEvent(new CustomEvent('ni-sweep', { detail: { ...room, n, key: k + 1 } }));
+      await waitFor(() => {
+        const host = canvasElement.querySelector('.story-host-box') as HTMLElement;
+        expect(host.clientWidth).toBe(room.w);
+        expect(host.querySelectorAll('[data-obj]')).toHaveLength(n);
+      });
+      const root = await findWidget(canvasElement, ROOT);
+      await settle(root);
+      // Plain clicks (no pointer simulation): the sweep is about where the answer ends up.
+      for (let i = 0; i < n; i++) obj(root, i).click();
+      // Every crab counted: the tray is in (one screen) or Next is (two steps).
+      await waitFor(() =>
+        expect(
+          root.querySelector(
+            '.ni-tapc__tray[data-shown="true"], .ni-steps [data-cue="next"] button',
+          ),
+        ).not.toBeNull(),
+      );
+      if (root.getAttribute('data-step') === 'build') await goNext(root);
+      const host = root.closest('.story-host-box') as HTMLElement;
+      host.scrollTop = 0;
+      host.scrollLeft = 0;
+      const origin = host.getBoundingClientRect();
+      const cards = [
+        ...root.querySelectorAll('.ni-tapc__asktray .ni-pick, .ni-tapc__tray .ni-pick'),
+      ];
+      await expect(cards, what).toHaveLength(31);
+      for (const el of [...cards, checkButton(root)]) {
+        const r = el.getBoundingClientRect();
+        await expect(r.left, what).toBeGreaterThanOrEqual(origin.left - 0.5);
+        await expect(r.top, what).toBeGreaterThanOrEqual(origin.top - 0.5);
+        await expect(r.right - origin.left, what).toBeLessThanOrEqual(host.scrollWidth + 0.5);
+        await expect(r.bottom - origin.top, what).toBeLessThanOrEqual(host.scrollHeight + 0.5);
+      }
+    }
+  },
+});
+/** One story a screen, so each stays well inside the test timeout on a slow runner. */
+export const PlatesAnswerReachable960: Story = platesSweep(960);
+export const PlatesAnswerReachable1040: Story = platesSweep(1040);
+export const PlatesAnswerReachable1120: Story = platesSweep(1120);
+export const PlatesAnswerReachable1200: Story = platesSweep(1200);
+export const PlatesAnswerReachable1280: Story = platesSweep(1280);
+
+/** On the tablet area the same seven leaves stay on one screen, tray and all (no steps). */
+export const CountOneScreenTabletK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settle(root);
+    await expect(root).not.toHaveAttribute('data-step');
+    await expect(tray(root)).toHaveAttribute('data-shown', 'false');
+    for (let i = 0; i < 7; i++) await userEvent.click(obj(root, i));
+    await expect(tray(root)).toHaveAttribute('data-shown', 'true');
+    await expect(root).not.toHaveAttribute('data-step');
+  },
+};
+
+/**
+ * CNT.15.t1 (K) in the pier's area at 960 × 600 (858 × 366): ten shells in two rows of five at
+ * full target size, with the icon-only Check beside them and no padding above or below.
+ */
+export const OrdinalKPier: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: ordinalShells },
+  parameters: { area: PIER_MIN_K },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 4), ids(5, 9)]));
+    await expectInHost(root, [...objects(root), checkButton(root)], 'k');
   },
 };

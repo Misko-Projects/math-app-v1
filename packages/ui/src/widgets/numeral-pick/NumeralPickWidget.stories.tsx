@@ -7,6 +7,7 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
+import { expectAreaFit, expectCountable, inArea } from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -477,5 +478,147 @@ export const DemoReducedMotion: Story = {
       'aria-pressed',
       'true',
     );
+  },
+};
+
+// ---------- in the workshop's widget area (#12: nothing scrolls, Check always in view) ----------
+
+/** The controls and parts of a numeral-pick widget, for `expectAreaFit`. */
+const areaFit = (root: HTMLElement, ageMode: 'k' | 'g1-up', story: string) => ({
+  ageMode,
+  story,
+  controls: {
+    choices: [...root.querySelectorAll('.ni-pick')],
+    check: [within(root).getByRole('button', { name: 'Check' })],
+  },
+  parts: [...root.querySelectorAll('.ni-npick__look .ni-stimulus')],
+});
+
+/** ADD.23.t3 seed 1: a picture and four number sentences on wide cards. */
+const sentences: ConfigFor<'numeral-pick'> = {
+  format: 'numeral-pick',
+  stimulus: {
+    kind: 'objects',
+    set: { count: 8, sprite: 'shell', layout: 'groups', groups: [4, 4], layoutSeed: 7 },
+  },
+  options: [
+    { id: 'a', label: '4 + 5 = 9' },
+    { id: 'b', label: '4 + 4 = 8' },
+    { id: 'c', label: '3 + 4 = 7' },
+    { id: 'd', label: '3 + 5 = 8' },
+  ],
+  layout: 'grid',
+};
+
+const lineChoice = (at: number) => ({
+  id: `opt-${at}`,
+  stimulus: {
+    kind: 'number-line' as const,
+    min: 0,
+    max: 100,
+    ticksEvery: null,
+    labelsEvery: 100,
+    marks: [{ at, arrow: true }],
+  },
+});
+/** CMP.13.t4 seed 1: about how many dots, answered on one of three number lines. */
+const lines: ConfigFor<'numeral-pick'> = {
+  format: 'numeral-pick',
+  stimulus: { kind: 'dots', arrangement: 'scatter', groups: [22] },
+  options: [lineChoice(100), lineChoice(20), lineChoice(50)],
+  layout: 'grid',
+};
+
+/**
+ * A number-line choice prints numerals, and its card's name is "Pick 1" (the content gives these
+ * choices no label, so that the name never says the answer): axe's label-content-name-mismatch.
+ * That is how these items are on `main`; it is not a layout matter, so the layout stories below
+ * leave the rule out and the report lists it as a follow-up.
+ */
+const LINE_CARD_A11Y = {
+  a11y: { config: { rules: [{ id: 'label-content-name-mismatch', enabled: false }] } },
+};
+
+/** The smallest area (906 × 373) in K: the picture takes the height the numeral cards leave. */
+export const LandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: dice, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, areaFit(root, 'k', 'numeral-pick 906x373 K'));
+    await expectCountable(root.querySelector('.ni-npick__look') as HTMLElement);
+    // The same task: pick 8, check, one `choice` response.
+    await userEvent.click(within(root).getByRole('button', { name: '8' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'opt-8' });
+  },
+};
+
+/**
+ * Wide cards in the smallest area in K (the pier left ADD.23.t3 out for these): the four cards
+ * stand two by two beside the picture, with Check beside them, instead of under the picture.
+ */
+export const LandscapeMinWideCards: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: sentences, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, {
+      ...areaFit(root, 'k', 'numeral-pick 906x373 wide cards'),
+      minFill: 0.5,
+    });
+    await expect(root).toHaveAttribute('data-layout', 'side');
+    await expectCountable(root.querySelector('.ni-npick__look') as HTMLElement);
+  },
+};
+
+/** The same wide cards on the tablet area (1226 × 493), where the pier showed Check 212 px low. */
+export const TabletWideCards: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: sentences, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, {
+      ...areaFit(root, 'k', 'numeral-pick tablet wide cards'),
+      minFill: 0.5,
+    });
+  },
+};
+
+/**
+ * Three number-line cards (CMP.13.t4) in the smallest area: the cards in one row, each line still
+ * with both its end numerals, the picture and Check above them.
+ */
+export const LandscapeMinLineCards: Story = {
+  args: { config: lines, tier: 'pictorial' },
+  parameters: LINE_CARD_A11Y,
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, {
+      ...areaFit(root, 'g1-up', 'numeral-pick 906x373 line cards'),
+      minFill: 0.5,
+    });
+    for (const card of root.querySelectorAll('.ni-pick')) {
+      const labels = [...card.querySelectorAll('text')].map((el) => el.textContent);
+      await expect(labels).toEqual(expect.arrayContaining(['0', '100']));
+    }
+  },
+};
+
+/** The same three number-line cards on the tablet area. */
+export const TabletLineCards: Story = {
+  args: { config: lines, tier: 'pictorial' },
+  parameters: LINE_CARD_A11Y,
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, {
+      ...areaFit(root, 'g1-up', 'numeral-pick tablet line cards'),
+      minFill: 0.5,
+    });
   },
 };

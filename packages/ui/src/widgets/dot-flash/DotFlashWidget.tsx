@@ -2,7 +2,12 @@ import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
-import { useNarrationText, useReducedMotion, useSpeech } from '../../preferences/UiProvider';
+import {
+  useNarrationText,
+  useReducedMotion,
+  useSpeech,
+  useUiPreferences,
+} from '../../preferences/UiProvider';
 import { BigButton } from '../../primitives/BigButton';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { useWidgetDemo } from '../demo';
@@ -13,14 +18,18 @@ import {
   NumeralTray,
   type PadKey,
   padValue,
+  roomBox,
+  Scaled,
   StimulusView,
   useAlive,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
+  useWidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './dot-flash.css';
+import { planFlash } from './layout';
 
 /**
  * `dot-flash` (03 §5.5, pictorial): a quick look, then "how many did you see?".
@@ -141,6 +150,11 @@ function answerCue(
 }
 
 /** The pressable element a cue points at (null: a ring-only cue). */
+/** Between the board's edge and its picture, at least. */
+const BOARD_EDGE = 24;
+/** The board's border, both sides (dot-flash.css). */
+const BOARD_BORDER = 2 * 3;
+
 function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
   switch (cue.at) {
     case 'again':
@@ -235,6 +249,27 @@ export function DotFlashWidget({
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const { ageMode } = useUiPreferences();
+  const room = useWidgetRoom(rootRef);
+  const plan = planFlash(roomBox(room), ageMode, config.input, config.pickOptions ?? []);
+  // A room with a set height is filled: the board takes what the controls leave.
+  const bounded = room !== null && Number.isFinite(room.height);
+  const [boardSize, setBoardSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const measure = () =>
+      setBoardSize((b) =>
+        b && b.w === el.clientWidth && b.h === el.clientHeight
+          ? b
+          : { w: el.clientWidth, h: el.clientHeight },
+      );
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   // The timed flash now showing (a new number per flash), or null: the hide timer belongs to the
   // effect below, so StrictMode's mount → cleanup → mount re-schedules it instead of losing it.
   const [flashing, setFlashing] = useState<number | null>(null);
@@ -297,11 +332,13 @@ export function DotFlashWidget({
     void flash();
   };
 
-  // Rings are measured from the drawn picture once it is showing.
+  // Rings are measured from the drawn picture once it is showing, and again when the board (and
+  // with it the picture) changes size.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a resized board moves the groups
   useLayoutEffect(() => {
     const board = boardRef.current;
     setRings(board && circled && shown ? measureRings(board, circled) : []);
-  }, [circled, shown]);
+  }, [circled, shown, boardSize]);
 
   // ---------- answer ----------
 
@@ -420,13 +457,37 @@ export function DotFlashWidget({
 
   // ---------- render ----------
 
+  const display = (
+    <span className={cue?.at === 'slot' ? 'ni-flash__slot ni-invite' : 'ni-flash__slot'}>
+      <NumberDisplay
+        value={padText === '' ? null : padText}
+        digits={2}
+        size="lg"
+        state={interactive ? 'active' : 'idle'}
+        label="ui.widget.answer"
+      />
+    </span>
+  );
+  const check = (
+    <span className="ni-flash__check">
+      <CheckButton
+        onPress={submit}
+        disabled={!canCheck}
+        invited={cue?.at === 'check'}
+        compact={!plan.classic}
+      />
+    </span>
+  );
+
   return (
     <div
       ref={rootRef}
       className="ni-flash"
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
-      style={handRootStyle}
+      data-mode={plan.classic ? 'classic' : 'short'}
+      data-layout={plan.stacked ? 'stack' : 'side'}
+      style={{ ...handRootStyle, height: bounded ? room.height : undefined }}
     >
       <div className="ni-flash__look">
         <div
@@ -437,7 +498,21 @@ export function DotFlashWidget({
           data-shown={shown ? 'true' : 'false'}
         >
           <div className="ni-flash__picture" aria-hidden={shown ? undefined : true}>
-            <StimulusView spec={config.stimulus} maxWidth={500} maxHeight={280} />
+            {/*
+              The picture re-flows to its box down to the kit's smallest cell; one that is still
+              bigger than the board (a hundred dots to estimate on a short board) is drawn smaller
+              as a whole, so the board never hides a dot.
+            */}
+            <Scaled
+              maxWidth={Math.max(1, (boardSize?.w ?? 580) - BOARD_BORDER)}
+              maxHeight={Math.max(1, (boardSize?.h ?? 360) - BOARD_BORDER)}
+            >
+              <StimulusView
+                spec={config.stimulus}
+                maxWidth={Math.min(500, (boardSize?.w ?? 580) - 2 * BOARD_EDGE)}
+                maxHeight={Math.min(280, (boardSize?.h ?? 360) - 2 * BOARD_EDGE)}
+              />
+            </Scaled>
           </div>
           {rings.map((r, i) => (
             <span
@@ -461,52 +536,52 @@ export function DotFlashWidget({
             </span>
           </div>
         </div>
-        <span className="ni-flash__again">
-          <BigButton
-            label="ui.flash.again"
-            icon={<EyeIcon />}
-            tone="cloud"
-            disabled={!canReflash}
-            onPress={reflash}
-            className={cue?.at === 'again' ? 'ni-invite' : undefined}
-          />
-        </span>
+        <div className="ni-flash__under">
+          <span className="ni-flash__again">
+            <BigButton
+              label="ui.flash.again"
+              icon={<EyeIcon />}
+              tone="cloud"
+              disabled={!canReflash}
+              onPress={reflash}
+              showLabel={plan.classic ? undefined : false}
+              className={cue?.at === 'again' ? 'ni-invite' : undefined}
+            />
+          </span>
+          {!plan.classic && config.input === 'pad' ? display : null}
+          {plan.classic ? null : check}
+        </div>
       </div>
 
       <div className="ni-flash__answer" data-input={config.input}>
         {config.input === 'pad' ? (
           <div className="ni-flash__pad">
-            <span className={cue?.at === 'slot' ? 'ni-flash__slot ni-invite' : 'ni-flash__slot'}>
-              <NumberDisplay
-                value={padText === '' ? null : padText}
-                digits={2}
-                size="lg"
-                state={interactive ? 'active' : 'idle'}
-                label="ui.widget.answer"
-              />
-            </span>
+            {plan.classic ? display : null}
             <NumberPadKeys
               onKey={onKey}
               onEnter={submit}
               disabled={!interactive}
               highlighted={pressedKey ?? cueKey}
+              shape={plan.keys.shape}
+              compact={plan.keys.compact}
             />
           </div>
         ) : (
-          <div className={cue?.at === 'tray' ? 'ni-flash__tray ni-invite' : 'ni-flash__tray'}>
+          <div
+            className={cue?.at === 'tray' ? 'ni-flash__tray ni-invite' : 'ni-flash__tray'}
+            data-cards={plan.classic ? 'big' : 'plain'}
+          >
             <NumeralTray
               values={config.pickOptions ?? []}
               selected={picked}
               highlighted={cueCard}
               onPick={pick}
               disabled={!interactive}
-              columns={3}
+              columns={plan.trayColumns}
             />
           </div>
         )}
-        <span className="ni-flash__check">
-          <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
-        </span>
+        {plan.classic ? check : null}
       </div>
       {inviteHand}
     </div>

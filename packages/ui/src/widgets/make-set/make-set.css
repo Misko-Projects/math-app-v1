@@ -48,7 +48,8 @@
 }
 .ni-mset[data-layout="stack"],
 .ni-mset[data-layout="column"],
-.ni-mset[data-layout="side"] {
+.ni-mset[data-layout="side"],
+.ni-mset[data-layout="split"] {
   display: grid;
   justify-content: center;
   justify-items: center;
@@ -63,6 +64,18 @@
 .ni-mset[data-layout="side"] {
   gap: 0 24px;
   padding: 0;
+}
+/*
+ * `split` (take-away in short areas): the container with the heap and the actions under it, the
+ * take-away pile in a column beside them, without its arrow (the height goes to its objects).
+ * The area's full size: no padding (SPLIT_GAP in MakeSetWidget.tsx).
+ */
+.ni-mset[data-layout="split"] {
+  gap: 16px;
+  padding: 0;
+}
+.ni-mset[data-layout="split"] .ni-mset__away-icon {
+  display: none;
 }
 /* The tight frame chrome uses the area's full height too (PAD in MakeSetWidget.tsx). */
 .ni-mset[data-chrome="tight"] {
@@ -155,6 +168,28 @@
   border-color: var(--color-ink-soft);
   border-radius: var(--radius-card);
   background: var(--color-horizon);
+}
+/*
+ * "+N": objects taken away that the pile has no room to show (short areas). A sticker on the
+ * pile's top corner, over its edge, clear of the objects; the numeral is 32 px (05 §11).
+ */
+.ni-mset__more {
+  position: absolute;
+  top: -14px;
+  right: -10px;
+  z-index: 3;
+  min-width: 48px;
+  padding: 2px 8px 0;
+  border: 3px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-sunshine-light);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: none;
 }
 .ni-mset__pad {
   position: absolute;
@@ -620,6 +655,11 @@
 }
 .ni-mset[data-container="hands"] .ni-mset__actions {
   flex-direction: row;
+}
+/* A short area: the hands (drawn to its height) with the check beside them. */
+.ni-mset[data-hands="tight"] {
+  flex-direction: row;
+  gap: 32px;
 }
 
 .ni-mset__flight {
