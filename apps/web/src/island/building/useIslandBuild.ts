@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppServices } from '@/app/AppServices';
 import { useInventory, useIsland } from '@/data/hooks';
 import { useRaise } from '@/runner/useRequestRunner';
-import { layNextStone, placeBuilding, upgradeBuilding } from './actions';
+import { layNextStone, placeBuilding, settleResidents, upgradeBuilding } from './actions';
 import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS } from './clock';
 import { familyFacts } from './familyFacts';
 import {
@@ -57,6 +57,11 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
     },
     [],
   );
+
+  // A build that was interrupted before its resident arrived is made good when the island opens.
+  useEffect(() => {
+    settleResidents(store, child.id, gameData).catch(raise);
+  }, [store, child.id, gameData, raise]);
 
   // Every child's learner facts, once per visit to the island.
   useEffect(() => {
@@ -156,6 +161,14 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
   const walk = useCallback(
     (stones: readonly number[]) => {
       cancelWalk.current?.();
+      // The walk starts now: it replaces whatever is being said (an earlier walk included).
+      audio.cancelSpeech();
+      let alive = true;
+      let cancelStep = () => {};
+      cancelWalk.current = () => {
+        alive = false;
+        cancelStep();
+      };
       const step = (i: number) => {
         const n = stones[i];
         if (n === undefined) {
@@ -164,10 +177,18 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
           return;
         }
         setCounting(n);
-        // Said now: each number replaces the one before it.
-        audio.cancelSpeech();
-        void audio.sayPhrases([{ number: n }]).catch(() => {});
-        cancelWalk.current = buildClock.current.after(COUNT_STEP_MS, () => step(i + 1));
+        // A stone is the counted one until its step has passed and its number is said in full:
+        // a long number ("one hundred ten") is never cut off by the next stone.
+        let waiting = 2;
+        const next = () => {
+          waiting -= 1;
+          if (waiting === 0 && alive) step(i + 1);
+        };
+        audio
+          .sayPhrases([{ number: n }])
+          .catch(() => {})
+          .then(next);
+        cancelStep = buildClock.current.after(COUNT_STEP_MS, next);
       };
       step(0);
     },

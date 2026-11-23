@@ -8,9 +8,10 @@
 //   its rule is `start: true` and its level 1 costs nothing (Road Crew, Lantern Grove and the
 //   pier itself). Those cannot be placed on the first sandbar, and without them a new family
 //   could make no material at all; every other workshop has to be unlocked and built (#22 part 2).
-//   Its residents are the Pebblings that list it as an affinity and are on the island, the
-//   starter buddies included. A registered workshop brings its formats, strands and products. One
-//   that is not registered yet hosts no format, so the planner sends its requests to the Practice
+//   A Pebbling on the island (the starter buddies included) is the resident of one workshop: the
+//   first of its affinities that is available and makes something, else every one it lists. A
+//   registered workshop brings its formats, strands and products. One that is not registered
+//   yet hosts no format, so the planner sends its requests to the Practice
 //   Pier, which then makes that workshop's product (the material its resident asked for).
 
 import type {
@@ -28,12 +29,22 @@ import type { AppWorkshop } from './types';
 export const WORKSHOPS: readonly AppWorkshop[] = [practicePier];
 
 /**
- * The products of the workshops that stand from the start (05 §4 "Produces") until their modules
- * register; a registered workshop's definition says its own, and its entry here goes.
+ * What each workshop makes (05 §4 "Produces") until its module registers; a registered
+ * workshop's definition says its own, and its entry here goes. The Puzzle Tower makes no material.
  */
 export const UNREGISTERED_PRODUCTS: Readonly<Record<WorkshopId, readonly MaterialId[]>> = {
   'road-crew': ['stone'],
   'lantern-grove': ['light'],
+  'ten-boat-dock': ['plank'],
+  'treasure-beach': ['gem'],
+  'brick-factory': ['brick'],
+  'garden-terraces': ['produce'],
+  bakery: ['bread'],
+  market: ['coin'],
+  'clock-tower': ['ticket'],
+  'builders-yard': ['glass', 'beam'],
+  'weigh-station': ['rope', 'flag'],
+  'rhythm-orchard': ['fruit'],
 };
 
 const registered = (id: WorkshopId) => WORKSHOPS.find((w) => w.id === id);
@@ -69,11 +80,19 @@ export function workshopCapabilities(
       formats: module ? [...module.formats] : [],
       strands: module ? [...module.strands] : [],
       available: built.has(building.id) || worksFromStart(building),
-      residents: gameData.residents
-        .filter((r) => r.affinity.includes(id) && (r.starterBuddy || r.id in island.residents))
-        .map((r) => r.id),
+      residents: [],
       produces: [...produces],
     });
+  }
+  // A resident on the island asks for one workshop: the first of its affinities that is
+  // available and makes something (its affinities are in order of preference), else every
+  // workshop it lists. So once the Ten-Boat Dock stands, the residents who prefer it ask for
+  // planks, whatever else they like; the Practice Pier makes what the resident asks for.
+  for (const r of gameData.residents) {
+    if (!r.starterBuddy && !(r.id in island.residents)) continue;
+    const listed = r.affinity.flatMap((id) => caps.find((c) => c.workshopId === id) ?? []);
+    const first = listed.find((c) => c.available && c.produces.length > 0);
+    for (const cap of first ? [first] : listed) cap.residents.push(r.id);
   }
   return caps;
 }

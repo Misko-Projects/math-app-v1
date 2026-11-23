@@ -111,14 +111,17 @@ describe('workshop registration (02 §5.6)', () => {
   it('on a new island the workshops that stand from the start are available, with their residents', async () => {
     const store = await testEnv().open();
     const caps = workshopCapabilities(gameData, await store.island());
-    expect(caps.map((c) => [c.workshopId, c.available, c.produces])).toEqual([
+    // Every workshop that makes a material is listed; only the free ones are available.
+    expect(caps.filter((c) => !c.available).map((c) => c.workshopId)).toContain('ten-boat-dock');
+    const available = caps.filter((c) => c.available);
+    expect(available.map((c) => [c.workshopId, c.available, c.produces])).toEqual([
       ['road-crew', true, ['stone']],
       ['lantern-grove', true, ['light']],
       // The pier is registered: its entry brings the residents that like it; it makes no product
       // of its own (the planner gives it the asking resident's).
       ['practice-pier', true, []],
     ]);
-    for (const cap of caps.filter((c) => c.workshopId !== 'practice-pier')) {
+    for (const cap of available.filter((c) => c.workshopId !== 'practice-pier')) {
       // Not registered yet: it hosts no format, so its requests go to the Practice Pier.
       expect(cap.formats).toEqual([]);
       expect(cap.residents.length).toBeGreaterThan(0);
@@ -128,6 +131,59 @@ describe('workshop registration (02 §5.6)', () => {
         expect(resident?.affinity, id).toContain(cap.workshopId);
       }
     }
+  });
+});
+
+describe('a built workshop makes its product (05 §4; #22 part 2)', () => {
+  const placed = (store: DataStore, buildingId: string, plot: [number, number]) =>
+    store.append(
+      'building.placed',
+      { instanceId: buildingId, buildingId, plot },
+      { childId: CHILD_K },
+    );
+
+  it('once the Ten-Boat Dock stands, the residents who prefer it ask for planks, and a request makes them', async () => {
+    const env = testEnv();
+    const store = await env.open();
+    await store.putProfile(kid);
+    await placed(store, 'shell-cottage', [3, 4]);
+    await store.append(
+      'resident.arrived',
+      { residentId: 'hobb', homeInstanceId: 'shell-cottage', via: 'home' },
+      { childId: CHILD_K },
+    );
+    const before = workshopCapabilities(gameData, await store.island());
+    const residentsOf = (caps: typeof before, id: string) =>
+      caps.find((c) => c.workshopId === id)?.residents ?? [];
+    // Before the dock: Seela and Hobb prefer it, and ask for what their next affinity makes.
+    expect(before.find((c) => c.workshopId === 'ten-boat-dock')?.available).toBe(false);
+    expect(residentsOf(before, 'lantern-grove')).toContain('seela');
+    expect(residentsOf(before, 'road-crew')).toContain('hobb');
+
+    await placed(store, 'ten-boat-dock', [1, 2]);
+    const caps = workshopCapabilities(gameData, await store.island());
+    const dock = caps.find((c) => c.workshopId === 'ten-boat-dock');
+    expect(dock).toMatchObject({ available: true, produces: ['plank'], formats: [] });
+    expect(dock?.residents).toEqual(expect.arrayContaining(['seela', 'hobb']));
+    expect(residentsOf(caps, 'lantern-grove')).not.toContain('seela');
+    expect(residentsOf(caps, 'road-crew')).not.toContain('hobb');
+    // Stone and light are still asked for by the residents who prefer those.
+    expect(residentsOf(caps, 'road-crew').length).toBeGreaterThan(0);
+    expect(residentsOf(caps, 'lantern-grove').length).toBeGreaterThan(0);
+
+    // The planner's own output: over a few visits a request asks for planks, and playing it
+    // puts planks in the Storehouse.
+    let plank: PlannedRequest | undefined;
+    for (let visit = 0; visit < 12 && !plank; visit += 1) {
+      env.clock.advance(60 * 60_000);
+      plank = (await plan(store)).find((r) => 'plank' in r.reward.materials);
+    }
+    if (!plank) throw new Error('no request asked for planks in 12 visits');
+    expect(plank.workshopId).toBe('practice-pier');
+    expect(['seela', 'hobb']).toContain(plank.residentId);
+    const summary = await playRight(store, plank);
+    expect(summary.materials.plank).toBeGreaterThan(0);
+    expect((await store.inventory()).materials.plank).toBe(summary.materials.plank);
   });
 });
 

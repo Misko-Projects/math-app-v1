@@ -23,7 +23,7 @@ import {
   testEnv,
 } from '@/data/store.test-support';
 import { workshopCapabilities } from '@/workshops/registry';
-import { layNextStone, placeBuilding, ROAD_REF, upgradeBuilding } from './actions';
+import { layNextStone, placeBuilding, ROAD_REF, settleResidents, upgradeBuilding } from './actions';
 import { familyFacts } from './familyFacts';
 import {
   type BuildCard,
@@ -209,6 +209,43 @@ describe('what a build writes (02 §4.3)', () => {
     expect(card(cards, 'ten-boat-dock').state).toBe('short');
     expect(card(cards, 'road-crew').state).toBe('ready');
     expect(card(cards, 'shell-cottage')).toMatchObject({ level: 2, instanceId: 'shell-cottage' });
+  });
+
+  it('a build interrupted before its resident arrived is made good on the next visit, at no cost', async () => {
+    const { store } = await family();
+    await produce(store, { stone: 5, light: 3 });
+    const cottage = card(await cardsOf(store), 'shell-cottage');
+    // The placement and the payment commit; the arrival's write fails (the browser closed).
+    const interrupted: DataStore = Object.create(store, {
+      append: {
+        value: (...args: Parameters<DataStore['append']>) =>
+          args[0] === 'resident.arrived'
+            ? Promise.reject(new Error('closed'))
+            : store.append(...args),
+      },
+    });
+    await expect(placeBuilding(interrupted, CHILD_K, gameData, cottage, [3, 4])).rejects.toThrow(
+      'closed',
+    );
+    let island = await store.island();
+    expect(island.buildings['shell-cottage']).toBeDefined();
+    expect(island.residents).toEqual({});
+    expect(island.ringsUnlocked).toBe(1);
+    // The island opens again (either child): Hobb moves in, and the first shore opens.
+    await settleResidents(store, CHILD_G2, gameData);
+    island = await store.island();
+    expect(island.residents.hobb).toMatchObject({ homeInstanceId: 'shell-cottage' });
+    expect(island.ringsUnlocked).toBe(2);
+    expect(await types(store)).toEqual([
+      'material.produced',
+      'building.placed',
+      'material.spent',
+      'resident.arrived',
+    ]);
+    // Settling again writes nothing, and a level not reached brings nobody (Lark is level 2).
+    await settleResidents(store, CHILD_K, gameData);
+    expect((await types(store)).filter((t) => t === 'resident.arrived')).toHaveLength(1);
+    expect((await store.island()).residents.lark).toBeUndefined();
   });
 
   it('a build the family cannot pay for is not started: nothing is written', async () => {

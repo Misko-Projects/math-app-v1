@@ -679,12 +679,12 @@ describe('the Numbered Road (05 §3; #22 part 2)', () => {
       phrases.mock.calls.map(([parts]) => (parts[0] as { number?: number }).number);
     await waitFor(() => expect(counted()).toEqual([1]));
     expect(home.querySelector('[data-stone="1"][data-state="counting"]')).toBeTruthy();
-    act(() => clock.advance(COUNT_STEP_MS));
+    await act(async () => clock.advance(COUNT_STEP_MS));
     expect(counted()).toEqual([1, 2]);
-    act(() => clock.advance(COUNT_STEP_MS));
+    await act(async () => clock.advance(COUNT_STEP_MS));
     expect(counted()).toEqual([1, 2, 3]);
     expect(home.querySelector('[data-stone="3"][data-state="counting"]')).toBeTruthy();
-    act(() => clock.advance(COUNT_STEP_MS));
+    await act(async () => clock.advance(COUNT_STEP_MS));
     expect(home.querySelector('[data-state="counting"]')).toBeNull();
     expect(clock.pending()).toBe(0);
     // A tap on the stone itself lays the next one with the last stone the family has.
@@ -706,5 +706,60 @@ describe('the Numbered Road (05 §3; #22 part 2)', () => {
     });
     await waitFor(() => expect(say).toHaveBeenCalledWith('ui.road.short', undefined));
     expect(await types(app)).toEqual(before);
+  });
+
+  it('a number still being said holds the walk on its stone, however long it takes', async () => {
+    const clock = manualClock();
+    const real = buildClock.current;
+    buildClock.current = clock;
+    const prev = restore;
+    restore = () => {
+      buildClock.current = real;
+      prev();
+    };
+    const { app } = await renderHome({
+      before: async (a) => {
+        await a.store.append(
+          'material.produced',
+          {
+            sessionId: 's0',
+            requestId: 'r0',
+            workshopId: 'practice-pier',
+            materials: { stone: 1 },
+          },
+          { childId: CHILD_K },
+        );
+        await a.store.append('road.extended', { to: 1 }, { childId: CHILD_K });
+      },
+    });
+    // Each number's line ends only when the test says so (a long number: "one hundred ten").
+    const lines: (() => void)[] = [];
+    const phrases = vi
+      .spyOn(app.audio, 'sayPhrases')
+      .mockImplementation(() => new Promise<void>((resolve) => lines.push(resolve)));
+    const cancel = vi.spyOn(app.audio, 'cancelSpeech');
+    await bubbles();
+    const home = screen.getByTestId('child-home');
+    const lay = await screen.findByRole('button', { name: 'Lay the next stone' });
+    await act(async () => {
+      fireEvent.click(lay);
+    });
+    await waitFor(() => expect(phrases).toHaveBeenCalledTimes(1));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    // The clock runs far past the step: the first number is still being said, so the walk waits
+    // and nothing cuts the line off.
+    await act(async () => clock.advance(10 * COUNT_STEP_MS));
+    expect(phrases).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(home.querySelector('[data-stone="1"][data-state="counting"]')).toBeTruthy();
+    // The line ends: the walk moves on to the new stone, and ends when that one is said.
+    await act(async () => lines[0]?.());
+    expect(phrases).toHaveBeenCalledTimes(2);
+    expect(home.querySelector('[data-stone="2"][data-state="counting"]')).toBeTruthy();
+    await act(async () => lines[1]?.());
+    expect(home.querySelector('[data-stone="2"][data-state="counting"]')).toBeTruthy();
+    await act(async () => clock.advance(COUNT_STEP_MS));
+    expect(home.querySelector('[data-state="counting"]')).toBeNull();
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 });

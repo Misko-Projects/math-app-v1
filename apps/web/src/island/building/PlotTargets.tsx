@@ -2,7 +2,8 @@
 // each highlighted plot of the island scene. The scene draws the highlight (the kit's plot
 // marker); the button is the target, at least 64 px each way (06 §4) however small the map is
 // drawn. Where the map is so small that two targets would touch, only plots whose targets keep a
-// 12 px gap are offered, back rows first.
+// 12 px gap are offered, back rows first. A plot whose middle lies under another control of the
+// screen (a corner button, the way back) is not offered: its target could not take the tap.
 
 import type { Plot } from '@number-island/shared';
 import { plotBox, useNarrationText } from '@number-island/ui';
@@ -60,6 +61,8 @@ export function offeredPlots(
   anchors: readonly Plot[],
   footprint: readonly [number, number],
   map: SceneMap | null,
+  /** True when another control lies over this point of the container: no target is offered there. */
+  taken: (left: number, top: number) => boolean = () => false,
 ): PlotTarget[] {
   const out: PlotTarget[] = [];
   for (const plot of anchors) {
@@ -79,7 +82,7 @@ export function offeredPlots(
         t.top >= o.top + o.height + GAP ||
         o.top >= t.top + t.height + GAP,
     );
-    if (clear) out.push(t);
+    if (clear && !taken(c.left, c.top)) out.push(t);
   }
   return out;
 }
@@ -93,12 +96,12 @@ export function PlotTargets({
 }) {
   const text = useNarrationText();
   return (
-    <ul className="absolute inset-0 z-20" data-testid="plot-targets">
+    <ul className="pointer-events-none absolute inset-0 z-20" data-testid="plot-targets">
       {targets.map((t, i) => (
         <li key={`${t.plot[0]},${t.plot[1]}`}>
           <button
             type="button"
-            className="absolute cursor-pointer rounded-[16px] focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="pointer-events-auto absolute cursor-pointer rounded-[16px] focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"
             style={{ left: t.left, top: t.top, width: t.width, height: t.height }}
             aria-label={text('ui.build.spot', { n: i + 1 })}
             data-plot={`${t.plot[0]},${t.plot[1]}`}

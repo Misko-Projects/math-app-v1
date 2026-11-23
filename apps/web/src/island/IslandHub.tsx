@@ -240,7 +240,19 @@ export function IslandHub({
   const targets = useMemo(
     () =>
       build.placing
-        ? offeredPlots(build.placing.anchors, build.placing.building.footprint, sceneMap)
+        ? offeredPlots(
+            build.placing.anchors,
+            build.placing.building.footprint,
+            sceneMap,
+            // A point under another button of this screen (not a plot target) takes no plot.
+            (left, top) => {
+              const box = sceneBox.current?.getBoundingClientRect();
+              if (!box) return false;
+              const at = document.elementFromPoint(box.left + left, box.top + top);
+              const button = at?.closest('button');
+              return button != null && !button.closest('[data-testid="plot-targets"]');
+            },
+          )
         : [],
     [build.placing, sceneMap],
   );
@@ -393,7 +405,7 @@ export function IslandHub({
             the parent gate's hint, which opens over this row on a narrow screen: a request and
             its speaker stay whole targets while the hint shows. */}
         {busy ? (
-          <div className="absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] z-30 flex justify-center">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] z-30 flex justify-center *:pointer-events-auto">
             {build.placing ? (
               <BigButton
                 label="ui.btn.close"

@@ -186,3 +186,64 @@ test('the build sheet fits a 960 × 600 screen', async ({ page }) => {
     await expectSheetFits(page);
   }
 });
+
+test('while a plot is chosen, every tap reaches the control under it (960 × 600)', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 600 });
+  await seedLocalChild(page, CHILD);
+  // The first home stands and the road reaches 100: the island is large, and its southern plots
+  // lie where the way back is shown.
+  await seedLocalEvents(page, [
+    {
+      type: 'building.placed',
+      childId: CHILD.id,
+      payload: { instanceId: 'shell-cottage', buildingId: 'shell-cottage', plot: [3, 4] },
+    },
+    {
+      type: 'resident.arrived',
+      childId: CHILD.id,
+      payload: { residentId: 'hobb', homeInstanceId: 'shell-cottage', via: 'home' },
+    },
+    { type: 'road.extended', childId: CHILD.id, payload: { to: 100 } },
+  ]);
+  await page.getByTestId('tap-to-start').click();
+  await page.getByRole('button', { name: CHILD.name, exact: true }).click();
+  await expect(page.getByTestId('requests').locator('[data-request]').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  const sheet = page.getByTestId('build-sheet');
+  await expect(sheet).toBeVisible();
+  while ((await sheet.locator('[data-card="road-crew"]').count()) === 0)
+    await page.getByTestId('build-next').click();
+  await sheet.locator('[data-card="road-crew"]').getByRole('button', { name: 'Build it' }).click();
+  const plots = page.getByTestId('plot-targets').getByRole('button');
+  await expect(plots.first()).toBeVisible();
+  expect(await plots.count()).toBeGreaterThan(3);
+  // The middle of every offered plot belongs to that plot's own button, and the other controls
+  // of the screen (the guide's replay, the way back, Home) to themselves.
+  const hits = await page.evaluate(() => {
+    const top = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return document
+        .elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        ?.closest('button');
+    };
+    const wrong: string[] = [];
+    for (const b of Array.from(document.querySelectorAll('[data-testid="plot-targets"] button')))
+      if (top(b) !== b) wrong.push(`plot ${b.getAttribute('data-plot')}`);
+    for (const b of Array.from(document.querySelectorAll('[data-testid="child-home"] button')))
+      if (
+        !b.closest('[data-testid="plot-targets"]') &&
+        !(b as HTMLButtonElement).disabled &&
+        top(b) !== b
+      )
+        wrong.push(b.getAttribute('aria-label') ?? b.textContent ?? 'button');
+    return wrong;
+  });
+  expect(hits).toEqual([]);
+  // The guide's line can be heard again, and the way back works.
+  await page.getByRole('button', { name: 'Hear it again' }).first().click({ trial: true });
+  await page.getByRole('button', { name: 'Go back' }).click();
+  await expect(page.getByTestId('plot-targets')).toHaveCount(0);
+  expect((await localEvents(page)).filter((e) => e.type === 'building.placed')).toHaveLength(1);
+});

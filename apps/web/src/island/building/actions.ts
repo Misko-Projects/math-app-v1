@@ -8,6 +8,8 @@
 //   its level names (`resident:<id>`).
 // - An upgrade: `building.upgraded`, `material.spent` (purpose `upgrade`, or `project`), then the
 //   level's residents.
+// - Residents are settled from the island as it stands (`settleResidents`), so an interruption
+//   after a placement never leaves a home without the resident it brings.
 // - A road stone: `road.extended`, `material.spent` (one stone, purpose `build`, ref `road`).
 //
 // The thing built is written before its cost: an interruption between the two leaves the family
@@ -50,32 +52,41 @@ async function pay(
   await store.append('material.spent', { materials, purpose }, { childId });
 }
 
-async function arrive(
+/**
+ * Writes `resident.arrived` for every resident a standing building's levels name
+ * (`resident:<id>`, each level up to the one it has reached) who is not on the island. It reads
+ * the island as it is, so it also makes good a build that was interrupted before its arrival was
+ * written: the island calls it after each build and when it opens.
+ */
+export async function settleResidents(
   store: Store,
   childId: ChildId,
-  gameData: Pick<GameData, 'residents'>,
-  unlocks: readonly string[],
-  instanceId: string,
-) {
+  gameData: Pick<GameData, 'buildings' | 'residents'>,
+): Promise<void> {
   const island = await store.island();
-  for (const unlock of unlocks) {
-    if (!unlock.startsWith('resident:')) continue;
-    const resident = gameData.residents.find((r) => r.id === unlock.slice('resident:'.length));
-    if (!resident || resident.id in island.residents) continue;
-    await store.append(
-      'resident.arrived',
-      {
-        residentId: resident.id,
-        homeInstanceId: instanceId,
-        via: resident.arrival.via === 'ferry' ? 'ferry' : 'home',
-      },
-      { childId },
-    );
+  const here = new Set(Object.keys(island.residents));
+  for (const [instanceId, b] of Object.entries(island.buildings)) {
+    const def = gameData.buildings.find((d) => d.id === b.buildingId);
+    for (const level of def?.levels ?? []) {
+      if (level.level > b.level) continue;
+      for (const unlock of level.unlocks) {
+        if (!unlock.startsWith('resident:')) continue;
+        const resident = gameData.residents.find((r) => r.id === unlock.slice('resident:'.length));
+        if (!resident || here.has(resident.id)) continue;
+        here.add(resident.id);
+        await store.append(
+          'resident.arrived',
+          {
+            residentId: resident.id,
+            homeInstanceId: instanceId,
+            via: resident.arrival.via === 'ferry' ? 'ferry' : 'home',
+          },
+          { childId },
+        );
+      }
+    }
   }
 }
-
-const unlocksOf = (card: BuildCard) =>
-  card.building.levels.find((l) => l.level === card.level)?.unlocks ?? [];
 
 /** Places a new building on `plot` and pays its level-1 recipe. */
 export async function placeBuilding(
@@ -108,7 +119,7 @@ export async function placeBuilding(
       ? { kind: 'project', ref: building.id }
       : { kind: 'build', ref: instanceId },
   );
-  await arrive(store, childId, gameData, unlocksOf(card), instanceId);
+  await settleResidents(store, childId, gameData);
   return { ok: true, instanceId, level: 1, plot };
 }
 
@@ -116,7 +127,7 @@ export async function placeBuilding(
 export async function upgradeBuilding(
   store: Store,
   childId: ChildId,
-  gameData: Pick<GameData, 'materials' | 'residents'>,
+  gameData: Pick<GameData, 'buildings' | 'materials' | 'residents'>,
   card: BuildCard,
 ): Promise<BuildResult> {
   const { building, level } = card;
@@ -133,7 +144,7 @@ export async function upgradeBuilding(
       ? { kind: 'project', ref: building.id }
       : { kind: 'upgrade', ref: built.instanceId },
   );
-  await arrive(store, childId, gameData, unlocksOf(card), built.instanceId);
+  await settleResidents(store, childId, gameData);
   return { ok: true, instanceId: built.instanceId, level, plot: built.plot };
 }
 
