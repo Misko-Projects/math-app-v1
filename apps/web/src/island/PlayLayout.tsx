@@ -1,16 +1,22 @@
-// The play area's layout route (`/play/:childId/*`): the child home and the Practice Pier render
-// inside it, so moving between them keeps the session, and leaving the play area ends it.
+// The play area's layout route (`/play/:childId/*`): the island and the workshops render inside
+// it, so moving between them keeps the session and the hub's state, and leaving the play area
+// ends the session.
 
 import { useEffect } from 'react';
 import { Outlet } from 'react-router';
 import { recordDiagnostic } from '@/app/diagnostics';
 import type { SessionController } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
+import { HubProvider } from './hub';
 
 export function PlayLayout() {
   const { session, controller } = useSession();
   useEndOnLeave(controller, session?.sessionId ?? '');
-  return <Outlet />;
+  return (
+    <HubProvider>
+      <Outlet />
+    </HubProvider>
+  );
 }
 
 /** Ends the running session when the page goes away mid-session (the browser's back button). */

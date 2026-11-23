@@ -7,6 +7,7 @@
 // fetches every on-demand file while the browser is idle, ahead of the first visit.
 
 import type { ComponentType } from 'react';
+import { WORKSHOPS } from '@/workshops/registry';
 
 type RouteModule = () => Promise<{ Component: ComponentType }>;
 
@@ -20,11 +21,14 @@ export const lazyRoute = {
   parentHome: async () => ({ Component: (await parentArea()).ParentHome }),
   pairDevice: async () => ({ Component: (await parentArea()).PairDevicePage }),
   diagnostics: async () => ({ Component: (await parentArea()).DiagnosticsPage }),
-  // The Practice Pier (#20): a workshop chunk (02 §6), warmed like the rest once the app is up.
+  // The dev content browser (#20). It shares the Practice Pier's chunk (02 §6).
   pier: async () => ({
     Component: (await import('@/workshops/practice-pier/PierPage')).PierPage,
   }),
 } satisfies Record<string, RouteModule>;
+
+/** Every registered workshop's screen (02 §5.6 `load`), so a tapped request never waits for it. */
+const workshopChunks = WORKSHOPS.map((w) => w.load);
 
 type Idle = (run: () => void) => void;
 
@@ -48,7 +52,9 @@ export function warmLazyRoutes(idle: Idle = whenIdle): void {
   if (warmed) return;
   warmed = true;
   idle(() => {
-    for (const load of Object.values(lazyRoute)) void load().catch(() => {});
+    for (const load of [...Object.values(lazyRoute), ...workshopChunks]) {
+      void load().catch(() => {});
+    }
   });
 }
 

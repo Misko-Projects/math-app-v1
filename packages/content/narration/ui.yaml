@@ -71,8 +71,19 @@ ui.rest.elsewhere:
 ui.btn.okay:
   text: "Okay!"
   level: K
-ui.home.hello:
-  text: "Hello! Pip is getting the island ready for you."
+ui.island.hello:
+  text: "Hello! Who do you want to help?"
+  voice: pip
+  level: K
+ui.island.requests:
+  text: "Friends who want help"
+  level: K
+ui.island.made:
+  text: "Look! Your new things are in the Storehouse."
+  voice: pip
+  level: K
+ui.island.empty:
+  text: "The Storehouse is empty. Help a friend to fill it!"
   voice: pip
   level: K
 ui.winddown.done:
@@ -1460,9 +1471,6 @@ ui.widget.at.cursor.drawn:
 # end area-tiles
 
 # Practice Pier (#20, apps/web/src/workshops/practice-pier).
-ui.pier.open:
-  text: "Let's play!"
-  level: K
 ui.pier.done:
   text: "All done! Great playing!"
   voice: pip

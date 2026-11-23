@@ -70,8 +70,8 @@ test('a child plays a request at the Practice Pier: three formats, every attempt
   await page.getByRole('button', { name: CHILD.name, exact: true }).click();
   await expect(page.getByTestId('child-home')).toBeVisible();
 
-  // The child's way in is the big button; the content browser is the developer's.
-  await expect(page.getByRole('button', { name: "Let's play!" })).toBeVisible();
+  // The child's way in is a request on the island; the content browser is the developer's.
+  await expect(page.locator('[data-request][data-recommended="true"]')).toBeVisible();
   await page.getByRole('link', { name: 'Content browser (dev)' }).click();
   await expect(page.getByTestId('pier-browser')).toBeVisible();
   await page.getByRole('button', { name: new RegExp(`^${SKILL.replace('.', '\\.')} `) }).click();
@@ -222,7 +222,7 @@ test('a child plays a request at the Practice Pier: three formats, every attempt
   expect(errors).toEqual([]);
 });
 
-test('the planned request opens from the child home and Home leaves it without ending the session', async ({
+test('a request opens from the island and Home leaves it without ending the session', async ({
   page,
 }) => {
   await seedLocalChild(page, { ...CHILD, id: '019c0000-0000-7000-8000-00000000e2e2' });
@@ -230,7 +230,7 @@ test('the planned request opens from the child home and Home leaves it without e
   await page.getByRole('button', { name: CHILD.name, exact: true }).click();
   // No dev flag: a child never sees the content browser.
   await expect(page.getByRole('link', { name: 'Content browser (dev)' })).toHaveCount(0);
-  await page.getByRole('button', { name: "Let's play!" }).click();
+  await page.locator('[data-request][data-recommended="true"]').click();
   const pier = page.getByTestId('pier');
   await expect(pier).toHaveAttribute('data-phase', 'answer');
   const widget = page.getByTestId('pier-stage').locator('.ni-widget');
@@ -252,7 +252,7 @@ test('the planned request opens from the child home and Home leaves it without e
   expect(await types()).toEqual(['session.started', 'request.accepted', 'request.completed']);
 
   // Leaving with the browser's back button completes the request too.
-  await page.getByRole('button', { name: "Let's play!" }).click();
+  await page.locator('[data-request][data-recommended="true"]').click();
   await expect(pier).toHaveAttribute('data-phase', 'answer');
   await page.goBack();
   await expect(page.getByTestId('child-home')).toBeVisible();
