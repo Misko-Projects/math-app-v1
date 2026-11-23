@@ -115,8 +115,12 @@ const DEFINITE_COMPARATIVE =
 /** V30: a prompt that asks which of the two is more, fewer, … */
 const WHICH_COMPARATIVE =
   /\bwhich\b[^.?!]*\b(?:more|fewer|less|greater|bigger|smaller|larger|heavier|lighter|longer|shorter|taller)\b/i;
-/** V30: the line itself covers equal operands ("They may be the same.", "Same numbers get ="). */
-const ADMITS_EQUAL = /\b(?:same|equal)\b/i;
+/**
+ * V30: the line itself covers equal operands ("They may be the same.", "Same numbers get =").
+ * A bare "same" does not: "Count both groups the same way." offers no equal answer.
+ */
+const ADMITS_EQUAL =
+  /\b(?:may|might|can|could) be the same\b|\bsame (?:numbers?|amount|size)\b|\bequal\b/i;
 
 interface SpokenLine {
   key: string;
@@ -493,8 +497,10 @@ export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions):
           for (const s of parseLine(line).segments) {
             if (s.kind !== 'slot' || s.slot.type !== 'ord') continue;
             const v = vars[s.slot.name];
-            const word = input.narration[`ord.${v}`]?.text;
-            if (v === undefined || word === undefined || /\d/.test(word)) {
+            // The caption and the speech fallback both read the entry's `say` before its `text`.
+            const ord = input.narration[`ord.${v}`];
+            const forms = ord ? [ord.text, ord.say].filter((w) => w !== undefined) : [];
+            if (v === undefined || forms.length === 0 || forms.some((w) => /\d/.test(w))) {
               wording(
                 'V28',
                 `${key} ${s.slot.name}`,

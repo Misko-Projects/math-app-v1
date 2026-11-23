@@ -151,6 +151,15 @@ describe('each check catches its defect', FULL_RUN, () => {
       'tp.Y.prompt',
     ]);
     expect(errorsOf(withTemplate(find('CNT.15.t2')), 'V28')).toEqual([]);
+    // A position word whose spoken override is a numeral: captions and speech read `say` first.
+    const spoken = Object.fromEntries(
+      Object.entries(small.narration).map(([key, entry]) =>
+        key.startsWith('ord.') ? [key, { ...entry, say: key.slice(4) }] : [key, entry],
+      ),
+    );
+    expect(
+      errorsOf(withTemplate(find('CNT.15.t2'), { narration: spoken }), 'V28').length,
+    ).toBeGreaterThan(0);
   });
 
   it('V29: a template that can generate a fact with every operand zero', () => {
@@ -185,6 +194,17 @@ describe('each check catches its defect', FULL_RUN, () => {
     // A prompt asking which group has more, with equal groups and no "They may be the same."
     const conflict: ItemTemplate = { ...find('CMP.05.t1'), constraints: [] };
     expect(errorsOf(withTemplate(conflict), 'V30')[0]?.message).toContain('tp.CMP.05.t1.prompt');
+    // "same" alone is no equal answer: "the same way" describes the counting.
+    const sameWay = {
+      ...small.narration,
+      'tp.CMP.05.t1.prompt': {
+        ...(small.narration['tp.CMP.05.t1.prompt'] as (typeof small.narration)[string]),
+        text: 'Which group has {ask|word}? Count both groups the same way.',
+      },
+    };
+    expect(errorsOf(withTemplate(conflict, { narration: sameWay }), 'V30')[0]?.message).toContain(
+      'tp.CMP.05.t1.prompt',
+    );
     // CMP.01.t1 generates equal groups too, and its prompt says so.
     expect(errorsOf(withTemplate(find('CMP.01.t1')), 'V30')).toEqual([]);
   });

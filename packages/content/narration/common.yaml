@@ -442,7 +442,7 @@ h.sub.take-away:
 h.sub.count-back:
   text: "Start at the first number. Count back."
 h.sub.count-up:
-  text: "Start at the number you take away. Count up to the first number."
+  text: "Start at the smaller number. Count up to the bigger one."
 h.sub.count-up-ten:
   text: "Jump up to ten first. Then jump to the bigger number."
 # count-hops only where every hop is one (ones jumps); on the open line a jump can be longer, so

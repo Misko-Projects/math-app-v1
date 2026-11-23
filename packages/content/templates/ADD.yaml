@@ -183,7 +183,8 @@ templates:
     representation: symbols
     generator: addsub.facts
     params: { a: { int: [3, 20] }, b: { int: [1, 19] }, op: "-", unknown: result, family: any }
-    constraints: ["b <= 3 || result <= 3"]
+    # a > b: the count-up hint names a smaller and a bigger number.
+    constraints: ["a > b", "b <= 3 || result <= 3"]
     difficulty: { base: -0.55 }
     narration: { prompt: p.sub.what-is, hints: [h.sub.back-or-up, h.sub.count-up] }
 
