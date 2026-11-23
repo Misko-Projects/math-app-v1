@@ -125,3 +125,58 @@ export async function learnerProjection(
     childId,
   );
 }
+
+/** An event to seed: what happened, by whom. */
+export interface SeedEvent {
+  type: string;
+  childId: string | null;
+  payload: Record<string, unknown>;
+}
+
+/**
+ * Writes events into this browser's local log as if this device had recorded them (oldest first,
+ * a second apart, ending a minute ago), and drops the cached family projections, which the app
+ * then rebuilds from the log (02 §4.3). Call it after `seedLocalChild` and before the app is used.
+ */
+export async function seedLocalEvents(page: Page, events: readonly SeedEvent[]): Promise<void> {
+  await page.evaluate(
+    (list) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('number-island');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction(['device', 'events', 'projections'], 'readwrite');
+          tx.onerror = () => reject(tx.error);
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          const device = tx.objectStore('device').get('device');
+          device.onsuccess = () => {
+            const { familyId, deviceId } = device.result as { familyId: string; deviceId: string };
+            const start = Date.now() - 60_000 - list.length * 1000;
+            list.forEach((e, i) => {
+              tx.objectStore('events').put({
+                id: `019c0000-0000-7000-8000-${(i + 1).toString(16).padStart(12, '0')}`,
+                familyId,
+                childId: e.childId,
+                deviceId,
+                ts: start + i * 1000,
+                type: e.type,
+                v: 1,
+                payload: e.payload,
+                contentVersion: 'e2e-seed',
+                synced: 0,
+              });
+            });
+            for (const key of ['island', 'inventory', 'collection'])
+              tx.objectStore('projections').delete(key);
+          };
+        };
+      }),
+    events,
+  );
+  await page.goto('/');
+  await expect(page.getByTestId('tap-to-start')).toBeVisible();
+}
