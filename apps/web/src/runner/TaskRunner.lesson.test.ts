@@ -65,6 +65,8 @@ async function start(
     materials?: Record<string, number>;
     /** The first write of a scaffolded item's `lesson.step` fails. */
     failScaffoldedStepOnce?: boolean;
+    /** That many first writes of a scaffolded item's `lesson.step` fail. */
+    failScaffoldedSteps?: number;
   } = {},
 ) {
   const store: DataStore = await testEnv().open();
@@ -81,7 +83,7 @@ async function start(
   const math = { ms: 0, items: 0 };
   const browse = browseRequest(graph(), { skillId: SKILL, templateId: null, lesson: true }, 4242);
   const request = { ...browse, reward: { materials: opts.materials ?? {} } };
-  let failures = opts.failScaffoldedStepOnce ? 1 : 0;
+  let failures = opts.failScaffoldedSteps ?? (opts.failScaffoldedStepOnce ? 1 : 0);
   const flaky: Pick<DataStore, 'append' | 'skillStates' | 'now'> = {
     now: () => store.now(),
     skillStates: (id) => store.skillStates(id),
@@ -609,6 +611,34 @@ describe('TaskRunner: lessons', () => {
       'scaffolded:0:0:child:done',
     ]);
     const types = events.map((e) => e.type);
+    expect(types.lastIndexOf('lesson.step')).toBeLessThan(types.indexOf('request.completed'));
+  });
+
+  it('a lesson step that fails again when the child leaves does not hold back the reward', async () => {
+    const material = Object.keys(fixtureContent().gameData.materials)[0] as string;
+    const play = await start({ materials: { [material]: 3 }, failScaffoldedSteps: 2 });
+    await toScaffolded(play);
+    await play.runner.submit(engine.itemExampleCorrect(play.lastItem()), { latencyMs: 3000 });
+    // Leaving (the browser's Back calls finish once): the owed step fails a second time.
+    await expect(play.runner.finish()).rejects.toThrow('the write failed');
+    const produced = async () =>
+      (await play.store.events()).filter((e) => e.type === 'material.produced');
+    // The committed answer and what it earned are in, once.
+    expect(await play.attempts()).toHaveLength(1);
+    expect((await produced()).map((e) => e.payload)).toMatchObject([
+      { materials: { [material]: 1 } },
+    ]);
+    expect((await play.steps()).filter((s) => s.phase === 'scaffolded')).toEqual([]);
+    // A later finish writes the step and the completion, and no second reward.
+    const summary = await play.runner.finish();
+    expect(summary.materials).toEqual({ [material]: 1 });
+    expect(await produced()).toHaveLength(1);
+    expect(await play.attempts()).toHaveLength(1);
+    expect((await play.steps()).map(brief).filter((l) => l.startsWith('scaffolded:0'))).toEqual([
+      'scaffolded:0:0:child:done',
+    ]);
+    const types = (await play.store.events()).map((e) => e.type);
+    expect(types.filter((t) => t === 'request.completed')).toHaveLength(1);
     expect(types.lastIndexOf('lesson.step')).toBeLessThan(types.indexOf('request.completed'));
   });
 

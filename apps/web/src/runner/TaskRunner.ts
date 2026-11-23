@@ -969,7 +969,6 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       // An answer still being written belongs to this request: count it.
       await submitting?.catch(() => {});
       await hintWrites.catch(() => {});
-      await writeOwedSteps();
       const materials = dealMaterials(request.reward.materials, earned);
       if (!materialWritten && Object.keys(materials).length > 0) {
         const produced: EventPayloads['material.produced'] = {
@@ -981,6 +980,9 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         await store.append('material.produced', produced, { childId });
         materialWritten = true;
       }
+      // After the reward: a lesson step that still cannot be written fails this call (the next
+      // one tries again), and what the child earned is already in.
+      await writeOwedSteps();
       const summary: RequestSummary = {
         items: firstTries.length,
         firstTryCorrect: firstTries.filter(Boolean).length,
