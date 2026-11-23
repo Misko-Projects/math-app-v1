@@ -2139,3 +2139,33 @@ export const PierResizeRegroupShrinks: Story = pierResized(
  */
 export const PierResizeAddShrinks: Story = pierResized(pierAdd, 'tablet', 'small', 'tall');
 export const PierResizeAddGrows: Story = pierResized(pierAdd, 'small', 'tablet', 'usual');
+
+/**
+ * Keyboard focus survives the change of arrangement: with the trade made at 1280 × 800 and the
+ * focus on Check, the room shrinks to 960 × 600 (Check moves into the side panel's short-room
+ * place); Check still has the focus, and Space submits the one response.
+ */
+export const PierResizeKeepsFocusOnCheck: Story = {
+  args: { config: pierRegroup99, tier: 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root).toHaveAttribute('data-arrange', 'usual');
+    await userEvent.click(trade(root, 'ones', 'tens'));
+    await settled(root);
+    const check = () => within(root).getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check()).toBeEnabled());
+    const before = check();
+    before.focus();
+    await expect(before).toHaveFocus();
+    resizeRoom(canvasElement, 'small');
+    await waitFor(() => expect(root).toHaveAttribute('data-arrange', 'in-side'));
+    await stableLayout(root);
+    await expect(check()).toHaveFocus();
+    await userEvent.keyboard(' ');
+    await waitFor(() => expect(args.onResponse).toHaveBeenCalledTimes(1));
+  },
+};

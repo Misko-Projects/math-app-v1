@@ -839,6 +839,24 @@ function TradeMat({
     });
   }, [age, config, showWork, answerInWork, places, box, baseCaps, path, budget, planRoom]);
   const { problemInSide, padWide } = side;
+  // A change of arrangement moves the pad and "check" to another place in the side panel, which
+  // mounts them anew. Whichever of them had the keyboard focus keeps it: noted here, before the
+  // change is committed, and given back to its replacement after.
+  const sideRef = useRef<HTMLDivElement | null>(null);
+  const focusedControl = () => {
+    const el = document.activeElement;
+    if (!el || !sideRef.current?.contains(el)) return null;
+    const key = el.closest<HTMLElement>('.ni-pad__key')?.dataset.key;
+    if (key !== undefined) return `.ni-pad__key[data-key="${key}"]`;
+    return el.closest('.ni-btt__checkwrap') ? '.ni-btt__checkwrap .ni-btn' : null;
+  };
+  const hadFocus = useRef<string | null>(null);
+  hadFocus.current = focusedControl();
+  useLayoutEffect(() => {
+    const sel = hadFocus.current;
+    if (sel === null || focusedControl() !== null) return;
+    sideRef.current?.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true });
+  });
   const { workInSide, checkBeside, showProblemRow, problemH, cardH, spaceH, sideH } = side;
   const spaceW = box.main > 0 ? box.main : 900;
   // One scale for the whole item, chosen so every step on the expected path fits.
@@ -1865,6 +1883,7 @@ function TradeMat({
         {nest}
       </div>
       <div
+        ref={sideRef}
         className="ni-btt__side"
         data-problem={problemInSide ? 'true' : undefined}
         style={{ paddingTop: sideTop, gap: SIDE_GAP }}
