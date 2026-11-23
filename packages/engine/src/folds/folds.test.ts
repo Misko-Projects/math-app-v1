@@ -363,20 +363,40 @@ describe('foldIsland', () => {
       expect(displacedPlacements(s).map((d) => d.instanceId)).toEqual(['edge']);
     });
 
-    it('the displaced child can place again elsewhere; an upgrade never revives the lost one', () => {
-      const s = foldIsland(
-        [
-          first,
-          second,
-          ev('building.upgraded', { instanceId: 'b', level: 2 }, T0 + 6, C2),
-          placed('b', 'lighthouse', T0 + 7, C2, [9, 6]),
-          placed('b2', 'lighthouse', T0 + 8, C2, [9, 6]),
-        ],
+    it('an upgrade never revives the lost one; placed again on free plots, the same instance stands', () => {
+      const lost = [
+        first,
+        second,
+        ev('building.upgraded', { instanceId: 'b', level: 2 }, T0 + 6, C2),
+      ];
+      expect(Object.keys(foldIsland(lost, game).buildings)).toEqual(['a']);
+      // Still on built plots: displaced again, at the newer place.
+      const again = foldIsland([...lost, placed('b', 'lighthouse', T0 + 7, C2, [5, 3])], game);
+      expect(displacedPlacements(again)).toMatchObject([{ instanceId: 'b', ts: T0 + 7 }]);
+      // The app places it again under the same instance id (the building's), on free plots.
+      const events = [...lost, placed('b', 'lighthouse', T0 + 8, C2, [9, 6])];
+      for (const order of [events, [...events].reverse()]) {
+        const s = foldIsland(order, game);
+        expect(Object.keys(s.buildings).sort()).toEqual(['a', 'b']);
+        expect(s.buildings.b).toMatchObject({ plot: [9, 6], level: 2, placedBy: C2, ts: T0 + 8 });
+        expect(displacedPlacements(s)).toEqual([]);
+      }
+    });
+
+    it('nobody moves into a displaced home; they arrive once it is built again', () => {
+      const arrival = (ts: number) =>
+        ev('resident.arrived', { residentId: 'tuck', homeInstanceId: 'b', via: 'home' }, ts, C2);
+      const lost = [first, second, arrival(T0 + 6)];
+      for (const order of [lost, [...lost].reverse()]) {
+        const s = foldIsland(order, game);
+        expect(s.residents).toEqual({});
+        expect(islandFacts(s).residentCount).toBe(0);
+      }
+      const rebuilt = foldIsland(
+        [...lost, placed('b', 'lighthouse', T0 + 8, C2, [9, 6]), arrival(T0 + 9)],
         game,
       );
-      expect(Object.keys(s.buildings).sort()).toEqual(['a', 'b2']);
-      expect(s.buildings.b2).toMatchObject({ level: 1, placedBy: C2 });
-      expect(displacedPlacements(s).map((d) => d.instanceId)).toEqual(['b']);
+      expect(rebuilt.residents).toEqual({ tuck: { arrivedTs: T0 + 9, homeInstanceId: 'b' } });
     });
 
     it("a tombstone drops the deleted child's displaced placements", () => {

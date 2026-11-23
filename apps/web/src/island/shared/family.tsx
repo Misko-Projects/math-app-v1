@@ -84,17 +84,22 @@ const TOLD_KEY = 'ni.island.displaced.told';
 
 const told = (): string[] => JSON.parse(localStorage.getItem(TOLD_KEY) ?? '[]');
 
-/** This child's placements that lost their plots and have not been said on this device. */
+/**
+ * This child's placements that lost their plots and have not been said on this device, each as
+ * its instance and time: the app's instance id is the building's, so the same building can lose
+ * its plots again later, and is then said again.
+ */
 export function displacedFor(island: IslandState, childId: ChildId): string[] {
   const said = new Set(told());
   return displacedPlacements(island)
-    .filter((d) => sameId(d.placedBy, childId) && !said.has(d.instanceId))
-    .map((d) => d.instanceId);
+    .filter((d) => sameId(d.placedBy, childId))
+    .map((d) => `${d.instanceId}@${d.ts}`)
+    .filter((key) => !said.has(key));
 }
 
-/** The line was said: these placements are not said again on this device. */
-export function markDisplacedTold(instanceIds: readonly string[]): void {
-  localStorage.setItem(TOLD_KEY, JSON.stringify([...new Set([...told(), ...instanceIds])]));
+/** The line was said: these placements (`displacedFor`) are not said again on this device. */
+export function markDisplacedTold(keys: readonly string[]): void {
+  localStorage.setItem(TOLD_KEY, JSON.stringify([...new Set([...told(), ...keys])]));
 }
 
 /** A child's avatar as a small round picture; the name is its text for a screen reader. */

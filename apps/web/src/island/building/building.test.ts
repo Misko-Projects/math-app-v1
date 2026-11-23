@@ -4,7 +4,12 @@
 // road's next stone, and unlock rules evaluated family-wide.
 
 import * as engine from '@number-island/engine';
-import { foldInventory, foldIsland, islandFacts } from '@number-island/engine/shell';
+import {
+  displacedPlacements,
+  foldInventory,
+  foldIsland,
+  islandFacts,
+} from '@number-island/engine/shell';
 import type {
   AnyEventEnvelope,
   EventPayloads,
@@ -363,6 +368,89 @@ describe('what a build writes (02 §4.3)', () => {
     await produce(store, { stone: 2 });
     expect((await store.inventory()).materials.stone).toBe(2);
     expect(card(await cardsOf(store), 'shell-cottage')).toMatchObject({ level: 2, state: 'short' });
+  });
+});
+
+describe('a building that lost its plots to an earlier one (02 §4.3; #22 part 3)', () => {
+  it('is gone with its resident once the earlier placement arrives, and is built again for one recipe', async () => {
+    const { env, store } = await family();
+    await produce(store, { stone: 20, light: 3, plank: 20 });
+    await placeBuilding(
+      store,
+      CHILD_K,
+      gameData,
+      card(await cardsOf(store), 'shell-cottage'),
+      [3, 4],
+    );
+    await store.append(
+      'building.placed',
+      { instanceId: 'ten-boat-dock', buildingId: 'ten-boat-dock', plot: [1, 2] },
+      { childId: CHILD_K },
+    );
+    const apart = env.clock.now();
+    env.clock.advance(60_000);
+    // Ada, offline: the Driftwood Hut on [7,3], and Ottie moves in.
+    const hut = () => cardsOf(store).then((cards) => card(cards, 'driftwood-hut'));
+    expect(await placeBuilding(store, CHILD_K, gameData, await hut(), [7, 3])).toMatchObject({
+      ok: true,
+      instanceId: 'driftwood-hut',
+    });
+    expect((await store.island()).residents.ottie).toMatchObject({
+      homeInstanceId: 'driftwood-hut',
+    });
+    const before = (await store.inventory()).materials;
+    // Ben's Lantern Grove, placed earlier on [6,2]–[7,3] on his tablet, arrives by sync.
+    await store.ingest(
+      [
+        fromOtherDevice(
+          'building.placed',
+          { instanceId: 'lantern-grove', buildingId: 'lantern-grove', plot: [6, 2] },
+          apart + 1,
+          CHILD_G2,
+        ),
+      ],
+      { source: 'server' },
+    );
+    let island = await store.island();
+    expect(Object.keys(island.buildings).sort()).toEqual([
+      'lantern-grove',
+      'shell-cottage',
+      'ten-boat-dock',
+    ]);
+    expect(displacedPlacements(island).map((d) => d.instanceId)).toEqual(['driftwood-hut']);
+    // Ottie did not move into a hut that does not stand, and asks for nothing.
+    expect(Object.keys(island.residents)).not.toContain('ottie');
+    const asking = () =>
+      store
+        .island()
+        .then((i) => workshopCapabilities(gameData, i).flatMap((c) => c.residents ?? []));
+    expect(await asking()).not.toContain('ottie');
+    expect((await store.inventory()).materials).toEqual(before);
+
+    // Built again from the sheet: the same card, a free plot, exactly one more recipe.
+    env.clock.advance(60_000);
+    const again = await hut();
+    expect(again).toMatchObject({ level: 1, state: 'ready' });
+    const [plot] = freeAnchors(gameData, island, again.building.footprint);
+    if (!plot) throw new Error('no free plot for the hut');
+    expect(await placeBuilding(store, CHILD_K, gameData, again, plot)).toMatchObject({
+      ok: true,
+      instanceId: 'driftwood-hut',
+    });
+    island = await store.island();
+    expect(island.buildings['driftwood-hut']).toMatchObject({ plot, level: 1, placedBy: CHILD_K });
+    expect(displacedPlacements(island)).toEqual([]);
+    expect(island.residents.ottie).toMatchObject({ homeInstanceId: 'driftwood-hut' });
+    expect(await asking()).toContain('ottie');
+    expect((await store.inventory()).materials).toMatchObject({
+      plank: (before.plank ?? 0) - 6,
+      stone: (before.stone ?? 0) - 4,
+    });
+    // Another device that gets everything in another order shows the same island.
+    const other = await testEnv().open();
+    open.push(other);
+    await other.ingest([...(await store.events())].reverse(), { source: 'server' });
+    expect(await other.island()).toEqual(island);
   });
 });
 

@@ -848,13 +848,13 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
       at: 10,
       child: CHILD_K,
       type: 'building.placed',
-      payload: at('cot-a', 'shell-cottage', 3, 4),
+      payload: at('shell-cottage', 'shell-cottage', 3, 4),
     },
     {
       at: 11,
       child: CHILD_K,
       type: 'resident.arrived',
-      payload: { residentId: 'hobb', homeInstanceId: 'cot-a', via: 'home' },
+      payload: { residentId: 'hobb', homeInstanceId: 'shell-cottage', via: 'home' },
     },
     { at: 12, child: CHILD_K, type: 'road.extended', payload: { to: 3 } },
     {
@@ -867,7 +867,7 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
       at: 20,
       child: CHILD_G2,
       type: 'building.placed',
-      payload: at('dock-b', 'ten-boat-dock', 1, 2),
+      payload: at('ten-boat-dock', 'ten-boat-dock', 1, 2),
     },
     { at: 22, child: CHILD_G2, type: 'road.extended', payload: { to: 5 } },
     {
@@ -882,14 +882,19 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
       at: 25,
       child: CHILD_G2,
       type: 'building.placed',
-      payload: at('lg-b', 'lantern-grove', 6, 2),
+      payload: at('lantern-grove', 'lantern-grove', 6, 2),
     },
-    { at: 30, child: CHILD_K, type: 'building.placed', payload: at('rc-a', 'road-crew', 7, 3) },
+    {
+      at: 30,
+      child: CHILD_K,
+      type: 'building.placed',
+      payload: at('road-crew', 'road-crew', 7, 3),
+    },
     {
       at: 31,
       child: CHILD_K,
       type: 'material.spent',
-      payload: spent({ stone: 2 }, 'build', 'rc-a'),
+      payload: spent({ stone: 2 }, 'build', 'road-crew'),
     },
     // A shared project: both children's materials went into it.
     {
@@ -904,7 +909,12 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
       type: 'material.spent',
       payload: spent({ plank: 8 }, 'project', 'lighthouse'),
     },
-    { at: 41, child: CHILD_G2, type: 'building.placed', payload: at('lh-b', 'lighthouse', 1, 4) },
+    {
+      at: 41,
+      child: CHILD_G2,
+      type: 'building.placed',
+      payload: at('lighthouse', 'lighthouse', 1, 4),
+    },
   ];
   function made(materials: Record<string, number>) {
     return { sessionId: 's0', requestId: 'r0', workshopId: 'practice-pier', materials };
@@ -962,10 +972,10 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
       ]),
     );
     expect(Object.keys((await app.store.island()).buildings).sort()).toEqual([
-      'cot-a',
-      'dock-b',
-      'lg-b',
-      'lh-b',
+      'lantern-grove',
+      'lighthouse',
+      'shell-cottage',
+      'ten-boat-dock',
     ]);
     // The road is the longer of the two (5 stones), and the next one waits.
     const laid = [...scene.querySelectorAll('[data-stone][data-state="laid"]')].map((s) =>
@@ -978,14 +988,14 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
     const badges = screen.getByTestId('building-badges');
     const builtBy = (instance: string) =>
       badges.querySelector(`[data-built-by="${instance}"]`)?.getAttribute('data-children');
-    expect(builtBy('cot-a')).toBe(CHILD_K);
-    expect(builtBy('dock-b')).toBe(CHILD_G2);
-    expect(builtBy('lg-b')).toBe(CHILD_G2);
-    expect(builtBy('lh-b')).toBe(`${CHILD_K} ${CHILD_G2}`);
-    expect(badges.querySelector('[data-built-by="lh-b"]')?.getAttribute('aria-label')).toBe(
+    expect(builtBy('shell-cottage')).toBe(CHILD_K);
+    expect(builtBy('ten-boat-dock')).toBe(CHILD_G2);
+    expect(builtBy('lantern-grove')).toBe(CHILD_G2);
+    expect(builtBy('lighthouse')).toBe(`${CHILD_K} ${CHILD_G2}`);
+    expect(badges.querySelector('[data-built-by="lighthouse"]')?.getAttribute('aria-label')).toBe(
       'Mia, Leo',
     );
-    expect(badges.querySelector('[data-built-by="rc-a"]')).toBeNull();
+    expect(badges.querySelector('[data-built-by="road-crew"]')).toBeNull();
     // Both children stand on the island, the one who is playing marked.
     const family = screen.getByTestId('island-family');
     const avatars = [...family.querySelectorAll('[data-island-avatar]')].map((a) => [
@@ -1022,7 +1032,7 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
     expect(displacedFor(island, CHILD_K)).toEqual([]);
     expect(displacedFor(island, CHILD_G2)).toEqual([]);
     localStorage.clear();
-    expect(displacedFor(island, CHILD_K)).toEqual(['rc-a']);
+    expect(displacedFor(island, CHILD_K)).toEqual([`road-crew@${T0 + 30_000}`]);
 
     // The other tablet, which got the same events in another order, shows the same island.
     const other = await testEnv().open();

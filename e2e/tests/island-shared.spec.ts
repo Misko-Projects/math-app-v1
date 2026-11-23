@@ -102,11 +102,11 @@ for (const viewport of VIEWPORTS) {
     await expectUncovered(page, '[data-island-avatar]');
     // Who built what: one badge on a building, both children's on the shared project.
     const badges = (instance: string) => page.locator(`[data-built-by="${instance}"]`);
-    await expect(badges('cot-a')).toHaveAttribute('data-children', ADA.id);
-    await expect(badges('lg-b')).toHaveAttribute('data-children', BEN.id);
-    await expect(badges('lh-b')).toHaveAttribute('data-children', `${ADA.id} ${BEN.id}`);
-    await expect(badges('lh-b').locator('[data-badge]')).toHaveCount(2);
-    await expect(badges('rc-a')).toHaveCount(0);
+    await expect(badges('shell-cottage')).toHaveAttribute('data-children', ADA.id);
+    await expect(badges('lantern-grove')).toHaveAttribute('data-children', BEN.id);
+    await expect(badges('lighthouse')).toHaveAttribute('data-children', `${ADA.id} ${BEN.id}`);
+    await expect(badges('lighthouse').locator('[data-badge]')).toHaveCount(2);
+    await expect(badges('road-crew')).toHaveCount(0);
 
     // Ada's building lost its plots: she is told, in words she can read (06 §4: 24 px).
     const line = page.getByText('Someone was here first. Pick a new place to build!');
@@ -124,22 +124,26 @@ for (const viewport of VIEWPORTS) {
     await expectWhole(page, '[data-testid="storehouse-piles"] li');
     await page.keyboard.press('Escape');
 
-    // She can build it again: the Road Crew is offered, on plots that are still free.
+    // She builds it again from the sheet, on a plot that is still free: this time it stands.
     await page.getByRole('button', { name: 'Build', exact: true }).click();
     const sheet = page.getByTestId('build-sheet');
     const card = sheet.locator(`[data-card="${DISPLACED}"]`);
     await expect(card).toHaveAttribute('data-state', 'ready');
     await card.getByRole('button', { name: 'Build it' }).click();
-    await expect(page.getByTestId('plot-targets').getByRole('button').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Go back', exact: true }).click();
-    await expect(page.getByTestId('plot-targets')).toHaveCount(0);
+    await page.getByTestId('plot-targets').getByRole('button').first().click();
+    await expect(page.getByTestId('construction')).toBeVisible();
+    await page.getByRole('button', { name: 'Go on', exact: true }).click();
+    await expect(scene.locator(`[data-building="${DISPLACED}"]`)).toHaveCount(1);
+    await expect(badges(DISPLACED)).toHaveAttribute('data-children', ADA.id);
 
-    // Told once: on her next visit she is greeted as ever.
-    await page.getByRole('button', { name: 'Go home', exact: true }).click();
-    await page.getByRole('button', { name: ADA.name, exact: true }).click();
-    await expect(page.getByTestId('child-home')).toBeVisible();
+    // Told once, and the rebuilt building is still there: after a reload she is greeted as ever.
+    await page.reload();
+    await openIsland(page, ADA.name);
     await expect(page.getByText('Hello! Who do you want to help?')).toBeVisible();
     await expect(line).toHaveCount(0);
+    await expect(scene.locator(`[data-building="${DISPLACED}"]`)).toHaveCount(1);
+    for (const id of STANDING)
+      await expect(scene.locator(`[data-building="${id}"]`)).toHaveCount(1);
     expect(errors).toEqual([]);
   });
 }

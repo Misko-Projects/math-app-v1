@@ -2,7 +2,8 @@
 // never goes down. Two buildings never share a plot: a `building.placed` whose footprint overlaps
 // a standing building does not apply, so of two placements made offline on the same plots the
 // first by ts then id stands and the other is kept as displaced (`displacedPlacements`) for the
-// app to tell its child. Decor positions are last-writer-wins by ts then id; the road keeps its
+// app to tell its child, until that instance is placed again on free plots. A resident does not
+// arrive at a displaced home. Decor positions are last-writer-wins by ts then id; the road keeps its
 // maximum; rings unlock as their rules hold and never re-lock. Readings fixed by E02 are listed
 // in 02 §4.3.
 
@@ -123,7 +124,6 @@ function applyRaw(
   if (isEvent(e, 'building.placed')) {
     const { instanceId, buildingId, plot } = e.payload;
     if (own(state.buildings, instanceId)) return state; // placed once; never moved or rebuilt
-    if (own(state._displaced, instanceId)) return state;
     const taken = new Set(
       Object.values(state.buildings).flatMap((b) => covered(gameData, b.buildingId, b.plot)),
     );
@@ -143,8 +143,11 @@ function applyRaw(
       };
     }
     const level = own(state._upgrades, instanceId) ?? 1;
+    // Placed again on free plots (the app's instance id is the building's): no longer displaced.
+    const { [instanceId]: _stood, ...displaced } = state._displaced ?? {};
     return {
       ...state,
+      ...(state._displaced ? { _displaced: displaced } : {}),
       buildings: {
         ...state.buildings,
         [instanceId]: {
@@ -199,6 +202,9 @@ function applyRaw(
   }
   if (isEvent(e, 'resident.arrived')) {
     if (own(state.residents, e.payload.residentId)) return state;
+    // Nobody moves into a home that lost its plots: they arrive when it is built again.
+    const home = e.payload.homeInstanceId;
+    if (home !== null && own(state._displaced, home)) return state;
     return {
       ...state,
       residents: {
