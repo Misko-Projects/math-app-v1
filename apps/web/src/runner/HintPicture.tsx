@@ -1,9 +1,11 @@
 // The picture of a representation hint (03 §5.8 level 3: "a ten-frame drawing beside a
-// number-pad item"). In the pier it is a card over the workshop area, so it never takes room from
-// the widget: the child looks, closes it, and the widget is as they left it.
+// number-pad item"). A workshop shows it as a card over its area, so it never takes room from the
+// widget: the child looks, closes it, and the widget is as they left it.
 
 import type { StimulusSpec } from '@number-island/shared';
-import { BigButton, icons, StimulusView, useNarrationText } from '@number-island/ui';
+import { BigButton, icons, useNarrationText } from '@number-island/ui';
+// Its own entry: the drawing code needs the engine's item core, which the shell must not load (02 §6a).
+import { StimulusView } from '@number-island/ui/stimulus';
 import { useLayoutEffect, useState } from 'react';
 
 export default function HintPicture({

@@ -73,7 +73,6 @@ export {
   type WidgetDemo,
   type WidgetDemoImpl,
 } from './widgets/demo';
-export { StimulusView, type StimulusViewProps } from './widgets/kit/StimulusView';
 export { PlaceholderWidget } from './widgets/PlaceholderWidget';
 export { registeredFormats, widgetRegistry } from './widgets/registry';
 export type {

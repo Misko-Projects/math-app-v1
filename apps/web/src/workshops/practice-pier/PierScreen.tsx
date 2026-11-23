@@ -28,8 +28,10 @@ import {
 } from '@number-island/ui';
 import { lazy, type ReactNode, Suspense } from 'react';
 
-// Only a representation hint shows a picture: its drawing code stays out of the pier's own chunk.
-const HintPicture = lazy(() => import('./HintPicture'));
+// Only a representation hint shows a picture. It is drawn by the widget kit, whose code (and the
+// engine's item core under it, loaded at boot, 02 §6a) the widgets already share: it is a chunk of
+// its own beside the runner, not part of a workshop's chunk.
+const HintPicture = lazy(() => import('@/runner/HintPicture'));
 
 export type Cue = { kind: 'right' | 'again' | 'onward'; say: NarrationKey | undefined };
 
