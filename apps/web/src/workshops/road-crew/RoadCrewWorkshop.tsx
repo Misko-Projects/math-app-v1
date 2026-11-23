@@ -1,7 +1,7 @@
 // Road Crew as a workshop module (02 §5.6; 05 §4 W1). The request is played on the shared
 // workshop screen (`../play/RequestPlay`: the runner, the feedback flow and the lessons, in-world),
-// with the crew's scene: every right first answer makes a stone, which drops into the row at the
-// bottom, and at the end the stones parade.
+// with the crew's scene: every right answer makes a stone (the runner's count), which drops into
+// the row at the bottom, and at the end the stones parade.
 //
 // The road physically extends: the parade of a request that made at least one stone lays the
 // road's next stone with one of them (`paradeStone.ts`), and the island counts on to it when the
