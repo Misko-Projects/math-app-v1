@@ -46,6 +46,23 @@ export function withDecorGrant<S extends { reason: string }, R extends Finishes<
   return { runner: { ...runner, finish }, earned: () => [...earned] };
 }
 
+/**
+ * The clean-up after a request's screen: finishes through the grant, and once more if that
+ * fails. The first call may only have joined a finish the screen began (the child left while a
+ * grant was being written): when that write fails, nobody else is left to make it again. Returns
+ * the pieces granted; a second failure is reported and the pieces stay as they are.
+ */
+export async function settleDecorGrant(
+  grant: DecorGrant<Finishes<unknown>>,
+  report: (error: unknown) => void,
+): Promise<DecorId[]> {
+  await grant.runner
+    .finish()
+    .catch(() => grant.runner.finish())
+    .catch(report);
+  return grant.earned();
+}
+
 /** One grant per runner: the screen and the clean-up after it finish through the same one. */
 const grants = new WeakMap<object, DecorGrant<unknown>>();
 

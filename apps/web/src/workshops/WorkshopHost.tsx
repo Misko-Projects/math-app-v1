@@ -24,7 +24,7 @@ import { useProfiles } from '@/data/hooks';
 import { useHub } from '@/island/hub';
 import type { PierTaskRunner, RequestSummary } from '@/runner/TaskRunner';
 import { useRequestRunner } from '@/runner/useRequestRunner';
-import { type DecorGrant, decorGrantFor } from './decorGrant';
+import { type DecorGrant, decorGrantFor, settleDecorGrant } from './decorGrant';
 import { workshopFor } from './registry';
 import type { AppWorkshop, AppWorkshopProps } from './types';
 
@@ -98,12 +98,11 @@ function OwnedRequest({ child, session, request }: HostedProps) {
     (summary: RequestSummary | null) => {
       void (async () => {
         // The grants of a request that ended complete are in before the island shows them.
-        await granting.current?.runner.finish().catch((e) => recordDiagnostic('decor.earned', e));
-        complete({
-          requestId: request.id,
-          materials: summary?.materials ?? {},
-          decor: granting.current?.earned() ?? [],
-        });
+        // (`settleDecorGrant`: a write that failed while this joined it is made once more.)
+        const decor = granting.current
+          ? await settleDecorGrant(granting.current, (e) => recordDiagnostic('decor.earned', e))
+          : [];
+        complete({ requestId: request.id, materials: summary?.materials ?? {}, decor });
       })();
     },
     [complete, request.id],

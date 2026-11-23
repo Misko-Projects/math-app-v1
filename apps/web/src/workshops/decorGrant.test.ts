@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { decorGrantFor, withDecorGrant } from './decorGrant';
+import { decorGrantFor, settleDecorGrant, withDecorGrant } from './decorGrant';
 
 /** A runner whose `finish()` records the order of what is written. */
 function runnerThatEnds(reason: string, log: string[]) {
@@ -68,6 +68,60 @@ describe('the decor a request earns (04 §6.3)', () => {
     await runner.finish();
     expect(log).toEqual(['request.completed', 'grant:star-statue', 'grant:telescope']);
     expect(earned()).toEqual(['star-statue', 'telescope']);
+  });
+
+  it('the child leaves while a grant is being written and that write fails: the clean-up makes it again', async () => {
+    // What the host does (WorkshopHost): the screen finishes at the summary; the child goes
+    // Back while the grant is still being written; the clean-up joins that same finish.
+    const log: string[] = [];
+    const base = runnerThatEnds('complete', log);
+    let failHeld: (error: Error) => void = () => {};
+    let attempts = 0;
+    const grant = decorGrantFor(base, ['telescope'], (id) => {
+      attempts += 1;
+      // The first write is held, then fails; the next one goes through.
+      if (attempts === 1)
+        return new Promise<void>((_, reject) => {
+          failHeld = reject;
+        });
+      log.push(`grant:${id}`);
+      return Promise.resolve();
+    });
+    const screen = grant.runner.finish();
+    screen.catch(() => {});
+    // Let the request's own end be written, so the grant is the write in flight.
+    await base.finish();
+    await Promise.resolve();
+    expect(log).toEqual(['request.completed']);
+    const reported: unknown[] = [];
+    const cleanUp = settleDecorGrant(grant, (e) => reported.push(e));
+    failHeld(new Error('the grant could not be written'));
+    await expect(screen).rejects.toThrow('the grant could not be written');
+    expect(await cleanUp).toEqual(['telescope']);
+    expect(log).toEqual(['request.completed', 'grant:telescope']);
+    expect(attempts).toBe(2);
+    expect(reported).toEqual([]);
+    // Settled again (a second clean-up): nothing more is written.
+    expect(await settleDecorGrant(grant, (e) => reported.push(e))).toEqual(['telescope']);
+    expect(attempts).toBe(2);
+  });
+
+  it('a grant that fails twice in the clean-up is reported, not granted, and can still be made later', async () => {
+    const log: string[] = [];
+    let fails = 2;
+    const grant = decorGrantFor(runnerThatEnds('complete', log), ['telescope'], async (id) => {
+      if (fails > 0) {
+        fails -= 1;
+        throw new Error('still not writable');
+      }
+      log.push(`grant:${id}`);
+    });
+    const reported: unknown[] = [];
+    expect(await settleDecorGrant(grant, (e) => reported.push(e))).toEqual([]);
+    expect(reported).toHaveLength(1);
+    expect(log).toEqual(['request.completed']);
+    await grant.runner.finish();
+    expect(log).toEqual(['request.completed', 'grant:telescope']);
   });
 
   it('one grant per runner: asked for twice (a second render), the same one finishes', async () => {
