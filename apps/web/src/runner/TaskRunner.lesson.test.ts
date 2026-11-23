@@ -160,6 +160,11 @@ describe('TaskRunner: lessons', () => {
           if (!example) throw new Error('the turn belongs to no example');
           expect(step.step).toBe(example.childFrom);
           expect(step._turn).toEqual(example.steps.slice(example.childFrom));
+          // A generator's solution has no line for the child: the example's instruction invites.
+          expect(step._turnLines).toEqual([
+            { say: example.item.prompt.narration, vars: example.item.prompt.vars },
+          ]);
+          expect(step.narration).toBe(example.item.prompt.narration);
           expect(
             runner.lessonAnswer(engine.itemExampleCorrect(example.item), { latencyMs: SLOW }),
           ).toBe('done');
@@ -355,6 +360,48 @@ describe('TaskRunner: lessons', () => {
       total: lesson.scaffolded.count,
     });
     expect(await runner.finish()).toMatchObject({ reason: 'complete' });
+  });
+
+  it('steps authored for the child hand over with their own lines (CNT.14)', async () => {
+    const skill = graph().skills['CNT.14'];
+    if (!skill) throw new Error('CNT.14 is not in the content');
+    const lesson = buildLesson(engine, graph(), skill, pierPlayable);
+    const faded = lesson?.examples.filter((e) => e.phase === 'faded') ?? [];
+    expect(faded.length).toBe(2);
+    for (const e of faded) {
+      const mine = e.steps.slice(e.childFrom);
+      expect(mine.length).toBeGreaterThan(0);
+      expect(mine.every((s) => s.actor === 'child')).toBe(true);
+    }
+    const store: DataStore = await testEnv().open();
+    await store.putProfile(kid);
+    const runner = await createTaskRunner({
+      engine,
+      store,
+      graph: graph(),
+      child: childK,
+      request: browseRequest(graph(), { skillId: 'CNT.14', templateId: null, lesson: true }, 7),
+      hosts: pierPlayable,
+      session: {
+        sessionId: 'session-1',
+        elapsedMs: () => 0,
+        budgetMs: 10 * 60_000,
+        windingDown: () => false,
+        recordMath: () => {},
+        recordItem: () => {},
+      },
+    });
+    const turn = asStep(watch(runner));
+    const first = faded[0] as (typeof faded)[number];
+    const mine = first.steps.slice(first.childFrom);
+    expect(turn._turnLines.map((l) => l.say)).toEqual(mine.map((s) => s.say));
+    expect(turn.narration).toBe(mine[0]?.say);
+    // The invited action is the child step's own.
+    expect(turn.demo).toEqual(mine[0]?.action ?? null);
+    // What the demo did before the turn, to rebuild the widget if the demo has to take over.
+    expect(turn._prior).toEqual(
+      first.steps.slice(0, first.childFrom).flatMap((s) => (s.action ? [s.action] : [])),
+    );
   });
 
   it('no new part of a lesson starts after the wind-down', async () => {

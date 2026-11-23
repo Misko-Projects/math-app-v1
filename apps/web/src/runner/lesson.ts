@@ -5,8 +5,9 @@
 // easy / typical difficulty, 03 §6.1) and its steps (authored, or the generator's solution).
 // A faded example's last `childSteps` steps are the child's; the demo always does at least one.
 //
-// An example whose template the hosting workshop cannot show is left out. A lesson with no
-// example to show (mode `none`, 03 §6.4) has no script: there is nothing to demonstrate.
+// A lesson plays only where its worked examples can be shown: a lesson with none (mode `none`,
+// 03 §6.4), or with one on a template the hosting workshop cannot show, has no script, because
+// there is nothing to demonstrate first. A faded example the workshop cannot show is left out.
 
 import type * as EngineModule from '@number-island/engine';
 import type {
@@ -66,7 +67,7 @@ function exampleItem(
   return engine.generateItem(template, example.seed ?? 0, { difficulty });
 }
 
-/** The skill's lesson as a script, or null when it has no example the workshop can show. */
+/** The skill's lesson as a script, or null when the workshop cannot show its worked examples. */
 export function buildLesson(
   engine: LessonEngine,
   graph: SkillGraph,
@@ -74,6 +75,7 @@ export function buildLesson(
   hosts: (template: ItemTemplate) => boolean,
 ): LessonScript | null {
   const { lesson } = skill;
+  if (!lessonPlayable(graph, skill, hosts)) return null;
   const examples: LessonExamplePlay[] = [];
   for (const phase of ['worked', 'faded'] as const) {
     lesson[phase].forEach((example, index) => {
@@ -94,7 +96,6 @@ export function buildLesson(
       });
     });
   }
-  if (examples.length === 0) return null;
   const main = graph.templates[lesson.templateId];
   return {
     skillId: skill.id,
@@ -110,14 +111,18 @@ export function buildLesson(
   };
 }
 
-/** Whether a skill's lesson can open at all: it has an example on a template the workshop shows. */
+/** Whether a skill's lesson can open: it has worked examples, each on a template the workshop shows. */
 export function lessonPlayable(
   graph: SkillGraph,
   skill: Skill,
   hosts: (template: ItemTemplate) => boolean,
 ): boolean {
-  return [...skill.lesson.worked, ...skill.lesson.faded].some((example) => {
-    const template = graph.templates[example.templateId ?? skill.lesson.templateId];
-    return template !== undefined && hosts(template);
-  });
+  const { worked, templateId } = skill.lesson;
+  return (
+    worked.length > 0 &&
+    worked.every((example) => {
+      const template = graph.templates[example.templateId ?? templateId];
+      return template !== undefined && hosts(template);
+    })
+  );
 }

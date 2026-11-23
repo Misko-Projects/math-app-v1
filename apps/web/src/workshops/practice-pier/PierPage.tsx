@@ -458,7 +458,7 @@ function PierRequest({
   /** The lines of the child's turn, then the widget is theirs with the part to do invited. */
   const giveTurn = async (turn: PierLessonStep, stale: () => boolean) => {
     setPhase('lesson');
-    for (const s of turn._turn ?? []) {
+    for (const s of turn._turnLines) {
       await sayLine(s.say, s.vars);
       if (stale()) return;
     }

@@ -6,6 +6,7 @@ import {
   browseRequest,
   browseSkills,
   PIER_EXCLUDED,
+  pierLesson,
   pierMisfit,
   pierPlayable,
 } from './pierRequest';
@@ -62,5 +63,33 @@ describe('what the Practice Pier plays', () => {
       const template = graph.templates[id];
       expect(template && pierPlayable(template), id).toBe(true);
     }
+  });
+
+  it('opens a lesson only where its worked examples can be shown', () => {
+    // A gateway skill with an authored lesson on a widget the pier has.
+    expect(pierLesson(graph, 'CNT.03')).toBe(true);
+    // Fact fluency has no lesson to play (03 §6.4: mode none).
+    const none = Object.values(graph.skills).find((s) => s.lesson.mode === 'none');
+    if (!none) throw new Error('no skill without a lesson in the content');
+    expect(pierLesson(graph, none.id)).toBe(false);
+    // A worked example on a format without a widget: nothing to demonstrate.
+    const unshown = Object.values(graph.skills).filter((s) =>
+      s.lesson.worked.some((e) => {
+        const t = graph.templates[e.templateId ?? s.lesson.templateId];
+        return t !== undefined && !pierPlayable(t);
+      }),
+    );
+    for (const s of unshown) expect(pierLesson(graph, s.id), s.id).toBe(false);
+    const playable = Object.values(graph.skills).filter((s) => pierLesson(graph, s.id));
+    expect(playable.length).toBeGreaterThan(90);
+  });
+
+  it("the content browser's lesson request: the lesson, then one practice item", () => {
+    const request = browseRequest(graph, { skillId: 'CNT.03', templateId: null, lesson: true }, 9);
+    expect(request.tasks.map((t) => [t.mode, t.context, t.skillId])).toEqual([
+      ['lesson', 'lesson', 'CNT.03'],
+      ['item', 'practice', 'CNT.03'],
+    ]);
+    expect(request.tasks[0]?.templateId).toBe(graph.skills['CNT.03']?.lesson.templateId);
   });
 });

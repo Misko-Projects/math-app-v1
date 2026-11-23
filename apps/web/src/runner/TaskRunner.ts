@@ -148,6 +148,12 @@ export interface PierLessonStep extends LessonStepTask {
   _widgetKey: string;
   /** The child's turn: every step that is the child's, in order. Null on a demo step. */
   _turn: LessonStep[] | null;
+  /**
+   * The child's turn: what is said to hand over. Steps authored for the child (`actor: 'child'`)
+   * bring their own lines. A generator's solution has only the demo's lines, which say the answer,
+   * so there the example's own instruction is the invitation.
+   */
+  _turnLines: { say: NarrationKey; vars?: Record<string, string | number> }[];
   /** The child's turn: the demo actions already played in this example. */
   _prior: WidgetAction[];
   /** "I can try" is on offer (grade 1 up, after the first worked step, 03 §6.2). */
@@ -379,6 +385,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       _tier: e.item.tier,
       _widgetKey: `${run.index}:${ex}`,
       _turn: null,
+      _turnLines: [],
       _prior: [],
       _canSkip: false,
     };
@@ -397,16 +404,24 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
     }
     const stepNo = pos.at === 'step' ? pos.step : e.childFrom;
     const step = e.steps[stepNo] as LessonStep;
+    const turn = pos.at === 'turn' ? e.steps.slice(e.childFrom) : null;
+    const turnLines = !turn
+      ? []
+      : turn.every((s) => s.actor === 'child')
+        ? turn.map((s) => ({ say: s.say, ...(s.vars ? { vars: s.vars } : {}) }))
+        : [{ say: e.item.prompt.narration, vars: e.item.prompt.vars }];
+    const line = turnLines[0] ?? { say: step.say, vars: step.vars };
     return {
       ...base,
       phase: e.phase,
       example: e.example,
       step: stepNo,
-      narration: step.say,
-      vars: step.vars ?? {},
+      narration: line.say,
+      vars: line.vars ?? {},
       demo: step.action ?? null,
       childStep: pos.at === 'turn',
-      _turn: pos.at === 'turn' ? e.steps.slice(e.childFrom) : null,
+      _turn: turn,
+      _turnLines: turnLines,
       _prior:
         pos.at === 'turn'
           ? e.steps.slice(0, e.childFrom).flatMap((s) => (s.action ? [s.action] : []))
