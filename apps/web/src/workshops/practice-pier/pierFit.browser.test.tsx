@@ -5,9 +5,14 @@
 //
 // A template that does not fit yet is listed in `pierFitAllowlist.ts` with the reason; an entry
 // that fits again fails here, so the list only ever shrinks.
+//
+// The feedback flow (#20 part 2) is checked the same way: every template again with the look-again
+// cue and the longest line a hint or its worked solution puts in the bubble (a long line makes
+// the top row taller and the area smaller), every hint picture as a card over the area, and the
+// break offer.
 
 import * as engine from '@number-island/engine';
-import type { GeneratedItem, ItemTemplate } from '@number-island/shared';
+import type { GeneratedItem, ItemTemplate, StimulusSpec } from '@number-island/shared';
 import { type AgeMode, planLine, UiProvider } from '@number-island/ui';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -20,7 +25,7 @@ import '@fontsource/andika/latin-700.css';
 import '@fontsource/baloo-2/latin-700.css';
 import '@fontsource/baloo-2/latin-800.css';
 import '@/styles.css';
-import { PierItemScreen } from './PierScreen';
+import { PierBreakOffer, PierItemScreen, type SpokenLine } from './PierScreen';
 import {
   FIT_SEED_EXCEPTIONS,
   FIT_VIEWPORTS,
@@ -85,7 +90,13 @@ afterAll(() => {
 
 const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-function show(item: GeneratedItem, ageMode: AgeMode) {
+/** The feedback state to show an item in: the look-again cue with a line, or a hint's picture. */
+interface FeedbackState {
+  line?: SpokenLine;
+  picture?: StimulusSpec;
+}
+
+function show(item: GeneratedItem, ageMode: AgeMode, feedback: FeedbackState = {}) {
   const { answer: _answer, ...presented } = item;
   shown += 1;
   root.render(
@@ -99,10 +110,14 @@ function show(item: GeneratedItem, ageMode: AgeMode) {
         tier={item.tier}
         itemKey={shown}
         phase="answer"
-        cue={null}
+        cue={feedback.line ? { kind: 'again', say: feedback.line.say } : null}
+        line={feedback.line ?? null}
+        picture={feedback.picture ?? null}
         progress={{ done: 0, total: 5 }}
         onLeave={() => {}}
         onNext={() => {}}
+        onHint={() => {}}
+        onClosePicture={() => {}}
         onResponse={() => {}}
         onInteract={() => {}}
       />
@@ -202,6 +217,50 @@ async function measure(templateId: string): Promise<string[]> {
 const ageModeOf = (template: ItemTemplate): AgeMode =>
   content.store.graph.skills[template.skillId]?.grade === 'K' ? 'k' : 'g1-up';
 
+/** The longest line the feedback flow can put in the bubble for an item: a hint or a solution step. */
+function longestLine(item: GeneratedItem): SpokenLine | undefined {
+  const lines: SpokenLine[] = [
+    ...item.hints
+      .filter((h) => h.level >= 2 && h.level <= 4)
+      .map((h) => ({ say: h.say, vars: h.vars })),
+    ...engine.itemSolution(item).map((s) => ({ say: s.say, vars: s.vars })),
+    { say: `fb.${item.format}.retry` },
+    { say: 'fb.retry' },
+    { say: 'fb.reveal' },
+  ];
+  const length = (l: SpokenLine) => planLine(content.narration, l.say, l.vars)?.text.length ?? 0;
+  return lines.sort((a, b) => length(b) - length(a))[0];
+}
+
+/** A touch target a child can hit (06 §4). */
+const MIN_TARGET_PX = 64;
+/** Text a child reads (06 §5). */
+const MIN_TEXT_PX = 24;
+
+/** What is wrong with a card or screen of buttons laid over, or in, the workshop area. */
+function cardMisfits(card: HTMLElement): string[] {
+  const found: string[] = [];
+  const box = card.getBoundingClientRect();
+  for (const el of card.querySelectorAll<HTMLElement>('button, .ni-stimulus, .ni-bubble')) {
+    const r = el.getBoundingClientRect();
+    const by = Math.max(
+      box.left - r.left,
+      box.top - r.top,
+      r.right - box.right,
+      r.bottom - box.bottom,
+    );
+    const name = el.tagName === 'BUTTON' ? 'a button' : el.className.split(' ')[0];
+    if (by > SLACK_PX) found.push(`${name} ${Math.round(by)} px outside`);
+    if (r.width <= 1 || r.height <= 1) found.push(`${name} is not drawn`);
+    if (el.tagName === 'BUTTON' && !el.classList.contains('ni-bubble')) {
+      if (Math.min(r.width, r.height) < MIN_TARGET_PX - SLACK_PX) {
+        found.push(`a button of ${Math.round(r.width)}x${Math.round(r.height)} px`);
+      }
+    }
+  }
+  return found;
+}
+
 describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: FitViewport) => {
   it('nothing taller or wider than the workshop area, no control outside it', async () => {
     const [width, height] = viewport.split('x').map(Number) as [number, number];
@@ -264,4 +323,117 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
     expect(failing, 'templates that do not fit the workshop area').toEqual([]);
     expect(fitsAgain, 'allowlisted templates that fit: remove them from the list').toEqual([]);
   });
+});
+
+describe.each(FIT_VIEWPORTS)('the feedback flow fits the pier at %s', (viewport: FitViewport) => {
+  const [width, height] = viewport.split('x').map(Number) as [number, number];
+  const templates = () =>
+    Object.values(content.store.graph.templates)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .filter((t) => !(ONLY && !ONLY.includes(t.format)) && !fitAllowance(t, viewport));
+
+  it('every template still fits with the look-again cue and its longest hint or solution line', async () => {
+    await page.viewport(width, height);
+    const failing: string[] = [];
+    let checked = 0;
+    for (const template of templates()) {
+      // In K the bubble shows no words (06 §5), so a line cannot change the layout.
+      if (ageModeOf(template) === 'k') continue;
+      const item = engine.generateItem(template, 1);
+      const line = longestLine(item);
+      show(item, 'g1-up', { line });
+      const misfit = await measure(template.id);
+      checked += 1;
+      if (SHOTS.includes(template.id)) {
+        await page.screenshot({ path: `__fit__/${template.id}-line-${viewport}.png` });
+      }
+      if (misfit.length > 0) {
+        failing.push(
+          `${template.id} (${template.format}) with "${line ? planLine(content.narration, line.say, line.vars)?.text : ''}": ${misfit.join('; ')} [${describeParts()}]`,
+        );
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+    console.info(
+      `pier feedback fit at ${viewport}: ${checked} templates with a line, ${failing.length} do not fit`,
+    );
+    expect(failing, 'templates that do not fit under a hint line').toEqual([]);
+  });
+
+  it('every hint picture fits its card, with a close button a child can hit', async () => {
+    await page.viewport(width, height);
+    const failing: string[] = [];
+    let checked = 0;
+    for (const template of templates()) {
+      const item = engine.generateItem(template, 1);
+      const picture = item.hints.find((h) => h.overlay && h.overlay.kind !== 'none')?.overlay;
+      if (!picture) continue;
+      show(item, ageModeOf(template), { picture });
+      await measure(template.id);
+      let card: HTMLElement | null = null;
+      for (let i = 0; i < SETTLE_LIMIT_FRAMES && !card?.querySelector('.ni-stimulus'); i += 1) {
+        await frame();
+        card = document.querySelector<HTMLElement>('[data-testid="pier-hint-picture"]');
+      }
+      checked += 1;
+      const misfit = card?.querySelector('.ni-stimulus')
+        ? cardMisfits(card)
+        : ['the picture did not render'];
+      if (SHOTS.includes(template.id)) {
+        await page.screenshot({ path: `__fit__/${template.id}-picture-${viewport}.png` });
+      }
+      if (misfit.length > 0) failing.push(`${template.id} (${picture.kind}): ${misfit.join('; ')}`);
+    }
+    expect(checked).toBeGreaterThan(100);
+    console.info(
+      `pier hint pictures at ${viewport}: ${checked} pictures, ${failing.length} do not fit`,
+    );
+    expect(failing, 'hint pictures that do not fit their card').toEqual([]);
+  });
+
+  it.each(['k', 'g1-up'] as const)(
+    'the break offer and the hint button fit (%s)',
+    async (ageMode) => {
+      await page.viewport(width, height);
+      root.render(
+        <UiProvider
+          ageMode={ageMode}
+          reducedMotion
+          narrationText={(key, vars) => planLine(content.narration, key, vars)?.text}
+        >
+          <PierBreakOffer onKeep={() => {}} onBreak={() => {}} onLeave={() => {}} />
+        </UiProvider>,
+      );
+      let screen: HTMLElement | null = null;
+      for (let i = 0; i < SETTLE_LIMIT_FRAMES && !screen; i += 1) {
+        await frame();
+        screen = document.querySelector<HTMLElement>('[data-testid="pier-break"]');
+      }
+      if (!screen) throw new Error('the break offer did not render');
+      await frame();
+      const stage = screen.querySelector<HTMLElement>('[data-testid="pier-stage"]') as HTMLElement;
+      expect(stage.scrollHeight - stage.clientHeight).toBeLessThanOrEqual(SLACK_PX);
+      expect(stage.scrollWidth - stage.clientWidth).toBeLessThanOrEqual(SLACK_PX);
+      expect(cardMisfits(stage)).toEqual([]);
+      expect(stage.querySelectorAll('button:not(.ni-bubble)')).toHaveLength(2);
+      const words = stage.querySelector<HTMLElement>('.ni-bubble');
+      expect(words?.textContent).toMatch(/break/);
+      expect(
+        Number.parseFloat(getComputedStyle(words as HTMLElement).fontSize),
+      ).toBeGreaterThanOrEqual(MIN_TEXT_PX);
+      if (SHOTS.includes('break')) {
+        await page.screenshot({ path: `__fit__/break-${ageMode}-${viewport}.png` });
+      }
+
+      // The lightbulb in the top row of an item.
+      const template = Object.values(content.store.graph.templates).find(
+        (t) => t.format === 'number-pad' && !fitAllowance(t, viewport),
+      ) as ItemTemplate;
+      show(engine.generateItem(template, 1), ageMode);
+      await measure(template.id);
+      const hint = document.querySelector<HTMLElement>('[data-testid="pier"] header .ni-hint');
+      const r = hint?.getBoundingClientRect();
+      expect(Math.min(r?.width ?? 0, r?.height ?? 0)).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+    },
+  );
 });

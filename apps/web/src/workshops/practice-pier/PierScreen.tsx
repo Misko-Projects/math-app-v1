@@ -187,7 +187,7 @@ export function PierFrame({
           <span
             aria-hidden="true"
             data-testid="pier-stage-cue"
-            className="pointer-events-none absolute top-0 left-1/2 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-wood-deep bg-sunshine-light"
+            className="pointer-events-none absolute top-0 left-1/2 z-20 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-wood-deep bg-sunshine-light"
           >
             <span className="size-7">
               <LookAgainIcon />

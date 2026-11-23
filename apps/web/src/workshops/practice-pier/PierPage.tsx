@@ -361,7 +361,9 @@ function PierRequest({
       if (stale()) return;
     }
     if (step.overlay && step.overlay.kind !== 'none') setPicture(step.overlay);
-    setLine(null);
+    // The hint's words stay in the bubble until the next answer: a child who reads can read them
+    // again, and tapping the bubble says them again.
+    setLine({ say: step.say, vars: step.vars });
     readyAt.current = clockNow();
     setPhase('answer');
   };
@@ -429,6 +431,7 @@ function PierRequest({
       return;
     }
     setPhase('checking');
+    setLine(null);
     const latencyMs = clockNow() - readyAt.current;
     runner.submit(response, { latencyMs, trace: [...trace.current] }).then((fb) => {
       // The deterministic line plays now; an AI line may follow it (06 §6). Nothing delivers one
