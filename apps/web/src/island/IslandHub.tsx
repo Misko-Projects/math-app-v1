@@ -236,15 +236,19 @@ export function IslandHub({
                 : 'ui.island.hello';
 
   // The guide speaks once per visit: that a building has to be placed again, what the request
-  // just made, the island's name, or the greeting.
+  // just made, the island's name, or the greeting. Back from a request that laid a road stone
+  // (Road Crew), the island counts on to that stone instead, as it does for its own button.
   const greeted = useRef(false);
+  const laid = hub.result?.road;
+  const { countOn } = build;
   useEffect(() => {
     if (!idle || displaced === null || welcome === undefined || greeted.current) return;
     greeted.current = true;
-    say(line);
+    if (laid !== undefined) countOn(laid);
+    else say(line);
     if (displaced.length > 0) markDisplacedTold(displaced);
     if (welcome && line === welcome.welcome) markWelcomed(child.id, welcome);
-  }, [idle, displaced, welcome, line, say, child.id]);
+  }, [idle, displaced, welcome, line, say, child.id, laid, countOn]);
 
   // The wind-down hook: no item is ever in progress here, so end now and show the sunset.
   useEffect(

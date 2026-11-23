@@ -37,7 +37,7 @@ import '@fontsource/baloo-2/latin-700.css';
 import '@fontsource/baloo-2/latin-800.css';
 import '@/styles.css';
 import { buildLesson, type LessonExamplePlay } from '@/runner/lesson';
-import { PierBreakOffer, PierItemScreen, type SpokenLine } from './PierScreen';
+import { BreakOffer, PlayItemScreen, type SpokenLine } from '../play/PlayScreen';
 import {
   FIT_SEED_EXCEPTIONS,
   FIT_VIEWPORTS,
@@ -120,7 +120,7 @@ function show(item: GeneratedItem, ageMode: AgeMode, feedback: FeedbackState = {
       reducedMotion
       narrationText={(key, vars) => planLine(content.narration, key, vars)?.text}
     >
-      <PierItemScreen
+      <PlayItemScreen
         item={presented}
         tier={item.tier}
         itemKey={shown}
@@ -417,7 +417,7 @@ describe.each(FIT_VIEWPORTS)('the feedback flow fits the pier at %s', (viewport:
           reducedMotion
           narrationText={(key, vars) => planLine(content.narration, key, vars)?.text}
         >
-          <PierBreakOffer onKeep={() => {}} onBreak={() => {}} onLeave={() => {}} />
+          <BreakOffer onKeep={() => {}} onBreak={() => {}} onLeave={() => {}} />
         </UiProvider>,
       );
       let screen: HTMLElement | null = null;
@@ -468,7 +468,7 @@ function showLesson(
       reducedMotion
       narrationText={(key, vars) => planLine(content.narration, key, vars)?.text}
     >
-      <PierItemScreen
+      <PlayItemScreen
         item={{ widget: example.item.widget, prompt: { narration: line.say, vars: line.vars } }}
         lesson={{
           onReplay: () => {},

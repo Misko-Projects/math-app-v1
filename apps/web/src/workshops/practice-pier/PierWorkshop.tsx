@@ -2,12 +2,12 @@
 // The pier's own summary screen comes before the exit, so every way out reports `completed` when
 // the request ran to its end and `child-exit` otherwise; a wind-down ends the request itself.
 
+import { RequestPlay } from '../play/RequestPlay';
 import type { AppWorkshopProps } from '../types';
-import { PierRequest } from './PierPage';
 
 export default function PierWorkshop({ runner, onExit }: AppWorkshopProps) {
   return (
-    <PierRequest
+    <RequestPlay
       runner={runner}
       onLeave={(summary) =>
         onExit(

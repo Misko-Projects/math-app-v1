@@ -12,6 +12,8 @@ export interface RequestResult {
   materials: Recipe;
   /** The decor a completed request earned (`reward.decor`): already in the collection. */
   decor: DecorId[];
+  /** The road stone the request's workshop laid (Road Crew): the island counts on to it. */
+  road?: number;
 }
 
 /**

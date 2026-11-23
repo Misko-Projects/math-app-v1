@@ -92,6 +92,8 @@ function OwnedRequest({ child, session, request }: HostedProps) {
   // The runner the screen plays with: its `finish()` also writes the decor a request played to
   // its end earns (`decorGrant.ts`), so the family owns it as soon as the request is over.
   const granting = useRef<DecorGrant<PierTaskRunner> | null>(null);
+  // The road stone the workshop laid at its parade, for the island to count on to.
+  const road = useRef<number | undefined>(undefined);
   // Called once the screen is gone and the request is over, whichever way the child left. A
   // request that could not be written made nothing.
   const finished = useCallback(
@@ -102,7 +104,12 @@ function OwnedRequest({ child, session, request }: HostedProps) {
         const decor = granting.current
           ? await settleDecorGrant(granting.current, (e) => recordDiagnostic('decor.earned', e))
           : [];
-        complete({ requestId: request.id, materials: summary?.materials ?? {}, decor });
+        complete({
+          requestId: request.id,
+          materials: summary?.materials ?? {},
+          decor,
+          road: road.current,
+        });
       })();
     },
     [complete, request.id],
@@ -120,7 +127,10 @@ function OwnedRequest({ child, session, request }: HostedProps) {
   }, [base, request, store, child.id]);
   const Screen = screenOf(workshopFor(request.workshopId));
   const exit = useCallback(
-    (_reason: WorkshopExitReason) => navigate(`/play/${child.id}`, { replace: true }),
+    (_reason: WorkshopExitReason, built?: { road: number }) => {
+      road.current = built?.road;
+      navigate(`/play/${child.id}`, { replace: true });
+    },
     [navigate, child.id],
   );
   return (
@@ -129,6 +139,7 @@ function OwnedRequest({ child, session, request }: HostedProps) {
         <Screen
           request={request}
           runner={runner}
+          childId={child.id}
           avatar={child.avatar}
           audio={audio}
           onExit={exit}
