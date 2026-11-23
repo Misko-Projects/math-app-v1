@@ -261,6 +261,7 @@ function PierRequest({
         child: ctx,
         request,
         hosts: pierPlayable,
+        misconceptions: content.misconceptions,
         queueRemediation: (r) => remediationQueue.add(child.id, r),
         session: {
           sessionId: session.sessionId,

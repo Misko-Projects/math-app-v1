@@ -417,7 +417,7 @@ describe.each(FIT_VIEWPORTS)('the feedback flow fits the pier at %s', (viewport:
       expect(cardMisfits(stage)).toEqual([]);
       expect(stage.querySelectorAll('button:not(.ni-bubble)')).toHaveLength(2);
       const words = stage.querySelector<HTMLElement>('.ni-bubble');
-      expect(words?.textContent).toMatch(/break/);
+      expect(words?.textContent).toMatch(/stop/);
       expect(
         Number.parseFloat(getComputedStyle(words as HTMLElement).fontSize),
       ).toBeGreaterThanOrEqual(MIN_TEXT_PX);

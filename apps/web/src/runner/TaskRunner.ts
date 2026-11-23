@@ -38,6 +38,7 @@ import {
   type LearnerState,
   type LessonStep,
   type MisconceptionId,
+  type MisconceptionSpec,
   type NarrationKey,
   type PlannedRequest,
   type PlannedTask,
@@ -86,6 +87,11 @@ export interface TaskRunnerDeps {
   request: PlannedRequest;
   /** Whether the hosting workshop can show a template (a tier step-down only picks such ones). */
   hosts(template: ItemTemplate): boolean;
+  /**
+   * The content's misconceptions (03 §7.1). A wrong first try that shows one in how the child
+   * worked (the process detectors) is answered with that misconception's own line.
+   */
+  misconceptions?: readonly Pick<MisconceptionSpec, 'id' | 'feedback'>[];
   /** Takes a remediation `adaptNext` queued (04 §6.4 rule 5); the next plan starts with it. */
   queueRemediation?(remediation: QueuedRemediation): void;
 }
@@ -375,8 +381,15 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       // Hints the child asked for are written before the attempt they led to.
       await hintWrites;
       const hintsUsed = cur.shown.size;
+      // The answer's own misconception already chose the line (`checkResponse`); one seen only
+      // in how the child worked chooses it here.
+      const shownInProcess =
+        !checked.correct && checked.misconceptionIds.length === 0
+          ? deps.misconceptions?.find((m) => m.id === process[0] && !loggedOnItem.has(m.id))
+          : undefined;
       const result: CheckResult = {
         ...checked,
+        feedback: shownInProcess?.feedback ?? checked.feedback,
         // 04 §2.3: 1 right, 0.5 right with hints, 0 wrong.
         partialCredit: checked.correct ? (hintsUsed > 0 ? 0.5 : 1) : 0,
         misconceptionIds: matched.filter((id) => !loggedOnItem.has(id)),

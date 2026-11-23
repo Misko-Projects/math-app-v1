@@ -14,6 +14,7 @@ import {
   type EventPayloads,
   type GeneratedItem,
   type ItemTemplate,
+  type MisconceptionSpec,
   type PlannedRequest,
   type PlannedTask,
   type ResponseValue,
@@ -89,7 +90,11 @@ const template = (id: string): ItemTemplate => {
 
 async function start(
   tasks: PlannedTask[],
-  over: { materials?: PlannedRequest['reward']['materials']; queue?: QueuedRemediation[] } = {},
+  over: {
+    materials?: PlannedRequest['reward']['materials'];
+    queue?: QueuedRemediation[];
+    misconceptions?: MisconceptionSpec[];
+  } = {},
 ) {
   const store: DataStore = await testEnv().open();
   await store.putProfile(kid);
@@ -116,6 +121,7 @@ async function start(
     session,
     request: request(tasks, over.materials),
     hosts: pierPlayable,
+    misconceptions: over.misconceptions,
     queueRemediation: (r) => over.queue?.push(r),
   });
   const last = () => items.at(-1) as GeneratedItem;
@@ -222,6 +228,64 @@ describe('the hint ladder', () => {
     expect(play.runner.progress()).toMatchObject({ done: 1, materialEarned: 0 });
     // "next" moves on to the next item, with a ladder of its own.
     expect(play.runner.next()).toMatchObject({ kind: 'item', attemptNo: 1, hintLevel: 0 });
+  });
+});
+
+describe('misconceptions and the line that is spoken', () => {
+  const misconceptions = () => {
+    const compiled = compileContent(readContentFiles()).content;
+    if (!compiled) throw new Error('the content does not compile');
+    return compiled.misconceptions;
+  };
+
+  it('a wrong answer that matches a misconception is answered with its line, then the hint', async () => {
+    const play = await start(
+      [1, 2, 3, 4, 5, 6].map((seed) => task(template(COUNT), seed)),
+      { misconceptions: misconceptions() },
+    );
+    let count = 0;
+    for (;;) {
+      const right = engine.itemExampleCorrect(play.last());
+      count = right.kind === 'number' ? right.value : 0;
+      if (count >= 4) break;
+      await play.right();
+      if (!play.runner.next()) throw new Error('no item with four objects');
+    }
+    const fb = await play.runner.submit({ kind: 'number', value: count - 1 }, meta);
+    expect(fb.misconceptionIds).toEqual(['MC.off-by-one-counting']);
+    expect(fb.say.key).toBe('fb.mc.off-by-one-counting');
+    expect(fb.hint?.level).toBe(2);
+  });
+
+  it('a misconception seen in how the child worked chooses the line on the first try only', async () => {
+    const t = template('CNT.03.t1');
+    const play = await start([task(t, 3)], { misconceptions: misconceptions() });
+    const right = engine.itemExampleCorrect(play.last());
+    const n = right.kind === 'number' ? right.value : 0;
+    expect(n).toBeGreaterThanOrEqual(2);
+    const pass = (from: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        t: 'tap' as const,
+        target: `obj-${i}`,
+        ms: from + i,
+      }));
+    // Counted twice from the start, and the answer is wrong.
+    const twice = [...pass(0), ...pass(100)];
+    const first = await play.runner.submit(
+      { kind: 'number', value: n + 2 },
+      { latencyMs: 5000, trace: twice },
+    );
+    expect(first.misconceptionIds).toEqual(['MC.recount-from-one']);
+    expect(first.say.key).toBe('fb.mc.recount-from-one');
+    expect(first.feedback).toBe('fb.mc.recount-from-one');
+    play.runner.next();
+    // The second try is not judged for it again: the worked solution's own line.
+    const second = await play.runner.submit(
+      { kind: 'number', value: n + 2 },
+      { latencyMs: 5000, trace: [...twice, ...pass(200)] },
+    );
+    expect(second.misconceptionIds).toEqual([]);
+    expect(second.say.key).toBe('fb.reveal');
   });
 });
 
