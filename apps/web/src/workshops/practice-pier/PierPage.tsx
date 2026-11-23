@@ -16,6 +16,13 @@
 // step, and then "next" moves on. The lightbulb asks for the next hint at any time. After the
 // easy item that follows a frustration signal, the child is offered a break.
 //
+// A lesson (03 §6, #20 part 3) plays in the same screen, one step at a time: the step's line is
+// spoken and shown while the example's widget animates the step in demo mode, then the next step
+// follows. At the end of a faded example the widget is the child's (no hand points at what to do:
+// that would be the answer), a right answer moves on, and after a second unsuccessful try the demo does it (no "wrong"
+// language). "Show me again" repeats the current step's line. The lesson's scaffolded items are
+// ordinary items whose first hint plays before the child starts.
+//
 // `?browse` with the dev flag (`localStorage['ni.dev'] = '1'`) opens the content browser instead:
 // pick any skill and play one item of each of its templates.
 
@@ -27,7 +34,6 @@ import type {
   NarrationKey,
   PlannedRequest,
   ResponseValue,
-  RunnerTask,
   StimulusSpec,
   WidgetAction,
 } from '@number-island/shared';
@@ -52,7 +58,14 @@ import { type AnswerTime, createAnswerTime } from '@/runner/answerTime';
 import { childContext } from '@/runner/childContext';
 import { createIdleWatch, type IdleWatch } from '@/runner/idleWatch';
 import { remediationQueue } from '@/runner/remediationQueue';
-import { createTaskRunner, type PierTaskRunner, type RequestSummary } from '@/runner/TaskRunner';
+import { createSayAgain, type SayAgain } from '@/runner/sayAgain';
+import {
+  createTaskRunner,
+  type PierItemTask,
+  type PierLessonStep,
+  type PierTaskRunner,
+  type RequestSummary,
+} from '@/runner/TaskRunner';
 import { createVisibleClock, type VisibleClock } from '@/runner/visibleClock';
 import {
   Beads,
@@ -67,6 +80,7 @@ import {
   type BrowsePick,
   browseRequest,
   browseSkills,
+  pierLesson,
   pierMisfit,
   pierPlayable,
   planPierRequest,
@@ -97,7 +111,7 @@ export function PierPage() {
   } else {
     screen = (
       <PierRequest
-        key={`${browsing.skillId}:${browsing.templateId}`}
+        key={`${browsing.skillId}:${browsing.templateId}:${browsing.lesson === true}`}
         child={child}
         session={session}
         skill={browsing}
@@ -108,7 +122,7 @@ export function PierPage() {
   return <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>{screen}</ChildUi>;
 }
 
-type ItemTask = Extract<RunnerTask, { kind: 'item' }>;
+type PierTask = PierItemTask | PierLessonStep;
 
 /** Throws `error` from render, so the route's error screen shows it (never a silent stall). */
 function useRaise(): (error: unknown) => void {
@@ -138,7 +152,7 @@ function PierRequest({
   const { store, audio, content } = services;
 
   const [runner, setRunner] = useState<PierTaskRunner | null>(null);
-  const [task, setTask] = useState<ItemTask | null>(null);
+  const [task, setTask] = useState<PierTask | null>(null);
   const [phase, showPhase] = useState<Phase>('prompt');
   // The phase as of now, for handlers: two taps can land before the next render (a double tap on
   // "next" must not skip an item).
@@ -282,8 +296,8 @@ function PierRequest({
     starting.current.then((r) => {
       if (!alive) return;
       setRunner(r);
-      const first = r.current();
-      if (first?.kind === 'item') setTask(first);
+      const first = r.current() as PierTask | null;
+      if (first) setTask(first);
       else void r.finish().then((s) => alive && setSummary(s), raise);
     }, raise);
     return () => {
@@ -292,7 +306,10 @@ function PierRequest({
   }, [child, session, skill, store, content, controller, raise]);
 
   // A new item: speak the prompt, then the item is ready.
-  const item = task?.item ?? null;
+  const item = task?.kind === 'item' ? task.item : null;
+  const step = task?.kind === 'lesson-step' ? task : null;
+  const taskNow = useRef<PierTask | null>(null);
+  taskNow.current = task;
   // One widget instance per presented item: it stays mounted through the second try and the
   // feedback, with the child's work in it, and a new item (even the same one again) remounts.
   const presented = useRef(0);
@@ -301,7 +318,9 @@ function PierRequest({
     presented.current += 1;
     return presented.current;
   }, [item]);
-  const itemKey = `${itemNo}:${restarts}`;
+  const itemKey = step ? `lesson:${step._widgetKey}:${restarts}` : `${itemNo}:${restarts}`;
+  // The hint player as of this render, for the effect that starts an item.
+  const nudge = useRef<(rung: HintStep) => void>(() => {});
   useEffect(() => {
     if (!item) return;
     let alive = true;
@@ -313,6 +332,13 @@ function PierRequest({
     setPhase('prompt');
     const ready = () => {
       if (!alive) return;
+      // A scaffolded lesson item: the ladder opens before the child starts (03 §6.2).
+      const now = taskNow.current;
+      const opening = now?.kind === 'item' ? now._nudge : undefined;
+      if (opening) {
+        nudge.current(opening);
+        return;
+      }
       time.start();
       setPhase('answer');
     };
@@ -347,6 +373,8 @@ function PierRequest({
   const playHint = async (
     step: HintStep,
     feedback?: { say: NarrationKey | undefined; shown: () => void },
+    /** The rung opens the try (a scaffolded lesson item): its answering time starts after it. */
+    opening = false,
   ) => {
     playing.current += 1;
     const mine = playing.current;
@@ -376,10 +404,11 @@ function PierRequest({
     // The hint's words stay in the bubble until the next answer: a child who reads can read them
     // again, and tapping the bubble says them again.
     setLine({ say: step.say, vars: step.vars });
-    if (feedback) time.start();
+    if (feedback || opening) time.start();
     else time.resume();
     setPhase('answer');
   };
+  nudge.current = (rung) => void playHint(rung, undefined, true);
 
   /** Plays the worked solution (level 5): each step's line with its action, on a fresh widget. */
   const playSolution = async (
@@ -422,6 +451,104 @@ function PierRequest({
     };
   }, []);
 
+  const show = (r: PierTaskRunner, upcoming: PierTask | null) => {
+    if (upcoming) setTask(upcoming);
+    else end(r);
+  };
+
+  /** The lines of the child's turn, then the widget is theirs with the part to do invited. */
+  const giveTurn = async (turn: PierLessonStep, stale: () => boolean) => {
+    setPhase('lesson');
+    again.reset();
+    for (const s of turn._turnLines) {
+      await sayLine(s.say, s.vars);
+      await again.drain(hear, stale);
+      if (stale()) return;
+    }
+    setLine({ say: turn.narration, vars: turn.vars });
+    // No hand on the child's turn: a widget's invitation points at the exact target, which for
+    // the last step is the answer itself. The hand is the demo's.
+    time.start();
+    setPhase('turn');
+  };
+
+  // A lesson step: its line with its action in the widget's demo mode, then the next step. One
+  // play per step (StrictMode runs effects twice; a demo action must not).
+  const started = useRef<PierLessonStep | null>(null);
+  const sayAgain = useRef<SayAgain<SpokenLine> | null>(null);
+  sayAgain.current ??= createSayAgain<SpokenLine>();
+  const again = sayAgain.current;
+  /** Says a line the child asked to hear again: the one that was on screen at the press. */
+  const hear = (l: SpokenLine) => sayLine(l.say, l.vars);
+  // The line on screen as of this render, for the speaker's handler.
+  const lineNow = useRef<SpokenLine | null>(null);
+  lineNow.current = line;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new step is what plays
+  useEffect(() => {
+    if (!step || !runner || started.current === step) return;
+    started.current = step;
+    playing.current += 1;
+    const mine = playing.current;
+    const stale = () => playing.current !== mine || !mounted.current || left.current;
+    again.reset();
+    setCue(null);
+    setPicture(null);
+    void (async () => {
+      if (step.childStep) {
+        await giveTurn(step, stale);
+        return;
+      }
+      setPhase('lesson');
+      if (step._lead) {
+        await sayLine(step._lead);
+        if (stale()) return;
+      }
+      await Promise.all([sayLine(step.narration, step.vars), step.demo ? act(step.demo) : null]);
+      await again.drain(hear, stale);
+      if (stale()) return;
+      show(runner, runner.next() as PierTask | null);
+    })();
+  }, [step, runner]);
+
+  /** The child's answer on their turn in a faded example. */
+  const onTurn = (turn: PierLessonStep, response: ResponseValue) => {
+    if (!runner) return;
+    setPhase('checking');
+    const latencyMs = time.elapsed();
+    time.pause();
+    const result = runner.lessonAnswer(response, { latencyMs });
+    playing.current += 1;
+    const mine = playing.current;
+    const stale = () => playing.current !== mine || !mounted.current || left.current;
+    if (result === 'done') {
+      audio.sfx('chime');
+      setCue({ kind: 'right', say: undefined });
+      setPhase('feedback');
+    } else if (result === 'again') {
+      void giveTurn(turn, stale);
+    } else {
+      // The demo does the child's steps, on a fresh widget brought to where the turn began.
+      void (async () => {
+        setPhase('lesson');
+        again.reset();
+        await restartWidget();
+        for (const action of turn._prior) {
+          if (stale()) return;
+          await act(action);
+        }
+        // The invitation is still on screen while the widget is rebuilt: a press then is for it.
+        await again.drain(hear, stale);
+        for (const s of turn._turn ?? []) {
+          if (stale()) return;
+          await Promise.all([sayLine(s.say, s.vars), s.action ? act(s.action) : null]);
+          await again.drain(hear, stale);
+        }
+        if (stale()) return;
+        show(runner, runner.next() as PierTask | null);
+      })();
+    }
+  };
+
   const speak = useCallback(
     (key: NarrationKey | undefined) => {
       if (key) void audio.say(key).catch(() => {});
@@ -441,7 +568,12 @@ function PierRequest({
   );
 
   const onResponse = (response: ResponseValue) => {
-    if (!runner || phaseNow.current !== 'answer') return;
+    if (!runner) return;
+    if (step && phaseNow.current === 'turn' && response.kind !== 'skip') {
+      onTurn(step, response);
+      return;
+    }
+    if (phaseNow.current !== 'answer' && phaseNow.current !== 'turn') return;
     // Only the placeholder answers a skip: the widget is missing, or it failed to load or render.
     // That is not the child's answer, so nothing is logged and the request ends here.
     if (response.kind === 'skip') {
@@ -463,7 +595,7 @@ function PierRequest({
       if (fb.retry) {
         audio.sfx('knock');
         setCue({ kind: 'again', say: fb.say.key });
-        const again = runner.next();
+        const again = runner.next() as PierTask | null;
         if (again?.kind === 'item') setTask(again);
         if (fb.hint) {
           void playHint(fb.hint, { say: fb.say.key, shown: fb.shown });
@@ -490,7 +622,7 @@ function PierRequest({
     if (!runner || phaseNow.current !== 'answer') return;
     const step = runner.hint();
     if (!step) return;
-    const shown = runner.current();
+    const shown = runner.current() as PierTask | null;
     if (shown?.kind === 'item') setTask(shown);
     // The time spent so far on this try still counts; the hint itself does not.
     time.pause();
@@ -499,9 +631,7 @@ function PierRequest({
 
   const advance = (r: PierTaskRunner) => {
     setPhase('prompt');
-    const upcoming = r.next();
-    if (upcoming?.kind === 'item') setTask(upcoming);
-    else end(r);
+    show(r, r.next() as PierTask | null);
   };
 
   const goNext = () => {
@@ -563,10 +693,35 @@ function PierRequest({
     );
   }
 
+  const lessonControls = step
+    ? {
+        onReplay: () => {
+          // While the lesson plays by itself (a demo step, the hand-over of a turn, the demo
+          // taking a turn over), the line on screen comes once more before it moves on; on the
+          // child's turn and after it, it is said again at once.
+          if (phaseNow.current === 'lesson') {
+            again.ask(lineNow.current ?? { say: step.narration, vars: step.vars });
+          } else void audio.say(step.narration, step.vars).catch(() => {});
+        },
+        onSkip: step._canSkip
+          ? () => {
+              const upcoming = runner?.skipWorked() as PierTask | null | undefined;
+              if (!runner || upcoming === undefined) return;
+              audio.stop();
+              show(runner, upcoming);
+            }
+          : null,
+      }
+    : null;
+
   return (
     <PierItemScreen
-      item={item}
-      tier={task?.tier ?? 'abstract'}
+      item={
+        item ??
+        (step && { widget: step.widget, prompt: { narration: step.narration, vars: step.vars } })
+      }
+      lesson={lessonControls}
+      tier={task?.kind === 'item' ? task.tier : (step?._tier ?? 'abstract')}
       itemKey={itemKey}
       phase={phase}
       cue={cue}
@@ -645,6 +800,15 @@ function ContentBrowser({
               {s.skillId} {graph.skills[s.skillId]?.name}
             </button>
             <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={`${chip} font-bold`}
+                disabled={!pierLesson(graph, s.skillId)}
+                title={pierLesson(graph, s.skillId) ? undefined : 'no lesson the pier can show'}
+                onClick={() => onPick({ skillId: s.skillId, templateId: null, lesson: true })}
+              >
+                Lesson ({graph.skills[s.skillId]?.lesson.mode})
+              </button>
               {s.templates.map((t) => (
                 <button
                   key={t.id}

@@ -599,5 +599,10 @@ describe('what a request leaves behind', () => {
     });
     expect(planned?.narration).toBe('req.idea');
     expect(planned?.tasks.some((p) => p.skillId === remediation.skillId)).toBe(true);
+    // The remediation request plays that skill's lesson (#20 part 3), then its items.
+    expect(planned?.tasks.filter((p) => p.mode === 'lesson')).toMatchObject([
+      { skillId: remediation.skillId, context: 'lesson' },
+    ]);
+    expect(planned?.tasks.some((p) => p.mode === 'item')).toBe(true);
   });
 });

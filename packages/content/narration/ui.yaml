@@ -1484,3 +1484,7 @@ ui.pier.break.no:
 ui.pier.picture:
   text: "A picture to help you"
   level: K
+# The lesson player's own controls (03 §6.2, #20 part 3).
+ui.lesson.try:
+  text: "I can try"
+  level: K

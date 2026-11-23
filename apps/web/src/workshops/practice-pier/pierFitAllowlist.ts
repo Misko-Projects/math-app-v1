@@ -117,3 +117,49 @@ export function fitAllowance(
   );
   return entry ? { kind: 'misfit', reason: entry.reason } : null;
 }
+
+/**
+ * Lesson steps whose action the example's widget does not animate in demo mode (03 §6.3), as
+ * `<skill> <phase> <example> step <n>: <op> (<format>)`. The lesson player speaks and shows the
+ * step's line, skips the action and notes it in the diagnostics (#20 part 3); the fix belongs to
+ * the widget or to the lesson. The fit check holds this list to what the shipped lessons do.
+ */
+export const LESSON_OPS_NOT_SHOWN: readonly string[] = [];
+
+export interface LessonFitException {
+  /** `<skill>:<phase>:<example>` (0-based), as the lesson's `lesson.step` events name it. */
+  example: string;
+  at: readonly FitViewport[];
+  reason: string;
+}
+
+/**
+ * Lesson examples that do not fit the area though their template's first seed does: a lesson
+ * fixes its own numbers (03 §6.1). The check fails when a listed example fits again, or when
+ * another one stops fitting. The fix belongs to the widget (#20 part 3 does not change widgets).
+ */
+export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [
+  {
+    example: 'CNT.03:faded:1',
+    at: SMALL,
+    reason:
+      'tap-count, K, eight scattered objects to count by tapping: the scatter of 80 px targets is 451 px tall and the area has 366 at 960 × 600, so the area scrolls (it fits at 1280 × 800). The same limit as the CNT.03.t1 seeds listed above; fix: a wider, shorter scatter for tappable sets in short areas.',
+  },
+  {
+    example: 'CPS.06:worked:0',
+    at: SMALL,
+    reason:
+      'number-bond, new-way with ways already found (whole 5): the bond is 212 px tall and the row of found ways 186 px, stacked to 422 px in a 358 px area at 960 × 600, so the area scrolls (it fits at 1280 × 800); fix: the found ways beside the bond in short areas.',
+  },
+  {
+    example: 'CPS.06:faded:0',
+    at: SMALL,
+    reason:
+      'number-bond, new-way with three ways already found (whole 8): the bond with its counters is 364 px tall and the row of found ways 186 px, stacked to 574 px in a 358 px area at 960 × 600, so the area scrolls with Check below (it fits at 1280 × 800); fix: the found ways beside the bond in short areas.',
+  },
+  {
+    example: 'CPS.06:faded:1',
+    at: SMALL,
+    reason: 'As CPS.06:faded:0 (number-bond new-way, the found ways stacked under the bond).',
+  },
+];
