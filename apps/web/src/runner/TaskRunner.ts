@@ -8,13 +8,20 @@
 // attempt, `request.tasks` is the working list (inserted tasks are spliced in after the current
 // one), and `doneTaskIds` holds every presented task, the current one included.
 //
-// Part 1 of #20. Not here yet, and each named where it would go:
-// - the hint ladder (`hint()` returns null; `hintsUsed` is always 0) and the worked solution: a
-//   `show-solution` decision is resolved at once by the protocol's second `adaptNext` call;
-// - the break offer after a confidence item, the remediation queue, `material.produced`
-//   (`materialEarned` stays 0) and the long-idle signal (always 0);
-// - lesson tasks, which are skipped (the lesson player is part 3);
-// - AI feedback: `onAiFeedback` never calls back.
+// The feedback flow (#20 part 2, 04 §6.4, 03 §5.8):
+// - the hint ladder: `hint()` gives the item's next rung among levels 2–4 and a retry gives the
+//   rung `adaptNext` asks for (the next one up when the child has seen that one). Each rung shown
+//   is one `hint.used` event and one `hintsUsed`; a right answer after a hint is half credit;
+// - the worked solution: on a `show-solution` decision the feedback carries the item's solution
+//   steps (`hint.used` level 5), and the protocol's second `adaptNext` call resolves the item;
+// - `queueRemediation` goes to `deps.queueRemediation`, which keeps one per (skill,
+//   misconception) for the next plan;
+// - frustration: `idle()` counts a long idle period; after the confidence item the runner holds
+//   a break offer (`breakOffered()`, `answerBreak()`);
+// - `material.produced` is written once in `finish()`: one unit per item answered right.
+//
+// Not here yet: lesson tasks, which are skipped (the lesson player is part 3), and AI feedback
+// (`onAiFeedback` never calls back, #21).
 
 import type * as EngineModule from '@number-island/engine';
 import {
@@ -29,11 +36,13 @@ import {
   type InteractionEvent,
   type ItemTemplate,
   type LearnerState,
+  type LessonStep,
   type MisconceptionId,
   type NarrationKey,
   type PlannedRequest,
   type PlannedTask,
   type PresentedItem,
+  type Recipe,
   type ResponseValue,
   type RunnerFeedback,
   type RunnerTask,
@@ -52,6 +61,7 @@ export type RunnerEngine = Pick<
   | 'detectProcessMisconceptions'
   | 'detectStrategies'
   | 'generateItem'
+  | 'itemSolution'
   | 'targetDifficulty'
 >;
 
@@ -76,7 +86,11 @@ export interface TaskRunnerDeps {
   request: PlannedRequest;
   /** Whether the hosting workshop can show a template (a tier step-down only picks such ones). */
   hosts(template: ItemTemplate): boolean;
+  /** Takes a remediation `adaptNext` queued (04 §6.4 rule 5); the next plan starts with it. */
+  queueRemediation?(remediation: QueuedRemediation): void;
 }
+
+export type QueuedRemediation = NonNullable<AdaptDecision['queueRemediation']>;
 
 export type RequestEndReason = Extract<AdaptDecision, { action: 'end-request' }>['reason'];
 
@@ -85,10 +99,30 @@ export interface RequestSummary {
   firstTryCorrect: number;
   /** Why the request ended; `child-exit` when the child left before it did. */
   reason: RequestEndReason | 'child-exit';
+  /** What the request produced: one unit per item answered right, from its reward. */
+  materials: Recipe;
+}
+
+/** What the screen plays after an answer, beyond the shared contract. */
+export interface PierFeedback extends RunnerFeedback {
+  /** A retry: the rung of the hint ladder to show before the next try. */
+  hint: HintStep | null;
+  /** The second wrong: the worked solution to play before moving on. */
+  solution: LessonStep[] | null;
 }
 
 /** The app's TaskRunner: the shared contract plus the request's own lifecycle. */
 export interface PierTaskRunner extends TaskRunner {
+  submit(
+    r: ResponseValue,
+    meta: { latencyMs: number; trace?: InteractionEvent[] },
+  ): Promise<PierFeedback>;
+  /** A long idle period while an item waited for an answer (04 §6.4 rule 4). */
+  idle(): void;
+  /** Whether the break is on offer: the confidence item is resolved and the child has not chosen. */
+  breakOffered(): boolean;
+  /** The child's choice: a break ends the request early (`frustration`), with its celebration. */
+  answerBreak(take: boolean): void;
   /** Why the request ended, once `next()` has returned null. */
   endReason(): RequestEndReason | null;
   /** Writes `request.completed` (once) and returns the summary. Call when the request is over. */
@@ -107,6 +141,26 @@ interface Current {
   /** Set by `submit`; `next()` acts on it. */
   outcome: 'open' | 'retry' | 'resolved';
   busy: boolean;
+  /** The ladder levels shown on this item; each is one `hintsUsed`. */
+  shown: Set<HintStep['level']>;
+}
+
+/** The request's reward, dealt one unit at a time in its own order, up to `units`. */
+function dealMaterials(reward: Recipe, units: number): Recipe {
+  const out: Recipe = {};
+  const left = Object.entries(reward).map(([id, n]) => [id, n ?? 0] as [string, number]);
+  let remaining = units;
+  while (remaining > 0 && left.some(([, n]) => n > 0)) {
+    for (const entry of left) {
+      if (remaining === 0) break;
+      if (entry[1] <= 0) continue;
+      entry[1] -= 1;
+      remaining -= 1;
+      const id = entry[0] as keyof Recipe;
+      out[id] = (out[id] ?? 0) + 1;
+    }
+  }
+  return out;
 }
 
 /** Starts a request: writes `request.accepted` and presents the first item. */
@@ -123,6 +177,15 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   const firstTries: boolean[] = [];
   let tierOverrides: Partial<Record<SkillId, Tier>> = {};
   let rapidWrongTaps = 0;
+  let longIdles = 0;
+  /** Items answered right, on any try: each produces one unit of the request's material. */
+  let earned = 0;
+  let materialWritten = false;
+  /** Where the confidence item sits in the working list, once frustration inserted one. */
+  let confidenceAt = -1;
+  let breakPending = false;
+  /** `hint.used` writes of rungs the child asked for, in order; a submit and `finish` wait for them. */
+  let hintWrites: Promise<unknown> = Promise.resolve();
   let resolved = 0;
   let ended: RequestEndReason | null = null;
   let current: Current | null = null;
@@ -183,6 +246,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         },
         outcome: 'open',
         busy: false,
+        shown: new Set(),
       };
     }
     return null;
@@ -196,11 +260,11 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       now: store.now(),
       request,
       doneTaskIds: [...done],
-      last: { task: cur.task.task, result, attemptNo, hintsUsed: 0, latencyMs },
+      last: { task: cur.task.task, result, attemptNo, hintsUsed: cur.shown.size, latencyMs },
       signals: {
         wrongInLast4: firstTries.slice(-4).filter((c) => !c).length,
         rapidWrongTaps,
-        longIdles: 0,
+        longIdles,
       },
       tierOverrides,
       elapsedMs: session.windingDown()
@@ -208,6 +272,52 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         : session.elapsedMs(),
       budgetMs: session.budgetMs,
     });
+
+  /**
+   * The rung to show: `wanted` (a retry's level) unless the child has seen it, else the lowest
+   * rung of levels 2–4 not shown yet, else the highest one again. Level 1 only when asked for.
+   */
+  const pickRung = (cur: Current, wanted: HintStep['level'] | null): HintStep | null => {
+    const byLevel = (level: HintStep['level']) => cur.item.hints.find((h) => h.level === level);
+    const asked = wanted !== null && !cur.shown.has(wanted) ? byLevel(wanted) : undefined;
+    if (asked) return asked;
+    const ladder = cur.item.hints.filter((h) => h.level >= 2 && h.level <= 4);
+    return (
+      ladder.find((h) => !cur.shown.has(h.level)) ??
+      ladder.at(-1) ??
+      (wanted !== null ? (byLevel(wanted) ?? null) : null)
+    );
+  };
+
+  /** Marks a rung as shown; the `hint.used` write it needs, or null for a rung shown before. */
+  const markRung = (cur: Current, level: HintStep['level']): (() => Promise<unknown>) | null => {
+    if (cur.shown.has(level)) return null;
+    cur.shown.add(level);
+    const payload: EventPayloads['hint.used'] = {
+      sessionId: session.sessionId,
+      skillId: cur.item.skillId,
+      templateId: cur.item.templateId,
+      seed: cur.item.seed,
+      level,
+    };
+    return () => store.append('hint.used', payload, { childId });
+  };
+
+  /** The child asks for help: the next rung, or null when no item is waiting for an answer. */
+  const hint = (): HintStep | null => {
+    const cur = current;
+    if (cur?.outcome !== 'open' || cur.busy) return null;
+    const step = pickRung(cur, null);
+    if (!step) return null;
+    const write = markRung(cur, step.level);
+    if (write) hintWrites = hintWrites.then(write);
+    cur.task = { ...cur.task, hintLevel: step.level };
+    return step;
+  };
+
+  const queue = (decision: AdaptDecision) => {
+    if (decision.queueRemediation) deps.queueRemediation?.(decision.queueRemediation);
+  };
 
   await store.append(
     'request.accepted',
@@ -226,7 +336,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   const submit = (
     r: ResponseValue,
     meta: { latencyMs: number; trace?: InteractionEvent[] },
-  ): Promise<RunnerFeedback> => {
+  ): Promise<PierFeedback> => {
     const run = judge(r, meta);
     submitting = run;
     const settled = () => {
@@ -239,7 +349,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   const judge = async (
     r: ResponseValue,
     meta: { latencyMs: number; trace?: InteractionEvent[] },
-  ): Promise<RunnerFeedback> => {
+  ): Promise<PierFeedback> => {
     const cur = current;
     if (cur?.outcome !== 'open' || cur.busy) {
       throw new Error('TaskRunner.submit: no item is waiting for an answer');
@@ -262,9 +372,13 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       const process =
         attemptNo === 1 ? engine.detectProcessMisconceptions(item, r, { ...meta, latencyMs }) : [];
       const matched = [...new Set([...checked.misconceptionIds, ...process])];
+      // Hints the child asked for are written before the attempt they led to.
+      await hintWrites;
+      const hintsUsed = cur.shown.size;
       const result: CheckResult = {
         ...checked,
-        partialCredit: checked.correct ? 1 : 0,
+        // 04 §2.3: 1 right, 0.5 right with hints, 0 wrong.
+        partialCredit: checked.correct ? (hintsUsed > 0 ? 0.5 : 1) : 0,
         misconceptionIds: matched.filter((id) => !loggedOnItem.has(id)),
       };
       for (const id of matched) loggedOnItem.add(id);
@@ -282,7 +396,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         correct: result.correct,
         partialCredit: result.partialCredit,
         latencyMs,
-        hintsUsed: 0,
+        hintsUsed,
         attemptNo,
         misconceptionIds: result.misconceptionIds,
         context: cur.task.task.context,
@@ -297,31 +411,50 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       if (!result.correct && latencyMs < RAPID_TAP_MS) rapidWrongTaps += 1;
 
       let decision = adapt(cur, result, attemptNo, latencyMs);
+      queue(decision);
+      let solution: LessonStep[] | null = null;
       if (decision.action === 'show-solution') {
-        // No worked solution yet (part 2): the protocol's second call resolves the item.
+        // The worked solution is level 5 of the ladder (03 §5.8). The protocol's second call
+        // resolves the item (04 §7b).
+        solution = engine.itemSolution(item, tpl);
+        await markRung(cur, 5)?.();
         decision = adapt(cur, result, attemptNo + 1, latencyMs);
+        queue(decision);
       }
 
       let say: NarrationKey | undefined = result.feedback;
+      let step: HintStep | null = null;
       if (decision.action === 'retry') {
         cur.outcome = 'retry';
+        step = pickRung(cur, decision.hintLevel);
+        if (step) {
+          await markRung(cur, step.level)?.();
+          cur.task = { ...cur.task, hintLevel: step.level };
+        }
       } else {
         cur.outcome = 'resolved';
         resolved += 1;
+        if (result.correct) earned += 1;
         if (decision.action === 'continue') {
           if (decision.tierOverrides) tierOverrides = { ...decision.tierOverrides };
           if (decision.insert) request.tasks.splice(cur.index + 1, 0, ...hosted(decision.insert));
         } else if (decision.action === 'confidence-then-offer-break') {
-          request.tasks.splice(cur.index + 1, 0, ...hosted(decision.insert));
+          // An easy item first, then the offer (04 §6.4 rule 4). When the pier cannot show the
+          // item, the offer comes right away.
+          const confidence = hosted(decision.insert);
+          request.tasks.splice(cur.index + 1, 0, ...confidence);
+          if (confidence.length > 0) confidenceAt = cur.index + 1;
+          else breakPending = true;
         } else if (decision.action === 'end-request') {
           ended = decision.reason;
         }
+        if (cur.index === confidenceAt && !ended) breakPending = true;
         if (result.correct) {
           const [strategy] = engine.detectStrategies(item, r, { ...meta, latencyMs });
           if (strategy) say = strategy.replace(/^strategy\./, 'fb.praise.');
         } else {
           // Moving on after the last try: never the "one more time" line.
-          say = 'fb.skip';
+          say = solution ? 'fb.reveal' : 'fb.skip';
         }
       }
       return {
@@ -329,6 +462,8 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         say: { key: say },
         onAiFeedback: () => {},
         retry: decision.action === 'retry',
+        hint: step,
+        solution,
       };
     } finally {
       cur.busy = false;
@@ -359,10 +494,23 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
     finished ??= (async () => {
       // An answer still being written belongs to this request: count it.
       await submitting?.catch(() => {});
+      await hintWrites.catch(() => {});
+      const materials = dealMaterials(request.reward.materials, earned);
+      if (!materialWritten && Object.keys(materials).length > 0) {
+        const produced: EventPayloads['material.produced'] = {
+          sessionId: session.sessionId,
+          requestId: request.id,
+          workshopId: request.workshopId,
+          materials,
+        };
+        await store.append('material.produced', produced, { childId });
+        materialWritten = true;
+      }
       const summary: RequestSummary = {
         items: firstTries.length,
         firstTryCorrect: firstTries.filter(Boolean).length,
         reason: current === null && ended ? ended : 'child-exit',
+        materials,
       };
       const payload: EventPayloads['request.completed'] = {
         sessionId: session.sessionId,
@@ -385,13 +533,25 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   return {
     current: () => current?.task ?? null,
     submit,
-    hint: (): HintStep | null => null,
+    hint,
     next,
     progress: () => ({
       done: resolved,
       total: request.tasks.filter(isItem).length,
-      materialEarned: 0,
+      materialEarned: Object.values(dealMaterials(request.reward.materials, earned)).reduce(
+        (sum: number, n) => sum + (n ?? 0),
+        0,
+      ),
     }),
+    idle: () => {
+      if (current?.outcome === 'open') longIdles += 1;
+    },
+    breakOffered: () => breakPending && !ended,
+    answerBreak: (take) => {
+      if (!breakPending) return;
+      breakPending = false;
+      if (take && !ended) ended = 'frustration';
+    },
     endReason: () => (current === null ? ended : null),
     finish,
   };

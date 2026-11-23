@@ -10,18 +10,35 @@
 // finished (item ready: latency is measured from there, 04 §2.3). After a wrong first try the same
 // widget stays, with the child's work in it, for the second try.
 //
+// A wrong answer (06 §6, 04 §6.4, #20 part 2): a soft knock and the cue at the widget, the
+// feedback line, then a hint from the ladder (03 §5.8). A hint that drives the widget plays on a
+// fresh one, in demo mode. A second wrong answer plays the worked solution the same way, step by
+// step, and then "next" moves on. The lightbulb asks for the next hint at any time. After the
+// easy item that follows a frustration signal, the child is offered a break.
+//
 // `?browse` with the dev flag (`localStorage['ni.dev'] = '1'`) opens the content browser instead:
 // pick any skill and play one item of each of its templates.
 
 import type {
   ChildProfile,
+  HintStep,
   InteractionEvent,
+  LessonStep,
   NarrationKey,
   PlannedRequest,
   ResponseValue,
   RunnerTask,
+  StimulusSpec,
+  WidgetAction,
 } from '@number-island/shared';
-import { BigButton, HomeButton, icons, ReplayButton, SpeechBubble } from '@number-island/ui';
+import {
+  BigButton,
+  createDemoController,
+  HomeButton,
+  icons,
+  ReplayButton,
+  SpeechBubble,
+} from '@number-island/ui';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ChildUi, useAppServices } from '@/app/AppServices';
@@ -31,9 +48,19 @@ import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
 import { childContext } from '@/runner/childContext';
+import { createIdleWatch, type IdleWatch } from '@/runner/idleWatch';
+import { remediationQueue } from '@/runner/remediationQueue';
 import { createTaskRunner, type PierTaskRunner, type RequestSummary } from '@/runner/TaskRunner';
 import { createVisibleClock, type VisibleClock } from '@/runner/visibleClock';
-import { Beads, type Cue, type Phase, PierFrame, PierItemScreen } from './PierScreen';
+import {
+  Beads,
+  type Cue,
+  type Phase,
+  PierBreakOffer,
+  PierFrame,
+  PierItemScreen,
+  type SpokenLine,
+} from './PierScreen';
 import {
   type BrowsePick,
   browseRequest,
@@ -119,7 +146,20 @@ function PierRequest({
     showPhase(p);
   }, []);
   const [cue, setCue] = useState<Cue | null>(null);
+  const [line, setLine] = useState<SpokenLine | null>(null);
+  const [picture, setPicture] = useState<StimulusSpec | null>(null);
+  const [breakOffer, setBreakOffer] = useState(false);
+  // A hint that drives the widget, and the worked solution, play on a fresh widget.
+  const [restarts, setRestarts] = useState(0);
   const [summary, setSummary] = useState<RequestSummary | null>(null);
+  // The widget's demo mode (03 §6.3). An op the widget does not animate is skipped and noted:
+  // the step's line is still spoken.
+  const demo = useMemo(
+    () => createDemoController({ strict: false, warn: (m) => recordDiagnostic('pier.demo', m) }),
+    [],
+  );
+  // What is playing now (a hint, a solution): a new item, or leaving, makes it stale.
+  const playing = useRef(0);
   const readyAt = useRef(0);
   // Latency counts visible time only: a tablet asleep mid-item adds nothing (04 §2.3, §7).
   const clock = useRef<VisibleClock | null>(null);
@@ -133,6 +173,29 @@ function PierRequest({
   }, []);
   const clockNow = useCallback(() => clock.current?.now() ?? 0, []);
   const trace = useRef<InteractionEvent[]>([]);
+  const runnerNow = useRef<PierTaskRunner | null>(null);
+  runnerNow.current = runner;
+  // The long-idle signal (04 §6.4 rule 4): 45 s of visible time without a touch while answering.
+  const idle = useRef<IdleWatch | null>(null);
+  useEffect(() => {
+    const watch = createIdleWatch({
+      now: clockNow,
+      schedule: (fn, ms) => {
+        const id = setTimeout(fn, ms);
+        return () => clearTimeout(id);
+      },
+      onIdle: () => runnerNow.current?.idle(),
+    });
+    idle.current = watch;
+    return () => {
+      idle.current = null;
+      watch.stop();
+    };
+  }, [clockNow]);
+  useEffect(() => {
+    if (phase === 'answer' && !picture) idle.current?.start();
+    else idle.current?.stop();
+  }, [phase, picture]);
 
   // One runner per mounted request. The ref outlives StrictMode's simulated remount, so the
   // request is accepted (and its event written) once.
@@ -157,6 +220,7 @@ function PierRequest({
           island: await store.island(),
           now: store.now(),
           minutes: Math.max(1, Math.ceil((budgetMs - controller.activeMs()) / 60_000)),
+          remediation: remediationQueue.take(child.id),
         });
         if (!request) throw new Error('Practice Pier: the plan holds nothing the pier can play');
       }
@@ -167,6 +231,7 @@ function PierRequest({
         child: ctx,
         request,
         hosts: pierPlayable,
+        queueRemediation: (r) => remediationQueue.add(child.id, r),
         session: {
           sessionId: session.sessionId,
           budgetMs,
@@ -198,15 +263,19 @@ function PierRequest({
   // feedback, with the child's work in it, and a new item (even the same one again) remounts.
   const presented = useRef(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new item is what advances the key
-  const itemKey = useMemo(() => {
+  const itemNo = useMemo(() => {
     presented.current += 1;
     return presented.current;
   }, [item]);
+  const itemKey = `${itemNo}:${restarts}`;
   useEffect(() => {
     if (!item) return;
     let alive = true;
+    playing.current += 1;
     trace.current = [];
     setCue(null);
+    setLine(null);
+    setPicture(null);
     setPhase('prompt');
     const ready = () => {
       if (!alive) return;
@@ -216,8 +285,73 @@ function PierRequest({
     audio.say(item.prompt.narration, item.prompt.vars).then(ready, ready);
     return () => {
       alive = false;
+      playing.current += 1;
     };
   }, [item, audio, setPhase, clockNow]);
+
+  /** Speaks a line with its words in the bubble; resolves when it has been said. */
+  const sayLine = useCallback(
+    async (key: NarrationKey | undefined, vars?: Record<string, string | number>) => {
+      if (!key) return;
+      setLine({ say: key, vars });
+      await audio.say(key, vars).catch(() => {});
+    },
+    [audio],
+  );
+
+  const act = useCallback(
+    (action: WidgetAction) => demo.play(action).catch((e) => recordDiagnostic('pier.demo', e)),
+    [demo],
+  );
+
+  /**
+   * Plays one rung of the hint ladder (03 §5.8), after `before` (the feedback line of a wrong
+   * answer), then hands the item back to the child.
+   */
+  const playHint = async (step: HintStep, before?: NarrationKey) => {
+    playing.current += 1;
+    const mine = playing.current;
+    const stale = () => playing.current !== mine;
+    setPhase('hint');
+    setPicture(null);
+    await sayLine(before);
+    if (stale()) return;
+    const actions = (step.actions ?? []).filter((a) => a.op !== 'replay-prompt');
+    // The widget's part of a hint plays on a fresh widget, not on top of the child's work.
+    if (actions.length > 0) setRestarts((n) => n + 1);
+    await sayLine(step.say, step.vars);
+    if (stale()) return;
+    if (item && step.actions?.some((a) => a.op === 'replay-prompt')) {
+      await sayLine(item.prompt.narration, item.prompt.vars);
+      if (stale()) return;
+    }
+    for (const action of actions) {
+      await act(action);
+      if (stale()) return;
+    }
+    if (step.overlay && step.overlay.kind !== 'none') setPicture(step.overlay);
+    setLine(null);
+    readyAt.current = clockNow();
+    setPhase('answer');
+  };
+
+  /** Plays the worked solution (level 5): each step's line with its action, on a fresh widget. */
+  const playSolution = async (steps: LessonStep[], before?: NarrationKey) => {
+    playing.current += 1;
+    const mine = playing.current;
+    const stale = () => playing.current !== mine;
+    setPhase('hint');
+    setPicture(null);
+    await sayLine(before);
+    if (stale()) return;
+    setRestarts((n) => n + 1);
+    for (const step of steps) {
+      await Promise.all([sayLine(step.say, step.vars), step.action ? act(step.action) : null]);
+      if (stale()) return;
+    }
+    setLine(null);
+    setPhase('feedback');
+  };
 
   // Leaving another way than Home (the browser's back button) still completes the request.
   // StrictMode's simulated unmount is followed at once by a remount; a real one is not.
@@ -265,31 +399,73 @@ function PierRequest({
     setPhase('checking');
     const latencyMs = clockNow() - readyAt.current;
     runner.submit(response, { latencyMs, trace: [...trace.current] }).then((fb) => {
+      // The deterministic line plays now; an AI line may follow it (06 §6). Nothing delivers one
+      // until #21.
+      fb.onAiFeedback(() => {});
       if (fb.retry) {
         audio.sfx('knock');
         setCue({ kind: 'again', say: fb.say.key });
         const again = runner.next();
         if (again?.kind === 'item') setTask(again);
-        readyAt.current = clockNow();
-        setPhase('answer');
+        if (fb.hint) {
+          void playHint(fb.hint, fb.say.key);
+        } else {
+          speak(fb.say.key);
+          readyAt.current = clockNow();
+          setPhase('answer');
+        }
+      } else if (fb.solution) {
+        audio.sfx('knock');
+        setCue({ kind: 'onward', say: fb.say.key });
+        void playSolution(fb.solution, fb.say.key);
       } else {
         if (fb.correct) audio.sfx('chime');
         setCue({ kind: fb.correct ? 'right' : 'onward', say: fb.say.key });
         setPhase('feedback');
+        speak(fb.say.key);
       }
-      speak(fb.say.key);
     }, raise);
+  };
+
+  /** The lightbulb: the next rung of the ladder. */
+  const onHint = () => {
+    if (!runner || phaseNow.current !== 'answer') return;
+    const step = runner.hint();
+    if (!step) return;
+    const shown = runner.current();
+    if (shown?.kind === 'item') setTask(shown);
+    void playHint(step);
+  };
+
+  const advance = (r: PierTaskRunner) => {
+    setPhase('prompt');
+    const upcoming = r.next();
+    if (upcoming?.kind === 'item') setTask(upcoming);
+    else end(r);
   };
 
   const goNext = () => {
     if (!runner || phaseNow.current !== 'feedback') return;
-    setPhase('prompt');
-    const upcoming = runner.next();
-    if (upcoming?.kind === 'item') setTask(upcoming);
-    else end(runner);
+    // After the easy item that follows a frustration signal: offer a break first.
+    if (runner.breakOffered()) {
+      setPhase('prompt');
+      setBreakOffer(true);
+      speak('ui.pier.break');
+      return;
+    }
+    advance(runner);
+  };
+
+  const answerBreak = (take: boolean) => {
+    if (!runner || !breakOffer) return;
+    audio.stop();
+    runner.answerBreak(take);
+    setBreakOffer(false);
+    advance(runner);
   };
 
   const leave = () => {
+    playing.current += 1;
     audio.stop();
     if (!runner) onLeave();
     else runner.finish().then(onLeave, raise);
@@ -316,6 +492,16 @@ function PierRequest({
     );
   }
 
+  if (breakOffer) {
+    return (
+      <PierBreakOffer
+        onKeep={() => answerBreak(false)}
+        onBreak={() => answerBreak(true)}
+        onLeave={leave}
+      />
+    );
+  }
+
   return (
     <PierItemScreen
       item={item}
@@ -323,11 +509,19 @@ function PierRequest({
       itemKey={itemKey}
       phase={phase}
       cue={cue}
+      line={line}
+      picture={picture}
+      demo={demo}
       progress={runner?.progress() ?? { done: 0, total: 0 }}
       onLeave={leave}
       onNext={goNext}
+      onHint={onHint}
+      onClosePicture={() => setPicture(null)}
       onResponse={onResponse}
-      onInteract={(e) => trace.current.push(e)}
+      onInteract={(e) => {
+        idle.current?.touch();
+        trace.current.push(e);
+      }}
     />
   );
 }
