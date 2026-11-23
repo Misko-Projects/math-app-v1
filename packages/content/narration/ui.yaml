@@ -91,6 +91,93 @@ ui.island.empty:
 ui.island.displaced:
   text: "Someone was here first. Pick a new place to build!"
   level: K
+# Decorate mode and its caps (I01 part 4, apps/web/src/island/decorate; 05 §6, §8).
+ui.decor.open:
+  text: "Decorate"
+  level: K
+ui.decor.pick:
+  text: "Pick a thing to put on the island!"
+  voice: pip
+  level: K
+ui.decor.place:
+  text: "Now tap where it goes."
+  voice: pip
+  level: K
+ui.decor.all:
+  text: "All your things are on the island!"
+  voice: pip
+  level: K
+ui.decor.item:
+  text: "Thing {n}"
+  level: K
+ui.decor.away:
+  text: "Put it away"
+  level: K
+ui.decor.closed:
+  text: "Decorating is open after your next request!"
+  voice: pip
+  level: K
+# The island's name (I01 part 4, apps/web/src/island/naming; 05 §10 step 3): six names to choose
+# from, each with its own line, so a name is never free text read aloud (03 §8.4).
+ui.island.name.open:
+  text: "Name the island"
+  level: K
+ui.island.name.pick:
+  text: "What is our island called? Pick a name!"
+  voice: pip
+  level: K
+ui.island.name.sunny:
+  text: "Sunny Island"
+  level: K
+ui.island.name.pebble:
+  text: "Pebble Island"
+  level: K
+ui.island.name.coral:
+  text: "Coral Island"
+  level: K
+ui.island.name.mango:
+  text: "Mango Island"
+  level: K
+ui.island.name.starfish:
+  text: "Starfish Island"
+  level: K
+ui.island.name.rainbow:
+  text: "Rainbow Island"
+  level: K
+ui.island.welcome.sunny:
+  text: "Welcome to Sunny Island!"
+  voice: pip
+  level: K
+ui.island.welcome.pebble:
+  text: "Welcome to Pebble Island!"
+  voice: pip
+  level: K
+ui.island.welcome.coral:
+  text: "Welcome to Coral Island!"
+  voice: pip
+  level: K
+ui.island.welcome.mango:
+  text: "Welcome to Mango Island!"
+  voice: pip
+  level: K
+ui.island.welcome.starfish:
+  text: "Welcome to Starfish Island!"
+  voice: pip
+  level: K
+ui.island.welcome.rainbow:
+  text: "Welcome to Rainbow Island!"
+  voice: pip
+  level: K
+# The wind-down recap (I01 part 4, apps/web/src/island/recap.ts; 06 §2 "Wind-down"): each line is
+# followed by what it names, as counts and names.
+ui.winddown.made:
+  text: "Today you made"
+  voice: pip
+  level: K
+ui.winddown.built:
+  text: "And you built"
+  voice: pip
+  level: K
 # Building and the Numbered Road on the island (I01 part 2, apps/web/src/island/building).
 ui.build.open:
   text: "Build"

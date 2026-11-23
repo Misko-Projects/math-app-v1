@@ -9,8 +9,9 @@ import {
   defaultChildSettings,
   type GeneratedItem,
   type PlannedRequest,
+  type PlannedTask,
 } from '@number-island/shared';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { DataStore } from '@/data/store';
 import { CHILD_K, fixtureContent, profile, testEnv } from '@/data/store.test-support';
 import { childContext } from '@/runner/childContext';
@@ -23,7 +24,7 @@ import {
   workshopFor,
 } from '@/workshops/registry';
 import { settleResidents } from './building/actions';
-import { planIslandRequests } from './planRequests';
+import { type IslandPlan, planIslandRequests, warmupDue, withWarmup } from './planRequests';
 
 const kid = profile(CHILD_K, 'K');
 const child = childContext(kid, defaultChildSettings('K'));
@@ -39,7 +40,7 @@ beforeAll(() => {
   });
 });
 
-async function plan(store: DataStore): Promise<PlannedRequest[]> {
+async function planAll(store: DataStore): Promise<IslandPlan> {
   const state = await store.skillStates(CHILD_K);
   if (!state) throw new Error('no learner state');
   return planIslandRequests(engine, {
@@ -53,6 +54,8 @@ async function plan(store: DataStore): Promise<PlannedRequest[]> {
     minutes: 10,
   });
 }
+
+const plan = async (store: DataStore): Promise<PlannedRequest[]> => (await planAll(store)).requests;
 
 /** Plays `request` to its end, every item right, and returns what it produced. */
 async function playRight(store: DataStore, request: PlannedRequest) {
@@ -316,5 +319,57 @@ describe('the island plan (04 §6.3)', () => {
     const offered = (next[0] as PlannedRequest).tasks.map((t) => `${t.templateId}:${t.seed}`);
     expect(offered).not.toEqual(played);
     expect(next.map((r) => r.id)).not.toContain(recommended.id);
+  });
+
+  it("the plan's warmup comes with it and goes before the request the child picks (04 §6.1)", async () => {
+    const env = testEnv();
+    const store = await env.open();
+    await store.putProfile(kid);
+    // Nothing attempted yet: the warmup is the lesson of the first skill (case e), and it is
+    // owed before every request until it has been played.
+    const first = await planAll(store);
+    expect(first.warmup).toMatchObject({ mode: 'lesson', context: 'lesson' });
+    const lesson = first.warmup as PlannedTask;
+    expect(warmupDue(first.warmup, false)).toBe(true);
+    expect(warmupDue(first.warmup, true)).toBe(true);
+    const picked = first.requests.at(-1) as PlannedRequest;
+    expect(withWarmup(picked, lesson).tasks).toEqual([lesson, ...picked.tasks]);
+    expect(withWarmup(picked, lesson).id).toBe(picked.id);
+
+    // Once the child has answered items, the warmup is an item: the easy win of a session's
+    // first request only.
+    await playRight(
+      store,
+      first.requests.find((r) => r.tasks.every((t) => t.mode === 'item')) as PlannedRequest,
+    );
+    env.clock.advance(3 * 60_000);
+    const next = await planAll(store);
+    expect(next.warmup).toMatchObject({ mode: 'item', context: 'warmup' });
+    expect(warmupDue(next.warmup, false)).toBe(true);
+    expect(warmupDue(next.warmup, true)).toBe(false);
+    expect(warmupDue(null, false)).toBe(false);
+  });
+
+  it('gives the planner the Puzzle Tower decor, so a request with challenge items carries one', async () => {
+    const planSession = vi.fn(engine.planSession);
+    const store = await testEnv().open();
+    await store.putProfile(kid);
+    const state = await store.skillStates(CHILD_K);
+    if (!state) throw new Error('no learner state');
+    planIslandRequests(
+      { planSession },
+      {
+        child,
+        state,
+        graph,
+        gameData,
+        island: await store.island(),
+        now: store.now(),
+        minutes: 10,
+      },
+    );
+    const puzzle = gameData.decor.filter((d) => d.source === 'puzzle').map((d) => d.id);
+    expect(puzzle.length).toBeGreaterThan(0);
+    expect(planSession.mock.calls[0]?.[1]).toMatchObject({ puzzleDecor: puzzle });
   });
 });

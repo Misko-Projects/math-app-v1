@@ -87,6 +87,7 @@ export function PierItemScreen({
   onHint,
   onReplayPrompt,
   onClosePicture,
+  onWidgetMount,
   onResponse,
   onInteract,
 }: {
@@ -116,6 +117,8 @@ export function PierItemScreen({
    */
   onReplayPrompt?: () => void;
   onClosePicture?: () => void;
+  /** An item's widget is mounted: its code is loaded and it is on screen. */
+  onWidgetMount?: () => void;
   onResponse: (response: ResponseValue) => void;
   onInteract: (event: InteractionEvent) => void;
 }) {
@@ -181,6 +184,7 @@ export function PierItemScreen({
           itemKey={itemKey}
           disabled={(phase !== 'answer' && phase !== 'turn') || Boolean(picture)}
           demo={demo}
+          onWidgetMount={onWidgetMount}
           onResponse={onResponse}
           onInteract={onInteract}
         />

@@ -23,7 +23,7 @@ import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS, manualClock } from './build
 import { ChildHomePage } from './ChildHomePage';
 import { FIRST_PROBLEM_BUDGET_MS, firstProblem } from './firstProblem';
 import { PlayLayout } from './PlayLayout';
-import { planIslandRequests } from './planRequests';
+import { type IslandPlan, planIslandRequests } from './planRequests';
 import { displacedFor } from './shared/family';
 
 // The island's planner, called through: the tests can see when the island plans and with what.
@@ -100,7 +100,12 @@ async function renderHome({
   return { app, router, say, tick, device };
 }
 
-const types = async (app: AppServices) => (await app.store.events()).map((e) => e.type);
+/**
+ * The log's event types, without the steps of a lesson: a new child's first request starts with
+ * the plan's warmup, the lesson of its first skill, which logs its demo steps as they play.
+ */
+const types = async (app: AppServices) =>
+  (await app.store.events()).map((e) => e.type).filter((type) => type !== 'lesson.step');
 const ended = async (app: AppServices) =>
   (await app.store.events()).filter((e) => e.type === 'session.ended');
 /** The request bubbles, once the island has planned. */
@@ -150,7 +155,9 @@ describe('<ChildHomePage>: the island', () => {
     tick(60_000); // K budget: 10 minutes (04 §6.1)
     expect(await screen.findByTestId('sunset')).toBeTruthy();
     expect(screen.getByText('Great playing! See you next time!')).toBeTruthy();
-    expect(say).toHaveBeenCalledWith('ui.winddown.done', undefined);
+    // Nothing was made or built: the goodbye alone, once the log has been read.
+    await vi.waitFor(() => expect(say).toHaveBeenCalledWith('ui.winddown.done', undefined));
+    expect(screen.queryByTestId('recap')).toBeNull();
     await waitFor(async () => expect(await ended(app)).toHaveLength(1));
     expect((await ended(app))[0]?.payload).toMatchObject({
       reason: 'wind-down',
@@ -339,6 +346,15 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     );
     const completed = (await app.store.events()).at(-1);
     expect(completed?.payload).toMatchObject({ requestId: firstId, endedEarly: true, items: 0 });
+    // The request started with the plan's warmup (04 §6.1): one task more than the planned ones.
+    const planner = vi.mocked(planIslandRequests);
+    const planned = planner.mock.results[0]?.value as IslandPlan;
+    expect(planned.warmup).not.toBeNull();
+    const accepted = (await app.store.events()).find((e) => e.type === 'request.accepted');
+    expect(accepted?.payload).toMatchObject({
+      requestId: firstId,
+      taskCount: (planned.requests[0]?.tasks.length ?? 0) + 1,
+    });
     // Back on the island: nothing was made, so nothing arrives, and the bubbles are a new plan.
     await waitFor(async () => {
       const ids = (await bubbles()).map((b) => b.getAttribute('data-request'));

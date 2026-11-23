@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { ChildUi, useAppServices } from '@/app/AppServices';
+import { recordDiagnostic } from '@/app/diagnostics';
 import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
@@ -83,15 +84,29 @@ function HostedRequest(props: HostedProps) {
 }
 
 function OwnedRequest({ child, session, request }: HostedProps) {
-  const { audio } = useAppServices();
+  const { audio, store } = useAppServices();
   const navigate = useNavigate();
   const { complete } = useHub();
   // Called once the screen is gone and the request is over, whichever way the child left. A
-  // request that could not be written made nothing.
+  // request that could not be written made nothing. One played to its end also earns its decor
+  // (`reward.decor`, 04 §6.3): the family owns one more of each, to place in decorate mode.
   const finished = useCallback(
-    (summary: RequestSummary | null) =>
-      complete({ requestId: request.id, materials: summary?.materials ?? {} }),
-    [complete, request.id],
+    (summary: RequestSummary | null) => {
+      const decor = summary?.reason === 'complete' ? (request.reward.decor ?? []) : [];
+      void (async () => {
+        const earned: typeof decor = [];
+        for (const id of decor) {
+          try {
+            await store.append('collection.unlocked', { kind: 'decor', id }, { childId: child.id });
+            earned.push(id);
+          } catch (e) {
+            recordDiagnostic('decor.earned', e);
+          }
+        }
+        complete({ requestId: request.id, materials: summary?.materials ?? {}, decor: earned });
+      })();
+    },
+    [complete, request, store, child.id],
   );
   const runner = useRequestRunner(child, session, request, finished);
   const Screen = screenOf(workshopFor(request.workshopId));

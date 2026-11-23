@@ -69,10 +69,26 @@ import { workshopFor } from '@/workshops/registry';
 import { HammerIcon, StoneChip } from './building/BuildIcons';
 import { offeredPlots, PlotTargets, useSceneMap } from './building/PlotTargets';
 import { useIslandBuild } from './building/useIslandBuild';
+import { useDecorate } from './decorate/useDecorate';
 import { firstProblem } from './firstProblem';
 import { useHub } from './hub';
 import { landBox, roomCrop, useIslandRoom } from './layout';
-import { isRemediation, planIslandRequests } from './planRequests';
+import {
+  type IslandName,
+  markWelcomed,
+  nameIsland,
+  nameLine,
+  offeredName,
+  welcomeDue,
+  welcomeLine,
+} from './naming/names';
+import {
+  type IslandPlan,
+  isRemediation,
+  planIslandRequests,
+  warmupDue,
+  withWarmup,
+} from './planRequests';
 import { Storehouse } from './Storehouse';
 import {
   BuildingBadges,
@@ -85,6 +101,47 @@ import {
 } from './shared/family';
 
 const BuildSheet = lazy(() => import('./building/BuildSheet'));
+// Decorate mode, the decor on the map and the naming step load when they are first needed.
+const DecorTray = lazy(() => import('./decorate/DecorTray'));
+const DecorDrag = lazy(() =>
+  import('./decorate/DecorTray').then((m) => ({ default: m.DecorDrag })),
+);
+const DecorLayer = lazy(() => import('./decorate/DecorLayer'));
+const NameSheet = lazy(() => import('./naming/NameSheet'));
+
+/** The decorate button's picture: a flower in a pot. */
+function FlowerIcon({ size = 48 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
+      <path d="M24 26v12" stroke="#3f7d3a" strokeWidth={4} strokeLinecap="round" />
+      <g fill="#e76f51" stroke="#243b53" strokeWidth={2}>
+        <circle cx={24} cy={10} r={6} />
+        <circle cx={15} cy={17} r={6} />
+        <circle cx={33} cy={17} r={6} />
+        <circle cx={19} cy={26} r={6} />
+        <circle cx={29} cy={26} r={6} />
+      </g>
+      <circle cx={24} cy={19} r={5} fill="#e9c46a" stroke="#243b53" strokeWidth={2} />
+      <path d="M14 36h20l-3 9H17Z" fill="#b5651d" stroke="#243b53" strokeWidth={2} />
+    </svg>
+  );
+}
+
+/** The island sign's picture: a flag on a pole. */
+function FlagIcon({ size = 48 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
+      <path d="M14 6v38" stroke="#8a5a2b" strokeWidth={5} strokeLinecap="round" />
+      <path
+        d="M16 8h22l-6 8 6 8H16Z"
+        fill="#2a9d8f"
+        stroke="#243b53"
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 /** The narrowest view of the map, in scene units: the sandbar fills the screen on day one. */
 const MIN_VIEW_W = 800;
@@ -115,8 +172,11 @@ export function IslandHub({
   const sessionId = session?.sessionId ?? '';
   const budgetMinutes = session?.budgetMinutes ?? 0;
   const { gameData, graph } = content.store;
-  const [requests, setRequests] = useState<PlannedRequest[] | null>(null);
+  const [plan, setPlan] = useState<IslandPlan | null>(null);
+  const requests = plan?.requests ?? null;
   const [storehouseOpen, setStorehouseOpen] = useState(false);
+  const decorate = useDecorate(child);
+  const [naming, setNaming] = useState<'closed' | 'open' | 'used'>('closed');
   // Counts the builds of this visit: the island plans again after each (a new workshop or a new
   // resident changes what the planner may use).
   const [builds, setBuilds] = useState(0);
@@ -130,10 +190,22 @@ export function IslandHub({
   // The island waits for a request that is still being written (the child just left it).
   const idle = hub.picked === null;
   const made = hub.result ? units(hub.result.materials) : [];
+  const earned = hub.result?.decor ?? [];
   // What the island is busy with: choosing a plot, or a building going up.
   const busy = build.placing !== null || build.construction !== null;
-  // The requests step aside for it, and for the walk along the road, which they would cover.
-  const aside = busy || build.counting !== null;
+  // The requests step aside for it, for the walk along the road, which they would cover, and
+  // for decorate mode, whose tray stands in their place.
+  const aside = busy || build.counting !== null || decorate.open;
+  // The time outside workshops (05 §8) runs while the child is on the island.
+  useEffect(() => {
+    hub.nonMath.arrive(controller.activeMs());
+    return () => hub.nonMath.leave(controller.activeMs());
+  }, [hub.nonMath, controller]);
+  // The island's name, said once to each child on this device ("Welcome to … Island!").
+  const [welcome, setWelcome] = useState<IslandName | null | undefined>(undefined);
+  useEffect(() => {
+    if (island && welcome === undefined) setWelcome(welcomeDue(island, child.id));
+  }, [island, welcome, child.id]);
   // This child's placements that lost their plots to an earlier one from another device (02
   // §4.3), read when the island is: said once, on this visit, and not again on this device.
   // The line stays while one of them is still displaced: built again, it gives way.
@@ -145,21 +217,32 @@ export function IslandHub({
     ? 'ui.build.place'
     : build.construction
       ? 'ui.build.working'
-      : island && displaced?.some((key) => displacedKeys(island, child.id).includes(key))
-        ? 'ui.island.displaced'
-        : made.length > 0
-          ? 'ui.island.made'
-          : 'ui.island.hello';
+      : decorate.open
+        ? decorate.selected
+          ? 'ui.decor.place'
+          : decorate.items.some((i) => i.pos === null)
+            ? 'ui.decor.pick'
+            : 'ui.decor.all'
+        : decorate.capped
+          ? 'ui.decor.closed'
+          : island && displaced?.some((key) => displacedKeys(island, child.id).includes(key))
+            ? 'ui.island.displaced'
+            : made.length > 0
+              ? 'ui.island.made'
+              : welcome
+                ? welcomeLine(welcome)
+                : 'ui.island.hello';
 
   // The guide speaks once per visit: that a building has to be placed again, what the request
-  // just made, or the greeting.
+  // just made, the island's name, or the greeting.
   const greeted = useRef(false);
   useEffect(() => {
-    if (!idle || displaced === null || greeted.current) return;
+    if (!idle || displaced === null || welcome === undefined || greeted.current) return;
     greeted.current = true;
     say(line);
     if (displaced.length > 0) markDisplacedTold(displaced);
-  }, [idle, displaced, line, say]);
+    if (welcome && line === welcomeLine(welcome)) markWelcomed(child.id, welcome);
+  }, [idle, displaced, welcome, line, say, child.id]);
 
   // The wind-down hook: no item is ever in progress here, so end now and show the sunset.
   useEffect(
@@ -204,14 +287,14 @@ export function IslandHub({
         minutes: Math.max(1, Math.ceil(budgetMinutes - controller.activeMs() / 60_000)),
         ...(remediation ? { remediation } : {}),
       });
-      if (planned.length === 0) throw new Error('Island: the plan holds nothing to play');
+      if (planned.requests.length === 0) throw new Error('Island: the plan holds nothing to play');
       // A queued remediation the plan could not offer is dropped, as before the island chose.
-      if (remediation && !planned.some(isRemediation)) remediationQueue.take(child.id);
+      if (remediation && !planned.requests.some(isRemediation)) remediationQueue.take(child.id);
       if (!alive) return;
-      setRequests(planned);
+      setPlan(planned);
       // Fetched ahead, so a tapped request never waits for its workshop (05 §2).
       void loadRunner().catch(() => {});
-      for (const r of planned)
+      for (const r of planned.requests)
         void workshopFor(r.workshopId)
           .load()
           .catch(() => {});
@@ -226,7 +309,12 @@ export function IslandHub({
     firstProblem.tapped();
     audio.stop();
     if (isRemediation(request)) remediationQueue.take(child.id);
-    hub.pick(request);
+    // The session's easy win comes first, whichever request the child picks (04 §6.1).
+    const warmup = plan?.warmup ?? null;
+    if (warmupDue(warmup, hub.warmedUp)) {
+      hub.markWarmedUp();
+      hub.pick(withWarmup(request, warmup));
+    } else hub.pick(request);
     navigate(`/play/${child.id}/workshop/${request.workshopId}`);
   };
 
@@ -250,12 +338,13 @@ export function IslandHub({
     navigate('/', { replace: true });
   };
 
+  const islandName = offeredName(island?.name ?? null);
   const rings = island?.ringsUnlocked ?? 1;
   // The land is drawn in the room the controls leave (`layout.ts`): measured again when the
   // guide's line, the requests or the columns change.
   const layout = useIslandRoom(
     home,
-    `${line}:${requests?.length ?? 0}:${aside}:${build.next?.n ?? 0}:${made.length}`,
+    `${line}:${requests?.length ?? 0}:${aside}:${build.next?.n ?? 0}:${made.length}:${island?.name ?? ''}`,
   );
   const crop = useMemo(() => {
     const land = landBox(gameData.island, rings);
@@ -269,7 +358,7 @@ export function IslandHub({
   const rowInset = rowLow && layout ? layout.rowInset : { left: 0, right: 0 };
   // The road: the stones laid and, when one can be laid, the next one as its target. While a
   // plot is chosen the next stone steps aside, so its target takes no tap meant for a plot.
-  const roadTo = build.next && !busy ? build.next.n : (island?.roadLength ?? 0);
+  const roadTo = build.next && !busy && !decorate.open ? build.next.n : (island?.roadLength ?? 0);
   const road = useMemo(
     () => gameData.island.road.filter((s) => s.n <= roadTo),
     [gameData.island.road, roadTo],
@@ -281,7 +370,25 @@ export function IslandHub({
   const [controls, setControls] = useState<
     { left: number; top: number; right: number; bottom: number }[]
   >([]);
-  const placingId = build.placing?.building.id ?? null;
+  // What is being put on the map: a new building, or the piece of decor in hand.
+  const placing = useMemo(
+    () =>
+      build.placing
+        ? {
+            id: build.placing.building.id,
+            anchors: build.placing.anchors,
+            footprint: build.placing.building.footprint,
+          }
+        : decorate.open && decorate.selected
+          ? {
+              id: decorate.selected.instanceId,
+              anchors: decorate.anchors,
+              footprint: decorate.selected.def.footprint,
+            }
+          : null,
+    [build.placing, decorate.open, decorate.selected, decorate.anchors],
+  );
+  const placingId = placing?.id ?? null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: measured again when the map is (a resize)
   useLayoutEffect(() => {
     const scene = sceneBox.current;
@@ -303,10 +410,10 @@ export function IslandHub({
   }, [placingId, sceneMap]);
   const targets = useMemo(
     () =>
-      build.placing
+      placing
         ? offeredPlots(
-            build.placing.anchors,
-            build.placing.building.footprint,
+            placing.anchors,
+            placing.footprint,
             sceneMap,
             // A point under another button of this screen takes no plot.
             (left, top) =>
@@ -315,14 +422,11 @@ export function IslandHub({
               ),
           )
         : [],
-    [build.placing, sceneMap, controls],
+    [placing, sceneMap, controls],
   );
   const plotMarkers = useMemo(
-    () =>
-      build.placing
-        ? targets.map((t) => ({ plot: t.plot, footprint: build.placing?.building.footprint }))
-        : [],
-    [build.placing, targets],
+    () => (placing ? targets.map((t) => ({ plot: t.plot, footprint: placing.footprint })) : []),
+    [placing, targets],
   );
   // Where the building going up stands, in CSS px, for the construction step's picture.
   const site = (() => {
@@ -381,6 +485,14 @@ export function IslandHub({
                 />
               ) : null;
             })}
+            {decorate.items.some((i) => i.pos !== null) ? (
+              <Suspense fallback={null}>
+                <DecorLayer
+                  items={decorate.items}
+                  selected={decorate.open ? (decorate.selected?.instanceId ?? null) : null}
+                />
+              </Suspense>
+            ) : null}
           </IslandScene>
           {island ? (
             <BuildingBadges
@@ -391,7 +503,21 @@ export function IslandHub({
               buildings={buildings}
             />
           ) : null}
-          {build.placing ? <PlotTargets targets={targets} onPick={build.place} /> : null}
+          {decorate.open ? (
+            <Suspense fallback={null}>
+              <DecorDrag
+                map={sceneMap}
+                items={decorate.items}
+                selected={decorate.selected}
+                anchors={decorate.anchors}
+                onSelect={decorate.select}
+                onDrop={decorate.place}
+              />
+            </Suspense>
+          ) : null}
+          {placing ? (
+            <PlotTargets targets={targets} onPick={build.placing ? build.place : decorate.place} />
+          ) : null}
           {build.construction ? (
             <div
               className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full"
@@ -423,8 +549,13 @@ export function IslandHub({
                 index={index}
                 className="size-16"
               />
-              <span className="max-w-[12rem] truncate font-body text-[1.5rem] font-bold text-ink">
-                {child.name}
+              <span className="flex max-w-[12rem] flex-col font-body text-[1.5rem] leading-tight text-ink">
+                <span className="truncate font-bold">{child.name}</span>
+                {islandName ? (
+                  <span className="truncate" data-testid="island-name">
+                    {text(nameLine(islandName))}
+                  </span>
+                ) : null}
               </span>
             </div>
           </div>
@@ -435,6 +566,39 @@ export function IslandHub({
             <SpeechBubble say={line} tail="none" showText />
             <ReplayButton onPress={() => say(line)} />
           </div>
+        </div>
+        {/* The left column: Decorate, and the island's sign while the island has no name. */}
+        <div
+          className="absolute top-[8.5rem] left-[max(1rem,env(safe-area-inset-left))] z-10 flex flex-col items-start gap-3"
+          data-room="left"
+        >
+          <IconButton
+            label="ui.decor.open"
+            icon={<FlowerIcon size={56} />}
+            tone="cloud"
+            disabled={busy || build.counting !== null}
+            pressed={decorate.open}
+            onPress={decorate.open ? decorate.done : decorate.start}
+            data={{ 'data-testid': 'decor-open', 'data-capped': String(decorate.capped) }}
+          />
+          {island && island.name === null ? (
+            <IconButton
+              label="ui.island.name.open"
+              icon={<FlagIcon size={56} />}
+              tone="cloud"
+              disabled={aside}
+              onPress={() => setNaming('open')}
+              data={{ 'data-testid': 'name-open' }}
+            />
+          ) : null}
+          {devFlag() && (
+            <Link
+              to={`/play/${child.id}/pier?browse`}
+              className="rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
+            >
+              Content browser (dev)
+            </Link>
+          )}
         </div>
         {/* Top right: the Storehouse, and what the last request brought to it. */}
         <div
@@ -452,7 +616,7 @@ export function IslandHub({
             label="ui.build.open"
             icon={<HammerIcon size={56} />}
             tone="cloud"
-            disabled={busy || !build.ready}
+            disabled={busy || decorate.open || !build.ready}
             onPress={build.openSheet}
             data={{ 'data-testid': 'build-open' }}
           />
@@ -466,7 +630,7 @@ export function IslandHub({
                 </span>
               }
               tone="cloud"
-              disabled={busy}
+              disabled={busy || decorate.open}
               onPress={build.layStone}
               data={{
                 'data-testid': 'road-next',
@@ -475,15 +639,21 @@ export function IslandHub({
               }}
             />
           ) : null}
-          {made.length > 0 && !aside ? (
+          {made.length + earned.length > 0 && !aside ? (
             <div
               className="flex max-w-[15rem] flex-wrap items-center justify-end gap-1 rounded-[20px] bg-paper/95 px-3 py-2 shadow-soft ring-4 ring-sunshine"
               role="img"
               aria-label={text('ui.island.made')}
               data-testid="arrived"
               data-count={made.length}
+              data-decor={earned.join(' ')}
             >
               {made.map((id, i) => picture(id, i, 40))}
+              {/* A piece of decor earned: it waits in decorate mode's tray. */}
+              {earned.map((id, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: the same decor can be earned twice
+                <FlowerIcon key={`${id}-${i}`} size={40} />
+              ))}
             </div>
           ) : null}
         </div>
@@ -499,6 +669,28 @@ export function IslandHub({
           data-room="bottom"
           data-row={rowLow ? 'low' : 'raised'}
         />
+        {/* Decorate mode's tray stands in the request row's place. */}
+        {decorate.used && decorate.open ? (
+          <div
+            className={`absolute z-20 h-[13.25rem] ${
+              rowLow
+                ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]'
+                : 'bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] px-4'
+            }`}
+            style={rowInset}
+          >
+            <Suspense fallback={null}>
+              <DecorTray
+                items={decorate.items}
+                selected={decorate.selected}
+                width={(layout?.size.w ?? 1280) - (rowLow ? rowInset.left + rowInset.right : 32)}
+                onSelect={decorate.select}
+                onPutAway={decorate.putAway}
+                onDone={decorate.done}
+              />
+            </Suspense>
+          </div>
+        ) : null}
         {/* The requests: a bubble over each resident, the recommended one first. They lie above
             the parent gate's hint, which opens over this row on a narrow screen: a request and
             its speaker stay whole targets while the hint shows. */}
@@ -587,14 +779,6 @@ export function IslandHub({
         >
           <FamilyAvatars members={members} playing={child.id} />
         </div>
-        {devFlag() && (
-          <Link
-            to={`/play/${child.id}/pier?browse`}
-            className="absolute top-[8.5rem] left-4 z-30 rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
-          >
-            Content browser (dev)
-          </Link>
-        )}
       </main>
       <footer
         className="absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))]"
@@ -607,6 +791,24 @@ export function IslandHub({
         />
       </footer>
       {/* Loaded when it is first opened, and kept: closing returns the focus as any sheet does. */}
+      {naming !== 'closed' ? (
+        <Suspense fallback={null}>
+          <NameSheet
+            open={naming === 'open'}
+            onClose={() => setNaming('used')}
+            onName={(name) => {
+              setNaming('used');
+              // The first child names it: a name that came meanwhile from a sibling stands.
+              nameIsland(store, child.id, name).then((result) => {
+                if (result !== 'ok') return;
+                markWelcomed(child.id, name);
+                audio.stop();
+                say(welcomeLine(name));
+              }, raise);
+            }}
+          />
+        </Suspense>
+      ) : null}
       {build.sheetUsed ? (
         <Suspense fallback={null}>
           <BuildSheet
