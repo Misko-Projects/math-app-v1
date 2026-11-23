@@ -81,7 +81,7 @@ test('a child plays a Road Crew request with a wrong answer: stones, the parade,
       dealt = true;
       expect(now).toBe(stones);
     }
-    await expect(tray).toHaveAccessibleName(`Stones made: ${stones}`);
+    await expect(tray).toHaveAccessibleName(`Your stones: ${stones}`);
   };
 
   await test.step('the request, task by task: the lesson in-world, a wrong answer, stones for right ones', async () => {
@@ -135,7 +135,7 @@ test('a child plays a Road Crew request with a wrong answer: stones, the parade,
   await test.step('the parade: the stones made, one of them onto the road with its number', async () => {
     const summary = page.getByTestId('pier-summary');
     await expect(summary).toHaveAttribute('data-workshop', 'road-crew');
-    await expect(page.getByText('All done! Look at the stones you made!')).toBeVisible();
+    await expect(page.getByText('All done! Look at your stones!')).toBeVisible();
     const parade = page.getByTestId('road-crew-parade');
     await expect(parade).toHaveAttribute('data-made', String(stones));
     await expect(parade).toHaveAttribute('data-laid', '1');

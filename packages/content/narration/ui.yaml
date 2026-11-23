@@ -1585,10 +1585,10 @@ ui.pier.progress:
 # Road Crew (#27, apps/web/src/workshops/road-crew): the end of a request, the row of stones it
 # has made, and the stone it laid on the road.
 ui.roadcrew.done:
-  text: "All done! Look at the stones you made!"
+  text: "All done! Look at your stones!"
   level: K
 ui.roadcrew.tray:
-  text: "Stones made: {n}"
+  text: "Your stones: {n}"
   level: K
 ui.roadcrew.laid:
   text: "Stone {n} is on the road"
