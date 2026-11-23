@@ -26,7 +26,6 @@ import {
   landCrop,
   materialArtFor,
   Pebbling,
-  Pip,
   PlacedBuilding,
   pebblingFromResident,
   ReplayButton,
@@ -92,7 +91,7 @@ export function IslandHub({
   const made = hub.result ? units(hub.result.materials) : [];
   const line = made.length > 0 ? 'ui.island.made' : 'ui.island.hello';
 
-  // Pip speaks once per visit: the greeting, or what the request just made.
+  // The guide speaks once per visit: the greeting, or what the request just made.
   const greeted = useRef(false);
   useEffect(() => {
     if (!idle || greeted.current) return;
@@ -299,7 +298,7 @@ export function IslandHub({
                 return m ? text(m.name) : [];
               });
               const label = [
-                resident?.name ?? 'Pip',
+                ...(resident ? [resident.name] : []),
                 text(request.narration, request.vars),
                 ...names,
               ].join(' ');
@@ -328,9 +327,7 @@ export function IslandHub({
                         pose={i === 0 ? 'wave' : 'idle'}
                         size={112}
                       />
-                    ) : (
-                      <Pip size={112} />
-                    )}
+                    ) : null}
                   </button>
                   {/* Beside the resident, in the card's free corner. */}
                   <span className="absolute right-0 bottom-0">
