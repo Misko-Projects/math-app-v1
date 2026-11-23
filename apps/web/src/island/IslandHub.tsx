@@ -564,7 +564,10 @@ export function IslandHub({
             data-testid="island-line"
           >
             <SpeechBubble say={line} tail="none" showText />
-            <ReplayButton onPress={() => say(line)} />
+            {/* A long line wraps in its bubble; the speaker keeps its size beside it. */}
+            <span className="flex shrink-0">
+              <ReplayButton onPress={() => say(line)} />
+            </span>
           </div>
         </div>
         {/* The left column: Decorate, and the island's sign while the island has no name. */}
