@@ -307,6 +307,8 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     const before = firstProblem.lastMs();
     for (let quiet = 1; firstProblem.lastMs() === before; quiet += 1) {
       await wait();
+      // Measured while waiting (the first widget mounted): the clock must not move after it.
+      if (firstProblem.lastMs() !== before) break;
       // Nothing arrived by itself for a while and a timer is pending: time moves to it.
       if (quiet % 100 === 0 && vi.getTimerCount() > 0) {
         await act(async () => {
