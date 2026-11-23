@@ -72,6 +72,19 @@ describe('planLine: clip stitching order (03 §8.4)', () => {
     expect(plan?.spoken).toBe('Shelly needs four planks for the boat.');
   });
 
+  it('shows and speaks an ordinal slot as its word, never as a bare numeral', () => {
+    for (const [k, word] of [
+      [1, 'first'],
+      [3, 'third'],
+      [10, 'tenth'],
+    ] as const) {
+      const plan = planLine(N, 'tp.CNT.15.t1.prompt', { from: 'left', k });
+      expect(plan?.text).toBe(`Start at the left. Tap the ${word} one.`);
+      expect(plan?.spoken).toBe(`Start at the left. Tap the ${word} one.`);
+      expect(plan?.problems).toEqual([]);
+    }
+  });
+
   it('formats money for captions and speech', () => {
     const plan = planLine(N, 'p.money.pay', { price: 125 });
     expect(plan?.text).toBe('Pay $1.25.');

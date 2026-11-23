@@ -29,7 +29,7 @@ export {
   type TemplateStats,
 } from './content/binding';
 export { constraintHolds, ExprError } from './content/expr';
-export { render } from './content/render';
+export { render, renderForms } from './content/render';
 export * from './folds';
 export type { FormatModel, FormatState } from './formats';
 export { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './formats';

@@ -283,6 +283,8 @@ templates:
       b: { int: [2, 10] }
       ask: { choice: [more, fewer], weights: [3, 1] }
       conflict: true
+    # The prompt asks which group has more (or fewer) and the looks mislead: the groups differ.
+    constraints: ["a != b"]
     difficulty: { base: -1.7 }
     expectedLatencyMs: 12000
     narration:

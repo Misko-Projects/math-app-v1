@@ -270,7 +270,7 @@ const MASS: Case[] = [
         },
       };
     },
-    widget: { mode: 'sort', bins: [{ label: 'word.heavier' }, { label: 'word.lighter' }] },
+    widget: { mode: 'sort', bins: [{ label: 'word.heavy' }, { label: 'word.light' }] },
     lastOp: 'drag-card',
   },
   {
@@ -632,7 +632,9 @@ describe('mea.massvolume', () => {
         expect(new Set(ws).size).toBe(cards);
         expect(ws.filter((w) => clearlyLighter(value, w))).toHaveLength(hits);
         expect(ws.filter((w) => clearlyLighter(w, value))).toHaveLength(cards - hits);
-        expect(itemSolution(item, t)[0]?.vars).toEqual({ thing: WEIGHABLES[value - 1], one: 1 });
+        // The dividing object is never drawn, so no line names it (prompt or worked solution).
+        expect(item.prompt.vars).toEqual({});
+        for (const step of itemSolution(item, t)) expect(step.vars ?? {}).toEqual({});
         // Putting every card in the heavier bin is wrong.
         const all = {
           kind: 'state' as const,

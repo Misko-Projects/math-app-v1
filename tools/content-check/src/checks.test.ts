@@ -128,6 +128,66 @@ describe('each check catches its defect', FULL_RUN, () => {
     const onlyChoice = templates.map((t) => (t.id === 'ADD.01.t4' ? choice : t));
     expect(errorsOf({ ...small, templates: onlyChoice }, 'V27')[0]?.message).toContain('(none)');
   });
+
+  const find = (id: string) => fixture.templates.find((t) => t.id === id) as ItemTemplate;
+
+  it('V28: an ordinal slot with no position word, and a numeral written as an ordinal', () => {
+    // CNT.15.t2 asks for "the {k|ord} stone"; without ord.<k> the slot would read "the 3 stone".
+    const narration = Object.fromEntries(
+      Object.entries(small.narration).filter(([key]) => !key.startsWith('ord.')),
+    );
+    const missing = errorsOf(withTemplate(find('CNT.15.t2'), { narration }), 'V28');
+    // Its prompt and the worked solution's "This one is …" both carry the slot.
+    expect(new Set(missing.map((d) => d.path))).toEqual(new Set(['CNT.15.t2']));
+    expect(missing[0]?.message).toContain('tp.CNT.15.t2.prompt');
+    // A line that interpolates the numeral where the position word belongs.
+    const numeral = {
+      ...small.narration,
+      'tp.X.prompt': { text: 'Tap the {k} one.', clips: [] },
+      'tp.Y.prompt': { text: 'Find the {k}th shell.', clips: [] },
+    };
+    expect(errorsOf({ ...small, narration: numeral }, 'V28').map((d) => d.path)).toEqual([
+      'tp.X.prompt',
+      'tp.Y.prompt',
+    ]);
+    expect(errorsOf(withTemplate(find('CNT.15.t2')), 'V28')).toEqual([]);
+  });
+
+  it('V29: a template that can generate a fact with every operand zero', () => {
+    const zero: ItemTemplate = {
+      ...find('ADD.02.t1'),
+      params: {
+        ...find('ADD.02.t1').params,
+        a: { kind: 'int', min: 0, max: 1 },
+        b: { kind: 'int', min: 0, max: 1 },
+      },
+    };
+    const got = errorsOf(withTemplate(zero), 'V29');
+    expect(got.map((d) => d.path)).toEqual(['ADD.02.t1']);
+    expect(got[0]?.message).toContain('0 + 0');
+    // The shipped ranges start at 1; one zero addend is not the defect.
+    expect(errorsOf(withTemplate(find('ADD.02.t1')), 'V29')).toEqual([]);
+    expect(errorsOf(withTemplate(find('ADD.06.t1')), 'V29')).toEqual([]);
+  });
+
+  it('V30: a hint or prompt that assumes unequal numbers on a template that generates equal ones', () => {
+    // ADD.03.t1 says "Start with the bigger number."; with a ≥ b it also generates 4 + 4.
+    const four = { kind: 'int' as const, min: 4, max: 4 };
+    const equal: ItemTemplate = {
+      ...find('ADD.03.t1'),
+      params: { ...find('ADD.03.t1').params, a: four, b: four },
+      constraints: ['a >= b', 'a + b <= 13'],
+    };
+    const templates = small.templates.map((t) => (t.id === equal.id ? equal : t));
+    const got = errorsOf({ ...small, templates }, 'V30');
+    expect(got.map((d) => d.path)).toEqual(['ADD.03.t1']);
+    expect(got[0]?.message).toContain('h.add.start-big');
+    // A prompt asking which group has more, with equal groups and no "They may be the same."
+    const conflict: ItemTemplate = { ...find('CMP.05.t1'), constraints: [] };
+    expect(errorsOf(withTemplate(conflict), 'V30')[0]?.message).toContain('tp.CMP.05.t1.prompt');
+    // CMP.01.t1 generates equal groups too, and its prompt says so.
+    expect(errorsOf(withTemplate(find('CMP.01.t1')), 'V30')).toEqual([]);
+  });
 });
 
 describe('parameterSpace (V22)', () => {

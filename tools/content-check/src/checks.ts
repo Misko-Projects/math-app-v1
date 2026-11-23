@@ -1,8 +1,9 @@
-// tools/content-check (03 §9.2): the engine-dependent content checks V13–V15, V22, V25 and V27, the
+// tools/content-check (03 §9.2): the engine-dependent content checks V13–V15, V22, V25 and V27–V30, the
 // engine parts of V04, V16, V17, V18 and V21, and `template-stats.json`. It imports the compiled
 // content (packages/content/dist) and the engine, which packages/content never does (02 §2).
 
 import { constraintIdentifiers, parseConstraint } from '@number-island/content';
+import { parseLine } from '@number-island/content/narration-line';
 import {
   applicableMisconceptions,
   constraintHolds,
@@ -17,10 +18,12 @@ import {
   initContent,
   isConstructedTemplate,
   itemFeatures,
+  itemSolution,
   mergedSpec,
   misconceptionRule,
   PARAMS,
   registry,
+  renderForms,
   specDomain,
 } from '@number-island/engine';
 import {
@@ -50,7 +53,10 @@ export type EngineCheckId =
   | 'V21'
   | 'V22'
   | 'V25'
-  | 'V27';
+  | 'V27'
+  | 'V28'
+  | 'V29'
+  | 'V30';
 
 export interface EngineDiagnostic {
   check: EngineCheckId;
@@ -83,6 +89,69 @@ export interface EngineCheckOptions {
 export interface EngineCheckResult {
   diagnostics: EngineDiagnostic[];
   templateStats: Record<string, DifficultyStats>;
+}
+
+// ---------- V28–V30: wording that must hold for every item a template generates ----------
+
+/** V28 (static): a numeral slot written where a position word belongs ("the {k} one", "{k}th"). */
+const NUMERAL_AS_ORDINAL =
+  /\bthe \{\w+(?:\|num)?\} (?:one|stone|place|spot)\b|\{\w+(?:\|num)?\}(?:st|nd|rd|th)\b/;
+
+/**
+ * V29 opt-in: templates whose items may have every operand zero (0 + 0). None today: the fact asks
+ * nothing and its picture is an empty frame. List a template here only when zero is its subject.
+ */
+export const ALL_ZERO_OPERANDS_ALLOWED: ReadonlySet<string> = new Set<string>();
+
+/** V30: generators whose params `a` and `b` are the two numbers the item shows and compares or joins. */
+const TWO_OPERAND_GENERATORS: ReadonlySet<string> = new Set([
+  'addsub.facts',
+  'compare.sets',
+  'compare.numbers',
+]);
+/** V30: a phrase that picks out one operand by size, so it names nothing when the two are equal. */
+const DEFINITE_COMPARATIVE =
+  /\bthe (?:bigger|biggest|smaller|smallest|larger|largest|greater|greatest|lesser|least) (?:number|one|group|side|part|addend|set)\b/i;
+/** V30: a prompt that asks which of the two is more, fewer, … */
+const WHICH_COMPARATIVE =
+  /\bwhich\b[^.?!]*\b(?:more|fewer|less|greater|bigger|smaller|larger|heavier|lighter|longer|shorter|taller)\b/i;
+/** V30: the line itself covers equal operands ("They may be the same.", "Same numbers get ="). */
+const ADMITS_EQUAL = /\b(?:same|equal)\b/i;
+
+interface SpokenLine {
+  key: string;
+  vars: Record<string, string | number>;
+  role: 'prompt' | 'hint' | 'solution';
+}
+
+/** Every line an item can show or say: its prompt, its hint ladder and its worked solution. */
+function spokenLines(item: GeneratedItem, t: ItemTemplate): SpokenLine[] {
+  const lines: SpokenLine[] = [
+    { key: item.prompt.narration, vars: item.prompt.vars, role: 'prompt' },
+    ...item.hints.map((h) => ({ key: h.say, vars: h.vars ?? {}, role: 'hint' as const })),
+  ];
+  try {
+    for (const step of itemSolution(item, t)) {
+      if (step.say) lines.push({ key: step.say, vars: step.vars ?? {}, role: 'solution' });
+    }
+  } catch {
+    // A generator that cannot build its solution fails V15; the wording checks skip it.
+  }
+  return lines;
+}
+
+/** V29: the item's expression has an operation and every number in it is zero, or a fact's operands are. */
+export function allOperandsZero(item: GeneratedItem, t: ItemTemplate): boolean {
+  const expression = (item.widget as { expression?: { tokens?: { t: string; v?: unknown }[] } })
+    .expression;
+  const tokens = expression?.tokens ?? [];
+  const nums = tokens.filter((k) => k.t === 'num').map((k) => Number(k.v));
+  if (tokens.some((k) => k.t === 'op') && nums.length > 0 && nums.every((n) => n === 0)) {
+    return true;
+  }
+  if (!t.generator.startsWith('addsub.')) return false;
+  const operands = ['a', 'b', 'c'].map((n) => item.params[n]).filter((v) => typeof v === 'number');
+  return operands.length >= 2 && operands.every((v) => v === 0);
 }
 
 const templateFile = (t: ItemTemplate): string => `templates/${t.skillId.split('.')[0]}.yaml`;
@@ -266,6 +335,19 @@ export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions):
         );
     }
   }
+  // ---------- V28 (static): a numeral slot where a position word belongs ----------
+  for (const [key, entry] of Object.entries(input.narration)) {
+    for (const line of [entry.text, entry.say]) {
+      if (line !== undefined && NUMERAL_AS_ORDINAL.test(line)) {
+        err(
+          'V28',
+          'narration',
+          key,
+          `"${line}" puts a numeral where a position word belongs ("the 3 one"): use an {…|ord} slot`,
+        );
+      }
+    }
+  }
   for (const m of input.misconceptions) {
     const file = misconceptionFile(m);
     for (const id of m.appliesTo.generators) {
@@ -393,8 +475,65 @@ export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions):
     }
     // V25: discrimination of each applicable misconception with predict
     const counts = new Map<string, { hits: number; total: number }>();
+    // V28–V30 report each defect once per template and line, with the first seed that shows it.
+    const worded = new Set<string>();
+    const wording = (check: EngineCheckId, key: string, message: string) => {
+      if (worded.has(`${check} ${key}`)) return;
+      worded.add(`${check} ${key}`);
+      err(check, file, t.id, message);
+    };
     for (let seed = 1; seed <= statsN; seed += 1) {
       const item = generateItem(t, seed);
+      const lines = spokenLines(item, t);
+      // V28: an ordinal slot shows and says a position word, never a bare numeral.
+      for (const { key, vars } of lines) {
+        const entry = input.narration[key];
+        for (const line of entry ? [entry.text, entry.say] : []) {
+          if (line === undefined) continue;
+          for (const s of parseLine(line).segments) {
+            if (s.kind !== 'slot' || s.slot.type !== 'ord') continue;
+            const v = vars[s.slot.name];
+            const word = input.narration[`ord.${v}`]?.text;
+            if (v === undefined || word === undefined || /\d/.test(word)) {
+              wording(
+                'V28',
+                `${key} ${s.slot.name}`,
+                `seed ${seed}: ${key} has the ordinal slot {${s.slot.raw}} = ${v}, which has no position word (ord.${v}) and would read as a bare numeral`,
+              );
+            }
+          }
+        }
+      }
+      // V29: no fact with every operand zero (0 + 0 over an empty picture).
+      if (!ALL_ZERO_OPERANDS_ALLOWED.has(t.id) && allOperandsZero(item, t)) {
+        wording(
+          'V29',
+          'zero',
+          `seed ${seed}: every operand is zero ("${item.prompt.text}"); exclude it with a param range or a constraint`,
+        );
+      }
+      // V30: with equal operands, no line may pick one out by size or ask which is more.
+      if (
+        TWO_OPERAND_GENERATORS.has(t.generator) &&
+        typeof item.params.a === 'number' &&
+        item.params.a === item.params.b
+      ) {
+        for (const { key, vars, role } of lines) {
+          for (const text of renderForms(key, vars, input.narration)) {
+            if (ADMITS_EQUAL.test(text)) continue;
+            if (
+              DEFINITE_COMPARATIVE.test(text) ||
+              (role === 'prompt' && WHICH_COMPARATIVE.test(text))
+            ) {
+              wording(
+                'V30',
+                key,
+                `seed ${seed}: the ${role} ${key} ("${text}") assumes unequal numbers, but a = b = ${item.params.a}; reword it, or exclude equal numbers with a constraint`,
+              );
+            }
+          }
+        }
+      }
       for (const { spec: mc, rule } of applicableMisconceptions(item, [
         'answer',
         'state',

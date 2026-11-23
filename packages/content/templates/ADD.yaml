@@ -44,18 +44,19 @@ templates:
     tier: abstract
     generator: addsub.facts
     params: { a: { int: [0, 9] }, b: { int: [0, 9] }, op: "+", unknown: result, family: any }
-    constraints: ["a + b <= 10"]
+    constraints: ["a + b >= 1", "a + b <= 10"]
     difficulty: { base: 0.0 }
     narration: { prompt: p.add.what-is, hints: [h.add.join, h.add.fingers] }
 
   # ---------- ADD.02: fluency within 5 (K, fact-fluency) ----------
+  # No zero addend here: adding zero is taught in ADD.05, and 0 + 0 over an empty frame asks nothing.
   - id: ADD.02.t1
     skillId: ADD.02
     format: number-pad
     tier: pictorial
     representation: ten-frame
     generator: addsub.facts
-    params: { a: { int: [0, 5] }, b: { int: [0, 5] }, op: "+", unknown: result, maxSum: 5 }
+    params: { a: { int: [1, 4] }, b: { int: [1, 4] }, op: "+", unknown: result, maxSum: 5 }
     difficulty: { base: 0.6 }
     narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
 
@@ -75,7 +76,7 @@ templates:
     tier: abstract
     representation: symbols
     generator: addsub.facts
-    params: { a: { int: [0, 5] }, b: { int: [0, 5] }, op: "+", unknown: result, maxSum: 5 }
+    params: { a: { int: [1, 4] }, b: { int: [1, 4] }, op: "+", unknown: result, maxSum: 5 }
     difficulty: { base: 0.6 }
     narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.add.fingers] }
 
@@ -95,7 +96,7 @@ templates:
     tier: abstract
     representation: symbols
     generator: addsub.facts
-    params: { a: { int: [0, 5] }, b: { int: [0, 5] }, op: "+", unknown: result, maxSum: 5 }
+    params: { a: { int: [1, 4] }, b: { int: [1, 4] }, op: "+", unknown: result, maxSum: 5 }
     difficulty: { base: 0.6 }
     narration: { prompt: p.add.what-is, hints: [h.addsub.know-it] }
 
@@ -107,7 +108,7 @@ templates:
     representation: number-path
     generator: addsub.facts
     params: { a: { int: [4, 9] }, b: { int: [1, 4] }, op: "+", unknown: result, family: count-up }
-    constraints: ["a >= b", "a + b <= 13"]
+    constraints: ["a > b", "a + b <= 13"]
     difficulty: { base: -0.6 }
     narration: { prompt: tp.ADD.03.t1.prompt, hints: [h.add.count-on, h.add.start-big] }
 
@@ -127,7 +128,7 @@ templates:
     tier: pictorial
     generator: addsub.facts
     params: { a: { int: [4, 16] }, b: { int: [1, 4] }, op: "+", unknown: result, family: count-up }
-    constraints: ["a >= b", "a + b <= 20"]
+    constraints: ["a > b", "a + b <= 20"]
     difficulty: { base: -0.95 }
     narration: { prompt: tp.ADD.03.t1.prompt, hints: [h.add.count-on, h.add.start-big] }
 
@@ -137,7 +138,7 @@ templates:
     tier: abstract
     generator: addsub.facts
     params: { a: { int: [1, 16] }, b: { int: [1, 16] }, op: "+", unknown: result, family: count-up }
-    constraints: ["max(a, b) >= 4", "min(a, b) <= 4", "a + b <= 20"]
+    constraints: ["max(a, b) >= 4", "min(a, b) <= 4", "a != b", "a + b <= 20"]
     difficulty: { base: -0.8 }
     narration: { prompt: tp.ADD.03.t4.prompt, hints: [h.add.start-big, h.add.count-on] }
 
@@ -194,6 +195,7 @@ templates:
     representation: ten-frame
     generator: addsub.facts
     params: { a: { int: [0, 10] }, b: { int: [0, 10] }, op: "+", unknown: result, maxSum: 10 }
+    constraints: ["a + b >= 1"]
     difficulty: { base: 0.4 }
     narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
 
@@ -214,6 +216,7 @@ templates:
     representation: symbols
     generator: addsub.facts
     params: { a: { int: [0, 10] }, b: { int: [0, 10] }, op: "+", unknown: result, maxSum: 10 }
+    constraints: ["a + b >= 1"]
     difficulty: { base: 0.4 }
     narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
 
