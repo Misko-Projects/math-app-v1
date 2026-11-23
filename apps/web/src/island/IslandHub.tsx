@@ -74,13 +74,12 @@ import { firstProblem } from './firstProblem';
 import { useHub } from './hub';
 import { landBox, roomCrop, useIslandRoom } from './layout';
 import {
-  type IslandName,
+  type IslandNameChoice,
+  islandNames,
   markWelcomed,
+  namedAs,
   nameIsland,
-  nameLine,
-  offeredName,
   welcomeDue,
-  welcomeLine,
 } from './naming/names';
 import {
   type IslandPlan,
@@ -202,10 +201,10 @@ export function IslandHub({
     return () => hub.nonMath.leave(controller.activeMs());
   }, [hub.nonMath, controller]);
   // The island's name, said once to each child on this device ("Welcome to … Island!").
-  const [welcome, setWelcome] = useState<IslandName | null | undefined>(undefined);
+  const [welcome, setWelcome] = useState<IslandNameChoice | null | undefined>(undefined);
   useEffect(() => {
-    if (island && welcome === undefined) setWelcome(welcomeDue(island, child.id));
-  }, [island, welcome, child.id]);
+    if (island && welcome === undefined) setWelcome(welcomeDue(gameData, island, child.id));
+  }, [island, welcome, child.id, gameData]);
   // This child's placements that lost their plots to an earlier one from another device (02
   // §4.3), read when the island is: said once, on this visit, and not again on this device.
   // The line stays while one of them is still displaced: built again, it gives way.
@@ -230,7 +229,7 @@ export function IslandHub({
             : made.length > 0
               ? 'ui.island.made'
               : welcome
-                ? welcomeLine(welcome)
+                ? welcome.welcome
                 : 'ui.island.hello';
 
   // The guide speaks once per visit: that a building has to be placed again, what the request
@@ -241,7 +240,7 @@ export function IslandHub({
     greeted.current = true;
     say(line);
     if (displaced.length > 0) markDisplacedTold(displaced);
-    if (welcome && line === welcomeLine(welcome)) markWelcomed(child.id, welcome);
+    if (welcome && line === welcome.welcome) markWelcomed(child.id, welcome);
   }, [idle, displaced, welcome, line, say, child.id]);
 
   // The wind-down hook: no item is ever in progress here, so end now and show the sunset.
@@ -338,7 +337,8 @@ export function IslandHub({
     navigate('/', { replace: true });
   };
 
-  const islandName = offeredName(island?.name ?? null);
+  const islandName = namedAs(gameData, island?.name ?? null);
+  const nameChoices = islandNames(gameData);
   const rings = island?.ringsUnlocked ?? 1;
   // The land is drawn in the room the controls leave (`layout.ts`): measured again when the
   // guide's line, the requests or the columns change.
@@ -553,7 +553,7 @@ export function IslandHub({
                 <span className="truncate font-bold">{child.name}</span>
                 {islandName ? (
                   <span className="truncate" data-testid="island-name">
-                    {text(nameLine(islandName))}
+                    {text(islandName.say)}
                   </span>
                 ) : null}
               </span>
@@ -584,7 +584,7 @@ export function IslandHub({
             onPress={decorate.open ? decorate.done : decorate.start}
             data={{ 'data-testid': 'decor-open', 'data-capped': String(decorate.capped) }}
           />
-          {island && island.name === null ? (
+          {island && island.name === null && nameChoices.length > 0 ? (
             <IconButton
               label="ui.island.name.open"
               icon={<FlagIcon size={56} />}
@@ -797,6 +797,7 @@ export function IslandHub({
       {naming !== 'closed' ? (
         <Suspense fallback={null}>
           <NameSheet
+            choices={nameChoices}
             open={naming === 'open'}
             onClose={() => setNaming('used')}
             onName={(name) => {
@@ -806,7 +807,7 @@ export function IslandHub({
                 if (result !== 'ok') return;
                 markWelcomed(child.id, name);
                 audio.stop();
-                say(welcomeLine(name));
+                say(name.welcome);
               }, raise);
             }}
           />

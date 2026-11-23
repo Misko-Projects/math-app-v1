@@ -1146,7 +1146,7 @@ describe('decorate mode and its caps (05 §6, §8; 06 §2; #22 part 4)', () => {
     expect(open.getAttribute('data-capped')).toBe('false');
     fireEvent.click(open);
     expect(say).toHaveBeenCalledWith('ui.decor.closed', undefined);
-    expect(screen.getByText('Decorating is open after your next request!')).toBeTruthy();
+    expect(screen.getByText('Decorating is open after you help a friend!')).toBeTruthy();
     expect(open.getAttribute('data-capped')).toBe('true');
     // Nothing opened: the requests stay, the recommended one first.
     expect(screen.queryByTestId('decor-tray')).toBeNull();
@@ -1223,7 +1223,7 @@ describe('decorate mode and its caps (05 §6, §8; 06 §2; #22 part 4)', () => {
     act(() => clock.advance(1000));
     expect(screen.queryByTestId('decor-tray')).toBeNull();
     expect(say).toHaveBeenCalledWith('ui.decor.closed', undefined);
-    expect(screen.getByText('Decorating is open after your next request!')).toBeTruthy();
+    expect(screen.getByText('Decorating is open after you help a friend!')).toBeTruthy();
     expect((await bubbles())[0]?.getAttribute('data-recommended')).toBe('true');
     // Closed until the next request: another tap says so again and opens nothing.
     fireEvent.click(screen.getByRole('button', { name: 'Decorate' }));
@@ -1247,38 +1247,42 @@ describe('decorate mode and its caps (05 §6, §8; 06 §2; #22 part 4)', () => {
 });
 
 describe("the island's name (05 §10 step 3; #22 part 4)", () => {
-  it('the first child picks one of six spoken names: island.named, and the island says welcome', async () => {
+  it('the first child picks one of the spoken names in the game data: island.named, and the island says welcome', async () => {
     const { app, say } = await renderHome();
     await bubbles();
     expect(screen.queryByTestId('island-name')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Name the island' }));
+    // The sign shows once the island is read: it has no name yet.
+    fireEvent.click(await screen.findByRole('button', { name: 'Name the island' }));
     const sheet = await screen.findByTestId('name-sheet');
     const names = Array.from(sheet.querySelectorAll('[data-island-name]'));
+    // The game data's names (game/island.yaml), each shown as it is said.
     expect(names.map((b) => b.textContent)).toEqual([
-      'Sunny',
-      'Pebble',
-      'Coral',
-      'Mango',
-      'Starfish',
-      'Rainbow',
+      'Shell Island',
+      'Lantern Island',
+      'Stone Island',
+      'Garden Island',
+      'Lighthouse Island',
+      'Boat Island',
     ]);
     const okay = within(sheet).getByRole('button', { name: 'Okay!' }) as HTMLButtonElement;
     expect(okay.disabled).toBe(true);
     fireEvent.click(names[2] as HTMLElement);
-    expect(say).toHaveBeenCalledWith('ui.island.name.coral', undefined);
+    expect(say).toHaveBeenCalledWith('game.island.name.stone', undefined);
     expect(names[2]?.getAttribute('aria-pressed')).toBe('true');
     await act(async () => {
       fireEvent.click(okay);
     });
-    await waitFor(async () => expect((await app.store.island()).name).toBe('Coral'));
+    await waitFor(async () => expect((await app.store.island()).name).toBe('Stone'));
     expect((await app.store.events()).at(-1)).toMatchObject({
       type: 'island.named',
       childId: CHILD_K,
-      payload: { name: 'Coral' },
+      payload: { name: 'Stone' },
     });
-    await vi.waitFor(() => expect(say).toHaveBeenCalledWith('ui.island.welcome.coral', undefined));
+    await vi.waitFor(() =>
+      expect(say).toHaveBeenCalledWith('game.island.welcome.stone', undefined),
+    );
     // The name shows beside the child's, and the sign is gone: the island is named once.
-    expect((await screen.findByTestId('island-name')).textContent).toBe('Coral Island');
+    expect((await screen.findByTestId('island-name')).textContent).toBe('Stone Island');
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Name the island' })).toBeNull(),
     );
@@ -1287,21 +1291,21 @@ describe("the island's name (05 §10 step 3; #22 part 4)", () => {
   it('a sibling is welcomed to the island by name, once on a device', async () => {
     const named = async (a: AppServices) => {
       await a.store.putProfile(profile(CHILD_G2, '2', 'Ben'));
-      await a.store.append('island.named', { name: 'Mango' }, { childId: CHILD_G2 });
+      await a.store.append('island.named', { name: 'Garden' }, { childId: CHILD_G2 });
     };
     const first = await renderHome({ before: named });
     await vi.waitFor(() =>
-      expect(first.say).toHaveBeenCalledWith('ui.island.welcome.mango', undefined),
+      expect(first.say).toHaveBeenCalledWith('game.island.welcome.garden', undefined),
     );
-    expect(screen.getByText('Welcome to Mango Island!')).toBeTruthy();
+    expect(screen.getByText('Welcome to Garden Island!')).toBeTruthy();
     expect(first.say).not.toHaveBeenCalledWith('ui.island.hello', undefined);
-    expect(screen.getByTestId('island-name').textContent).toBe('Mango Island');
+    expect(screen.getByTestId('island-name').textContent).toBe('Garden Island');
     expect(screen.queryByRole('button', { name: 'Name the island' })).toBeNull();
     cleanup();
     // The next visit on this device: the usual greeting.
     const again = await renderHome({ before: named });
     await vi.waitFor(() => expect(again.say).toHaveBeenCalledWith('ui.island.hello', undefined));
-    expect(again.say).not.toHaveBeenCalledWith('ui.island.welcome.mango', undefined);
+    expect(again.say).not.toHaveBeenCalledWith('game.island.welcome.garden', undefined);
   });
 });
 

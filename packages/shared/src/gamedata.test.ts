@@ -117,4 +117,20 @@ describe('game data contracts', () => {
     const wrong = { ...gameData, island: { ...gameData.island, grid: [10, 8] } };
     expect(gameDataSchema.safeParse(wrong).success).toBe(false);
   });
+
+  it("takes the island's names, each with its two spoken lines, or none at all", () => {
+    const names = [
+      { name: 'Shell', say: 'game.island.name.shell', welcome: 'game.island.welcome.shell' },
+    ];
+    const named = { ...gameData, island: { ...gameData.island, names } };
+    expect(gameDataSchema.parse(named)).toEqual(named);
+    expect(gameData.island).not.toHaveProperty('names');
+    const noLine = { ...gameData, island: { ...gameData.island, names: [{ name: 'Shell' }] } };
+    expect(gameDataSchema.safeParse(noLine).success).toBe(false);
+    const noName = {
+      ...gameData,
+      island: { ...gameData.island, names: [{ ...names[0], name: '' }] },
+    };
+    expect(gameDataSchema.safeParse(noName).success).toBe(false);
+  });
 });

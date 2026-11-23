@@ -32,6 +32,51 @@ game.material.flag:
 game.material.fruit:
   text: "fruit"
 
+# ---------- the island's name (game/island.yaml `names`): each choice as it is said and shown,
+# and the greeting that welcomes a child to the island by name (05 §10 step 3) ----------
+game.island.name.shell:
+  text: "Shell Island"
+  level: K
+game.island.name.lantern:
+  text: "Lantern Island"
+  level: K
+game.island.name.stone:
+  text: "Stone Island"
+  level: K
+game.island.name.garden:
+  text: "Garden Island"
+  level: K
+game.island.name.lighthouse:
+  text: "Lighthouse Island"
+  level: K
+game.island.name.boat:
+  text: "Boat Island"
+  level: K
+game.island.welcome.shell:
+  text: "Welcome to Shell Island!"
+  voice: pip
+  level: K
+game.island.welcome.lantern:
+  text: "Welcome to Lantern Island!"
+  voice: pip
+  level: K
+game.island.welcome.stone:
+  text: "Welcome to Stone Island!"
+  voice: pip
+  level: K
+game.island.welcome.garden:
+  text: "Welcome to Garden Island!"
+  voice: pip
+  level: K
+game.island.welcome.lighthouse:
+  text: "Welcome to Lighthouse Island!"
+  voice: pip
+  level: K
+game.island.welcome.boat:
+  text: "Welcome to Boat Island!"
+  voice: pip
+  level: K
+
 # ---------- buildings (game.building.<id>): spoken names ----------
 game.building.storehouse:
   text: "Storehouse"

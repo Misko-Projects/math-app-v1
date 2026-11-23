@@ -1,22 +1,33 @@
-// The naming step (05 §10 step 3; #22 part 4), loaded when the island's sign is opened: six
-// names to choose from, each a button that says its name when tapped, and "Okay" to keep the one
-// chosen. Nothing is typed.
+// The naming step (05 §10 step 3; #22 part 4), loaded when the island's sign is opened: the game
+// data's names to choose from, each a button that says its name when tapped, and "Okay" to keep
+// the one chosen. Nothing is typed.
 
-import { BigButton, icons, ReplayButton, Sheet, SpeechBubble, useSpeech } from '@number-island/ui';
+import {
+  BigButton,
+  icons,
+  ReplayButton,
+  Sheet,
+  SpeechBubble,
+  useNarrationText,
+  useSpeech,
+} from '@number-island/ui';
 import { useState } from 'react';
-import { ISLAND_NAMES, type IslandName, nameLine } from './names';
+import type { IslandNameChoice } from './names';
 
 export default function NameSheet({
   open,
+  choices,
   onClose,
   onName,
 }: {
   open: boolean;
+  choices: readonly IslandNameChoice[];
   onClose: () => void;
-  onName: (name: IslandName) => void;
+  onName: (choice: IslandNameChoice) => void;
 }) {
   const { say } = useSpeech();
-  const [chosen, setChosen] = useState<IslandName | null>(null);
+  const text = useNarrationText();
+  const [chosen, setChosen] = useState<IslandNameChoice | null>(null);
   return (
     <Sheet open={open} onClose={onClose} label="ui.island.name.open" placement="center">
       <div className="flex flex-col items-center gap-5" data-testid="name-sheet">
@@ -24,22 +35,22 @@ export default function NameSheet({
           <SpeechBubble say="ui.island.name.pick" tail="none" showText />
           <ReplayButton onPress={() => say('ui.island.name.pick')} />
         </div>
-        <ul className="grid grid-cols-3 gap-3">
-          {ISLAND_NAMES.map((name) => (
-            <li key={name}>
+        <ul className="grid grid-cols-2 gap-3">
+          {choices.map((choice) => (
+            <li key={choice.name}>
               <button
                 type="button"
                 className={`min-h-[72px] w-full cursor-pointer rounded-[20px] bg-paper px-5 py-3 font-body text-[1.5rem] font-bold text-ink shadow-soft ring-4 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink ${
-                  chosen === name ? 'ring-sunshine' : 'ring-sand-deep'
+                  chosen?.name === choice.name ? 'ring-sunshine' : 'ring-sand-deep'
                 }`}
-                aria-pressed={chosen === name}
-                data-island-name={name}
+                aria-pressed={chosen?.name === choice.name}
+                data-island-name={choice.name}
                 onClick={() => {
-                  setChosen(name);
-                  say(nameLine(name));
+                  setChosen(choice);
+                  say(choice.say);
                 }}
               >
-                {name}
+                {text(choice.say)}
               </button>
             </li>
           ))}

@@ -163,6 +163,8 @@ cylinders
 dance
 day
 days
+decorate
+decorating
 dice
 did
 different

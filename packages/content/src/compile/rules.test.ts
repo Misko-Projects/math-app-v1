@@ -825,6 +825,22 @@ describe('V04: game data references', () => {
       /unknown workshop storehouse/,
     );
   });
+  it("the island's names are listed once each, and their spoken lines exist (05 §10 step 3)", () => {
+    expectFinding(
+      gameVariant('island', (doc) => {
+        doc.island.names[1].name = doc.island.names[0].name;
+      }),
+      'V02',
+      /duplicate island name Shell/,
+    );
+    expectFinding(
+      gameVariant('island', (doc) => {
+        doc.island.names[0].welcome = 'game.island.welcome.nowhere';
+      }),
+      'V16',
+      /narration key game\.island\.welcome\.nowhere does not exist/,
+    );
+  });
   it('ring rules use island facts and outfit rules no learner facts but mastery (02 §4.3)', () => {
     expectFinding(
       gameVariant('island', (doc) => {
