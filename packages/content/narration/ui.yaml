@@ -86,6 +86,11 @@ ui.island.empty:
   text: "The Storehouse is empty. Help a friend to fill it!"
   voice: pip
   level: K
+# The shared island (I01 part 3): said once to the child whose building lost its plots to one a
+# sibling placed there first on another tablet (02 §4.3).
+ui.island.displaced:
+  text: "Someone was here first. Pick a new place to build!"
+  level: K
 # Building and the Numbered Road on the island (I01 part 2, apps/web/src/island/building).
 ui.build.open:
   text: "Build"

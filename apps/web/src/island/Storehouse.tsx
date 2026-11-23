@@ -1,11 +1,13 @@
 // The Storehouse (05 §3): each material the family has as countable piles, never a bare number
 // for K. Kindergarten sees ten-frames: one frame per ten, the last one part-filled. From grade 1
 // the piles are base-ten: a bundle for every ten, the ones loose, and the numeral beside them.
-// The family shares one Storehouse (`foldInventory`), so both children see the same piles.
+// The family shares one Storehouse (`foldInventory`), so both children see the same piles, each
+// tagged with the avatar badges of the children who made some of it (never a count per child).
 
 import type { GameData, InventoryState, MaterialId } from '@number-island/shared';
 import { type ItemArt, materialArtFor, useNarrationText } from '@number-island/ui';
 import type { ReactNode } from 'react';
+import { type FamilyMember, MakerBadges } from './shared/family';
 
 export type PileMode = 'ten-frames' | 'base-ten';
 
@@ -100,11 +102,14 @@ export function Storehouse({
   gameData,
   inventory,
   mode,
+  makers = {},
   empty,
 }: {
   gameData: Pick<GameData, 'materials'>;
   inventory: Pick<InventoryState, 'materials'>;
   mode: PileMode;
+  /** The children who made some of each material: their badges tag the pile (05 §3). */
+  makers?: Record<MaterialId, FamilyMember[]>;
   /** Shown when the family has nothing yet. */
   empty: ReactNode;
 }) {
@@ -117,6 +122,8 @@ export function Storehouse({
         const Icon = materialArtFor(m.art);
         if (!Icon) throw new Error(`Storehouse: no art for ${m.art}`);
         const name = text(m.name);
+        const madeBy = makers[m.id] ?? [];
+        const who = madeBy.map((c) => c.profile.name).join(', ');
         return (
           <li
             key={m.id}
@@ -125,9 +132,13 @@ export function Storehouse({
             data-count={m.count}
             // The picture says how many; the name and the count are the words for it.
             role="img"
-            aria-label={`${name}: ${m.count}`}
+            aria-label={who ? `${name}: ${m.count} (${who})` : `${name}: ${m.count}`}
           >
-            <Icon size={56} />
+            {/* Under the material's picture, so a pile is no wider for its badges. */}
+            <span className="flex flex-col items-center gap-[2px]">
+              <Icon size={56} />
+              <MakerBadges members={madeBy} />
+            </span>
             <Pile count={m.count} mode={mode} Icon={Icon} />
             {mode === 'base-ten' ? (
               <span className="font-display text-[2.25rem] font-bold leading-none text-ink">

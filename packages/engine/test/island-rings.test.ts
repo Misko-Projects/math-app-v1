@@ -37,7 +37,8 @@ function ringsAlong(order: readonly string[], road: number): number[] {
       envelope(
         10 + i,
         'building.placed',
-        { instanceId: `p${i}`, buildingId: id, plot: [0, i] },
+        // Three plots apart: no footprint is wider, and buildings never share a plot.
+        { instanceId: `p${i}`, buildingId: id, plot: [3 * i, 0] },
         T0 + 10 + i,
         CHILD_1,
       ),

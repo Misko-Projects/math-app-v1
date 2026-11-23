@@ -19,6 +19,8 @@ export {
 export { applyInventoryEvent, foldInventory, initInventory } from './inventory';
 export {
   applyIslandEvent,
+  type DisplacedPlacement,
+  displacedPlacements,
   type EngineIslandState,
   foldIsland,
   initIsland,

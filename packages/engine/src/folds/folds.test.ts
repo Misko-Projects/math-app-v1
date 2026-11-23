@@ -12,7 +12,13 @@ import { describe, expect, it } from 'vitest';
 import { foldCollection } from './collection';
 import { foldGoals } from './goals';
 import { applyInventoryEvent, foldInventory, initInventory } from './inventory';
-import { applyIslandEvent, foldIsland, initIsland, islandFacts } from './island';
+import {
+  applyIslandEvent,
+  displacedPlacements,
+  foldIsland,
+  initIsland,
+  islandFacts,
+} from './island';
 import { evaluateUnlock, type UnlockFacts } from './unlock';
 
 const C1 = '019a0000-0000-7000-8000-00000000c001';
@@ -248,8 +254,13 @@ describe('foldInventory', () => {
 });
 
 describe('foldIsland', () => {
-  const placed = (id: string, buildingId: string, ts: number, childId: string | null = C1) =>
-    ev('building.placed', { instanceId: id, buildingId, plot: [5, 3] }, ts, childId);
+  const placed = (
+    id: string,
+    buildingId: string,
+    ts: number,
+    childId: string | null = C1,
+    plot: [number, number] = [5, 3],
+  ) => ev('building.placed', { instanceId: id, buildingId, plot }, ts, childId);
 
   it('starts with the start rings unlocked and nothing built', () => {
     const s = foldIsland([], game);
@@ -300,7 +311,7 @@ describe('foldIsland', () => {
     expect(s.ringsUnlocked).toBe(3);
   });
 
-  it('buildings: placed once, upgrades only raise the level, never un-built', () => {
+  it('buildings: placed once, upgrades only raise the level, a standing one is never un-built', () => {
     const s = foldIsland(
       [
         placed('i1', 'road-crew', T0),
@@ -313,6 +324,101 @@ describe('foldIsland', () => {
     );
     expect(s.buildings).toEqual({
       i1: { buildingId: 'road-crew', plot: [5, 3], level: 3, placedBy: C1, ts: T0 },
+    });
+  });
+
+  describe('two placements on the same plots (two devices offline)', () => {
+    // road-crew covers [5,3] and its footprint; the lighthouse placed on [5,3] overlaps it.
+    const first = placed('a', 'road-crew', T0, C1);
+    const second = placed('b', 'lighthouse', T0 + 5, C2);
+
+    it('the first by ts stands, in either arrival order; the other is displaced, not built', () => {
+      for (const events of [
+        [first, second],
+        [second, first],
+      ]) {
+        const s = foldIsland(events, game);
+        expect(Object.keys(s.buildings)).toEqual(['a']);
+        expect(s.buildings.a).toMatchObject({ buildingId: 'road-crew', placedBy: C1 });
+        expect(displacedPlacements(s)).toEqual([
+          { instanceId: 'b', buildingId: 'lighthouse', plot: [5, 3], placedBy: C2, ts: T0 + 5 },
+        ]);
+        expect(islandFacts(s).buildings).toEqual({ 'road-crew': 1 });
+      }
+    });
+
+    it('at the same ts the smaller event id stands', () => {
+      const tie = placed('b', 'lighthouse', T0, C2);
+      const s = foldIsland([tie, first], game);
+      expect(Object.keys(s.buildings)).toEqual([first.id < tie.id ? 'a' : 'b']);
+      expect(displacedPlacements(s)).toHaveLength(1);
+    });
+
+    it('a partial overlap of footprints displaces too; a clear plot does not', () => {
+      const [w] = game.buildings.find((b) => b.id === 'road-crew')?.footprint ?? [1, 1];
+      const edge = placed('edge', 'lighthouse', T0 + 1, C2, [5 + w - 1, 3]);
+      const clear = placed('clear', 'lighthouse', T0 + 2, C2, [5 + w, 3]);
+      const s = foldIsland([first, edge, clear], game);
+      expect(Object.keys(s.buildings).sort()).toEqual(['a', 'clear']);
+      expect(displacedPlacements(s).map((d) => d.instanceId)).toEqual(['edge']);
+    });
+
+    it('an upgrade never revives the lost one; placed again on free plots, the same instance stands', () => {
+      const lost = [
+        first,
+        second,
+        ev('building.upgraded', { instanceId: 'b', level: 2 }, T0 + 6, C2),
+      ];
+      expect(Object.keys(foldIsland(lost, game).buildings)).toEqual(['a']);
+      // Still on built plots: displaced again, at the newer place.
+      const again = foldIsland([...lost, placed('b', 'lighthouse', T0 + 7, C2, [5, 3])], game);
+      expect(displacedPlacements(again)).toMatchObject([{ instanceId: 'b', ts: T0 + 7 }]);
+      // The app places it again under the same instance id (the building's), on free plots.
+      const events = [...lost, placed('b', 'lighthouse', T0 + 8, C2, [9, 6])];
+      for (const order of [events, [...events].reverse()]) {
+        const s = foldIsland(order, game);
+        expect(Object.keys(s.buildings).sort()).toEqual(['a', 'b']);
+        expect(s.buildings.b).toMatchObject({ plot: [9, 6], level: 2, placedBy: C2, ts: T0 + 8 });
+        expect(displacedPlacements(s)).toEqual([]);
+      }
+    });
+
+    it('nobody moves into a displaced home; they arrive once it is built again', () => {
+      const arrival = (ts: number) =>
+        ev('resident.arrived', { residentId: 'tuck', homeInstanceId: 'b', via: 'home' }, ts, C2);
+      const lost = [first, second, arrival(T0 + 6)];
+      for (const order of [lost, [...lost].reverse()]) {
+        const s = foldIsland(order, game);
+        expect(s.residents).toEqual({});
+        expect(islandFacts(s).residentCount).toBe(0);
+      }
+      const rebuilt = foldIsland(
+        [...lost, placed('b', 'lighthouse', T0 + 8, C2, [9, 6]), arrival(T0 + 9)],
+        game,
+      );
+      expect(rebuilt.residents).toEqual({ tuck: { arrivedTs: T0 + 9, homeInstanceId: 'b' } });
+      // An arrival written by a device whose clock is behind sorts before the home's placement:
+      // when that placement is displaced, the resident leaves with it.
+      const early = [first, arrival(T0 + 1), second];
+      for (const order of [early, [...early].reverse()]) {
+        const s = foldIsland(order, game);
+        expect(Object.keys(s.buildings)).toEqual(['a']);
+        expect(s.residents).toEqual({});
+      }
+      const back = foldIsland(
+        [...early, placed('b', 'lighthouse', T0 + 8, C2, [9, 6]), arrival(T0 + 9)],
+        game,
+      );
+      expect(back.residents).toEqual({ tuck: { arrivedTs: T0 + 9, homeInstanceId: 'b' } });
+    });
+
+    it("a tombstone drops the deleted child's displaced placements", () => {
+      const s = foldIsland(
+        [first, second, ev('child.deleted', { childId: C2 }, T0 + 9, null)],
+        game,
+      );
+      expect(displacedPlacements(s)).toEqual([]);
+      expect(Object.keys(s.buildings)).toEqual(['a']);
     });
   });
 
@@ -507,7 +613,7 @@ describe('foldIsland', () => {
       [
         placed('constructor', 'road-crew', T0),
         ev('building.upgraded', { instanceId: 'toString', level: 2 }, T0 + 1),
-        placed('toString', 'road-crew', T0 + 2),
+        placed('toString', 'road-crew', T0 + 2, C1, [9, 6]),
         ev('decor.placed', { instanceId: 'hasOwnProperty', decorId: 'rose', pos: [1, 1] }, T0),
         ev('milestone.reached', { milestoneId: 'valueOf' }, T0),
       ],

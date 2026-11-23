@@ -1,7 +1,11 @@
-// foldIsland (02 §4.3): the shared island. Buildings are never un-built (`building.placed` and
-// `building.upgraded` always apply, and a level never goes down); decor positions are
-// last-writer-wins by ts then id; the road keeps its maximum; rings unlock as their rules hold and
-// never re-lock. Readings fixed by E02 are listed in 02 §4.3.
+// foldIsland (02 §4.3): the shared island. A standing building is never un-built and its level
+// never goes down. Two buildings never share a plot: a `building.placed` whose footprint overlaps
+// a standing building does not apply, so of two placements made offline on the same plots the
+// first by ts then id stands and the other is kept as displaced (`displacedPlacements`) for the
+// app to tell its child, until that instance is placed again on free plots. Nobody lives in a
+// displaced home: its residents leave, and none arrives, until it is built again. Decor positions are last-writer-wins by ts then id; the road keeps its
+// maximum; rings unlock as their rules hold and never re-lock. Readings fixed by E02 are listed
+// in 02 §4.3.
 
 import type {
   AnyEventEnvelope,
@@ -24,7 +28,35 @@ export type EngineIslandState = IslandState & {
   _lastPlayDay?: string | null;
   /** Lower-case ids of tombstoned children (08 §4). */
   _deleted?: string[];
+  /** Placements that lost their plots to an earlier one, by instance id. */
+  _displaced?: Record<string, DisplacedPlacement>;
 };
+
+/** A `building.placed` that did not apply because its plots were already built on. */
+export interface DisplacedPlacement {
+  buildingId: BuildingId;
+  plot: [number, number];
+  placedBy: ChildId | null;
+  ts: number;
+}
+
+/** The placements that lost their plots, oldest first (ts, then instance id). */
+export function displacedPlacements(
+  state: EngineIslandState,
+): (DisplacedPlacement & { instanceId: string })[] {
+  return Object.entries(state._displaced ?? {})
+    .map(([instanceId, d]) => ({ instanceId, ...d }))
+    .sort((a, b) => a.ts - b.ts || (a.instanceId < b.instanceId ? -1 : 1));
+}
+
+/** Every plot a building covers from its top-left plot; a building the data lacks covers one. */
+function covered(gameData: GameData, buildingId: BuildingId, plot: readonly number[]): string[] {
+  const [w, h] = gameData.buildings.find((b) => b.id === buildingId)?.footprint ?? [1, 1];
+  const [x = 0, y = 0] = plot;
+  const out: string[] = [];
+  for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) out.push(`${x + dx},${y + dy}`);
+  return out;
+}
 
 export function initIsland(gameData: GameData): EngineIslandState {
   const state: EngineIslandState = {
@@ -76,11 +108,15 @@ export function applyIslandEvent(
   gameData: GameData,
 ): EngineIslandState {
   if (fromDeletedChild(state._deleted, e)) return state;
-  const next = applyRaw(state, e);
+  const next = applyRaw(state, e, gameData);
   return next === state ? state : withRings(next, gameData);
 }
 
-function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandState {
+function applyRaw(
+  state: EngineIslandState,
+  e: AnyEventEnvelope,
+  gameData: GameData,
+): EngineIslandState {
   if (isEvent(e, 'island.named')) return { ...state, name: e.payload.name };
   if (isEvent(e, 'road.extended')) {
     return e.payload.to > state.roadLength ? { ...state, roadLength: e.payload.to } : state;
@@ -88,9 +124,36 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
   if (isEvent(e, 'building.placed')) {
     const { instanceId, buildingId, plot } = e.payload;
     if (own(state.buildings, instanceId)) return state; // placed once; never moved or rebuilt
+    const taken = new Set(
+      Object.values(state.buildings).flatMap((b) => covered(gameData, b.buildingId, b.plot)),
+    );
+    if (covered(gameData, buildingId, plot).some((k) => taken.has(k))) {
+      // Its plots are built on: the earlier placement stands (events fold in ts, then id order).
+      // A resident whose arrival sorted before this placement (another device's clock) does not
+      // stay in a home that does not stand.
+      const residents = Object.fromEntries(
+        Object.entries(state.residents).filter(([, r]) => r.homeInstanceId !== instanceId),
+      );
+      return {
+        ...state,
+        residents,
+        _displaced: {
+          ...state._displaced,
+          [instanceId]: {
+            buildingId,
+            plot: [plot[0], plot[1]],
+            placedBy: e.childId,
+            ts: eventTime(e),
+          },
+        },
+      };
+    }
     const level = own(state._upgrades, instanceId) ?? 1;
+    // Placed again on free plots (the app's instance id is the building's): no longer displaced.
+    const { [instanceId]: _stood, ...displaced } = state._displaced ?? {};
     return {
       ...state,
+      ...(state._displaced ? { _displaced: displaced } : {}),
       buildings: {
         ...state.buildings,
         [instanceId]: {
@@ -145,6 +208,9 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
   }
   if (isEvent(e, 'resident.arrived')) {
     if (own(state.residents, e.payload.residentId)) return state;
+    // Nobody moves into a home that lost its plots: they arrive when it is built again.
+    const home = e.payload.homeInstanceId;
+    if (home !== null && own(state._displaced, home)) return state;
     return {
       ...state,
       residents: {
@@ -260,7 +326,14 @@ function forgetChild(state: EngineIslandState, childId: ChildId): EngineIslandSt
     }),
   );
   const deleted = [...(state._deleted ?? []), key].sort();
-  return { ...state, buildings, decor, projects, _deleted: deleted };
+  const next: EngineIslandState = { ...state, buildings, decor, projects, _deleted: deleted };
+  if (state._displaced) {
+    // A displaced placement is only a message for its child: it goes with the child.
+    next._displaced = Object.fromEntries(
+      Object.entries(state._displaced).filter(([, d]) => !sameId(d.placedBy, childId)),
+    );
+  }
+  return next;
 }
 
 export function foldIsland(

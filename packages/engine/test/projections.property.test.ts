@@ -1,5 +1,6 @@
 // 04 §8 / 02 §4.3 projection properties over the fixture GameData: order independence,
-// incremental = full fold, the inventory never negative, buildings never un-built.
+// incremental = full fold, the inventory never negative, standing buildings never un-built, and
+// two placements on the same plots converge on the first.
 
 import {
   type AnyEventEnvelope,
@@ -13,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { applyCollectionEvent, foldCollection, initCollection } from '../src/folds/collection';
 import { applyGoalsEvent, foldGoals, initGoals } from '../src/folds/goals';
 import { applyInventoryEvent, foldInventory, initInventory } from '../src/folds/inventory';
-import { applyIslandEvent, foldIsland, initIsland } from '../src/folds/island';
+import { applyIslandEvent, displacedPlacements, foldIsland, initIsland } from '../src/folds/island';
 import { sortEvents } from '../src/folds/order';
 import { createRng } from '../src/rng';
 import { fixtureGameData } from './fixture';
@@ -93,7 +94,7 @@ describe('projection fold properties (fixture GameData)', () => {
     );
   });
 
-  it('buildings are never un-built or downgraded; road, rings and residents never shrink', () => {
+  it('buildings are never un-built or downgraded; road and rings never shrink; a resident leaves only a displaced home', () => {
     fc.assert(
       fc.property(logArb, (events) => {
         let prev = initIsland(game);
@@ -107,9 +108,13 @@ describe('projection fold properties (fixture GameData)', () => {
           }
           expect(next.roadLength).toBeGreaterThanOrEqual(prev.roadLength);
           expect(next.ringsUnlocked).toBeGreaterThanOrEqual(prev.ringsUnlocked);
-          expect(Object.keys(next.residents)).toEqual(
-            expect.arrayContaining(Object.keys(prev.residents)),
-          );
+          const displaced = new Set(displacedPlacements(next).map((d) => d.instanceId));
+          for (const [id, r] of Object.entries(prev.residents)) {
+            if (!Object.hasOwn(next.residents, id))
+              expect(displaced.has(r.homeInstanceId ?? ''), `${id} left`).toBe(true);
+          }
+          for (const r of Object.values(next.residents))
+            expect(displaced.has(r.homeInstanceId ?? '')).toBe(false);
           prev = next;
         }
       }),
@@ -117,20 +122,42 @@ describe('projection fold properties (fixture GameData)', () => {
     );
   });
 
-  it('a building placed anywhere in the log survives the whole fold', () => {
+  it('a placement stands or is displaced by an earlier one on its plots; none share a plot', () => {
+    const plots = (b: { buildingId: string; plot: readonly number[] }) => {
+      const [w, h] = game.buildings.find((d) => d.id === b.buildingId)?.footprint ?? [1, 1];
+      const [x = 0, y = 0] = b.plot;
+      return Array.from({ length: w * h }, (_, i) => `${x + (i % w)},${y + Math.floor(i / w)}`);
+    };
+    let displacedSeen = 0;
     fc.assert(
       fc.property(logArb, (events) => {
         const island = folds.island(events);
+        const displaced = displacedPlacements(island);
+        displacedSeen += displaced.length;
+        // Every placed instance is on the island or displaced, never both, never lost.
         for (const e of events) {
-          if (e.type === 'building.placed') {
-            expect(
-              island.buildings[(e.payload as { instanceId: string }).instanceId],
-            ).toBeDefined();
+          if (e.type !== 'building.placed') continue;
+          const id = (e.payload as { instanceId: string }).instanceId;
+          const standing = Object.hasOwn(island.buildings, id);
+          expect(standing !== displaced.some((d) => d.instanceId === id), id).toBe(true);
+        }
+        const owner = new Map<string, { ts: number }>();
+        for (const b of Object.values(island.buildings)) {
+          for (const p of plots(b)) {
+            expect(owner.has(p), `plot ${p} is built on once`).toBe(false);
+            owner.set(p, b);
           }
         }
+        // A displaced placement lost to a building that was placed no later than it.
+        for (const d of displaced) {
+          const winners = plots(d).flatMap((p) => owner.get(p) ?? []);
+          expect(winners.length, d.instanceId).toBeGreaterThan(0);
+          expect(winners.some((w) => w.ts <= d.ts)).toBe(true);
+        }
       }),
-      { numRuns: 100 },
+      { numRuns: 200 },
     );
+    expect(displacedSeen).toBeGreaterThan(0);
   });
 
   it('every projection stays inside its 02 §5.8 schema', () => {
