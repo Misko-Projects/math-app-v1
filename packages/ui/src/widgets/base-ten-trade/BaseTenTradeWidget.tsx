@@ -37,8 +37,8 @@ import {
   padValue,
   useAlive,
   useDemoPause,
-  useFirstRoom,
   useInviteHand,
+  useSmallestRoom,
   useSubmitGuard,
   useWidgetRoom,
   type WidgetRoom,
@@ -777,18 +777,21 @@ function TradeMat({
   }, [baseCaps, state.mat, state.taken, state.pending, trayEmpty, isPlus, isMinus]);
   const path = useMemo(() => pathStates(config), [config]);
   // The widget is as tall as its room (06 §1). Where the problem card goes (over the mat, or in
-  // the side panel of a short room) is chosen once, in the first room measured for the item, with
-  // the parts as mounted; after that a resize only re-sizes the layout it has. `tall`: the item
-  // fits that room neither way with pieces a child can count (U_FLOOR), so it keeps its design
-  // height and its host scrolls.
+  // the side panel of a short room) is chosen for the smallest room the item has had
+  // (`useSmallestRoom`), with the parts as mounted: a room that grows re-sizes the layout it has,
+  // one that shrinks is chosen for again. `tall`: the item fits that room neither way with pieces
+  // a child can count (U_FLOOR), so it keeps its design height and its host scrolls; that is no
+  // arrangement to keep, so it is chosen again in whatever room comes next.
   const room = useWidgetRoom(rootRef);
-  const firstRoom = useFirstRoom(room);
   const arranged = useRef<'usual' | 'in-side' | 'tall' | null>(null);
+  const planRoom = useSmallestRoom(room, rootRef, arranged.current === 'tall');
+  const arrangedFor = useRef(planRoom);
+  if (arrangedFor.current !== planRoom) arranged.current = null;
   const budget = arranged.current === 'tall' ? BUDGET : budgetIn(room);
   // Where the algorithm, the pad and "check" go, and the height left for the mat (layout.ts):
   // when K's side can't stack them, the arrangement at which every step of the item fits.
   const { side } = useMemo(() => {
-    const measured = firstRoom !== null && box.main > 0;
+    const measured = planRoom !== null && box.main > 0;
     const chosen = chooseSide({
       age,
       goal: config.goal,
@@ -796,7 +799,7 @@ function TradeMat({
       thenAsk: config.thenAsk,
       answerInWork,
       places,
-      budget: arranged.current ? budget : budgetIn(firstRoom),
+      budget: arranged.current ? budget : budgetIn(planRoom),
       arrange: arranged.current === 'tall' ? 'usual' : (arranged.current ?? undefined),
       // The mat's area and the side panel together, with the grid gap between them.
       contentW: box.main > 0 ? box.main + GAP + box.side : 0,
@@ -817,8 +820,9 @@ function TradeMat({
       path,
     });
     const fitsRoom =
-      fit.fits && fit.unit >= U_FLOOR && chosen.side.sideH <= budgetIn(firstRoom) - 2 * ROOT_PAD_Y;
+      fit.fits && fit.unit >= U_FLOOR && chosen.side.sideH <= budgetIn(planRoom) - 2 * ROOT_PAD_Y;
     arranged.current = !fitsRoom ? 'tall' : chosen.side.problemInSide ? 'in-side' : 'usual';
+    arrangedFor.current = planRoom;
     if (fitsRoom) return chosen;
     return chooseSide({
       age,
@@ -833,7 +837,7 @@ function TradeMat({
       base: baseCaps,
       path,
     });
-  }, [age, config, showWork, answerInWork, places, box, baseCaps, path, budget, firstRoom]);
+  }, [age, config, showWork, answerInWork, places, box, baseCaps, path, budget, planRoom]);
   const { problemInSide, padWide } = side;
   const { workInSide, checkBeside, showProblemRow, problemH, cardH, spaceH, sideH } = side;
   const spaceW = box.main > 0 ? box.main : 900;

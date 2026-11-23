@@ -27,12 +27,11 @@ import {
   PickCard,
   padValue,
   roomBox,
-  Scaled,
   useActionSize,
   useAlive,
   useDemoPause,
-  useFirstRoom,
   useInviteHand,
+  useSmallestRoom,
   useSubmitGuard,
   useWidgetRoom,
 } from '../kit';
@@ -239,21 +238,22 @@ export function ExpandedFormWidget({
   const alive = useAlive();
   const pause = useDemoPause();
   const rootRef = useRef<HTMLDivElement | null>(null);
-  // Laid out in the measured room (06 §1). The arrangement is chosen once, in the first room
-  // measured for the item (`useFirstRoom`); sizes follow the room as it is now.
+  // Laid out in the measured room (06 §1). The arrangement is chosen for the smallest room the
+  // item has had (`useSmallestRoom`); sizes follow the room as it is now.
   const actRef = useRef<HTMLDivElement | null>(null);
   const unzoomed = useRef(1);
   const button = useActionSize(actRef, unzoomed, ageMode);
   const measuredRoom = useWidgetRoom(rootRef);
-  const firstRoom = useFirstRoom(measuredRoom);
-  // Card modes: the column as mounted, measured once against that first room. Taller than the
-  // room: the number goes beside the mat (`data-arr="wide"`) instead of above it.
-  const [wide, setWide] = useState<boolean | null>(null);
+  const planRoom = useSmallestRoom(measuredRoom, rootRef);
+  // Card modes: the column as mounted, measured once. Taller than that room: the number goes
+  // beside the mat (`data-arr="wide"`) instead of above it.
+  const [columnH, setColumnH] = useState<number | null>(null);
   useLayoutEffect(() => {
     const el = rootRef.current;
-    if (wide !== null || !firstRoom || !el) return;
-    setWide(el.offsetHeight > firstRoom.height + 0.5);
-  }, [wide, firstRoom]);
+    if (columnH !== null || !planRoom || !el) return;
+    setColumnH(el.offsetHeight);
+  }, [columnH, planRoom]);
+  const wide = columnH !== null && planRoom !== null && columnH > planRoom.height + 0.5;
 
   const mode = config.mode;
   const cards = config.cards ?? [];
@@ -1061,7 +1061,7 @@ export function ExpandedFormWidget({
     layout = 'pad';
     const live = roomBox(measuredRoom);
     const plan = padPlanIn(
-      roomBox(firstRoom),
+      roomBox(planRoom),
       { w: live.w - 2 * PAD_EDGE, h: live.h },
       button,
       ageMode,
@@ -1117,9 +1117,7 @@ export function ExpandedFormWidget({
     body = (
       <>
         <div className="ni-efw__askbox" style={{ maxWidth: plan.ask.w, maxHeight: plan.ask.h }}>
-          <Scaled maxWidth={plan.ask.w} maxHeight={plan.ask.h}>
-            <div className="ni-efw__ask">{ask}</div>
-          </Scaled>
+          <div className="ni-efw__ask">{ask}</div>
         </div>
         <div ref={actRef} className="ni-efw__controls">
           <NumberPadKeys

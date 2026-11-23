@@ -10,11 +10,12 @@ export const PAD_EDGE = 8;
 
 /**
  * The pad modes' layout (06 §1): number-pad's plan (`planPad`: Check beside the keys, smaller
- * keys, a 4 × 3 pad, as the room needs). The controls are chosen in `first`, the first room
- * measured for the item; the question's box follows `live`, the room as it is now.
+ * keys, a 4 × 3 pad, as the room needs). The controls are chosen for `smallest`, the smallest
+ * room the item has had (kit `useSmallestRoom`); the question's box follows `live`, the room as
+ * it is now. The question is never scaled: its answer box is a target. A long expression wraps.
  */
-export function padPlanIn(first: Size, live: Size, button: Size, ageMode: AgeMode): PadPlan {
-  const chosen = planPad({ w: first.w - 2 * PAD_EDGE, h: first.h }, button, ageMode);
+export function padPlanIn(smallest: Size, live: Size, button: Size, ageMode: AgeMode): PadPlan {
+  const chosen = planPad({ w: smallest.w - 2 * PAD_EDGE, h: smallest.h }, button, ageMode);
   const controls = padControlsSize(chosen, button, ageMode);
   const ask = chosen.stacked
     ? { w: live.w, h: live.h - controls.h - ASK_GAP }

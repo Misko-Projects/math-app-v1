@@ -28,8 +28,8 @@ import {
   useActionSize,
   useAlive,
   useDemoPause,
-  useFirstRoom,
   useInviteHand,
+  useSmallestRoom,
   useSubmitGuard,
   useWidgetRoom,
   type WidgetRoom,
@@ -478,11 +478,12 @@ export function BaseTenBuildWidget({
   const kMode = prefs.ageMode === 'k';
   const targetMin = TARGET_PX[prefs.ageMode].min;
   const gutter = read ? COL_GAP : targetMin + 2 * GUTTER_PAD;
-  // The mat's height follows the room as it is now. The side panel's arrangement is chosen in
-  // the first room measured for the item (`useFirstRoom`), so a resize never moves its parts.
+  // The mat's height follows the room as it is now. The side panel's arrangement is chosen for
+  // the smallest room the item has had (`useSmallestRoom`): a room that grows moves none of its
+  // parts, one that shrinks gets the panel that fits it.
   const room = useWidgetRoom(rootRef);
   const widgetH = heightIn(room);
-  const sideH = heightIn(useFirstRoom(room)) - 2 * ROOT_PAD_Y;
+  const sideH = heightIn(useSmallestRoom(room, rootRef)) - 2 * ROOT_PAD_Y;
   const headH = HEAD_H[prefs.ageMode];
   const bodyH = widgetH - 2 * ROOT_PAD_Y - 2 * FRAME - headH - 2 * BODY_PAD;
   // Read mode's panel (the answer, the pad, "check"), from their sizes as mounted.

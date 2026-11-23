@@ -52,14 +52,64 @@ export function useWidgetRoom(rootRef: RefObject<HTMLElement | null>): WidgetRoo
   return room;
 }
 
+/** A drag in the child's hand, or a move still playing (idle loops such as a pulse do not count). */
+function gestureInFlight(el: HTMLElement): boolean {
+  if (el.querySelector('[data-dragging]')) return true;
+  if (typeof el.getAnimations !== 'function') return false;
+  return el
+    .getAnimations({ subtree: true })
+    .some(
+      (a) =>
+        a.playState === 'running' &&
+        a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY,
+    );
+}
+
 /**
- * The room an item's arrangement is chosen in: the first one measured (a widget mounts once per
- * item). A later resize, or a prompt that wraps onto another line, changes the sizes the parts are
- * drawn at, never which arrangement they are in, so nothing changes places under a child's hand.
- * Null until measured.
+ * The room an item's arrangement is chosen for: the smallest it has had (the narrowest width and
+ * the shortest height measured since the widget mounted, which it does once per item). A room
+ * that grows, or a prompt that un-wraps, re-sizes the parts and moves nothing; a room that shrinks
+ * under the one the arrangement was chosen for gets the arrangement that fits it, so no control
+ * is pushed out of the area. Sizes always follow the room as it is now. Null until measured.
+ *
+ * Nothing changes places under a child's finger: while a piece is being dragged or a move is
+ * still playing inside `rootRef`, the room chosen for is kept, and the smaller one is taken up
+ * when the gesture has ended.
+ *
+ * `follow`: start again from the room as it is now (a widget whose item did not fit the room it
+ * had, so there is no arrangement to keep).
  */
-export function useFirstRoom(room: WidgetRoom | null): WidgetRoom | null {
-  const first = useRef<WidgetRoom | null>(null);
-  if (first.current === null && room !== null) first.current = room;
-  return first.current;
+export function useSmallestRoom(
+  room: WidgetRoom | null,
+  rootRef: RefObject<HTMLElement | null>,
+  follow = false,
+): WidgetRoom | null {
+  const kept = useRef<WidgetRoom | null>(null);
+  const [waiting, setWaiting] = useState(false);
+  let held = false;
+  if (room !== null) {
+    const k = kept.current;
+    const next =
+      k === null || follow
+        ? room
+        : { width: Math.min(k.width, room.width), height: Math.min(k.height, room.height) };
+    const changed = k === null || next.width !== k.width || next.height !== k.height;
+    const el = rootRef.current;
+    held = changed && k !== null && el !== null && gestureInFlight(el);
+    if (changed && !held) kept.current = next;
+  }
+  // Held back: look again each frame until the gesture has ended, then render with the new room.
+  useLayoutEffect(() => {
+    if (held !== waiting) setWaiting(held);
+  }, [held, waiting]);
+  useLayoutEffect(() => {
+    if (!waiting) return;
+    let frame = requestAnimationFrame(function look() {
+      const el = rootRef.current;
+      if (el && gestureInFlight(el)) frame = requestAnimationFrame(look);
+      else setWaiting(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [waiting, rootRef]);
+  return kept.current;
 }

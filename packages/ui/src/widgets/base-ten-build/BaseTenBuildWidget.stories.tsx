@@ -2711,6 +2711,8 @@ const PIER_ACTIONS =
 const pierMat = (config: Config, room: PierRoom, expected: string, k = false): Story => ({
   ...(k ? { globals: { ageMode: 'k' } } : {}),
   args: { config, tier: config.mode === 'read' ? 'pictorial' : 'concrete' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
   render: inRoom(room),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -2756,9 +2758,17 @@ export const PierQuarterRead: Story = pierMat(pierRead, 'quarter', '- true 3x4')
 export const PierHalfRead: Story = pierMat(pierRead, 'half', '- true 3x4');
 export const PierThreeQuartersRead: Story = pierMat(pierRead, 'threeQuarters', '- true 3x4');
 
-const pierResized = (config: Config, from: PierRoom, to: PierRoom, k = false): Story => ({
+const pierResized = (
+  config: Config,
+  from: PierRoom,
+  to: PierRoom,
+  after: string,
+  k = false,
+): Story => ({
   ...(k ? { globals: { ageMode: 'k' } } : {}),
   args: { config, tier: 'concrete' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
   render: inRoom(from),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -2767,19 +2777,32 @@ const pierResized = (config: Config, from: PierRoom, to: PierRoom, k = false): S
     resizeRoom(canvasElement, to);
     await stableLayout(root);
     await expect(areaBox(canvasElement).clientHeight).toBe(to === 'small' ? 358 : 558);
-    await expect(panel(root)).toBe(before);
-    // The mat follows the room as it is now.
-    const mat = root.querySelector('.ni-btb__work') as HTMLElement;
-    await expect(mat.getBoundingClientRect().height).toBeLessThanOrEqual(
-      to === 'small' ? 358 : 558,
-    );
+    // A room that grew moves nothing; one that shrank has the panel that fits it.
+    if (to === 'tablet') await expect(panel(root)).toBe(before);
+    await expect(panel(root)).toBe(after);
+    // The mat and the whole side panel are in the room as it is now.
+    await expectFitsRoom(canvasElement, root, k ? 'k' : 'g1-up', PIER_ACTIONS);
+    await expectUnit(root, 18);
   },
 });
 /**
- * The side panel keeps the arrangement chosen in the first room measured for the item: a resize
- * while the item is on screen (either way) re-sizes the mat and moves nothing to another place.
+ * A resize while the item is on screen. The side panel's arrangement is the one for the smallest
+ * room the item has had: growing the room re-sizes the mat and moves nothing to another place;
+ * shrinking it gives the panel that fits, so the keys and Check stay in the area.
  */
-export const PierResizeExactGrows: Story = pierResized(pierExactK, 'small', 'tablet', true);
-export const PierResizeExactShrinks: Story = pierResized(pierExactK, 'tablet', 'small', true);
-export const PierResizeReadGrows: Story = pierResized(pierRead, 'small', 'tablet');
-export const PierResizeReadShrinks: Story = pierResized(pierRead, 'tablet', 'small');
+export const PierResizeExactGrows: Story = pierResized(
+  pierExactK,
+  'small',
+  'tablet',
+  'true - -',
+  true,
+);
+export const PierResizeExactShrinks: Story = pierResized(
+  pierExactK,
+  'tablet',
+  'small',
+  'true - -',
+  true,
+);
+export const PierResizeReadGrows: Story = pierResized(pierRead, 'small', 'tablet', '- true 3x4');
+export const PierResizeReadShrinks: Story = pierResized(pierRead, 'tablet', 'small', '- true 3x4');

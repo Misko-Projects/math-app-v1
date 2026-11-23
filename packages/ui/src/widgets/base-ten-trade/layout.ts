@@ -270,7 +270,7 @@ export function sideWidth(s: SideLayout, parts: SideParts, age: AgeMode = 'g1-up
  * problem card in the side panel (sideLayout `inSide`), so the mat has the whole height. It is
  * taken when the usual layout does not fit the height (its side panel, or the item at any unit)
  * or draws the pieces smaller. `arrange` holds the answer once it is made (the widget keeps the
- * one made in the first room measured for the item), so a resize re-sizes the layout it has.
+ * one made for the smallest room the item has had), so a room that grows re-sizes the layout.
  */
 export function chooseSide(
   o: Parameters<typeof sideLayout>[0] & {

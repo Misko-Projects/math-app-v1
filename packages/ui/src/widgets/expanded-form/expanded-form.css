@@ -49,7 +49,7 @@
 }
 .ni-efw__askbox {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
   align-items: center;
   justify-content: center;
   min-width: 0;

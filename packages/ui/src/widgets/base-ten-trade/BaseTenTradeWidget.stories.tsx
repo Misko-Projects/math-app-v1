@@ -2013,6 +2013,8 @@ const unitOf = (root: HTMLElement) =>
 
 const pierTrade = (config: Config, room: PierRoom, arrange: 'usual' | 'in-side'): Story => ({
   args: { config, tier: 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
   render: inRoom(room),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -2062,6 +2064,8 @@ export const PierThreeQuartersRegroup: Story = pierTrade(pierRegroup99, 'threeQu
  */
 const pierAddIn = (room: PierRoom): Story => ({
   args: { config: pierAdd, tier: 'concrete' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
   render: inRoom(room),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -2087,23 +2091,51 @@ export const PierQuarterAdd: Story = pierAddIn('quarter');
 export const PierHalfAdd: Story = pierAddIn('half');
 export const PierThreeQuartersAdd: Story = pierAddIn('threeQuarters');
 
-const pierResized = (config: Config, from: PierRoom, to: PierRoom): Story => ({
-  args: { config, tier: 'pictorial' },
+const pierResized = (
+  config: Config,
+  from: PierRoom,
+  to: PierRoom,
+  after: 'usual' | 'in-side' | 'tall',
+): Story => ({
+  args: { config, tier: config.goal === 'compute' ? 'concrete' : 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
   render: inRoom(from),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await stableLayout(root);
-    const before = root.dataset.arrange;
-    await expect(before).toBeDefined();
+    await expect(root.dataset.arrange).toBeDefined();
     resizeRoom(canvasElement, to);
     await stableLayout(root);
     await expect(areaBox(canvasElement).clientHeight).toBe(to === 'small' ? 358 : 558);
-    await expect(root.dataset.arrange).toBe(before);
+    await waitFor(() => expect(root).toHaveAttribute('data-arrange', after));
+    // Whatever the room became, the pieces are ones a child can count.
+    await expect(unitOf(root)).toBeGreaterThanOrEqual(18);
+    await expectCountable(root, 18);
+    if (after !== 'tall') await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
   },
 });
 /**
- * Where the problem card goes is chosen in the first room measured for the item: a resize while
- * the item is on screen (either way) re-sizes the mat and moves nothing to another place.
+ * A resize while the item is on screen. Where the problem card goes is chosen for the smallest
+ * room the item has had: growing the room re-sizes the mat and moves nothing to another place;
+ * shrinking it chooses again for the smaller room.
  */
-export const PierResizeRegroupGrows: Story = pierResized(pierRegroup99, 'small', 'tablet');
-export const PierResizeRegroupShrinks: Story = pierResized(pierRegroup99, 'tablet', 'small');
+export const PierResizeRegroupGrows: Story = pierResized(
+  pierRegroup99,
+  'small',
+  'tablet',
+  'in-side',
+);
+export const PierResizeRegroupShrinks: Story = pierResized(
+  pierRegroup99,
+  'tablet',
+  'small',
+  'in-side',
+);
+/**
+ * Add with a trade (MDA.08.t1): opened at 1280 × 800 and shrunk to 960 × 600 with the operand
+ * still in the tray, it keeps countable pieces and scrolls (never 8 px pieces); opened at
+ * 960 × 600, where it scrolls, and grown to 1280 × 800, it fits the room.
+ */
+export const PierResizeAddShrinks: Story = pierResized(pierAdd, 'tablet', 'small', 'tall');
+export const PierResizeAddGrows: Story = pierResized(pierAdd, 'small', 'tablet', 'usual');
