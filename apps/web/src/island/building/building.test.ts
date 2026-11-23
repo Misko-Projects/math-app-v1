@@ -373,8 +373,8 @@ describe('the Numbered Road (05 §3)', () => {
     expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: false, reason: 'short' });
     expect(await types(store)).toEqual([]);
     await produce(store, { stone: 2 });
-    expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: true, to: 1 });
-    expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: true, to: 2 });
+    expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: true, to: 1, arrived: 0 });
+    expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: true, to: 2, arrived: 0 });
     expect((await store.island()).roadLength).toBe(2);
     expect((await store.inventory()).materials.stone).toBe(0);
     expect((await store.events()).at(-1)?.payload).toEqual({
@@ -415,7 +415,7 @@ describe('residents arrive by their own rule (05 §5)', () => {
       { residentId: 'hobb', homeInstanceId: null, via: 'home' },
       { childId: CHILD_K },
     );
-    expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: true, to: 20 });
+    expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: true, to: 20, arrived: 1 });
     const island = await store.island();
     expect(Object.keys(island.residents).sort()).toEqual(['hobb', 'toma']);
     expect((await store.events()).at(-1)).toMatchObject({
@@ -424,6 +424,27 @@ describe('residents arrive by their own rule (05 §5)', () => {
     });
     await settleResidents(store, CHILD_G2, gameData);
     expect((await types(store)).filter((t) => t === 'resident.arrived')).toHaveLength(2);
+  });
+
+  it('two passes started together write each arrival once', async () => {
+    const { store } = await family();
+    await store.append('road.extended', { to: 100 }, { childId: CHILD_K });
+    // The island opens (one pass) and the learner facts load while it is still writing (another).
+    const counts = await Promise.all([
+      settleResidents(store, CHILD_K, gameData),
+      settleResidents(store, CHILD_K, gameData, { skillAtLeast: () => true }),
+      settleResidents(store, CHILD_G2, gameData),
+    ]);
+    const arrivals = (await store.events())
+      .filter((e) => e.type === 'resident.arrived')
+      .map((e) => (e.payload as { residentId: string }).residentId);
+    expect(new Set(arrivals).size).toBe(arrivals.length);
+    expect(arrivals).toEqual(expect.arrayContaining(['toma', 'vina', 'moku', 'tenley']));
+    // The first pass brought the road's residents, the second only who the skill rule adds.
+    expect(counts[0]).toBe(9);
+    expect(counts[1]).toBeGreaterThan(0);
+    expect(counts[2]).toBe(0);
+    expect(counts[0] + counts[1]).toBe(arrivals.length);
   });
 
   it('a skill rule holds once the family reaches it, whichever child did', async () => {

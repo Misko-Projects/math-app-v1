@@ -23,6 +23,13 @@ import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS, manualClock } from './build
 import { ChildHomePage } from './ChildHomePage';
 import { FIRST_PROBLEM_BUDGET_MS, firstProblem } from './firstProblem';
 import { PlayLayout } from './PlayLayout';
+import { planIslandRequests } from './planRequests';
+
+// The island's planner, called through: the tests can see when the island plans and with what.
+vi.mock('./planRequests', async (original) => {
+  const actual = await original<typeof import('./planRequests')>();
+  return { ...actual, planIslandRequests: vi.fn(actual.planIslandRequests) };
+});
 
 // Entering a workshop loads its code and writes to the local database: under a full test run that
 // can take longer than the library's one second, so the waits here are given room.
@@ -762,4 +769,76 @@ describe('the Numbered Road (05 §3; #22 part 2)', () => {
     expect(home.querySelector('[data-state="counting"]')).toBeNull();
     expect(cancel).toHaveBeenCalledTimes(1);
   });
+
+  it('a road stone that brings a resident makes the island plan again, with them', async () => {
+    const clock = manualClock();
+    const real = buildClock.current;
+    buildClock.current = clock;
+    const prev = restore;
+    restore = () => {
+      buildClock.current = real;
+      prev();
+    };
+    const { app } = await renderHome({
+      before: async (a) => {
+        await a.store.append(
+          'material.produced',
+          {
+            sessionId: 's0',
+            requestId: 'r0',
+            workshopId: 'practice-pier',
+            materials: { stone: 1 },
+          },
+          { childId: CHILD_K },
+        );
+        // The first shore is open (Hobb lives there) and the road is one stone short of 20.
+        await a.store.append(
+          'resident.arrived',
+          { residentId: 'hobb', homeInstanceId: null, via: 'home' },
+          { childId: CHILD_K },
+        );
+        await a.store.append('road.extended', { to: 19 }, { childId: CHILD_K });
+      },
+    });
+    const planner = vi.mocked(planIslandRequests);
+    await bubbles();
+    const lay = await screen.findByRole('button', { name: 'Lay the next stone' });
+    expect(lay.getAttribute('data-stone')).toBe('20');
+    const residentsPlanned = () =>
+      Object.keys(planner.mock.calls.at(-1)?.[1].island.residents ?? {}).sort();
+    expect(residentsPlanned()).toEqual(['hobb']);
+    const plans = planner.mock.calls.length;
+    // Stone 20 brings Toma: without any other action, the island plans again and Toma is there.
+    await act(async () => {
+      fireEvent.click(lay);
+    });
+    await waitFor(async () =>
+      expect(Object.keys((await app.store.island()).residents).sort()).toEqual(['hobb', 'toma']),
+    );
+    await waitFor(() => expect(planner.mock.calls.length).toBeGreaterThan(plans));
+    expect(residentsPlanned()).toEqual(['hobb', 'toma']);
+    // A stone that brings nobody does not plan again.
+    await a11yStone(app);
+    const after = planner.mock.calls.length;
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('road-next'));
+    });
+    await waitFor(async () => expect((await app.store.island()).roadLength).toBe(21));
+    await settle();
+    expect(planner.mock.calls.length).toBe(after);
+  });
 });
+
+/** One more stone in the Storehouse, and the road button showing it can be paid. */
+async function a11yStone(app: AppServices) {
+  await act(async () => {
+    await app.store.append(
+      'material.produced',
+      { sessionId: 's0', requestId: 'r1', workshopId: 'practice-pier', materials: { stone: 1 } },
+      { childId: CHILD_K },
+    );
+  });
+  await waitFor(() =>
+    expect(screen.getByTestId('road-next').getAttribute('data-affordable')).toBe('true'),
+  );
+}

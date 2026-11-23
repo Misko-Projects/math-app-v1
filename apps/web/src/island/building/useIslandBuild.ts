@@ -84,9 +84,14 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
   // Residents whose arrival rule holds move in when the island opens, and again once the
   // family's learner facts are read (a skill rule). It also makes good a build that was
   // interrupted before its resident arrived.
+  // A new resident changes who may ask for what: the island plans again (`onBuilt`).
   useEffect(() => {
-    settleResidents(store, child.id, gameData, learners ?? {}).catch(raise);
-  }, [store, child.id, gameData, learners, raise]);
+    settleResidents(store, child.id, gameData, learners ?? {})
+      .then((arrived) => {
+        if (arrived > 0) onBuilt();
+      })
+      .catch(raise);
+  }, [store, child.id, gameData, learners, raise, onBuilt]);
 
   const cards = useMemo(
     () =>
@@ -200,10 +205,13 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
   const layStone = useCallback(() => {
     write(async () => {
       const r = await layNextStone(store, child.id, gameData);
-      if (r.ok) walk(countingWalk(gameData, r.to));
-      else if (r.reason === 'short') say('ui.road.short');
+      if (r.ok) {
+        walk(countingWalk(gameData, r.to));
+        // The longer road brought a resident: the requests are planned again with them.
+        if (r.arrived > 0) onBuilt();
+      } else if (r.reason === 'short') say('ui.road.short');
     });
-  }, [store, child.id, gameData, say, write, walk]);
+  }, [store, child.id, gameData, say, write, walk, onBuilt]);
 
   return {
     /** The island and the Storehouse are read: the cards say what can be built. */

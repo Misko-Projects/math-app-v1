@@ -62,13 +62,32 @@ async function pay(
  * the ferry. It reads the island as it is, so it also makes good a build that was interrupted
  * before its arrival was written: it runs after each build and each road stone, and when the
  * island opens. `learners` are the family's learner facts; without them only island rules hold.
+ *
+ * One pass at a time per store: a pass that starts while another is writing waits for it and
+ * then reads the island again, so no arrival is ever written twice. Returns how many arrived.
  */
-export async function settleResidents(
+export function settleResidents(
   store: Store,
   childId: ChildId,
   gameData: Pick<GameData, 'residents'>,
   learners: Partial<UnlockFacts> = {},
-): Promise<void> {
+): Promise<number> {
+  const before = settling.get(store) ?? Promise.resolve(0);
+  const pass = before.catch(() => 0).then(() => settlePass(store, childId, gameData, learners));
+  settling.set(store, pass);
+  return pass;
+}
+
+/** The pass in flight (or the last one) of each store. */
+const settling = new WeakMap<Store, Promise<number>>();
+
+async function settlePass(
+  store: Store,
+  childId: ChildId,
+  gameData: Pick<GameData, 'residents'>,
+  learners: Partial<UnlockFacts>,
+): Promise<number> {
+  let arrived = 0;
   const island = await store.island();
   const facts = { ...learners, ...islandFacts(island) };
   for (const resident of gameData.residents) {
@@ -84,7 +103,9 @@ export async function settleResidents(
       },
       { childId },
     );
+    arrived += 1;
   }
+  return arrived;
 }
 
 /** Places a new building on `plot` and pays its level-1 recipe. */
@@ -147,7 +168,9 @@ export async function upgradeBuilding(
   return { ok: true, instanceId: built.instanceId, level, plot: built.plot };
 }
 
-export type StoneResult = { ok: true; to: number } | { ok: false; reason: 'short' | 'stale' };
+export type StoneResult =
+  /** `arrived`: how many residents the longer road brought. */
+  { ok: true; to: number; arrived: number } | { ok: false; reason: 'short' | 'stale' };
 
 /** Lays the road's next stone for its cost (`ROAD_STONE_COST`). */
 export async function layNextStone(
@@ -165,6 +188,6 @@ export async function layNextStone(
     { materials: { [ROAD_MATERIAL]: ROAD_STONE_COST }, purpose: { kind: 'build', ref: ROAD_REF } },
     { childId },
   );
-  await settleResidents(store, childId, gameData);
-  return { ok: true, to: next.n };
+  const arrived = await settleResidents(store, childId, gameData);
+  return { ok: true, to: next.n, arrived };
 }
