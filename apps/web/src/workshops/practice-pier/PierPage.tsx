@@ -18,8 +18,8 @@
 //
 // A lesson (03 §6, #20 part 3) plays in the same screen, one step at a time: the step's line is
 // spoken and shown while the example's widget animates the step in demo mode, then the next step
-// follows. At the end of a faded example the widget is the child's: the part to do is invited,
-// a right answer moves on, and after a second unsuccessful try the demo does it (no "wrong"
+// follows. At the end of a faded example the widget is the child's (no hand points at what to do:
+// that would be the answer), a right answer moves on, and after a second unsuccessful try the demo does it (no "wrong"
 // language). "Show me again" repeats the current step's line. The lesson's scaffolded items are
 // ordinary items whose first hint plays before the child starts.
 //
@@ -463,7 +463,8 @@ function PierRequest({
       if (stale()) return;
     }
     setLine({ say: turn.narration, vars: turn.vars });
-    demo.invite(turn.demo);
+    // No hand on the child's turn: a widget's invitation points at the exact target, which for
+    // the last step is the answer itself. The hand is the demo's.
     time.start();
     setPhase('turn');
   };
@@ -508,7 +509,6 @@ function PierRequest({
     setPhase('checking');
     const latencyMs = time.elapsed();
     time.pause();
-    demo.invite(null);
     const result = runner.lessonAnswer(response, { latencyMs });
     playing.current += 1;
     const mine = playing.current;

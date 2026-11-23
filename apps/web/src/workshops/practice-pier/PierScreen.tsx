@@ -9,7 +9,7 @@
 //
 // A lesson step (03 §6, #20 part 3) plays in the same frame: the step's line in the bubble, the
 // example's widget driven in demo mode, a speaker that says the step again, and from grade 1 "I can try".
-// On the child's turn the widget takes input and the invited part is highlighted by the widget.
+// On the child's turn the widget takes input; nothing points at the answer.
 
 import type {
   InteractionEvent,

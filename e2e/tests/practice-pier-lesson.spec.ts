@@ -116,9 +116,9 @@ test('a child is taken through a lesson at the Practice Pier, into practice', as
     await stage.getByRole('button', { name: 'Next', exact: true }).click();
     await number(count).click();
     await page.clock.fastForward(3000);
-    // The widget invites the part that is the child's: here Check pulses, so it never holds
-    // still for Playwright's stability wait.
-    await check.click({ force: true });
+    // Nothing in the widget points at the answer on the child's turn.
+    await expect(stage.locator('.ni-invite')).toHaveCount(0);
+    await check.click();
     await expect(pier).toHaveAttribute('data-phase', 'feedback');
     await expect(page.getByTestId('pier-cue')).toHaveAttribute('data-cue', 'right');
     expect((await steps(page)).at(-1)).toMatchObject({
