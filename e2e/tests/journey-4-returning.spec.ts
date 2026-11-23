@@ -127,6 +127,8 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
       const formats = await playRequest(page);
       expect(formats.length, `request ${n} had items to answer`).toBeGreaterThan(0);
       await expect(page.getByTestId('child-home')).toBeVisible();
+      // The request's result is in (what it made, a road stone laid): the island offers requests.
+      await expect(requests.first()).toBeVisible();
       const events = await localEvents(page);
       const completed = of(events, 'request.completed');
       expect(completed).toHaveLength(n);

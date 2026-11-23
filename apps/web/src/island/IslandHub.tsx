@@ -480,7 +480,7 @@ export function IslandHub({
           // decorate mode) stays under every control of the screen, the parent gate included.
           className="absolute inset-0 isolate overflow-hidden"
           onPointerUp={(e) => {
-            if ((e.target as Element).closest?.('[data-hit="next"]')) build.layStone();
+            if (idle && (e.target as Element).closest?.('[data-hit="next"]')) build.layStone();
           }}
         >
           <IslandScene
@@ -639,7 +639,9 @@ export function IslandHub({
             label="ui.build.open"
             icon={<HammerIcon size={56} />}
             tone="cloud"
-            disabled={busy || decorate.open || !build.ready}
+            // Nothing is bought while a request is still being written: what it made, and the
+            // road stone its workshop may be laying, are not all in the Storehouse yet.
+            disabled={busy || decorate.open || !build.ready || !idle}
             onPress={build.openSheet}
             data={{ 'data-testid': 'build-open' }}
           />
@@ -653,7 +655,7 @@ export function IslandHub({
                 </span>
               }
               tone="cloud"
-              disabled={busy || decorate.open}
+              disabled={busy || decorate.open || !idle}
               onPress={build.layStone}
               data={{
                 'data-testid': 'road-next',

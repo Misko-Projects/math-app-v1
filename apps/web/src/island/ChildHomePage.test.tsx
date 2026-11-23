@@ -275,11 +275,22 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/play/${CHILD_K}`));
     await settle();
     expect(await types(app)).toEqual(['session.started', 'request.accepted']);
+    // While the request is still being written (what it made, a road stone its workshop is
+    // laying), nothing can be bought: not a building, not the road's next stone.
+    const disabled = (testId: string) => (screen.getByTestId(testId) as HTMLButtonElement).disabled;
+    await screen.findByTestId('road-next');
+    expect(disabled('build-open')).toBe(true);
+    expect(disabled('road-next')).toBe(true);
+    fireEvent.pointerUp(document.querySelector('[data-hit="next"]') as Element);
+    await settle();
+    expect(await types(app)).toEqual(['session.started', 'request.accepted']);
     release();
     await waitFor(async () => expect(await types(app)).toContain('request.completed'));
     await bubbles();
     await settle();
     expect(await types(app)).toEqual(['session.started', 'request.accepted', 'request.completed']);
+    expect(disabled('build-open')).toBe(false);
+    expect(disabled('road-next')).toBe(false);
   });
 
   it('fetches the workshop ahead, and the first problem is on screen within 10 s of the tap', async () => {
