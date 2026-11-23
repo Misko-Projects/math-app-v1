@@ -48,7 +48,7 @@ async function check(page: Page, stage: Locator, logged: number): Promise<string
 async function played(page: Page): Promise<void> {
   const pier = page.getByTestId('pier');
   await expect(async () => {
-    await page.clock.runFor(500);
+    await page.clock.runFor(1000);
     await expect(pier).toHaveAttribute('data-phase', /answer|feedback/, { timeout: 250 });
   }).toPass();
 }
@@ -59,6 +59,8 @@ const hintLevels = async (page: Page) =>
 test('a child plays a request at the Practice Pier: three formats, every attempt recorded', async ({
   page,
 }) => {
+  // The feedback lines, hints and worked solutions are spoken in full, in real time.
+  test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install();

@@ -38,6 +38,7 @@ import {
   icons,
   ReplayButton,
   SpeechBubble,
+  type WidgetDemo,
 } from '@number-island/ui';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -154,10 +155,39 @@ function PierRequest({
   const [summary, setSummary] = useState<RequestSummary | null>(null);
   // The widget's demo mode (03 §6.3). An op the widget does not animate is skipped and noted:
   // the step's line is still spoken.
-  const demo = useMemo(
-    () => createDemoController({ strict: false, warn: (m) => recordDiagnostic('pier.demo', m) }),
-    [],
-  );
+  const { demo, restartWidget } = useMemo(() => {
+    const base = createDemoController({
+      strict: false,
+      warn: (m) => recordDiagnostic('pier.demo', m),
+    });
+    let binds = 0;
+    let waiting: (() => void)[] = [];
+    const controller: WidgetDemo = {
+      get ops() {
+        return base.ops;
+      },
+      play: (action) => base.play(action),
+      invite: (action) => base.invite(action),
+      bind(impl) {
+        const unbind = base.bind(impl);
+        binds += 1;
+        const ready = waiting;
+        waiting = [];
+        for (const resolve of ready) resolve();
+        return unbind;
+      },
+    };
+    /** Remounts the widget and resolves once the fresh one takes demo ops (never the old one). */
+    const restart = (): Promise<void> => {
+      const before = binds;
+      setRestarts((n) => n + 1);
+      return new Promise<void>((resolve) => {
+        const check = () => (binds > before ? resolve() : waiting.push(check));
+        check();
+      });
+    };
+    return { demo: controller, restartWidget: restart };
+  }, []);
   // What is playing now (a hint, a solution): a new item, or leaving, makes it stale.
   const playing = useRef(0);
   const readyAt = useRef(0);
@@ -318,8 +348,9 @@ function PierRequest({
     if (stale()) return;
     const actions = (step.actions ?? []).filter((a) => a.op !== 'replay-prompt');
     // The widget's part of a hint plays on a fresh widget, not on top of the child's work.
-    if (actions.length > 0) setRestarts((n) => n + 1);
+    const fresh = actions.length > 0 ? restartWidget() : null;
     await sayLine(step.say, step.vars);
+    await fresh;
     if (stale()) return;
     if (item && step.actions?.some((a) => a.op === 'replay-prompt')) {
       await sayLine(item.prompt.narration, item.prompt.vars);
@@ -344,7 +375,8 @@ function PierRequest({
     setPicture(null);
     await sayLine(before);
     if (stale()) return;
-    setRestarts((n) => n + 1);
+    await restartWidget();
+    if (stale()) return;
     for (const step of steps) {
       await Promise.all([sayLine(step.say, step.vars), step.action ? act(step.action) : null]);
       if (stale()) return;
