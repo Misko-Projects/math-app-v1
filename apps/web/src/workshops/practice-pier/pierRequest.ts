@@ -25,14 +25,8 @@ import type {
 } from '@number-island/shared';
 import { registeredFormats } from '@number-island/ui';
 
-const CHECK_BELOW = 'the Check button is below the workshop area at 1280 × 800';
-
 /** Templates with a widget that the pier does not play yet, and why. */
-export const PIER_EXCLUDED: Readonly<Record<TemplateId, string>> = {
-  // base-ten-trade, pictorial: the trade controls and Check are below the area.
-  'PV.01.t4': CHECK_BELOW,
-  'PV.09.t3': CHECK_BELOW,
-};
+export const PIER_EXCLUDED: Readonly<Record<TemplateId, string>> = {};
 
 const registered = new Set<ItemFormat>(registeredFormats());
 
