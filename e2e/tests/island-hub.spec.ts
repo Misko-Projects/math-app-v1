@@ -73,7 +73,9 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
   await requests.first().click();
   const pier = page.getByTestId('pier');
   await expect(pier).toHaveAttribute('data-phase', /lesson|turn/);
-  await expect(page).toHaveURL(/\/workshop\/practice-pier$/);
+  // "What comes next" on the number chart is Road Crew's (#27); it plays on the screen every
+  // workshop shares. Left by Home before its parade, the request lays no road stone (below).
+  await expect(page).toHaveURL(/\/workshop\/road-crew$/);
   const chart = page.getByTestId('pier-stage').locator('.ni-hc[data-mode="next"]');
   const check = page.getByTestId('pier-stage').getByRole('button', { name: 'Check' });
   /** Taps the number after the marked one and checks it, after a jump in time (06 §4). */
