@@ -147,6 +147,8 @@ describe('<ChildHomePage>: the island', () => {
     });
     await screen.findByText('picker');
     expect(router.state.location.pathname).toBe('/');
+    // The session is idle (and the picker back) before its end is written: wait for the write.
+    await waitFor(async () => expect(await ended(app)).toHaveLength(1));
     expect((await ended(app))[0]?.payload).toMatchObject({ reason: 'child-exit' });
   });
 
