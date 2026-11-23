@@ -1,7 +1,7 @@
 // Decorate mode's controls (06 §2 "Build / Decorate"; #22 part 4), loaded when the mode is first
 // opened. They stand in the request row's place while the requests step aside.
 //
-// - The tray: every piece the family owns, as a picture button (72 px, 12 px apart). One that is
+// - The tray: every piece the family owns, as a picture button (80 px, 12 px apart). One that is
 //   on the island wears a ring. It pages and never scrolls. A tap takes the piece in hand; the
 //   island then offers the plots where it fits.
 // - A piece in hand that is on the island can be put away. "Okay" leaves the mode.
@@ -21,7 +21,8 @@ import { type PointerEvent as ReactPointerEvent, useEffect, useState } from 'rea
 import type { SceneMap } from '../building/PlotTargets';
 import type { DecorItem } from './rules';
 
-const ITEM = 72;
+/** A tray button, each way: the kindergarten tap target (06 §4). */
+const ITEM = 80;
 const GAP = 12;
 
 /** How many pieces a tray `width` px wide shows on a page. */
@@ -83,7 +84,7 @@ export default function DecorTray({
                 data-state={item.pos ? 'placed' : 'spare'}
                 onClick={() => onSelect(inHand ? null : item.instanceId)}
               >
-                {Icon ? <Icon size={56} /> : null}
+                {Icon ? <Icon size={60} /> : null}
               </button>
             </li>
           );

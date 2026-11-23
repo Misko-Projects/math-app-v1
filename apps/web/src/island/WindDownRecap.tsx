@@ -62,7 +62,7 @@ export default function WindDownRecap({
                     >[0]['id']
                   }
                   stage={1}
-                  size={64}
+                  size={120}
                 />
               </li>
             ))}

@@ -35,12 +35,13 @@ export default function NameSheet({
           <SpeechBubble say="ui.island.name.pick" tail="none" showText />
           <ReplayButton onPress={() => say('ui.island.name.pick')} />
         </div>
-        <ul className="grid grid-cols-2 gap-3">
+        {/* Three across: with "Okay" under them the sheet fits a 960 × 600 screen. */}
+        <ul className="grid grid-cols-3 gap-3">
           {choices.map((choice) => (
             <li key={choice.name}>
               <button
                 type="button"
-                className={`min-h-[72px] w-full cursor-pointer rounded-[20px] bg-paper px-5 py-3 font-body text-[1.5rem] font-bold text-ink shadow-soft ring-4 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+                className={`min-h-[80px] w-full cursor-pointer rounded-[20px] bg-paper px-5 py-3 font-body text-[1.5rem] font-bold text-ink shadow-soft ring-4 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink ${
                   chosen?.name === choice.name ? 'ring-sunshine' : 'ring-sand-deep'
                 }`}
                 aria-pressed={chosen?.name === choice.name}

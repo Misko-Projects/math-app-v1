@@ -48,11 +48,16 @@ async function waiting(page: Page): Promise<Screen> {
 
 /** How this journey answers each format it meets, in the real widget, right. */
 const ANSWER: Record<string, (stage: Locator) => Promise<void>> = {
-  // "What comes next?" on the number chart: the cell after the marked one.
+  // "What comes next?" on the number chart: the cell after the marked one, or, where the chart
+  // is small and the answer is typed (a short screen), its digits on the number pad.
   'hundred-chart': async (stage) => {
     const chart = stage.locator('.ni-hc[data-mode="next"]');
     const start = Number(await chart.locator('[data-start="true"]').getAttribute('data-n'));
-    await chart.locator(`[data-n="${start + 1}"]`).click();
+    const pad = stage.locator('.ni-pad');
+    if ((await pad.count()) === 0) await chart.locator(`[data-n="${start + 1}"]`).click();
+    else
+      for (const digit of String(start + 1))
+        await pad.locator(`.ni-pad__key[aria-label="${digit}"]`).click();
   },
   // Number cards into their boxes, in the order the cue shows.
   order: async (stage) => {
