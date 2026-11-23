@@ -24,7 +24,7 @@ import { useProfiles } from '@/data/hooks';
 import { useHub } from '@/island/hub';
 import type { PierTaskRunner, RequestSummary } from '@/runner/TaskRunner';
 import { useRequestRunner } from '@/runner/useRequestRunner';
-import { type DecorGrant, withDecorGrant } from './decorGrant';
+import { type DecorGrant, decorGrantFor } from './decorGrant';
 import { workshopFor } from './registry';
 import type { AppWorkshop, AppWorkshopProps } from './types';
 
@@ -111,7 +111,8 @@ function OwnedRequest({ child, session, request }: HostedProps) {
   const base = useRequestRunner(child, session, request, finished);
   const runner = useMemo(() => {
     if (!base) return null;
-    granting.current = withDecorGrant<RequestSummary, PierTaskRunner>(
+    // One per runner (`decorGrantFor`), so a second render gets the same one.
+    granting.current = decorGrantFor<RequestSummary, PierTaskRunner>(
       base,
       request.reward.decor ?? [],
       (id) => store.append('collection.unlocked', { kind: 'decor', id }, { childId: child.id }),
