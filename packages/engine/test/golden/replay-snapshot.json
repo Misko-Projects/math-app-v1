@@ -166,8 +166,31 @@
     }
   },
   "island": {
+    "_displaced": {
+      "b2": {
+        "buildingId": "road-crew",
+        "placedBy": null,
+        "plot": [5, 3],
+        "ts": 1793631602002
+      },
+      "b5": {
+        "buildingId": "ten-boat-dock",
+        "placedBy": "019a0000-0000-7000-8000-00000000c001",
+        "plot": [7, 3],
+        "ts": 1793804797318
+      },
+      "b6": {
+        "buildingId": "lighthouse",
+        "placedBy": null,
+        "plot": [6, 1],
+        "ts": 1796086800001
+      }
+    },
     "_giftsOpened": ["gift-1"],
     "_lastPlayDay": "2026-12-14",
+    "_upgrades": {
+      "b2": 2
+    },
     "buildings": {
       "b1": {
         "buildingId": "storehouse",
@@ -175,13 +198,6 @@
         "placedBy": null,
         "plot": [4, 3],
         "ts": 1793631602001
-      },
-      "b2": {
-        "buildingId": "road-crew",
-        "level": 2,
-        "placedBy": null,
-        "plot": [5, 3],
-        "ts": 1793631602002
       },
       "b3": {
         "buildingId": "lantern-grove",
@@ -196,20 +212,6 @@
         "placedBy": "019a0000-0000-7000-8000-00000000c002",
         "plot": [6, 2],
         "ts": 1793725700934
-      },
-      "b5": {
-        "buildingId": "ten-boat-dock",
-        "level": 1,
-        "placedBy": "019a0000-0000-7000-8000-00000000c001",
-        "plot": [7, 3],
-        "ts": 1793804797318
-      },
-      "b6": {
-        "buildingId": "lighthouse",
-        "level": 1,
-        "placedBy": null,
-        "plot": [6, 1],
-        "ts": 1796086800001
       }
     },
     "decor": {

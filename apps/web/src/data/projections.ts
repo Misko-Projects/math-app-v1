@@ -41,7 +41,7 @@ import type { ProjectionRow } from './db';
  * Bump when any fold the cache stores changes behaviour (engine folds, the inputs passed to them,
  * or the row layout). Every cached row whose version differs is rebuilt from the full log on open.
  */
-export const PROJECTION_VERSION = 2;
+export const PROJECTION_VERSION = 3;
 
 export interface StoreContent {
   /** packages/content build hash; stamped on appended events and part of every row version. */

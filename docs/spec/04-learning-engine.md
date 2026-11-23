@@ -289,7 +289,7 @@ Points §2.4, §5 and §6 leave open, as the placement runner, the planner and `
 - Property tests (fast-check):
   - folds are order-independent for the same event set;
   - `applyEvent` incremental = full fold;
-  - the inventory never goes negative (clamped), and buildings are never un-built;
+  - the inventory never goes negative (clamped), a standing building is never un-built, and no two buildings share a plot;
   - planner output always respects the item budgets and the no-more-than-3-in-a-row rule.
 - **Simulated learner harness** (`engine/test/sim`, `pnpm test:sim`; runs on PRs touching `packages/engine` and nightly, against the fixture graph until K02 lands and then the full compiled graph): synthetic children with a hidden true mastery set over the real K–3 graph, answering with `P = σ(trueAbility − d)` plus guess and slip, and forgetting with a hidden half-life. Required results:
   - placement recovers the frontier with ≥ 85% per-skill classification accuracy within the K and G2 item budgets;
