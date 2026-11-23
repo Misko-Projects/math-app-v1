@@ -25,7 +25,7 @@ export function storedMaterials(
     .filter((m) => m.count > 0);
 }
 
-const CELL = 28;
+const CELL = 44;
 
 /** One ten-frame (5 × 2) with `filled` of the material in it, filled row by row. */
 function TenFrame({ filled, Icon }: { filled: number; Icon: ItemArt }) {
