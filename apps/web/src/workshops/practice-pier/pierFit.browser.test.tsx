@@ -10,10 +10,21 @@
 // cue and the longest line a hint or its worked solution puts in the bubble (a long line makes
 // the top row taller and the area smaller), every hint picture as a card over the area, and the
 // break offer.
+//
+// The lesson player (#20 part 3) too: every example of every shipped lesson, on its own widget
+// with the lesson's controls and the longest line the example puts in the bubble. The same pass
+// reads which ops each widget animates in demo mode, and holds the lesson steps whose action a
+// widget does not show against `LESSON_OPS_NOT_SHOWN` (the line is still spoken).
 
 import * as engine from '@number-island/engine';
 import type { GeneratedItem, ItemTemplate, StimulusSpec } from '@number-island/shared';
-import { type AgeMode, planLine, UiProvider } from '@number-island/ui';
+import {
+  type AgeMode,
+  createDemoController,
+  planLine,
+  UiProvider,
+  type WidgetDemo,
+} from '@number-island/ui';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
@@ -25,13 +36,17 @@ import '@fontsource/andika/latin-700.css';
 import '@fontsource/baloo-2/latin-700.css';
 import '@fontsource/baloo-2/latin-800.css';
 import '@/styles.css';
+import { buildLesson, type LessonExamplePlay } from '@/runner/lesson';
 import { PierBreakOffer, PierItemScreen, type SpokenLine } from './PierScreen';
 import {
   FIT_SEED_EXCEPTIONS,
   FIT_VIEWPORTS,
   type FitViewport,
   fitAllowance,
+  LESSON_FIT_EXCEPTIONS,
+  LESSON_OPS_NOT_SHOWN,
 } from './pierFitAllowlist';
+import { pierPlayable } from './pierRequest';
 
 /**
  * The seeds the check plays: the first one. `VITE_FIT_SEEDS=1,2,3` plays more (a survey: other
@@ -437,4 +452,130 @@ describe.each(FIT_VIEWPORTS)('the feedback flow fits the pier at %s', (viewport:
       expect(Math.min(r?.width ?? 0, r?.height ?? 0)).toBeGreaterThanOrEqual(MIN_TARGET_PX);
     },
   );
+});
+
+/** A lesson example on screen as the lesson player shows it: input off, the lesson's controls. */
+function showLesson(
+  example: LessonExamplePlay,
+  ageMode: AgeMode,
+  line: SpokenLine,
+  demo: WidgetDemo,
+) {
+  shown += 1;
+  root.render(
+    <UiProvider
+      ageMode={ageMode}
+      reducedMotion
+      narrationText={(key, vars) => planLine(content.narration, key, vars)?.text}
+    >
+      <PierItemScreen
+        item={{ widget: example.item.widget, prompt: { narration: line.say, vars: line.vars } }}
+        lesson={{
+          onReplay: () => {},
+          // "I can try" is offered during the worked examples, from grade 1 (03 §6.2).
+          onSkip: ageMode === 'k' || example.phase !== 'worked' ? null : () => {},
+        }}
+        tier={example.item.tier}
+        itemKey={shown}
+        phase="lesson"
+        cue={null}
+        line={line}
+        demo={demo}
+        progress={{ done: 0, total: 5 }}
+        onLeave={() => {}}
+        onNext={() => {}}
+        onResponse={() => {}}
+        onInteract={() => {}}
+      />
+    </UiProvider>,
+  );
+}
+
+describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitViewport) => {
+  it('each example on its widget, with the lesson controls and its longest line', async () => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    await page.viewport(width, height);
+    const { graph } = content.store;
+    const length = (l: SpokenLine) => planLine(content.narration, l.say, l.vars)?.text.length ?? 0;
+    const failing: string[] = [];
+    const notShown: string[] = [];
+    const fitsAgain: string[] = [];
+    let lessons = 0;
+    let examples = 0;
+    let allowed = 0;
+    for (const skillId of [...graph.nodes].sort()) {
+      const skill = graph.skills[skillId];
+      const lesson = skill ? buildLesson(engine, graph, skill, pierPlayable) : null;
+      if (!skill || !lesson) continue;
+      if (ONLY && !lesson.examples.some((e) => ONLY.includes(e.template.format))) continue;
+      lessons += 1;
+      const ageMode: AgeMode = skill.grade === 'K' ? 'k' : 'g1-up';
+      for (const example of lesson.examples) {
+        const lines: SpokenLine[] = example.steps.map((s) => ({ say: s.say, vars: s.vars }));
+        // The first example also carries the intro, and the last one the outro.
+        if (example === lesson.examples[0]) lines.push({ say: lesson.intro });
+        if (example === lesson.examples.at(-1) && lesson.outro) lines.push({ say: lesson.outro });
+        const line = lines.sort((a, b) => length(b) - length(a))[0] as SpokenLine;
+        const demo = createDemoController({ strict: false, warn: () => {} });
+        showLesson(example, ageMode, line, demo);
+        const id = `${skillId} ${example.phase} ${example.example + 1} (${example.template.id}, ${example.template.format})`;
+        const misfit = await measure(id);
+        examples += 1;
+        if (SHOTS.includes(`${skillId}:${example.phase}:${example.example}`)) {
+          await page.screenshot({
+            path: `__fit__/lesson-${skillId}-${example.phase}${example.example}-${viewport}.png`,
+          });
+        }
+        // The lesson's own buttons: a child can hit them, and the line can be read.
+        const header = document.querySelector<HTMLElement>('[data-testid="pier"] header');
+        for (const button of header?.querySelectorAll<HTMLElement>('button:not(.ni-bubble)') ??
+          []) {
+          const r = button.getBoundingClientRect();
+          if (Math.min(r.width, r.height) < MIN_TARGET_PX - SLACK_PX) {
+            misfit.push(`a lesson button of ${Math.round(r.width)}x${Math.round(r.height)} px`);
+          }
+        }
+        const words = header?.querySelector<HTMLElement>('.ni-bubble__text');
+        if (words && Number.parseFloat(getComputedStyle(words).fontSize) < MIN_TEXT_PX) {
+          misfit.push(`the line is set in ${getComputedStyle(words).fontSize}`);
+        }
+        if (header && header.scrollWidth - header.clientWidth > SLACK_PX) {
+          misfit.push(`the top row is ${header.scrollWidth - header.clientWidth} px too wide`);
+        }
+        if (misfit.includes(FALLBACK)) {
+          failing.push(`${id}: ${FALLBACK}`);
+          continue;
+        }
+        const known = LESSON_FIT_EXCEPTIONS.find(
+          (x) =>
+            x.example === `${skillId}:${example.phase}:${example.example}` &&
+            x.at.includes(viewport),
+        );
+        if (known && misfit.length === 0) fitsAgain.push(known.example);
+        // A template the item check already lists for this viewport is not held against the lesson.
+        if (misfit.length > 0 && (known || fitAllowance(example.template, viewport))) allowed += 1;
+        else if (misfit.length > 0)
+          failing.push(`${id}: ${misfit.join('; ')} [${describeParts()}]`);
+        // Demo mode: the ops this widget animates, against the ops the example's steps ask for.
+        example.steps.forEach((step, i) => {
+          if (step.action && !demo.ops.includes(step.action.op)) {
+            notShown.push(
+              `${skillId} ${example.phase} ${example.example + 1} step ${i + 1}: ${step.action.op} (${example.template.format})`,
+            );
+          }
+        });
+      }
+    }
+    console.info(
+      `pier lesson fit at ${viewport}: ${lessons} lessons, ${examples} examples, ${failing.length} do not fit, ${allowed} on the allowlist, ${notShown.length} steps a widget cannot show`,
+    );
+    if (!ONLY) {
+      expect(lessons).toBeGreaterThan(50);
+      expect(notShown, 'lesson steps whose action the widget does not animate').toEqual([
+        ...LESSON_OPS_NOT_SHOWN,
+      ]);
+    }
+    expect(failing, 'lesson examples that do not fit the workshop area').toEqual([]);
+    expect(fitsAgain, 'listed lesson examples that fit: remove them from the list').toEqual([]);
+  });
 });

@@ -9,7 +9,9 @@
 // - `planPierRequest`: the session planner with no themed workshop built, so every request falls
 //   back to the pier (04 §6.3); the first request with a playable item is taken. The request
 //   picker and the warmup arrive with the island hub (I01).
-// - `browseRequest`: the dev content browser's request, one item per playable template of a skill.
+// - `browseRequest`: the dev content browser's request, one item per playable template of a skill,
+//   or the skill's lesson followed by one practice item.
+// - A lesson task stays in a request when the pier can show an example of that lesson (03 §6).
 
 import type * as EngineModule from '@number-island/engine';
 import type {
@@ -25,6 +27,7 @@ import type {
   TemplateId,
 } from '@number-island/shared';
 import { registeredFormats } from '@number-island/ui';
+import { lessonPlayable } from '@/runner/lesson';
 
 /** Templates with a widget that the pier does not play yet, and why. */
 export const PIER_EXCLUDED: Readonly<Record<TemplateId, string>> = {};
@@ -41,13 +44,20 @@ export function pierPlayable(t: Pick<ItemTemplate, 'id' | 'format'>): boolean {
   return pierMisfit(t) === null;
 }
 
-/** The request without lesson tasks (the lesson player is #20 part 3) and unplayable formats. */
+/** Whether the pier can open a skill's lesson: it has an example on a template the pier shows. */
+export function pierLesson(graph: SkillGraph, skillId: SkillId): boolean {
+  const skill = graph.skills[skillId];
+  return skill !== undefined && lessonPlayable(graph, skill, pierPlayable);
+}
+
+/** The request without the tasks the pier cannot show: unplayable formats, and lessons with no example it shows. */
 function playableTasks(request: PlannedRequest, graph: SkillGraph): PlannedRequest {
   return {
     ...request,
     tasks: request.tasks.filter((t) => {
+      if (t.mode === 'lesson') return pierLesson(graph, t.skillId);
       const template = graph.templates[t.templateId];
-      return t.mode === 'item' && template !== undefined && pierPlayable(template);
+      return template !== undefined && pierPlayable(template);
     }),
   };
 }
@@ -93,6 +103,8 @@ export function browseSkills(graph: SkillGraph): { skillId: SkillId; templates: 
 export interface BrowsePick {
   skillId: SkillId;
   templateId: TemplateId | null;
+  /** The skill's lesson, then one practice item. */
+  lesson?: boolean;
 }
 
 /**
@@ -109,17 +121,25 @@ export function browseRequest(graph: SkillGraph, pick: BrowsePick, nonce: number
       (pick.templateId === null || pick.templateId === id)
     );
   });
+  const items: PlannedRequest['tasks'] = templates.map((templateId, i) => ({
+    skillId,
+    templateId,
+    seed: (nonce + i * 7919) % 0x7fffffff,
+    context: 'practice',
+    mode: 'item',
+  }));
+  const lessonTemplate = graph.skills[skillId]?.lesson.templateId;
   return {
     id: `browse:${skillId}:${nonce}`,
     residentId: 'pip',
     workshopId: 'practice-pier',
-    tasks: templates.map((templateId, i) => ({
-      skillId,
-      templateId,
-      seed: (nonce + i * 7919) % 0x7fffffff,
-      context: 'practice',
-      mode: 'item',
-    })),
+    tasks:
+      pick.lesson && lessonTemplate !== undefined
+        ? [
+            { skillId, templateId: lessonTemplate, seed: nonce, context: 'lesson', mode: 'lesson' },
+            ...items.slice(0, 1),
+          ]
+        : items,
     reward: { materials: {} },
     narration: 'req.help',
     vars: {},

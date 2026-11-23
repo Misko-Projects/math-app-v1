@@ -6,6 +6,10 @@
 // and takes a sunshine edge with a look-again badge on it. The line being spoken (the feedback,
 // a hint, a step of the worked solution) takes the prompt's place in the bubble while it plays.
 // A hint's picture is a card over the area, and the lightbulb asks for the next hint.
+//
+// A lesson step (03 §6, #20 part 3) plays in the same frame: the step's line in the bubble, the
+// example's widget driven in demo mode, a speaker that says the step again, and from grade 1 "I can try".
+// On the child's turn the widget takes input and the invited part is highlighted by the widget.
 
 import type {
   InteractionEvent,
@@ -14,6 +18,7 @@ import type {
   ResponseValue,
   StimulusSpec,
   Tier,
+  WidgetConfig,
 } from '@number-island/shared';
 import {
   BigButton,
@@ -41,6 +46,8 @@ export type Phase =
   | 'answer' // item ready: the widget takes input
   | 'checking' // an answer is being checked and written
   | 'hint' // a feedback line, a hint or the worked solution is playing; no input
+  | 'lesson' // a lesson step is being shown; no input
+  | 'turn' // the child's turn in a faded example: the widget takes input
   | 'feedback'; // resolved: "next" moves on
 
 /** A line being spoken in place of the prompt. */
@@ -49,9 +56,24 @@ export interface SpokenLine {
   vars?: Record<string, string | number>;
 }
 
+/** What the workshop area shows: an item, or the example of a lesson step with the step's line. */
+export interface PierStage {
+  widget: WidgetConfig;
+  prompt: { narration: NarrationKey; vars?: Record<string, string | number> };
+}
+
+/** The lesson's own controls, while a lesson step is on screen. */
+export interface LessonControls {
+  /** The speaker: the current step's line once more. */
+  onReplay: () => void;
+  /** "I can try" (grade 1 up, 03 §6.2); null when not on offer. */
+  onSkip: (() => void) | null;
+}
+
 /** One item on screen: Home, the prompt, the cue and "next", the widget, the request's beads. */
 export function PierItemScreen({
   item,
+  lesson = null,
   tier,
   itemKey,
   phase,
@@ -69,7 +91,9 @@ export function PierItemScreen({
   onInteract,
 }: {
   /** Null while the request loads. */
-  item: PresentedItem | null;
+  item: PresentedItem | PierStage | null;
+  /** Set while a lesson step is on screen. */
+  lesson?: LessonControls | null;
   tier: Tier;
   itemKey: number | string;
   phase: Phase;
@@ -124,6 +148,16 @@ export function PierItemScreen({
             {item && line && phase === 'answer' && onReplayPrompt && !picture && (
               <ReplayButton onPress={onReplayPrompt} />
             )}
+            {item && lesson && <ReplayButton onPress={lesson.onReplay} />}
+            {item && lesson?.onSkip && phase === 'lesson' && (
+              <BigButton
+                label="ui.lesson.try"
+                icon={<icons.ArrowIcon tone="light" />}
+                tone="sun"
+                showLabel
+                onPress={lesson.onSkip}
+              />
+            )}
             <CueBadge cue={cue} />
             {item && phase === 'answer' && onHint && !picture && <HintButton onPress={onHint} />}
             {phase === 'feedback' && (
@@ -145,7 +179,7 @@ export function PierItemScreen({
           config={item.widget}
           tier={tier}
           itemKey={itemKey}
-          disabled={phase !== 'answer' || Boolean(picture)}
+          disabled={(phase !== 'answer' && phase !== 'turn') || Boolean(picture)}
           demo={demo}
           onResponse={onResponse}
           onInteract={onInteract}
