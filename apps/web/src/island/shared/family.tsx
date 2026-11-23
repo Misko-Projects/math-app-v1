@@ -91,10 +91,14 @@ const told = (): string[] => JSON.parse(localStorage.getItem(TOLD_KEY) ?? '[]');
  */
 export function displacedFor(island: IslandState, childId: ChildId): string[] {
   const said = new Set(told());
+  return displacedKeys(island, childId).filter((key) => !said.has(key));
+}
+
+/** This child's placements that have lost their plots as the island stands, said or not. */
+export function displacedKeys(island: IslandState, childId: ChildId): string[] {
   return displacedPlacements(island)
     .filter((d) => sameId(d.placedBy, childId))
-    .map((d) => `${d.instanceId}@${d.ts}`)
-    .filter((key) => !said.has(key));
+    .map((d) => `${d.instanceId}@${d.ts}`);
 }
 
 /** The line was said: these placements (`displacedFor`) are not said again on this device. */

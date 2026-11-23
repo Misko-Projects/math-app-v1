@@ -397,6 +397,19 @@ describe('foldIsland', () => {
         game,
       );
       expect(rebuilt.residents).toEqual({ tuck: { arrivedTs: T0 + 9, homeInstanceId: 'b' } });
+      // An arrival written by a device whose clock is behind sorts before the home's placement:
+      // when that placement is displaced, the resident leaves with it.
+      const early = [first, arrival(T0 + 1), second];
+      for (const order of [early, [...early].reverse()]) {
+        const s = foldIsland(order, game);
+        expect(Object.keys(s.buildings)).toEqual(['a']);
+        expect(s.residents).toEqual({});
+      }
+      const back = foldIsland(
+        [...early, placed('b', 'lighthouse', T0 + 8, C2, [9, 6]), arrival(T0 + 9)],
+        game,
+      );
+      expect(back.residents).toEqual({ tuck: { arrivedTs: T0 + 9, homeInstanceId: 'b' } });
     });
 
     it("a tombstone drops the deleted child's displaced placements", () => {

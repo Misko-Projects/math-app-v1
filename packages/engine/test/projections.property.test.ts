@@ -94,7 +94,7 @@ describe('projection fold properties (fixture GameData)', () => {
     );
   });
 
-  it('buildings are never un-built or downgraded; road, rings and residents never shrink', () => {
+  it('buildings are never un-built or downgraded; road and rings never shrink; a resident leaves only a displaced home', () => {
     fc.assert(
       fc.property(logArb, (events) => {
         let prev = initIsland(game);
@@ -108,9 +108,13 @@ describe('projection fold properties (fixture GameData)', () => {
           }
           expect(next.roadLength).toBeGreaterThanOrEqual(prev.roadLength);
           expect(next.ringsUnlocked).toBeGreaterThanOrEqual(prev.ringsUnlocked);
-          expect(Object.keys(next.residents)).toEqual(
-            expect.arrayContaining(Object.keys(prev.residents)),
-          );
+          const displaced = new Set(displacedPlacements(next).map((d) => d.instanceId));
+          for (const [id, r] of Object.entries(prev.residents)) {
+            if (!Object.hasOwn(next.residents, id))
+              expect(displaced.has(r.homeInstanceId ?? ''), `${id} left`).toBe(true);
+          }
+          for (const r of Object.values(next.residents))
+            expect(displaced.has(r.homeInstanceId ?? '')).toBe(false);
           prev = next;
         }
       }),

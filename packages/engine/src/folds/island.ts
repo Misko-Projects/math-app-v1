@@ -2,8 +2,8 @@
 // never goes down. Two buildings never share a plot: a `building.placed` whose footprint overlaps
 // a standing building does not apply, so of two placements made offline on the same plots the
 // first by ts then id stands and the other is kept as displaced (`displacedPlacements`) for the
-// app to tell its child, until that instance is placed again on free plots. A resident does not
-// arrive at a displaced home. Decor positions are last-writer-wins by ts then id; the road keeps its
+// app to tell its child, until that instance is placed again on free plots. Nobody lives in a
+// displaced home: its residents leave, and none arrives, until it is built again. Decor positions are last-writer-wins by ts then id; the road keeps its
 // maximum; rings unlock as their rules hold and never re-lock. Readings fixed by E02 are listed
 // in 02 §4.3.
 
@@ -129,8 +129,14 @@ function applyRaw(
     );
     if (covered(gameData, buildingId, plot).some((k) => taken.has(k))) {
       // Its plots are built on: the earlier placement stands (events fold in ts, then id order).
+      // A resident whose arrival sorted before this placement (another device's clock) does not
+      // stay in a home that does not stand.
+      const residents = Object.fromEntries(
+        Object.entries(state.residents).filter(([, r]) => r.homeInstanceId !== instanceId),
+      );
       return {
         ...state,
+        residents,
         _displaced: {
           ...state._displaced,
           [instanceId]: {

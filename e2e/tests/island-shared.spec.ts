@@ -135,6 +135,8 @@ for (const viewport of VIEWPORTS) {
     await page.getByRole('button', { name: 'Go on', exact: true }).click();
     await expect(scene.locator(`[data-building="${DISPLACED}"]`)).toHaveCount(1);
     await expect(badges(DISPLACED)).toHaveAttribute('data-children', ADA.id);
+    // It stands, so the island no longer asks her to pick a new place.
+    await expect(line).toHaveCount(0);
 
     // Told once, and the rebuilt building is still there: after a reload she is greeted as ever.
     await page.reload();

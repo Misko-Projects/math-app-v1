@@ -80,6 +80,7 @@ import { Storehouse } from './Storehouse';
 import {
   BuildingBadges,
   displacedFor,
+  displacedKeys,
   FamilyAvatars,
   familyMembers,
   makersOf,
@@ -137,6 +138,7 @@ export function IslandHub({
   const aside = busy || build.counting !== null;
   // This child's placements that lost their plots to an earlier one from another device (02
   // §4.3), read when the island is: said once, on this visit, and not again on this device.
+  // The line stays while one of them is still displaced: built again, it gives way.
   const [displaced, setDisplaced] = useState<string[] | null>(null);
   useEffect(() => {
     if (island && displaced === null) setDisplaced(displacedFor(island, child.id));
@@ -145,7 +147,7 @@ export function IslandHub({
     ? 'ui.build.place'
     : build.construction
       ? 'ui.build.working'
-      : displaced && displaced.length > 0
+      : island && displaced?.some((key) => displacedKeys(island, child.id).includes(key))
         ? 'ui.island.displaced'
         : made.length > 0
           ? 'ui.island.made'
