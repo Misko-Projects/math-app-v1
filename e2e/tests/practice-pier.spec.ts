@@ -8,8 +8,12 @@ import { learnerProjection, localEvents, seedLocalChild } from '../fixtures/loca
 // The child is local to this browser (no pairing, no sync). The request comes from the dev
 // content browser, so the formats are known: one item per template of CNT.03.
 //
+// Part 2: a wrong answer gets the cue at the widget and a hint from the ladder, and a second wrong
+// answer the worked solution, each logged as `hint.used`.
+//
 // Time: the page runs on Playwright's clock. Before each answer the clock jumps ahead, so answers
 // are never "rapid taps" (04 §6.4) and never inside a widget's 400 ms check debounce (06 §4).
+// A hint or a solution the widget animates is played out by running that clock.
 // Nothing here waits on, or asserts, elapsed real time.
 
 const CHILD = { id: '019c0000-0000-7000-8000-00000000e2e1', name: 'Ada', grade: 'K' as const };
@@ -36,9 +40,21 @@ async function check(page: Page, stage: Locator, logged: number): Promise<string
   await expect.poll(async () => (await attempts(page)).length).toBe(logged + 1);
   const cue = page.getByTestId('pier-cue');
   await expect(cue).not.toHaveAttribute('data-cue', 'none');
-  await expect(page.getByTestId('pier')).toHaveAttribute('data-phase', /answer|feedback/);
+  await played(page);
   return (await cue.getAttribute('data-cue')) as string;
 }
+
+/** Plays out the hint or the worked solution, if one is playing: the item takes input again, or is over. */
+async function played(page: Page): Promise<void> {
+  const pier = page.getByTestId('pier');
+  await expect(async () => {
+    await page.clock.runFor(500);
+    await expect(pier).toHaveAttribute('data-phase', /answer|feedback/, { timeout: 250 });
+  }).toPass();
+}
+
+const hintLevels = async (page: Page) =>
+  (await localEvents(page)).filter((e) => e.type === 'hint.used').map((e) => e.payload.level);
 
 test('a child plays a request at the Practice Pier: three formats, every attempt recorded', async ({
   page,
@@ -104,14 +120,22 @@ test('a child plays a request at the Practice Pier: three formats, every attempt
     await stage.getByRole('button', { name: '0', exact: true }).click();
     expect(await check(page, stage, logged)).toBe('again');
     logged += 1;
-    // Same item, same widget, the child's answer still in it; input is open again.
+    // The cue is at the widget, the first hint has played, and the same item takes input again.
     await expect(pier).toHaveAttribute('data-phase', 'answer');
-    await expect(stage.getByRole('button', { name: /Your answer: 0/ })).toBeVisible();
+    await expect(page.getByTestId('pier-stage-cue')).toBeVisible();
+    await expect(stage).toHaveAttribute('data-look-again', 'true');
+    expect(await hintLevels(page)).toEqual([2]);
+    await expect(widget).toHaveAttribute('data-format', 'tap-count');
     await expect(progress).toHaveAttribute('aria-valuenow', '1');
     await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Help me' })).toBeVisible();
+    // Wrong again: the worked solution plays in the widget, then "next" moves on.
+    await stage.getByRole('button', { name: '0', exact: true }).click();
     expect(await check(page, stage, logged)).toBe('onward');
     logged += 1;
     await expect(pier).toHaveAttribute('data-phase', 'feedback');
+    expect(await hintLevels(page)).toEqual([2, 5]);
+    await expect(stage.getByRole('button', { name: 'Check' })).toBeDisabled();
     const log = await attempts(page);
     expect(log.slice(-2).map((a) => [a.attemptNo, a.correct])).toEqual([
       [1, false],
