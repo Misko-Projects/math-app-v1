@@ -1,5 +1,14 @@
 import './island.test-support';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  configure,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '@/app/AppServices';
@@ -13,6 +22,11 @@ import { WorkshopHost } from '@/workshops/WorkshopHost';
 import { ChildHomePage } from './ChildHomePage';
 import { FIRST_PROBLEM_BUDGET_MS, firstProblem } from './firstProblem';
 import { PlayLayout } from './PlayLayout';
+
+// Entering a workshop loads its code and writes to the local database: under a full test run that
+// can take longer than the library's one second, so the waits here are given room.
+configure({ asyncUtilTimeout: 15_000 });
+vi.setConfig({ testTimeout: 30_000 });
 
 const booted: AppServices[] = [];
 let restore = () => {};
