@@ -57,7 +57,15 @@ function script() {
 }
 
 async function start(
-  opts: { child?: ChildContext; session?: Partial<RunnerSession>; lessonOnly?: boolean } = {},
+  opts: {
+    child?: ChildContext;
+    session?: Partial<RunnerSession>;
+    lessonOnly?: boolean;
+    /** The request's reward. */
+    materials?: Record<string, number>;
+    /** The first write of a scaffolded item's `lesson.step` fails. */
+    failScaffoldedStepOnce?: boolean;
+  } = {},
 ) {
   const store: DataStore = await testEnv().open();
   await store.putProfile(kid);
@@ -71,10 +79,23 @@ async function start(
     },
   };
   const math = { ms: 0, items: 0 };
-  const request = browseRequest(graph(), { skillId: SKILL, templateId: null, lesson: true }, 4242);
+  const browse = browseRequest(graph(), { skillId: SKILL, templateId: null, lesson: true }, 4242);
+  const request = { ...browse, reward: { materials: opts.materials ?? {} } };
+  let failures = opts.failScaffoldedStepOnce ? 1 : 0;
+  const flaky: Pick<DataStore, 'append' | 'skillStates' | 'now'> = {
+    now: () => store.now(),
+    skillStates: (id) => store.skillStates(id),
+    append: ((type: string, payload: { phase?: string }, meta: unknown) => {
+      if (type === 'lesson.step' && payload.phase === 'scaffolded' && failures > 0) {
+        failures -= 1;
+        return Promise.reject(new Error('the write failed'));
+      }
+      return (store.append as (...args: unknown[]) => Promise<unknown>)(type, payload, meta);
+    }) as DataStore['append'],
+  };
   const runner = await createTaskRunner({
     engine: spied,
-    store,
+    store: flaky,
     graph: graph(),
     child: opts.child ?? childK,
     request: opts.lessonOnly ? { ...request, tasks: request.tasks.slice(0, 1) } : request,
@@ -563,6 +584,32 @@ describe('TaskRunner: lessons', () => {
       ),
     ]);
     expect(logged.some((l) => l.startsWith('outro'))).toBe(false);
+  });
+
+  it("a failed write of a scaffolded item's lesson step costs neither the reward nor the step", async () => {
+    const material = Object.keys(fixtureContent().gameData.materials)[0] as string;
+    const play = await start({ materials: { [material]: 3 }, failScaffoldedStepOnce: true });
+    await toScaffolded(play);
+    // The attempt is committed; the write of its lesson step fails once.
+    const fb = await play.runner.submit(engine.itemExampleCorrect(play.lastItem()), {
+      latencyMs: 3000,
+    });
+    expect(fb.correct).toBe(true);
+    expect(play.runner.progress().materialEarned).toBe(1);
+    expect((await play.steps()).filter((s) => s.phase === 'scaffolded')).toEqual([]);
+    const summary = await play.runner.finish();
+    expect(summary.materials).toEqual({ [material]: 1 });
+    // The attempt is there once, credited once, and its lesson step was written after all.
+    expect(await play.attempts()).toHaveLength(1);
+    const events = await play.store.events();
+    expect(
+      events.filter((e) => e.type === 'material.produced').map((e) => e.payload),
+    ).toMatchObject([{ materials: { [material]: 1 } }]);
+    expect((await play.steps()).map(brief).filter((l) => l.startsWith('scaffolded:0'))).toEqual([
+      'scaffolded:0:0:child:done',
+    ]);
+    const types = events.map((e) => e.type);
+    expect(types.lastIndexOf('lesson.step')).toBeLessThan(types.indexOf('request.completed'));
   });
 
   it('no new part of a lesson starts after the wind-down', async () => {

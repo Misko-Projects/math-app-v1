@@ -460,15 +460,11 @@ function PierRequest({
   const giveTurn = async (turn: PierLessonStep, stale: () => boolean) => {
     setPhase('lesson');
     again.reset();
-    const hearLines = async () => {
-      for (const s of turn._turnLines) {
-        await sayLine(s.say, s.vars);
-        if (stale()) return;
-      }
-    };
-    await hearLines();
-    await again.drain(hearLines, stale);
-    if (stale()) return;
+    for (const s of turn._turnLines) {
+      await sayLine(s.say, s.vars);
+      await again.drain(hear, stale);
+      if (stale()) return;
+    }
     setLine({ say: turn.narration, vars: turn.vars });
     // No hand on the child's turn: a widget's invitation points at the exact target, which for
     // the last step is the answer itself. The hand is the demo's.
@@ -479,9 +475,14 @@ function PierRequest({
   // A lesson step: its line with its action in the widget's demo mode, then the next step. One
   // play per step (StrictMode runs effects twice; a demo action must not).
   const started = useRef<PierLessonStep | null>(null);
-  const sayAgain = useRef<SayAgain | null>(null);
-  sayAgain.current ??= createSayAgain();
+  const sayAgain = useRef<SayAgain<SpokenLine> | null>(null);
+  sayAgain.current ??= createSayAgain<SpokenLine>();
   const again = sayAgain.current;
+  /** Says a line the child asked to hear again: the one that was on screen at the press. */
+  const hear = (l: SpokenLine) => sayLine(l.say, l.vars);
+  // The line on screen as of this render, for the speaker's handler.
+  const lineNow = useRef<SpokenLine | null>(null);
+  lineNow.current = line;
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new step is what plays
   useEffect(() => {
     if (!step || !runner || started.current === step) return;
@@ -503,7 +504,7 @@ function PierRequest({
         if (stale()) return;
       }
       await Promise.all([sayLine(step.narration, step.vars), step.demo ? act(step.demo) : null]);
-      await again.drain(() => sayLine(step.narration, step.vars), stale);
+      await again.drain(hear, stale);
       if (stale()) return;
       show(runner, runner.next() as PierTask | null);
     })();
@@ -535,10 +536,12 @@ function PierRequest({
           if (stale()) return;
           await act(action);
         }
+        // The invitation is still on screen while the widget is rebuilt: a press then is for it.
+        await again.drain(hear, stale);
         for (const s of turn._turn ?? []) {
           if (stale()) return;
           await Promise.all([sayLine(s.say, s.vars), s.action ? act(s.action) : null]);
-          await again.drain(() => sayLine(s.say, s.vars), stale);
+          await again.drain(hear, stale);
         }
         if (stale()) return;
         show(runner, runner.next() as PierTask | null);
@@ -696,8 +699,9 @@ function PierRequest({
           // While the lesson plays by itself (a demo step, the hand-over of a turn, the demo
           // taking a turn over), the line on screen comes once more before it moves on; on the
           // child's turn and after it, it is said again at once.
-          if (phaseNow.current === 'lesson') again.ask();
-          else void audio.say(step.narration, step.vars).catch(() => {});
+          if (phaseNow.current === 'lesson') {
+            again.ask(lineNow.current ?? { say: step.narration, vars: step.vars });
+          } else void audio.say(step.narration, step.vars).catch(() => {});
         },
         onSkip: step._canSkip
           ? () => {

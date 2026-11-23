@@ -294,6 +294,14 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   let submitting: Promise<unknown> | null = null;
   /** Misconceptions already logged on the item on screen: a second try never logs one again. */
   let loggedOnItem = new Set<MisconceptionId>();
+  /** `lesson.step` events of resolved scaffolded items not written yet (a write that failed). */
+  const owedSteps: EventPayloads['lesson.step'][] = [];
+  const writeOwedSteps = async () => {
+    while (owedSteps.length > 0) {
+      await store.append('lesson.step', owedSteps[0] as EventPayloads['lesson.step'], { childId });
+      owedSteps.shift();
+    }
+  };
   /** The lesson being played, if the task on screen belongs to one. */
   let lesson: LessonRun | null = null;
   /** Scaffolded lesson items presented so far: items of the request that no plan counted. */
@@ -884,7 +892,10 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
             actor: 'child',
             outcome: 'done',
           };
-          await store.append('lesson.step', step, { childId });
+          owedSteps.push(step);
+          // A write that fails here is owed, and `finish` writes it: the answer is committed,
+          // so what follows from it (the reward, the next task) must not depend on this write.
+          await writeOwedSteps().catch(() => {});
         }
         if (result.correct) earned += 1;
         if (decision.action === 'continue') {
@@ -958,6 +969,7 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       // An answer still being written belongs to this request: count it.
       await submitting?.catch(() => {});
       await hintWrites.catch(() => {});
+      await writeOwedSteps();
       const materials = dealMaterials(request.reward.materials, earned);
       if (!materialWritten && Object.keys(materials).length > 0) {
         const produced: EventPayloads['material.produced'] = {
