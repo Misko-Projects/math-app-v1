@@ -15,7 +15,7 @@ import { AppProviders } from '@/app/AppServices';
 import type { AppServices } from '@/app/boot/boot';
 import { testDevice } from '@/app/boot/boot.test-support';
 import type { SessionTimers } from '@/app/session/SessionController';
-import { CHILD_G2, CHILD_K, profile } from '@/data/store.test-support';
+import { CHILD_G2, CHILD_K, profile, testEnv } from '@/data/store.test-support';
 import { remediationQueue } from '@/runner/remediationQueue';
 import { practicePier } from '@/workshops/practice-pier';
 import { WorkshopHost } from '@/workshops/WorkshopHost';
@@ -24,6 +24,7 @@ import { ChildHomePage } from './ChildHomePage';
 import { FIRST_PROBLEM_BUDGET_MS, firstProblem } from './firstProblem';
 import { PlayLayout } from './PlayLayout';
 import { planIslandRequests } from './planRequests';
+import { displacedFor } from './shared/family';
 
 // The island's planner, called through: the tests can see when the island plans and with what.
 vi.mock('./planRequests', async (original) => {
@@ -51,7 +52,7 @@ async function renderHome({
   startSession = true,
   child = CHILD_K,
   grade = 'K' as 'K' | '2',
-  before = async (_app: AppServices) => {},
+  before = async (_app: AppServices, _device: ReturnType<typeof testDevice>) => {},
 } = {}) {
   const device = testDevice();
   restore = device.enableLiveQueries();
@@ -69,7 +70,7 @@ async function renderHome({
   });
   booted.push(app);
   await app.store.putProfile(profile(child, grade, 'Mia'));
-  await before(app);
+  await before(app, device);
   if (startSession) await app.session.start(child);
   const say = vi.spyOn(app.audio, 'say');
   const router = createMemoryRouter(
@@ -215,6 +216,8 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     const { app, say } = await renderHome();
     const phrases = vi.spyOn(app.audio, 'sayPhrases');
     const [first, second] = await bubbles();
+    // The greeting comes once the island is read: it is over before the speakers are tried.
+    await vi.waitFor(() => expect(say).toHaveBeenCalledWith('ui.island.hello', undefined));
     say.mockClear();
     const speaker = (bubble: HTMLElement | undefined) =>
       within(bubble?.closest('li') as HTMLElement).getByRole('button', { name: 'Hear it again' });
@@ -394,7 +397,11 @@ describe('the Storehouse (05 §3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Storehouse' }));
     const piles = await screen.findByTestId('storehouse-piles');
     const stone = piles.querySelector('[data-material="stone"]') as HTMLElement;
-    expect(stone.getAttribute('aria-label')).toBe('road stones: 13');
+    // The pile is tagged with who made some of it (05 §3), as a badge and in its name.
+    expect(stone.getAttribute('aria-label')).toBe('road stones: 13 (Mia)');
+    expect(stone.querySelectorAll(`[data-testid="makers"] [data-badge="${CHILD_K}"]`)).toHaveLength(
+      1,
+    );
     expect(
       [...stone.querySelectorAll('[data-pile="ten-frame"]')].map((f) =>
         f.getAttribute('data-filled'),
@@ -407,7 +414,8 @@ describe('the Storehouse (05 §3)', () => {
       ),
     ).toEqual(['4']);
     // No bare number for K.
-    expect(piles.textContent).toBe('');
+    // (the only text is the letter on a maker's avatar badge)
+    expect(piles.textContent).toBe('MM');
   });
 
   it('from grade 1 the piles are base-ten: a bundle per ten, the ones loose, and the numeral', async () => {
@@ -433,7 +441,7 @@ describe('the Storehouse (05 §3)', () => {
     const stone = piles.querySelector('[data-material="stone"]') as HTMLElement;
     expect(stone.querySelectorAll('[data-pile="ten"]')).toHaveLength(2);
     expect(stone.querySelector('[data-pile="ones"]')?.getAttribute('data-count')).toBe('3');
-    expect(stone.textContent).toBe('23');
+    expect(stone.querySelector('.font-display')?.textContent).toBe('23');
   });
 
   it('an empty Storehouse says so, with no piles', async () => {
@@ -826,6 +834,250 @@ describe('the Numbered Road (05 §3; #22 part 2)', () => {
     await waitFor(async () => expect((await app.store.island()).roadLength).toBe(21));
     await settle();
     expect(planner.mock.calls.length).toBe(after);
+  });
+});
+
+describe('the shared island (05 §3, §6; #22 part 3)', () => {
+  const OTHER_DEVICE = '019a0000-0000-7000-8000-00000000d0b2';
+  const T0 = Date.UTC(2026, 10, 18, 9);
+  /** What each child did, each on their own tablet, `at` seconds after T0. */
+  const log: { at: number; child: string; type: string; payload: Record<string, unknown> }[] = [
+    { at: 0, child: CHILD_K, type: 'material.produced', payload: made({ stone: 9, light: 5 }) },
+    { at: 1, child: CHILD_G2, type: 'material.produced', payload: made({ stone: 6, plank: 12 }) },
+    {
+      at: 10,
+      child: CHILD_K,
+      type: 'building.placed',
+      payload: at('cot-a', 'shell-cottage', 3, 4),
+    },
+    {
+      at: 11,
+      child: CHILD_K,
+      type: 'resident.arrived',
+      payload: { residentId: 'hobb', homeInstanceId: 'cot-a', via: 'home' },
+    },
+    { at: 12, child: CHILD_K, type: 'road.extended', payload: { to: 3 } },
+    {
+      at: 13,
+      child: CHILD_K,
+      type: 'material.spent',
+      payload: spent({ stone: 3 }, 'build', 'road'),
+    },
+    {
+      at: 20,
+      child: CHILD_G2,
+      type: 'building.placed',
+      payload: at('dock-b', 'ten-boat-dock', 1, 2),
+    },
+    { at: 22, child: CHILD_G2, type: 'road.extended', payload: { to: 5 } },
+    {
+      at: 23,
+      child: CHILD_G2,
+      type: 'material.spent',
+      payload: spent({ stone: 2 }, 'build', 'road'),
+    },
+    // Both tablets offline: the grove covers [6,2]–[7,3], the Road Crew [7,3]–[8,3]. The grove
+    // was placed first, and reaches this tablet last.
+    {
+      at: 25,
+      child: CHILD_G2,
+      type: 'building.placed',
+      payload: at('lg-b', 'lantern-grove', 6, 2),
+    },
+    { at: 30, child: CHILD_K, type: 'building.placed', payload: at('rc-a', 'road-crew', 7, 3) },
+    {
+      at: 31,
+      child: CHILD_K,
+      type: 'material.spent',
+      payload: spent({ stone: 2 }, 'build', 'rc-a'),
+    },
+    // A shared project: both children's materials went into it.
+    {
+      at: 39,
+      child: CHILD_K,
+      type: 'material.spent',
+      payload: spent({ light: 3 }, 'project', 'lighthouse'),
+    },
+    {
+      at: 40,
+      child: CHILD_G2,
+      type: 'material.spent',
+      payload: spent({ plank: 8 }, 'project', 'lighthouse'),
+    },
+    { at: 41, child: CHILD_G2, type: 'building.placed', payload: at('lh-b', 'lighthouse', 1, 4) },
+  ];
+  function made(materials: Record<string, number>) {
+    return { sessionId: 's0', requestId: 'r0', workshopId: 'practice-pier', materials };
+  }
+  function at(instanceId: string, buildingId: string, x: number, y: number) {
+    return { instanceId, buildingId, plot: [x, y] };
+  }
+  function spent(materials: Record<string, number>, kind: string, ref: string) {
+    return { materials, purpose: { kind, ref } };
+  }
+
+  /** Mia's events are this tablet's own; Leo's come from the other one, newest first. */
+  const seed = async (app: AppServices, device: ReturnType<typeof testDevice>) => {
+    await app.store.putProfile({ ...profile(CHILD_G2, '2', 'Leo'), createdAt: 1 });
+    const { familyId } = await app.store.device();
+    for (const e of log.filter((l) => l.child === CHILD_K)) {
+      device.clock.set(T0 + e.at * 1000);
+      await app.store.append(e.type as 'road.extended', e.payload as { to: number }, {
+        childId: CHILD_K,
+      });
+    }
+    device.clock.set(T0 + 3_600_000);
+    const theirs = log
+      .filter((l) => l.child === CHILD_G2)
+      .map((e, i) => ({
+        id: `019b0000-00d2-7000-8000-${(i + 1).toString(16).padStart(12, '0')}`,
+        familyId,
+        childId: CHILD_G2,
+        deviceId: OTHER_DEVICE,
+        ts: T0 + e.at * 1000,
+        type: e.type,
+        v: 1,
+        payload: e.payload,
+        contentVersion: 'test',
+      }));
+    const result = await app.store.ingest(theirs.reverse(), { source: 'server' });
+    expect(result).toMatchObject({ invalid: 0, dropped: 0 });
+    expect(result.added).toHaveLength(theirs.length);
+  };
+
+  it("two children's events from two tablets render on one island: the map, the road and the Storehouse", async () => {
+    const { app, say } = await renderHome({ before: seed });
+    const home = await screen.findByTestId('child-home');
+    await bubbles();
+    const scene = home.querySelector('[data-scene="island"]') as Element;
+    // The map: what both children built, and of the two on the same plots only the first.
+    const standing = () =>
+      [...scene.querySelectorAll('[data-building]')].map((b) => b.getAttribute('data-building'));
+    await waitFor(() =>
+      expect(standing().sort()).toEqual([
+        'lantern-grove',
+        'lighthouse',
+        'shell-cottage',
+        'ten-boat-dock',
+      ]),
+    );
+    expect(Object.keys((await app.store.island()).buildings).sort()).toEqual([
+      'cot-a',
+      'dock-b',
+      'lg-b',
+      'lh-b',
+    ]);
+    // The road is the longer of the two (5 stones), and the next one waits.
+    const laid = [...scene.querySelectorAll('[data-stone][data-state="laid"]')].map((s) =>
+      Number(s.getAttribute('data-stone')),
+    );
+    expect([...new Set(laid)].sort()).toEqual([1, 2, 3, 4, 5]);
+    expect(screen.getByTestId('road-next').getAttribute('data-stone')).toBe('6');
+
+    // Who built what: a badge on each building, and both children's on the shared project.
+    const badges = screen.getByTestId('building-badges');
+    const builtBy = (instance: string) =>
+      badges.querySelector(`[data-built-by="${instance}"]`)?.getAttribute('data-children');
+    expect(builtBy('cot-a')).toBe(CHILD_K);
+    expect(builtBy('dock-b')).toBe(CHILD_G2);
+    expect(builtBy('lg-b')).toBe(CHILD_G2);
+    expect(builtBy('lh-b')).toBe(`${CHILD_K} ${CHILD_G2}`);
+    expect(badges.querySelector('[data-built-by="lh-b"]')?.getAttribute('aria-label')).toBe(
+      'Mia, Leo',
+    );
+    expect(badges.querySelector('[data-built-by="rc-a"]')).toBeNull();
+    // Both children stand on the island, the one who is playing marked.
+    const family = screen.getByTestId('island-family');
+    const avatars = [...family.querySelectorAll('[data-island-avatar]')].map((a) => [
+      a.getAttribute('data-island-avatar'),
+      a.getAttribute('aria-label'),
+      a.getAttribute('data-playing'),
+    ]);
+    expect(avatars).toEqual([
+      [CHILD_K, 'Mia', 'true'],
+      [CHILD_G2, 'Leo', null],
+    ]);
+    // Nothing of it is a number or a score.
+    expect(`${badges.textContent}${family.textContent}`).not.toMatch(/\d/);
+
+    // The Storehouse is the family's: 15 stones made, 7 spent; each pile tagged by its makers.
+    fireEvent.click(screen.getByRole('button', { name: 'Storehouse' }));
+    const piles = await screen.findByTestId('storehouse-piles');
+    const pile = (id: string) => piles.querySelector(`[data-material="${id}"]`) as HTMLElement;
+    const makers = (id: string) =>
+      [...pile(id).querySelectorAll('[data-badge]')].map((b) => b.getAttribute('data-badge'));
+    expect(pile('stone').getAttribute('data-count')).toBe('8');
+    expect(makers('stone')).toEqual([CHILD_K, CHILD_G2]);
+    expect(pile('light').getAttribute('data-count')).toBe('2');
+    expect(makers('light')).toEqual([CHILD_K]);
+    expect(pile('plank').getAttribute('data-count')).toBe('4');
+    expect(makers('plank')).toEqual([CHILD_G2]);
+    expect(pile('plank').getAttribute('aria-label')).toBe('planks: 4 (Leo)');
+
+    // Mia's Road Crew lost its plots to Leo's earlier grove: she is told, once.
+    expect(say).toHaveBeenCalledWith('ui.island.displaced', undefined);
+    expect(say.mock.calls.filter(([key]) => key === 'ui.island.hello')).toHaveLength(0);
+    expect(screen.getByText('Someone was here first. Pick a new place to build!')).toBeTruthy();
+    const island = await app.store.island();
+    expect(displacedFor(island, CHILD_K)).toEqual([]);
+    expect(displacedFor(island, CHILD_G2)).toEqual([]);
+    localStorage.clear();
+    expect(displacedFor(island, CHILD_K)).toEqual(['rc-a']);
+
+    // The other tablet, which got the same events in another order, shows the same island.
+    const other = await testEnv().open();
+    await other.ingest([...(await app.store.events())].reverse(), { source: 'server' });
+    expect(await other.island()).toEqual(await app.store.island());
+    expect(await other.inventory()).toEqual(await app.store.inventory());
+    other.close();
+  });
+
+  it('the child whose placement stood is greeted as ever, and a child alone has no sibling on the map', async () => {
+    const { say } = await renderHome();
+    const family = await screen.findByTestId('island-family');
+    await vi.waitFor(() => expect(say).toHaveBeenCalledWith('ui.island.hello', undefined));
+    expect(family.querySelectorAll('[data-island-avatar]')).toHaveLength(1);
+    expect(screen.getByTestId('building-badges').querySelectorAll('[data-built-by]')).toHaveLength(
+      0,
+    );
+  });
+
+  it('opening the island on a home whose resident never arrived brings them, and the island plans again with them', async () => {
+    // The arrival is held until the island has planned once, so the plan that follows it is
+    // a second one whatever order the island's own work runs in.
+    let arrive = () => {};
+    const held = new Promise<void>((resolve) => {
+      arrive = resolve;
+    });
+    const { app } = await renderHome({
+      before: async (a) => {
+        // A build that was interrupted after its placement: the home stands, nobody moved in.
+        await a.store.append(
+          'building.placed',
+          { instanceId: 'cot-a', buildingId: 'shell-cottage', plot: [3, 4] },
+          { childId: CHILD_K },
+        );
+        const append = a.store.append.bind(a.store);
+        vi.spyOn(a.store, 'append').mockImplementation((async (
+          ...args: Parameters<typeof append>
+        ) => {
+          if (args[0] === 'resident.arrived') await held;
+          return append(...args);
+        }) as typeof append);
+      },
+    });
+    const planner = vi.mocked(planIslandRequests);
+    const residentsPlanned = () =>
+      Object.keys(planner.mock.calls.at(-1)?.[1].island.residents ?? {}).sort();
+    await bubbles();
+    expect(residentsPlanned()).toEqual([]);
+    const plans = planner.mock.calls.length;
+    arrive();
+    await waitFor(async () =>
+      expect(Object.keys((await app.store.island()).residents)).toEqual(['hobb']),
+    );
+    await waitFor(() => expect(planner.mock.calls.length).toBeGreaterThan(plans));
+    expect(residentsPlanned()).toEqual(['hobb']);
   });
 });
 

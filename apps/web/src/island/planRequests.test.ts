@@ -174,11 +174,13 @@ describe('a built workshop makes its product (05 §4; #22 part 2)', () => {
     expect(residentsOf(caps, 'lantern-grove').length).toBeGreaterThan(0);
 
     // The planner's own output: over a few visits a request asks for planks, and playing it
-    // puts planks in the Storehouse.
+    // puts planks in the Storehouse. One made of items only: `playRight` plays no lesson.
     let plank: PlannedRequest | undefined;
     for (let visit = 0; visit < 12 && !plank; visit += 1) {
       env.clock.advance(60 * 60_000);
-      plank = (await plan(store)).find((r) => 'plank' in r.reward.materials);
+      plank = (await plan(store)).find(
+        (r) => 'plank' in r.reward.materials && r.tasks.every((t) => t.mode === 'item'),
+      );
     }
     if (!plank) throw new Error('no request asked for planks in 12 visits');
     expect(plank.workshopId).toBe('practice-pier');

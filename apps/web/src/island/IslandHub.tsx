@@ -10,6 +10,9 @@
 //   (`material.produced`), and the island plans again, so the next bubbles reflect what was just
 //   played (02 §5.4).
 // - The Storehouse button opens the family's piles (`Storehouse`).
+// - The island is the family's (05 §3; part 3, `shared/`): every child's avatar stands in the
+//   corner, a building carries the badge of who placed it and a shared project the badges of who
+//   gave to it, and a child whose placement lost its plots to a sibling's earlier one is told once.
 // - Building (05 §6; part 2, `building/`): the Build button opens the recipe cards; a new building
 //   then asks for one of the highlighted plots, and a build or an upgrade plays its construction
 //   step (skippable). While a plot is chosen or a building goes up, the requests step aside.
@@ -60,7 +63,7 @@ import { recordDiagnostic } from '@/app/diagnostics';
 import { ChildAvatar } from '@/app/picker/ChildAvatar';
 import type { WindDownReason } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
-import { useInventory, useIsland } from '@/data/hooks';
+import { useInventory, useIsland, useProfiles } from '@/data/hooks';
 import { HoldToOpen } from '@/parent/HoldToOpen';
 import type { GateHeldState } from '@/parent/ParentGateScreen';
 import { childContext } from '@/runner/childContext';
@@ -74,6 +77,14 @@ import { firstProblem } from './firstProblem';
 import { useHub } from './hub';
 import { isRemediation, planIslandRequests } from './planRequests';
 import { Storehouse } from './Storehouse';
+import {
+  BuildingBadges,
+  displacedFor,
+  FamilyAvatars,
+  familyMembers,
+  makersOf,
+  markDisplacedTold,
+} from './shared/family';
 
 const BuildSheet = lazy(() => import('./building/BuildSheet'));
 
@@ -101,6 +112,8 @@ export function IslandHub({
   const hub = useHub();
   const island = useIsland();
   const inventory = useInventory();
+  const profiles = useProfiles();
+  const members = useMemo(() => familyMembers(profiles ?? []), [profiles]);
   const sessionId = session?.sessionId ?? '';
   const budgetMinutes = session?.budgetMinutes ?? 0;
   const { gameData, graph } = content.store;
@@ -122,21 +135,31 @@ export function IslandHub({
   const busy = build.placing !== null || build.construction !== null;
   // The requests step aside for it, and for the walk along the road, which they would cover.
   const aside = busy || build.counting !== null;
+  // This child's placements that lost their plots to an earlier one from another device (02
+  // §4.3), read when the island is: said once, on this visit, and not again on this device.
+  const [displaced, setDisplaced] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (island && displaced === null) setDisplaced(displacedFor(island, child.id));
+  }, [island, displaced, child.id]);
   const line = build.placing
     ? 'ui.build.place'
     : build.construction
       ? 'ui.build.working'
-      : made.length > 0
-        ? 'ui.island.made'
-        : 'ui.island.hello';
+      : displaced && displaced.length > 0
+        ? 'ui.island.displaced'
+        : made.length > 0
+          ? 'ui.island.made'
+          : 'ui.island.hello';
 
-  // The guide speaks once per visit: the greeting, or what the request just made.
+  // The guide speaks once per visit: that a building has to be placed again, what the request
+  // just made, or the greeting.
   const greeted = useRef(false);
   useEffect(() => {
-    if (!idle || greeted.current) return;
+    if (!idle || displaced === null || greeted.current) return;
     greeted.current = true;
     say(line);
-  }, [idle, line, say]);
+    if (displaced.length > 0) markDisplacedTold(displaced);
+  }, [idle, displaced, line, say]);
 
   // The wind-down hook: no item is ever in progress here, so end now and show the sunset.
   useEffect(
@@ -350,6 +373,15 @@ export function IslandHub({
               ) : null;
             })}
           </IslandScene>
+          {island ? (
+            <BuildingBadges
+              map={sceneMap}
+              members={members}
+              gameData={gameData}
+              island={island}
+              buildings={buildings}
+            />
+          ) : null}
           {build.placing ? <PlotTargets targets={targets} onPick={build.place} /> : null}
           {build.construction ? (
             <div
@@ -510,10 +542,14 @@ export function IslandHub({
             })}
           </ul>
         ) : null}
+        {/* Bottom left: the children of this island, clear of the requests. */}
+        <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-10">
+          <FamilyAvatars members={members} playing={child.id} />
+        </div>
         {devFlag() && (
           <Link
             to={`/play/${child.id}/pier?browse`}
-            className="absolute bottom-4 left-4 rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
+            className="absolute bottom-24 left-4 rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
           >
             Content browser (dev)
           </Link>
@@ -550,6 +586,7 @@ export function IslandHub({
             gameData={gameData}
             inventory={inventory}
             mode={child.grade === 'K' ? 'ten-frames' : 'base-ten'}
+            makers={makersOf(members, inventory)}
             empty={
               <div className="flex items-center gap-5">
                 <SpeechBubble say="ui.island.empty" tail="none" showText />

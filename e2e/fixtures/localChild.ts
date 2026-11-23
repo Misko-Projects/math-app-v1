@@ -7,14 +7,23 @@ export interface LocalChild {
   id: string;
   name: string;
   grade: 'K' | '1' | '2' | '3';
+  /** How the avatar looks (default: the lightest-but-two skin tone and brown hair). */
+  look?: { skinTone: string; hairColor: string };
 }
 
-/** Opens the app once (which creates the database), stores the profile, and reloads on the picker. */
-export async function seedLocalChild(page: Page, child: LocalChild): Promise<void> {
+/**
+ * Opens the app once (which creates the database), stores the profile (and its siblings', each
+ * created after the one before), and reloads on the picker.
+ */
+export async function seedLocalChild(
+  page: Page,
+  child: LocalChild,
+  ...siblings: LocalChild[]
+): Promise<void> {
   await page.goto('/');
   await expect(page).toHaveURL(/\/welcome$/);
   await page.evaluate(
-    (c) =>
+    (children) =>
       new Promise<void>((resolve, reject) => {
         const open = indexedDB.open('number-island');
         open.onerror = () => reject(open.error);
@@ -29,42 +38,44 @@ export async function seedLocalChild(page: Page, child: LocalChild): Promise<voi
           const device = tx.objectStore('device').get('device');
           device.onsuccess = () => {
             const now = Date.now();
-            tx.objectStore('profiles').put({
-              id: c.id,
-              familyId: (device.result as { familyId: string }).familyId,
-              name: c.name,
-              birthYear: new Date().getFullYear() - 6,
-              grade: c.grade,
-              advanced: false,
-              avatar: {
-                skinTone: 's03',
-                faceShape: 'round',
-                hairStyle: 'short',
-                hairColor: 'brown',
-                eyeShape: 'round',
-                eyeColor: 'brown',
-                eyebrows: 'soft',
-                glasses: null,
-                freckles: false,
-                beautyMark: false,
-                top: 'tee',
-                topColor: 'blue',
-                bottom: 'shorts',
-                bottomColor: 'green',
-                shoes: 'sneakers',
-                shoesColor: 'red',
-                hat: null,
-                accessory: null,
-                buddy: 'pip',
-              },
-              picturePasswordHash: null,
-              createdAt: now,
-              updatedAt: now,
+            children.forEach((c, i) => {
+              tx.objectStore('profiles').put({
+                id: c.id,
+                familyId: (device.result as { familyId: string }).familyId,
+                name: c.name,
+                birthYear: new Date().getFullYear() - 6,
+                grade: c.grade,
+                advanced: false,
+                avatar: {
+                  skinTone: c.look?.skinTone ?? 's03',
+                  faceShape: 'round',
+                  hairStyle: 'short',
+                  hairColor: c.look?.hairColor ?? 'brown',
+                  eyeShape: 'round',
+                  eyeColor: 'brown',
+                  eyebrows: 'soft',
+                  glasses: null,
+                  freckles: false,
+                  beautyMark: false,
+                  top: 'tee',
+                  topColor: 'blue',
+                  bottom: 'shorts',
+                  bottomColor: 'green',
+                  shoes: 'sneakers',
+                  shoesColor: 'red',
+                  hat: null,
+                  accessory: null,
+                  buddy: 'pip',
+                },
+                picturePasswordHash: null,
+                createdAt: now + i,
+                updatedAt: now + i,
+              });
             });
           };
         };
       }),
-    child,
+    [child, ...siblings],
   );
   await page.goto('/');
   await expect(page.getByTestId('tap-to-start')).toBeVisible();
@@ -131,12 +142,17 @@ export interface SeedEvent {
   type: string;
   childId: string | null;
   payload: Record<string, unknown>;
+  /** Seconds after the first event (default: its place in the list). */
+  at?: number;
+  /** The device that recorded it (default: this one), as if it had come by sync. */
+  deviceId?: string;
 }
 
 /**
  * Writes events into this browser's local log as if this device had recorded them (oldest first,
  * a second apart, ending a minute ago), and drops the cached family projections, which the app
  * then rebuilds from the log (02 §4.3). Call it after `seedLocalChild` and before the app is used.
+ * An event may name its own second (`at`) and another device, to seed what two tablets did.
  */
 export async function seedLocalEvents(page: Page, events: readonly SeedEvent[]): Promise<void> {
   await page.evaluate(
@@ -155,14 +171,15 @@ export async function seedLocalEvents(page: Page, events: readonly SeedEvent[]):
           const device = tx.objectStore('device').get('device');
           device.onsuccess = () => {
             const { familyId, deviceId } = device.result as { familyId: string; deviceId: string };
-            const start = Date.now() - 60_000 - list.length * 1000;
+            const span = Math.max(list.length, ...list.map((e) => (e.at ?? 0) + 1));
+            const start = Date.now() - 60_000 - span * 1000;
             list.forEach((e, i) => {
               tx.objectStore('events').put({
                 id: `019c0000-0000-7000-8000-${(i + 1).toString(16).padStart(12, '0')}`,
                 familyId,
                 childId: e.childId,
-                deviceId,
-                ts: start + i * 1000,
+                deviceId: e.deviceId ?? deviceId,
+                ts: start + (e.at ?? i) * 1000,
                 type: e.type,
                 v: 1,
                 payload: e.payload,
