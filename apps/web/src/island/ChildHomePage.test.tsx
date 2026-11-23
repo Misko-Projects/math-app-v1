@@ -19,7 +19,7 @@ import { CHILD_G2, CHILD_K, profile } from '@/data/store.test-support';
 import { remediationQueue } from '@/runner/remediationQueue';
 import { practicePier } from '@/workshops/practice-pier';
 import { WorkshopHost } from '@/workshops/WorkshopHost';
-import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS, manualClock } from './build/clock';
+import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS, manualClock } from './building/clock';
 import { ChildHomePage } from './ChildHomePage';
 import { FIRST_PROBLEM_BUDGET_MS, firstProblem } from './firstProblem';
 import { PlayLayout } from './PlayLayout';

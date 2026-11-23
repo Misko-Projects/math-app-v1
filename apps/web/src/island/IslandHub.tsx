@@ -10,7 +10,7 @@
 //   (`material.produced`), and the island plans again, so the next bubbles reflect what was just
 //   played (02 §5.4).
 // - The Storehouse button opens the family's piles (`Storehouse`).
-// - Building (05 §6; part 2, `build/`): the Build button opens the recipe cards; a new building
+// - Building (05 §6; part 2, `building/`): the Build button opens the recipe cards; a new building
 //   then asks for one of the highlighted plots, and a build or an upgrade plays its construction
 //   step (skippable). While a plot is chosen or a building goes up, the requests step aside.
 // - The Numbered Road (05 §3): the next stone waits at the road's end. A tap on it (or on its
@@ -58,15 +58,15 @@ import { childContext } from '@/runner/childContext';
 import { remediationQueue } from '@/runner/remediationQueue';
 import { loadRunner, useRaise } from '@/runner/useRequestRunner';
 import { workshopFor } from '@/workshops/registry';
-import { HammerIcon, StoneChip } from './build/BuildIcons';
-import { offeredPlots, PlotTargets, useSceneMap } from './build/PlotTargets';
-import { useIslandBuild } from './build/useIslandBuild';
+import { HammerIcon, StoneChip } from './building/BuildIcons';
+import { offeredPlots, PlotTargets, useSceneMap } from './building/PlotTargets';
+import { useIslandBuild } from './building/useIslandBuild';
 import { firstProblem } from './firstProblem';
 import { useHub } from './hub';
 import { isRemediation, planIslandRequests } from './planRequests';
 import { Storehouse } from './Storehouse';
 
-const BuildSheet = lazy(() => import('./build/BuildSheet'));
+const BuildSheet = lazy(() => import('./building/BuildSheet'));
 
 /** The narrowest view of the map, in scene units: the sandbar fills the screen on day one. */
 const MIN_VIEW_W = 800;

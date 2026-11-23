@@ -86,7 +86,7 @@ ui.island.empty:
   text: "The Storehouse is empty. Help a friend to fill it!"
   voice: pip
   level: K
-# Building and the Numbered Road on the island (I01 part 2, apps/web/src/island/build).
+# Building and the Numbered Road on the island (I01 part 2, apps/web/src/island/building).
 ui.build.open:
   text: "Build"
   level: K
