@@ -500,6 +500,8 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
     const failing: string[] = [];
     const notShown: string[] = [];
     const fitsAgain: string[] = [];
+    // The example that fits with the least room to spare (named in the log, for evidence).
+    let tightest = { id: '', spare: Number.POSITIVE_INFINITY };
     let lessons = 0;
     let examples = 0;
     let allowed = 0;
@@ -552,6 +554,21 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
             x.at.includes(viewport),
         );
         if (known && misfit.length === 0) fitsAgain.push(known.example);
+        const stageEl = document.querySelector<HTMLElement>('[data-testid="pier-stage"]');
+        const rootEl = stageEl?.querySelector<HTMLElement>('.ni-widget')?.firstElementChild;
+        if (misfit.length === 0 && stageEl && rootEl) {
+          const pad = 2 * Number.parseFloat(getComputedStyle(stageEl).paddingTop);
+          const spare = stageEl.clientHeight - pad - rootEl.getBoundingClientRect().height;
+          const parts = [...rootEl.children].reduce(
+            (sum, el) => sum + el.getBoundingClientRect().height,
+            0,
+          );
+          // Room the widget's own parts leave in the area, whatever the root stretches to.
+          const free = Math.min(spare, stageEl.clientHeight - pad - parts);
+          if (Number.isFinite(free) && Math.abs(free) < Math.abs(tightest.spare)) {
+            tightest = { id, spare: Math.round(free) };
+          }
+        }
         // A template the item check already lists for this viewport is not held against the lesson.
         if (misfit.length > 0 && (known || fitAllowance(example.template, viewport))) allowed += 1;
         else if (misfit.length > 0)
@@ -567,7 +584,7 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
       }
     }
     console.info(
-      `pier lesson fit at ${viewport}: ${lessons} lessons, ${examples} examples, ${failing.length} do not fit, ${allowed} on the allowlist, ${notShown.length} steps a widget cannot show`,
+      `pier lesson fit at ${viewport}: ${lessons} lessons, ${examples} examples, ${failing.length} do not fit, ${allowed} on the allowlist, ${notShown.length} steps a widget cannot show; tightest fit: ${tightest.id} (${tightest.spare} px to spare)`,
     );
     if (!ONLY) {
       expect(lessons).toBeGreaterThan(50);
