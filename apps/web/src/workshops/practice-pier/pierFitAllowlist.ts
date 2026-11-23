@@ -146,6 +146,12 @@ export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [
       'tap-count, K, eight scattered objects to count by tapping: the scatter of 80 px targets is 451 px tall and the area has 366 at 960 × 600, so the area scrolls (it fits at 1280 × 800). The same limit as the CNT.03.t1 seeds listed above; fix: a wider, shorter scatter for tappable sets in short areas.',
   },
   {
+    example: 'CPS.06:worked:0',
+    at: SMALL,
+    reason:
+      'number-bond, new-way with ways already found (whole 5): the bond is 212 px tall and the row of found ways 186 px, stacked to 422 px in a 358 px area at 960 × 600, so the area scrolls (it fits at 1280 × 800); fix: the found ways beside the bond in short areas.',
+  },
+  {
     example: 'CPS.06:faded:0',
     at: SMALL,
     reason:
