@@ -170,7 +170,9 @@ export function IslandHub({
   const materialOf = (id: string) => gameData.materials.find((m) => m.id === id);
   const hear = (request: PlannedRequest) => {
     const names = Object.keys(request.reward.materials).flatMap((id) => materialOf(id)?.name ?? []);
-    // One line: whatever is said next (another speaker, a button's name) replaces all of it.
+    // One line, said now: it replaces what is being said (phrases would otherwise wait their
+    // turn), and whatever is said next (another speaker, a button's name) replaces all of it.
+    audio.cancelSpeech();
     void audio
       .sayPhrases([{ id: request.narration }, ...names.map((id) => ({ id }))])
       .catch(() => {});
@@ -281,10 +283,12 @@ export function IslandHub({
           <SpeechBubble say={line} tail="none" showText />
           <ReplayButton onPress={() => say(line)} />
         </div>
-        {/* The requests: a bubble over each resident, the recommended one first. */}
+        {/* The requests: a bubble over each resident, the recommended one first. They lie above
+            the parent gate's hint, which opens over this row on a narrow screen: a request and
+            its speaker stay whole targets while the hint shows. */}
         {requests ? (
           <ul
-            className="absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] flex items-end justify-center gap-6 px-4"
+            className="absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] pointer-events-none z-20 flex items-end justify-center gap-6 px-4"
             aria-label={text('ui.island.requests')}
             data-testid="requests"
           >
@@ -301,7 +305,7 @@ export function IslandHub({
                 ...names,
               ].join(' ');
               return (
-                <li key={request.id} className="relative">
+                <li key={request.id} className="pointer-events-auto relative">
                   <button
                     type="button"
                     className="flex min-w-[13.5rem] cursor-pointer flex-col items-start gap-5 rounded-[28px] p-1 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"

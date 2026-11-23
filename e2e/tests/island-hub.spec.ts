@@ -130,26 +130,36 @@ test('in portrait every request control keeps its whole target: nothing lies ove
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(800);
     }
-    // The speaker is round: it is hit at the middle of each edge and at its centre, so the parent
-    // gate, the next card and the bubble's own button are not on top of it.
-    const speaker = cards.nth(i).getByRole('button', { name: 'Hear it again' });
-    const hits = await speaker.evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const points = [
-        [r.left + 6, cy],
-        [r.right - 6, cy],
-        [cx, r.top + 6],
-        [cx, r.bottom - 6],
-        [cx, cy],
-      ];
-      return points.map(([x, y]) =>
-        el.contains(document.elementFromPoint(x as number, y as number)),
-      );
-    });
-    expect(hits).toEqual([true, true, true, true, true]);
   }
+  // The speaker is round: it is hit at the middle of each edge and at its centre, so the parent
+  // gate, its hint, the next card and the bubble's own button are not on top of it.
+  const speakersWhole = async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const speaker = cards.nth(i).getByRole('button', { name: 'Hear it again' });
+      const hits = await speaker.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const points = [
+          [r.left + 6, cy],
+          [r.right - 6, cy],
+          [cx, r.top + 6],
+          [cx, r.bottom - 6],
+          [cx, cy],
+        ];
+        return points.map(([x, y]) =>
+          el.contains(document.elementFromPoint(x as number, y as number)),
+        );
+      });
+      expect(hits, `speaker ${i}`).toEqual([true, true, true, true, true]);
+    }
+  };
+  await speakersWhole();
+  // A short press on the parent gate opens its hint over this corner: the speakers stay whole.
+  await page.getByRole('button', { name: /^Grown-ups/ }).click();
+  await expect(page.locator('#parent-gate-hint')).toBeVisible();
+  await speakersWhole();
+  await expect(page.locator('#parent-gate-hint')).toBeVisible();
   expect(
     await page.evaluate(() => ({
       w: document.documentElement.scrollWidth - window.innerWidth,

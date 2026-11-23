@@ -201,9 +201,15 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
       { id: 'req.help' },
       { id: expect.stringMatching(/^game\.material\.(stone|light)$/) },
     ]);
+    // Phrases wait their turn behind speech in progress, so each replay cancels that first.
+    const cancel = vi.spyOn(app.audio, 'cancelSpeech');
     fireEvent.click(speaker(second));
     await settle();
     expect(phrases).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalled();
+    expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(
+      phrases.mock.invocationCallOrder[1] as number,
+    );
     expect(say).not.toHaveBeenCalled();
   });
 
