@@ -117,6 +117,7 @@ function show(item: GeneratedItem, ageMode: AgeMode, feedback: FeedbackState = {
         onLeave={() => {}}
         onNext={() => {}}
         onHint={() => {}}
+        onReplayPrompt={() => {}}
         onClosePicture={() => {}}
         onResponse={() => {}}
         onInteract={() => {}}

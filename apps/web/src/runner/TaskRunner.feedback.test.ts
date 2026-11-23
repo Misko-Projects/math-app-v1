@@ -21,7 +21,7 @@ import {
   type SkillId,
   type Tier,
 } from '@number-island/shared';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { DataStore } from '@/data/store';
 import { CHILD_K, fixtureContent, profile, testEnv } from '@/data/store.test-support';
 import { pierPlayable, planPierRequest } from '@/workshops/practice-pier/pierRequest';
@@ -136,12 +136,19 @@ async function start(
     decisions,
     events,
     right: () => runner.submit(engine.itemExampleCorrect(last()), meta),
-    /** Both tries wrong: the item ends with its worked solution. */
+    /** Both tries wrong, the hint and the worked solution shown: the item is over. */
     async miss() {
-      await runner.submit(wrong, meta);
+      (await runner.submit(wrong, meta)).shown();
       runner.next();
-      return runner.submit(wrong, meta);
+      const fb = await runner.submit(wrong, meta);
+      fb.shown();
+      return fb;
     },
+    /** The `hint.used` levels logged, once the writes queued so far are in. */
+    hintLevels: (expected: number[]) =>
+      vi.waitFor(async () =>
+        expect((await events('hint.used')).map((h) => h.level)).toEqual(expected),
+      ),
   };
 }
 
@@ -158,6 +165,11 @@ describe('the hint ladder', () => {
     expect(fb).toMatchObject({ correct: false, retry: true, solution: null });
     expect(fb.hint).toMatchObject({ level: 2, kind: 'nudge' });
     expect(fb.hint?.say).toBe(template(COUNT).narration.hints[0]);
+    // Nothing is logged until the screen shows the rung.
+    expect(await play.events('hint.used')).toEqual([]);
+    fb.shown();
+    fb.shown();
+    await play.hintLevels([2]);
     expect(await play.events('hint.used')).toEqual([
       {
         sessionId: 'session-1',
@@ -212,7 +224,9 @@ describe('the hint ladder', () => {
     expect(play.runner.hint()?.level).toBe(2);
     const fb = await play.runner.submit(wrong, meta);
     expect(fb.hint?.level).toBe(3);
-    expect((await play.events('hint.used')).map((h) => h.level)).toEqual([2, 3]);
+    fb.shown();
+    expect(play.runner.next()).toMatchObject({ attemptNo: 2, hintLevel: 3 });
+    await play.hintLevels([2, 3]);
     const [attempt] = (await play.events('attempt')) as AttemptPayload[];
     expect(attempt).toMatchObject({ attemptNo: 1, hintsUsed: 1, partialCredit: 0 });
   });
@@ -224,10 +238,34 @@ describe('the hint ladder', () => {
     expect(fb.say.key).toBe('fb.reveal');
     expect(fb.solution).toEqual(engine.itemSolution(play.last()));
     expect(fb.solution?.length).toBeGreaterThan(0);
-    expect((await play.events('hint.used')).map((h) => h.level)).toEqual([2, 5]);
+    await play.hintLevels([2, 5]);
     expect(play.runner.progress()).toMatchObject({ done: 1, materialEarned: 0 });
     // "next" moves on to the next item, with a ladder of its own.
     expect(play.runner.next()).toMatchObject({ kind: 'item', attemptNo: 1, hintLevel: 0 });
+  });
+});
+
+describe('a child who leaves during the feedback line', () => {
+  it('is not logged as having used the hint that never came', async () => {
+    const play = await start([task(template(COUNT), 3)]);
+    const fb = await play.runner.submit(wrong, meta);
+    expect(fb.hint?.level).toBe(2);
+    // Home, before the screen got to the rung: `shown` is never called.
+    await play.runner.finish();
+    expect(await play.events('hint.used')).toEqual([]);
+    const attempts = (await play.events('attempt')) as AttemptPayload[];
+    expect(attempts.map((a) => [a.attemptNo, a.correct, a.hintsUsed])).toEqual([[1, false, 0]]);
+  });
+
+  it('is not logged as having seen the worked solution that never played', async () => {
+    const play = await start([task(template(COUNT), 3)]);
+    (await play.runner.submit(wrong, meta)).shown();
+    play.runner.next();
+    const fb = await play.runner.submit(wrong, meta);
+    expect(fb.solution?.length).toBeGreaterThan(0);
+    await play.runner.finish();
+    expect((await play.events('hint.used')).map((h) => h.level)).toEqual([2]);
+    expect(await play.events('attempt')).toHaveLength(2);
   });
 });
 
@@ -414,6 +452,35 @@ describe('frustration', () => {
     expect(play.runner.endReason()).toBeNull();
   });
 
+  it('playing on after the offer is a fresh start: the next right answer does not end the request', async () => {
+    const play = await start(mixed());
+    play.runner.idle();
+    play.runner.idle();
+    await play.right();
+    expect(play.decisions.at(-1)?.action).toBe('confidence-then-offer-break');
+    play.runner.next();
+    await play.right();
+    expect(play.runner.breakOffered()).toBe(true);
+    play.runner.answerBreak(false);
+    expect(play.runner.next()).toMatchObject({ kind: 'item' });
+    await play.right();
+    expect(play.decisions.at(-1)?.action).toBe('continue');
+    expect(play.runner.next()).toMatchObject({ kind: 'item' });
+    expect(play.runner.endReason()).toBeNull();
+  });
+
+  it('playing on after three wrong items does not count them again', async () => {
+    const play = await frustrated();
+    play.runner.next();
+    await play.right();
+    play.runner.answerBreak(false);
+    play.runner.next();
+    // One more wrong item: with the three before the offer it would be "three of the last four".
+    await play.miss();
+    expect(play.decisions.at(-1)?.action).toBe('continue');
+    expect(play.runner.next()).toMatchObject({ kind: 'item' });
+  });
+
   it('two long idle periods are a frustration signal too', async () => {
     const play = await start(mixed());
     play.runner.idle();
@@ -443,7 +510,7 @@ describe('what a request leaves behind', () => {
     await play.miss();
     play.runner.next();
     // Right on the second try still makes one.
-    await play.runner.submit(wrong, meta);
+    (await play.runner.submit(wrong, meta)).shown();
     play.runner.next();
     await play.right();
     expect(play.runner.progress()).toMatchObject({ done: 3, materialEarned: 2 });

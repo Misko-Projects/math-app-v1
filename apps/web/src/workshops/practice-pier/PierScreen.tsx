@@ -20,6 +20,7 @@ import {
   HintButton,
   HomeButton,
   icons,
+  ReplayButton,
   SpeechBubble,
   useNarrationText,
   VisuallyHidden,
@@ -62,6 +63,7 @@ export function PierItemScreen({
   onLeave,
   onNext,
   onHint,
+  onReplayPrompt,
   onClosePicture,
   onResponse,
   onInteract,
@@ -83,6 +85,11 @@ export function PierItemScreen({
   onNext: () => void;
   /** The lightbulb: the next hint. Shown while the item takes an answer. */
   onHint?: () => void;
+  /**
+   * Says the item's instruction again. While a hint's line has the bubble, this speaker is the
+   * way back to the instruction (06 §5: every instruction has a replay).
+   */
+  onReplayPrompt?: () => void;
   onClosePicture?: () => void;
   onResponse: (response: ResponseValue) => void;
   onInteract: (event: InteractionEvent) => void;
@@ -113,6 +120,9 @@ export function PierItemScreen({
             </div>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-4">
+            {item && line && phase === 'answer' && onReplayPrompt && !picture && (
+              <ReplayButton onPress={onReplayPrompt} />
+            )}
             <CueBadge cue={cue} />
             {item && phase === 'answer' && onHint && !picture && <HintButton onPress={onHint} />}
             {phase === 'feedback' && (

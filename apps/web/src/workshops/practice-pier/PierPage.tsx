@@ -48,6 +48,7 @@ import { recordDiagnostic } from '@/app/diagnostics';
 import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
+import { type AnswerTime, createAnswerTime } from '@/runner/answerTime';
 import { childContext } from '@/runner/childContext';
 import { createIdleWatch, type IdleWatch } from '@/runner/idleWatch';
 import { remediationQueue } from '@/runner/remediationQueue';
@@ -190,7 +191,7 @@ function PierRequest({
   }, []);
   // What is playing now (a hint, a solution): a new item, or leaving, makes it stale.
   const playing = useRef(0);
-  const readyAt = useRef(0);
+  const answerTime = useRef<AnswerTime | null>(null);
   // Latency counts visible time only: a tablet asleep mid-item adds nothing (04 §2.3, §7).
   const clock = useRef<VisibleClock | null>(null);
   useEffect(() => {
@@ -202,6 +203,8 @@ function PierRequest({
     };
   }, []);
   const clockNow = useCallback(() => clock.current?.now() ?? 0, []);
+  answerTime.current ??= createAnswerTime(clockNow);
+  const time = answerTime.current;
   const trace = useRef<InteractionEvent[]>([]);
   const runnerNow = useRef<PierTaskRunner | null>(null);
   runnerNow.current = runner;
@@ -310,7 +313,7 @@ function PierRequest({
     setPhase('prompt');
     const ready = () => {
       if (!alive) return;
-      readyAt.current = clockNow();
+      time.start();
       setPhase('answer');
     };
     audio.say(item.prompt.narration, item.prompt.vars).then(ready, ready);
@@ -318,7 +321,7 @@ function PierRequest({
       alive = false;
       playing.current += 1;
     };
-  }, [item, audio, setPhase, clockNow]);
+  }, [item, audio, setPhase, time]);
 
   /** Speaks a line with its words in the bubble; resolves when it has been said. */
   const sayLine = useCallback(
@@ -336,17 +339,25 @@ function PierRequest({
   );
 
   /**
-   * Plays one rung of the hint ladder (03 §5.8), after `before` (the feedback line of a wrong
-   * answer), then hands the item back to the child.
+   * Plays one rung of the hint ladder (03 §5.8), then hands the item back to the child. After a
+   * wrong answer `feedback` holds the line to say first and the runner's `shown`, called when
+   * the rung itself starts; a rung the child asked for mid-try has neither, and the try's
+   * answering time runs on after it.
    */
-  const playHint = async (step: HintStep, before?: NarrationKey) => {
+  const playHint = async (
+    step: HintStep,
+    feedback?: { say: NarrationKey | undefined; shown: () => void },
+  ) => {
     playing.current += 1;
     const mine = playing.current;
     const stale = () => playing.current !== mine;
     setPhase('hint');
     setPicture(null);
-    await sayLine(before);
-    if (stale()) return;
+    if (feedback) {
+      await sayLine(feedback.say);
+      if (stale()) return;
+      feedback.shown();
+    }
     const actions = (step.actions ?? []).filter((a) => a.op !== 'replay-prompt');
     // The widget's part of a hint plays on a fresh widget, not on top of the child's work.
     const fresh = actions.length > 0 ? restartWidget() : null;
@@ -365,19 +376,24 @@ function PierRequest({
     // The hint's words stay in the bubble until the next answer: a child who reads can read them
     // again, and tapping the bubble says them again.
     setLine({ say: step.say, vars: step.vars });
-    readyAt.current = clockNow();
+    if (feedback) time.start();
+    else time.resume();
     setPhase('answer');
   };
 
   /** Plays the worked solution (level 5): each step's line with its action, on a fresh widget. */
-  const playSolution = async (steps: LessonStep[], before?: NarrationKey) => {
+  const playSolution = async (
+    steps: LessonStep[],
+    feedback: { say: NarrationKey | undefined; shown: () => void },
+  ) => {
     playing.current += 1;
     const mine = playing.current;
     const stale = () => playing.current !== mine;
     setPhase('hint');
     setPicture(null);
-    await sayLine(before);
+    await sayLine(feedback.say);
     if (stale()) return;
+    feedback.shown();
     await restartWidget();
     if (stale()) return;
     for (const step of steps) {
@@ -433,7 +449,8 @@ function PierRequest({
     }
     setPhase('checking');
     setLine(null);
-    const latencyMs = clockNow() - readyAt.current;
+    const latencyMs = time.elapsed();
+    time.pause();
     runner.submit(response, { latencyMs, trace: [...trace.current] }).then((fb) => {
       // The deterministic line plays now; an AI line may follow it (06 §6). Nothing delivers one
       // until #21.
@@ -444,16 +461,16 @@ function PierRequest({
         const again = runner.next();
         if (again?.kind === 'item') setTask(again);
         if (fb.hint) {
-          void playHint(fb.hint, fb.say.key);
+          void playHint(fb.hint, { say: fb.say.key, shown: fb.shown });
         } else {
           speak(fb.say.key);
-          readyAt.current = clockNow();
+          time.start();
           setPhase('answer');
         }
       } else if (fb.solution) {
         audio.sfx('knock');
         setCue({ kind: 'onward', say: fb.say.key });
-        void playSolution(fb.solution, fb.say.key);
+        void playSolution(fb.solution, { say: fb.say.key, shown: fb.shown });
       } else {
         if (fb.correct) audio.sfx('chime');
         setCue({ kind: fb.correct ? 'right' : 'onward', say: fb.say.key });
@@ -470,6 +487,8 @@ function PierRequest({
     if (!step) return;
     const shown = runner.current();
     if (shown?.kind === 'item') setTask(shown);
+    // The time spent so far on this try still counts; the hint itself does not.
+    time.pause();
     void playHint(step);
   };
 
@@ -552,6 +571,9 @@ function PierRequest({
       onLeave={leave}
       onNext={goNext}
       onHint={onHint}
+      onReplayPrompt={() => {
+        if (item) void audio.say(item.prompt.narration, item.prompt.vars).catch(() => {});
+      }}
       onClosePicture={() => setPicture(null)}
       onResponse={onResponse}
       onInteract={(e) => {

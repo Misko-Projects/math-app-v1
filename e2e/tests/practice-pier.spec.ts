@@ -131,6 +131,10 @@ test('a child plays a request at the Practice Pier: three formats, every attempt
     await expect(progress).toHaveAttribute('aria-valuenow', '1');
     await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Help me' })).toBeVisible();
+    // The hint's line has the bubble, so the instruction has a speaker of its own.
+    await expect(
+      page.getByRole('banner').getByRole('button', { name: 'Hear it again' }),
+    ).toBeVisible();
     // Wrong again: the worked solution plays in the widget, then "next" moves on.
     await stage.getByRole('button', { name: '0', exact: true }).click();
     expect(await check(page, stage, logged)).toBe('onward');

@@ -11,9 +11,11 @@
 // The feedback flow (#20 part 2, 04 §6.4, 03 §5.8):
 // - the hint ladder: `hint()` gives the item's next rung among levels 2–4 and a retry gives the
 //   rung `adaptNext` asks for (the next one up when the child has seen that one). Each rung shown
-//   is one `hint.used` event and one `hintsUsed`; a right answer after a hint is half credit;
+//   is one `hint.used` event and one `hintsUsed`; a right answer after a hint is half credit.
+//   A rung that comes with feedback is used when the screen says it shows it (`shown()`);
 // - the worked solution: on a `show-solution` decision the feedback carries the item's solution
-//   steps (`hint.used` level 5), and the protocol's second `adaptNext` call resolves the item;
+//   steps (`hint.used` level 5 when shown), and the protocol's second `adaptNext` call resolves
+//   the item;
 // - `queueRemediation` goes to `deps.queueRemediation`, which keeps one per (skill,
 //   misconception) for the next plan;
 // - frustration: `idle()` counts a long idle period; after the confidence item the runner holds
@@ -115,6 +117,12 @@ export interface PierFeedback extends RunnerFeedback {
   hint: HintStep | null;
   /** The second wrong: the worked solution to play before moving on. */
   solution: LessonStep[] | null;
+  /**
+   * The screen calls this when it starts to show `hint` or `solution`: only then is the rung
+   * used (`hint.used`, `hintsUsed`). A child who leaves during the feedback line before it was
+   * never given the hint, and none is logged.
+   */
+  shown(): void;
 }
 
 /** The app's TaskRunner: the shared contract plus the request's own lifecycle. */
@@ -184,6 +192,8 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
   let tierOverrides: Partial<Record<SkillId, Tier>> = {};
   let rapidWrongTaps = 0;
   let longIdles = 0;
+  /** The first try the frustration signals count from: after a declined break, the ones since. */
+  let signalsFrom = 0;
   /** Items answered right, on any try: each produces one unit of the request's material. */
   let earned = 0;
   let materialWritten = false;
@@ -268,7 +278,10 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       doneTaskIds: [...done],
       last: { task: cur.task.task, result, attemptNo, hintsUsed: cur.shown.size, latencyMs },
       signals: {
-        wrongInLast4: firstTries.slice(-4).filter((c) => !c).length,
+        wrongInLast4: firstTries
+          .slice(signalsFrom)
+          .slice(-4)
+          .filter((c) => !c).length,
         rapidWrongTaps,
         longIdles,
       },
@@ -430,7 +443,6 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         // The worked solution is level 5 of the ladder (03 §5.8). The protocol's second call
         // resolves the item (04 §7b).
         solution = engine.itemSolution(item, tpl);
-        await markRung(cur, 5)?.();
         decision = adapt(cur, result, attemptNo + 1, latencyMs);
         queue(decision);
       }
@@ -440,10 +452,6 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       if (decision.action === 'retry') {
         cur.outcome = 'retry';
         step = pickRung(cur, decision.hintLevel);
-        if (step) {
-          await markRung(cur, step.level)?.();
-          cur.task = { ...cur.task, hintLevel: step.level };
-        }
       } else {
         cur.outcome = 'resolved';
         resolved += 1;
@@ -477,6 +485,13 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         retry: decision.action === 'retry',
         hint: step,
         solution,
+        shown: () => {
+          const level = solution ? 5 : step?.level;
+          if (level === undefined) return;
+          const write = markRung(cur, level);
+          if (write) hintWrites = hintWrites.then(write);
+          if (step && current === cur) cur.task = { ...cur.task, hintLevel: step.level };
+        },
       };
     } finally {
       cur.busy = false;
@@ -564,6 +579,11 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       if (!breakPending) return;
       breakPending = false;
       if (take && !ended) ended = 'frustration';
+      // Playing on is a fresh start: what led to the offer is not held against the next item
+      // (`adaptNext` ends the request on a frustration signal after the confidence item).
+      rapidWrongTaps = 0;
+      longIdles = 0;
+      signalsFrom = firstTries.length;
     },
     endReason: () => (current === null ? ended : null),
     finish,
