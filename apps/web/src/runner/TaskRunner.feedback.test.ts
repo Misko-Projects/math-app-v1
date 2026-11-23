@@ -257,6 +257,21 @@ describe('a child who leaves during the feedback line', () => {
     expect(attempts.map((a) => [a.attemptNo, a.correct, a.hintsUsed])).toEqual([[1, false, 0]]);
   });
 
+  it('is not logged for a hint a screen on its way out reports after the request is over', async () => {
+    const play = await start([task(template(COUNT), 3)]);
+    // Back, while the wrong answer is still being written: the request is finished first, and
+    // only then does the answer's feedback reach the (gone) screen.
+    const pending = play.runner.submit(wrong, meta);
+    const done = play.runner.finish();
+    const fb = await pending;
+    fb.shown();
+    await done;
+    expect(await play.events('attempt')).toHaveLength(1);
+    expect(await play.events('request.completed')).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(await play.events('hint.used')).toEqual([]);
+  });
+
   it('is not logged as having seen the worked solution that never played', async () => {
     const play = await start([task(template(COUNT), 3)]);
     (await play.runner.submit(wrong, meta)).shown();

@@ -486,6 +486,9 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         hint: step,
         solution,
         shown: () => {
+          // The request is over (the child left while this answer was being written): nothing
+          // was shown, whatever a screen on its way out still calls.
+          if (finished) return;
           const level = solution ? 5 : step?.level;
           if (level === undefined) return;
           const write = markRung(cur, level);

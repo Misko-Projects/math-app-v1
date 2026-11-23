@@ -407,6 +407,8 @@ function PierRequest({
   // Leaving another way than Home (the browser's back button) still completes the request.
   // StrictMode's simulated unmount is followed at once by a remount; a real one is not.
   const mounted = useRef(false);
+  /** Home was pressed: the request is being finished and the screen is on its way out. */
+  const left = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -452,6 +454,9 @@ function PierRequest({
     const latencyMs = time.elapsed();
     time.pause();
     runner.submit(response, { latencyMs, trace: [...trace.current] }).then((fb) => {
+      // The child left while the answer was being written: no feedback plays on a screen that
+      // is gone.
+      if (!mounted.current || left.current) return;
       // The deterministic line plays now; an AI line may follow it (06 §6). Nothing delivers one
       // until #21.
       fb.onAiFeedback(() => {});
@@ -520,6 +525,7 @@ function PierRequest({
   };
 
   const leave = () => {
+    left.current = true;
     playing.current += 1;
     audio.stop();
     if (!runner) onLeave();
@@ -572,6 +578,8 @@ function PierRequest({
       onNext={goNext}
       onHint={onHint}
       onReplayPrompt={() => {
+        // The instruction comes back into the bubble, to hear and (from grade 1) to read.
+        setLine(null);
         if (item) void audio.say(item.prompt.narration, item.prompt.vars).catch(() => {});
       }}
       onClosePicture={() => setPicture(null)}

@@ -132,9 +132,13 @@ test('a child plays a request at the Practice Pier: three formats, every attempt
     await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Help me' })).toBeVisible();
     // The hint's line has the bubble, so the instruction has a speaker of its own.
-    await expect(
-      page.getByRole('banner').getByRole('button', { name: 'Hear it again' }),
-    ).toBeVisible();
+    const hearAgain = page.getByRole('banner').getByRole('button', { name: 'Hear it again' });
+    await expect(hearAgain).toBeVisible();
+    await expect(page.getByRole('banner').getByRole('button', { name: /\?$/ })).toHaveCount(0);
+    // It brings the instruction back into the bubble, to hear and to read.
+    await hearAgain.click();
+    await expect(page.getByRole('banner').getByRole('button', { name: /\?$/ })).toBeVisible();
+    await expect(hearAgain).toHaveCount(0);
     // Wrong again: the worked solution plays in the widget, then "next" moves on.
     await stage.getByRole('button', { name: '0', exact: true }).click();
     expect(await check(page, stage, logged)).toBe('onward');

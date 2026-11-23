@@ -86,8 +86,9 @@ export function PierItemScreen({
   /** The lightbulb: the next hint. Shown while the item takes an answer. */
   onHint?: () => void;
   /**
-   * Says the item's instruction again. While a hint's line has the bubble, this speaker is the
-   * way back to the instruction (06 §5: every instruction has a replay).
+   * Brings the item's instruction back: said again, and back in the bubble in place of the
+   * hint's line. While a hint's line has the bubble, this speaker is the way back to the
+   * instruction (06 §5: every instruction has a replay).
    */
   onReplayPrompt?: () => void;
   onClosePicture?: () => void;
