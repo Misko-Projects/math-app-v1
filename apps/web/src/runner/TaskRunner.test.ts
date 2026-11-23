@@ -21,7 +21,6 @@ import type { DataStore } from '@/data/store';
 import { CHILD_K, fixtureContent, profile, testEnv } from '@/data/store.test-support';
 import {
   browseRequest,
-  PIER_EXCLUDED,
   pierPlayable,
   planPierRequest,
 } from '@/workshops/practice-pier/pierRequest';
@@ -415,8 +414,9 @@ describe('TaskRunner', () => {
     const store = await openStore();
     const graph = fixtureContent().graph;
     const request = browseRequest(graph, { skillId: 'PV.01', templateId: null }, 5);
-    const excluded = Object.keys(PIER_EXCLUDED)[0] as string;
-    expect(excluded).toBe('PV.01.t4');
+    // A format without a widget: the pier cannot show it (nothing is excluded for its size, #13).
+    const excluded = Object.values(graph.templates).find((t) => !pierPlayable(t))?.id as string;
+    expect(excluded).toBeDefined();
     const playable = request.tasks[0] as PlannedTask;
     let inserted = false;
     const { engine: base, last } = spiedEngine();
