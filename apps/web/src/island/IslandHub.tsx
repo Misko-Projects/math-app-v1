@@ -43,7 +43,16 @@ import {
   useNarrationText,
   useSpeech,
 } from '@number-island/ui';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { devFlag } from '@/app/devFlag';
@@ -167,6 +176,7 @@ export function IslandHub({
         graph,
         gameData,
         island: await store.island(),
+        inventory: await store.inventory(),
         now: store.now(),
         minutes: Math.max(1, Math.ceil(budgetMinutes - controller.activeMs() / 60_000)),
         ...(remediation ? { remediation } : {}),
@@ -237,6 +247,32 @@ export function IslandHub({
     [gameData.island.road, roadTo],
   );
   const sceneMap = useSceneMap(sceneBox, crop);
+  // The buttons that lie over the map while a plot is chosen (the corners, the guide's replay,
+  // the way back), as boxes inside the scene, measured after they are laid out: the way back
+  // only mounts with the placement, so it cannot be read while that render is computed.
+  const [controls, setControls] = useState<
+    { left: number; top: number; right: number; bottom: number }[]
+  >([]);
+  const placingId = build.placing?.building.id ?? null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measured again when the map is (a resize)
+  useLayoutEffect(() => {
+    const scene = sceneBox.current;
+    const home = scene?.closest('[data-testid="child-home"]');
+    if (placingId === null || !scene || !home) return;
+    const box = scene.getBoundingClientRect();
+    setControls(
+      Array.from(home.querySelectorAll('button'))
+        .filter((b) => !b.closest('[data-testid="plot-targets"]') && !b.closest('dialog'))
+        .map((b) => b.getBoundingClientRect())
+        .filter((r) => r.width > 0)
+        .map((r) => ({
+          left: r.left - box.left,
+          top: r.top - box.top,
+          right: r.right - box.left,
+          bottom: r.bottom - box.top,
+        })),
+    );
+  }, [placingId, sceneMap]);
   const targets = useMemo(
     () =>
       build.placing
@@ -244,17 +280,14 @@ export function IslandHub({
             build.placing.anchors,
             build.placing.building.footprint,
             sceneMap,
-            // A point under another button of this screen (not a plot target) takes no plot.
-            (left, top) => {
-              const box = sceneBox.current?.getBoundingClientRect();
-              if (!box) return false;
-              const at = document.elementFromPoint(box.left + left, box.top + top);
-              const button = at?.closest('button');
-              return button != null && !button.closest('[data-testid="plot-targets"]');
-            },
+            // A point under another button of this screen takes no plot.
+            (left, top) =>
+              controls.some(
+                (r) => left >= r.left && left <= r.right && top >= r.top && top <= r.bottom,
+              ),
           )
         : [],
-    [build.placing, sceneMap],
+    [build.placing, sceneMap, controls],
   );
   const plotMarkers = useMemo(
     () =>

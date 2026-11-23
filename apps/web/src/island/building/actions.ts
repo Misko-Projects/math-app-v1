@@ -5,16 +5,18 @@
 //
 // - A new building: `building.placed`, `material.spent` (purpose `build`, or `project` for a
 //   shared project, whose `ref` is the building id), then `resident.arrived` for every resident
-//   its level names (`resident:<id>`).
+//   whose arrival rule now holds (a level names the ones it brings, `resident:<id>`).
 // - An upgrade: `building.upgraded`, `material.spent` (purpose `upgrade`, or `project`), then the
 //   level's residents.
 // - Residents are settled from the island as it stands (`settleResidents`), so an interruption
 //   after a placement never leaves a home without the resident it brings.
-// - A road stone: `road.extended`, `material.spent` (one stone, purpose `build`, ref `road`).
+// - A road stone: `road.extended`, `material.spent` (one stone, purpose `build`, ref `road`), then
+//   the residents the longer road brings.
 //
 // The thing built is written before its cost: an interruption between the two leaves the family
 // with the building, never with materials gone for nothing.
 
+import { evaluateUnlock, islandFacts, type UnlockFacts } from '@number-island/engine/shell';
 import type { ChildId, GameData, Plot, Recipe } from '@number-island/shared';
 import type { DataStore } from '@/data/store';
 import {
@@ -53,38 +55,35 @@ async function pay(
 }
 
 /**
- * Writes `resident.arrived` for every resident a standing building's levels name
- * (`resident:<id>`, each level up to the one it has reached) who is not on the island. It reads
- * the island as it is, so it also makes good a build that was interrupted before its arrival was
- * written: the island calls it after each build and when it opens.
+ * Writes `resident.arrived` for every resident whose own arrival rule holds (`arrival.unlock`:
+ * a building at a level, a road length, a skill) and who is not on the island; the starter
+ * buddies are there from the start and never arrive. A building level names the residents it
+ * brings (`resident:<id>`), and their rules say the same, so one rule serves homes, the road and
+ * the ferry. It reads the island as it is, so it also makes good a build that was interrupted
+ * before its arrival was written: it runs after each build and each road stone, and when the
+ * island opens. `learners` are the family's learner facts; without them only island rules hold.
  */
 export async function settleResidents(
   store: Store,
   childId: ChildId,
-  gameData: Pick<GameData, 'buildings' | 'residents'>,
+  gameData: Pick<GameData, 'residents'>,
+  learners: Partial<UnlockFacts> = {},
 ): Promise<void> {
   const island = await store.island();
-  const here = new Set(Object.keys(island.residents));
-  for (const [instanceId, b] of Object.entries(island.buildings)) {
-    const def = gameData.buildings.find((d) => d.id === b.buildingId);
-    for (const level of def?.levels ?? []) {
-      if (level.level > b.level) continue;
-      for (const unlock of level.unlocks) {
-        if (!unlock.startsWith('resident:')) continue;
-        const resident = gameData.residents.find((r) => r.id === unlock.slice('resident:'.length));
-        if (!resident || here.has(resident.id)) continue;
-        here.add(resident.id);
-        await store.append(
-          'resident.arrived',
-          {
-            residentId: resident.id,
-            homeInstanceId: instanceId,
-            via: resident.arrival.via === 'ferry' ? 'ferry' : 'home',
-          },
-          { childId },
-        );
-      }
-    }
+  const facts = { ...learners, ...islandFacts(island) };
+  for (const resident of gameData.residents) {
+    if (resident.arrival.via === 'start' || resident.id in island.residents) continue;
+    if (!evaluateUnlock(resident.arrival.unlock, facts)) continue;
+    const home = resident.arrival.home ? builtInstance(island, resident.arrival.home) : null;
+    await store.append(
+      'resident.arrived',
+      {
+        residentId: resident.id,
+        homeInstanceId: home?.instanceId ?? null,
+        via: resident.arrival.via,
+      },
+      { childId },
+    );
   }
 }
 
@@ -127,7 +126,7 @@ export async function placeBuilding(
 export async function upgradeBuilding(
   store: Store,
   childId: ChildId,
-  gameData: Pick<GameData, 'buildings' | 'materials' | 'residents'>,
+  gameData: Pick<GameData, 'materials' | 'residents'>,
   card: BuildCard,
 ): Promise<BuildResult> {
   const { building, level } = card;
@@ -154,7 +153,7 @@ export type StoneResult = { ok: true; to: number } | { ok: false; reason: 'short
 export async function layNextStone(
   store: Store,
   childId: ChildId,
-  gameData: Pick<GameData, 'island'>,
+  gameData: Pick<GameData, 'island' | 'residents'>,
 ): Promise<StoneResult> {
   const next = nextStone(gameData, await store.island());
   if (!next) return { ok: false, reason: 'stale' };
@@ -166,5 +165,6 @@ export async function layNextStone(
     { materials: { [ROAD_MATERIAL]: ROAD_STONE_COST }, purpose: { kind: 'build', ref: ROAD_REF } },
     { childId },
   );
+  await settleResidents(store, childId, gameData);
   return { ok: true, to: next.n };
 }

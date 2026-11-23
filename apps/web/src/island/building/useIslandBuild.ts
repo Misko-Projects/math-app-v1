@@ -58,11 +58,6 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
     [],
   );
 
-  // A build that was interrupted before its resident arrived is made good when the island opens.
-  useEffect(() => {
-    settleResidents(store, child.id, gameData).catch(raise);
-  }, [store, child.id, gameData, raise]);
-
   // Every child's learner facts, once per visit to the island.
   useEffect(() => {
     let alive = true;
@@ -85,6 +80,13 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
       alive = false;
     };
   }, [store, graph, raise]);
+
+  // Residents whose arrival rule holds move in when the island opens, and again once the
+  // family's learner facts are read (a skill rule). It also makes good a build that was
+  // interrupted before its resident arrived.
+  useEffect(() => {
+    settleResidents(store, child.id, gameData, learners ?? {}).catch(raise);
+  }, [store, child.id, gameData, learners, raise]);
 
   const cards = useMemo(
     () =>

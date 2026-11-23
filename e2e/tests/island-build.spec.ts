@@ -247,3 +247,66 @@ test('while a plot is chosen, every tap reaches the control under it (960 × 600
   await expect(page.getByTestId('plot-targets')).toHaveCount(0);
   expect((await localEvents(page)).filter((e) => e.type === 'building.placed')).toHaveLength(1);
 });
+
+test('a plot under the way back is not offered (960 × 680, a 1 × 1 home, the road at 100)', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 680 });
+  await seedLocalChild(page, CHILD);
+  await seedLocalEvents(page, [
+    produced({ plank: 6, stone: 4 }),
+    {
+      type: 'building.placed',
+      childId: CHILD.id,
+      payload: { instanceId: 'shell-cottage', buildingId: 'shell-cottage', plot: [3, 4] },
+    },
+    {
+      type: 'resident.arrived',
+      childId: CHILD.id,
+      payload: { residentId: 'hobb', homeInstanceId: 'shell-cottage', via: 'home' },
+    },
+    {
+      type: 'building.placed',
+      childId: CHILD.id,
+      payload: { instanceId: 'ten-boat-dock', buildingId: 'ten-boat-dock', plot: [1, 2] },
+    },
+    { type: 'road.extended', childId: CHILD.id, payload: { to: 100 } },
+  ]);
+  await page.getByTestId('tap-to-start').click();
+  await page.getByRole('button', { name: CHILD.name, exact: true }).click();
+  await expect(page.getByTestId('requests').locator('[data-request]').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  const sheet = page.getByTestId('build-sheet');
+  await expect(sheet).toBeVisible();
+  while ((await sheet.locator('[data-card="driftwood-hut"]').count()) === 0)
+    await page.getByTestId('build-next').click();
+  await sheet
+    .locator('[data-card="driftwood-hut"]')
+    .getByRole('button', { name: 'Build it' })
+    .click();
+  // The build sheet is closed and the way back is on screen before anything is measured.
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  const back = page.getByRole('button', { name: 'Go back' });
+  await expect(back).toBeVisible();
+  const plots = page.getByTestId('plot-targets').getByRole('button');
+  await expect(plots.first()).toBeVisible();
+  expect(await plots.count()).toBeGreaterThan(6);
+  const wrong = await page.evaluate(() => {
+    const out: string[] = [];
+    const all = Array.from(document.querySelectorAll('[data-testid="child-home"] button'));
+    for (const b of all) {
+      if ((b as HTMLButtonElement).disabled) continue;
+      const r = b.getBoundingClientRect();
+      const hit = document
+        .elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        ?.closest('button');
+      if (hit !== b) out.push(b.getAttribute('data-plot') ?? b.getAttribute('aria-label') ?? '?');
+    }
+    return out;
+  });
+  expect(wrong).toEqual([]);
+  // The way back still calls the placement off, and nothing was built.
+  await back.click();
+  await expect(page.getByTestId('plot-targets')).toHaveCount(0);
+  expect((await localEvents(page)).filter((e) => e.type === 'building.placed')).toHaveLength(2);
+});

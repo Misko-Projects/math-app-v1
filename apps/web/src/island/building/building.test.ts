@@ -402,6 +402,43 @@ describe('the Numbered Road (05 §3)', () => {
   });
 });
 
+describe('residents arrive by their own rule (05 §5)', () => {
+  it('the road brings residents as it grows, each once, and a starter buddy never arrives', async () => {
+    const { store } = await family();
+    await produce(store, { stone: 1 });
+    await store.append('road.extended', { to: 19 }, { childId: CHILD_K });
+    await settleResidents(store, CHILD_K, gameData);
+    expect((await store.island()).residents).toEqual({});
+    // Stone 20 is on the first shore: open it, then lay the stone; Toma comes with the road.
+    await store.append(
+      'resident.arrived',
+      { residentId: 'hobb', homeInstanceId: null, via: 'home' },
+      { childId: CHILD_K },
+    );
+    expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: true, to: 20 });
+    const island = await store.island();
+    expect(Object.keys(island.residents).sort()).toEqual(['hobb', 'toma']);
+    expect((await store.events()).at(-1)).toMatchObject({
+      type: 'resident.arrived',
+      payload: { residentId: 'toma', homeInstanceId: null, via: 'ferry' },
+    });
+    await settleResidents(store, CHILD_G2, gameData);
+    expect((await types(store)).filter((t) => t === 'resident.arrived')).toHaveLength(2);
+  });
+
+  it('a skill rule holds once the family reaches it, whichever child did', async () => {
+    const { store } = await family();
+    await settleResidents(store, CHILD_K, gameData, {
+      skillAtLeast: () => false,
+    });
+    expect((await store.island()).residents.tenley).toBeUndefined();
+    await settleResidents(store, CHILD_K, gameData, {
+      skillAtLeast: (skill, level) => skill === 'CPS.03' && level === 'practiced',
+    });
+    expect((await store.island()).residents.tenley).toMatchObject({ homeInstanceId: null });
+  });
+});
+
 describe('unlock rules are family-wide (05 §4 rule 7)', () => {
   async function facts(store: DataStore) {
     const learners = [];

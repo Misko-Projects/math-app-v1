@@ -17,6 +17,7 @@
 import type {
   BuildingDef,
   GameData,
+  InventoryState,
   IslandState,
   MaterialId,
   WorkshopCapability,
@@ -66,6 +67,8 @@ function worksFromStart(building: BuildingDef): boolean {
 export function workshopCapabilities(
   gameData: Pick<GameData, 'buildings' | 'residents'>,
   island: Pick<IslandState, 'buildings' | 'residents'>,
+  /** The Storehouse: a stand-in workshop with several products lists the scarcest first. */
+  inventory: Pick<InventoryState, 'materials'> = { materials: {} },
 ): WorkshopCapability[] {
   const built = new Set(Object.values(island.buildings).map((b) => b.buildingId));
   const caps: WorkshopCapability[] = [];
@@ -73,7 +76,14 @@ export function workshopCapabilities(
     const id = building.workshopId;
     if (building.kind !== 'workshop' || id === undefined) continue;
     const module = registered(id);
-    const produces = module?.produces ?? UNREGISTERED_PRODUCTS[id];
+    const standIn = UNREGISTERED_PRODUCTS[id];
+    // The Practice Pier makes the first product of the workshop its resident asked for (04
+    // §6.3). A workshop with two (glass and beams, rope and flags) lists first the one the
+    // family has less of, so requests bring both over time.
+    const produces =
+      module?.produces ??
+      (standIn &&
+        [...standIn].sort((a, b) => (inventory.materials[a] ?? 0) - (inventory.materials[b] ?? 0)));
     if (produces === undefined) continue;
     caps.push({
       workshopId: id,

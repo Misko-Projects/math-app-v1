@@ -22,6 +22,7 @@ import {
   workshopCapabilities,
   workshopFor,
 } from '@/workshops/registry';
+import { settleResidents } from './building/actions';
 import { planIslandRequests } from './planRequests';
 
 const kid = profile(CHILD_K, 'K');
@@ -47,6 +48,7 @@ async function plan(store: DataStore): Promise<PlannedRequest[]> {
     graph,
     gameData,
     island: await store.island(),
+    inventory: await store.inventory(),
     now: store.now(),
     minutes: 10,
   });
@@ -184,6 +186,93 @@ describe('a built workshop makes its product (05 §4; #22 part 2)', () => {
     const summary = await playRight(store, plank);
     expect(summary.materials.plank).toBeGreaterThan(0);
     expect((await store.inventory()).materials.plank).toBe(summary.materials.plank);
+  });
+});
+
+describe('every built workshop can be asked for all it makes (05 §4; #22 part 2)', () => {
+  const placed = (store: DataStore, buildingId: string, plot: [number, number]) =>
+    store.append(
+      'building.placed',
+      { instanceId: buildingId, buildingId, plot },
+      { childId: CHILD_K },
+    );
+  /**
+   * Plans visit after visit until the planner's own request rewards `material`, then records the
+   * request as completed with every item right (what the runner's `finish` writes; "a played
+   * request fills the Storehouse" below plays one for real) and returns what it made.
+   */
+  async function earn(env: ReturnType<typeof testEnv>, store: DataStore, material: string) {
+    for (let visit = 0; visit < 60; visit += 1) {
+      env.clock.advance(60 * 60_000);
+      const request = (await plan(store)).find((r) => material in r.reward.materials);
+      if (!request) continue;
+      expect(request.workshopId).toBe('practice-pier');
+      await store.append(
+        'material.produced',
+        {
+          sessionId: 'session-1',
+          requestId: request.id,
+          workshopId: request.workshopId,
+          materials: request.reward.materials,
+        },
+        { childId: CHILD_K },
+      );
+      return request.reward.materials;
+    }
+    throw new Error(`no request asked for ${material} in 60 visits`);
+  }
+
+  it('Garden Terraces: the road brings a resident who asks for produce, and a request makes it', async () => {
+    const env = testEnv();
+    const store = await env.open();
+    await store.putProfile(kid);
+    await placed(store, 'garden-terraces', [1, 2]);
+    // Built, but nobody on the island prefers it yet: no request can make produce.
+    const before = workshopCapabilities(gameData, await store.island());
+    expect(before.find((c) => c.workshopId === 'garden-terraces')).toMatchObject({
+      available: true,
+      residents: [],
+    });
+    // The road reaches 60: Vina, who prefers the terraces, arrives by her own rule.
+    await store.append('road.extended', { to: 60 }, { childId: CHILD_K });
+    await settleResidents(store, CHILD_K, gameData);
+    expect(Object.keys((await store.island()).residents)).toEqual(
+      expect.arrayContaining(['toma', 'nuno', 'fenno', 'soli', 'vina']),
+    );
+    const caps = workshopCapabilities(gameData, await store.island());
+    // Vina prefers the terraces; Fenno prefers the beach, which is not built, so asks here too.
+    expect(caps.find((c) => c.workshopId === 'garden-terraces')?.residents).toEqual([
+      'fenno',
+      'vina',
+    ]);
+    const made = await earn(env, store, 'produce');
+    expect(made.produce).toBeGreaterThan(0);
+    expect((await store.inventory()).materials.produce).toBe(made.produce);
+  });
+
+  it("Builder's Yard and the Weigh Station make both of their materials: the scarcer one first", async () => {
+    const env = testEnv();
+    const store = await env.open();
+    await store.putProfile(kid);
+    await placed(store, 'builders-yard', [1, 2]);
+    await placed(store, 'weigh-station', [4, 2]);
+    await store.append('road.extended', { to: 80 }, { childId: CHILD_K });
+    await settleResidents(store, CHILD_K, gameData); // Delo (the yard) and Ilo (the station)
+    const produces = async (id: string) =>
+      workshopCapabilities(gameData, await store.island(), await store.inventory()).find(
+        (c) => c.workshopId === id,
+      )?.produces;
+    expect(await produces('builders-yard')).toEqual(['glass', 'beam']);
+    expect(await produces('weigh-station')).toEqual(['rope', 'flag']);
+    // A request makes glass; with glass in the Storehouse the yard's next requests make beams.
+    expect((await earn(env, store, 'glass')).glass).toBeGreaterThan(0);
+    expect(await produces('builders-yard')).toEqual(['beam', 'glass']);
+    expect((await earn(env, store, 'beam')).beam).toBeGreaterThan(0);
+    expect((await earn(env, store, 'rope')).rope).toBeGreaterThan(0);
+    expect(await produces('weigh-station')).toEqual(['flag', 'rope']);
+    expect((await earn(env, store, 'flag')).flag).toBeGreaterThan(0);
+    const stored = (await store.inventory()).materials;
+    for (const m of ['glass', 'beam', 'rope', 'flag']) expect(stored[m], m).toBeGreaterThan(0);
   });
 });
 
