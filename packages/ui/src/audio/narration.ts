@@ -306,8 +306,10 @@ function displayValue(raw: string, narration: NarrationJson, vars: Vars | undefi
     case 'unit':
     case 'shape':
     case 'name':
-    case 'word': {
-      // Show the clip's own words ("planks", "Shelly") rather than the raw id.
+    case 'word':
+    case 'ord': {
+      // Show the clip's own words ("planks", "Shelly", "third") rather than the raw id or a bare
+      // numeral: "Tap the third one", never "Tap the 3 one".
       const t = parseSlotToken(tokenOf(raw));
       if (!t) return String(value);
       try {

@@ -430,7 +430,7 @@ h.addsub.check-sign:
 h.addsub.make-ten.nudge:
   text: "Can you make a ten first?"
 h.addsub.make-ten.split:
-  text: "Split the smaller number. Give some to make ten."
+  text: "Split one number. Give some to make ten."
 h.addsub.make-ten.ten-and:
   text: "You have a ten and some more. Say the teen number."
 h.sub.take-out:
@@ -1191,11 +1191,11 @@ gen.mea.massvolume.order-first:
 gen.mea.massvolume.order-then:
   text: "Then this one."
 gen.mea.massvolume.sort-look:
-  text: "Think of the {thing|noun:one}. Is each one heavier, is it lighter?"
+  text: "Look at each one. Is it heavy, is it light?"
 gen.mea.massvolume.sort-heavier:
-  text: "This one is heavier than the {thing|noun:one}."
+  text: "This one is heavy."
 gen.mea.massvolume.sort-lighter:
-  text: "This one is lighter than the {thing|noun:one}."
+  text: "This one is light."
 
 gen.compare.sets.match:
   text: "Let's match them, one from each side."

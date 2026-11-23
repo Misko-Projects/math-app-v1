@@ -47,7 +47,7 @@ tp.MEA.16.t2.prompt:
 tp.MEA.16.t3.prompt:
   text: "Put them in order, from heavy to light."
 tp.MEA.16.t4.prompt:
-  text: "Sort them. Which are heavier than the {thing|noun:one}, which are lighter?"
+  text: "Sort them. Which ones are heavy, which ones are light?"
 tp.MEA.22.t1.prompt:
   text: "Measure it with {unit|unit:many}. Then measure it with {altUnit|unit:many}."
 tp.MEA.22.t2.prompt:

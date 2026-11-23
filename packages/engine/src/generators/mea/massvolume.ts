@@ -9,9 +9,10 @@
 //   picture each and no numeral; the child puts them in order from heavy to light (everyday
 //   knowledge, like compare). The answer is the weight steps, heaviest first. Every pair in the
 //   row must be in CLEARLY_LIGHTER (MEA.16.t3: a light thing, the apple, a heavy thing).
-// - shape-sort (instrument `balance`, mode sort), MEA.16: `cards` objects to sort into heavier and
-//   lighter than the object `value` (named in the prompt), `hits` of them heavier. Every card is a
-//   CLEARLY_LIGHTER comparison with it, so everyday knowledge settles each one.
+// - shape-sort (instrument `balance`, mode sort), MEA.16: `cards` objects to sort into heavy and
+//   light, `hits` of them heavy. The object `value` is the dividing line and is never shown or
+//   named (the widget draws only the cards): every card is a CLEARLY_LIGHTER comparison with it, so
+//   the heavy cards are all clearly heavier than the light ones.
 // - instrument `scale` / `beaker` (number-pad, numeral-pick), MEA.17–18 (K02): read `value` in
 //   `unit` off a gauge with a tick every `ticksEvery` and a label every second tick.
 
@@ -157,12 +158,12 @@ export const meaMassVolume: GeneratorDef = {
     cards: {
       type: 'int',
       default: { kind: 'const', value: 4 },
-      doc: 'shape-sort: objects to sort (heavier or lighter than the object `value`)',
+      doc: 'shape-sort: objects to sort into heavy and light (the object `value` divides them and is not shown)',
     },
     hits: {
       type: 'int',
       default: { kind: 'const', value: 2 },
-      doc: 'shape-sort: how many of them are heavier',
+      doc: 'shape-sort: how many of them are heavy',
     },
     objects: {
       type: 'int',
@@ -300,8 +301,8 @@ export const meaMassVolume: GeneratorDef = {
       const light = draw.shuffle(sortCandidates(value, false)).slice(0, cards - hits);
       const shown = rng.fork('layout').shuffle([...heavy, ...light]);
       const bins: { id: string; label: string; rule: SortRule }[] = [
-        { id: 'b0', label: 'word.heavier', rule: { prop: 'weight', op: '>=', value: value + 1 } },
-        { id: 'b1', label: 'word.lighter', rule: { prop: 'weight', op: '<=', value: value - 1 } },
+        { id: 'b0', label: 'word.heavy', rule: { prop: 'weight', op: '>=', value: value + 1 } },
+        { id: 'b1', label: 'word.light', rule: { prop: 'weight', op: '<=', value: value - 1 } },
       ];
       const cardList = shown.map((w, i) => ({
         id: `c${i}`,
@@ -310,7 +311,7 @@ export const meaMassVolume: GeneratorDef = {
       }));
       p = {
         params,
-        vars: pickVars(t, { thing: sprite(value), one: 1 }),
+        vars: {},
         math: { cards: Math.max(0, cards - 4) },
         widget: {
           format: 'shape-sort',
@@ -447,8 +448,7 @@ export const meaMassVolume: GeneratorDef = {
         ];
       }
       case 'shape-sort': {
-        const thing = sprite(asNum(out.params.value));
-        const steps: LessonStep[] = [say('gen.mea.massvolume.sort-look', { thing, one: 1 })];
+        const steps: LessonStep[] = [say('gen.mea.massvolume.sort-look', {})];
         for (const [bin, ids] of Object.entries(sortPlacement(out))) {
           for (const cardId of ids) {
             steps.push(
@@ -456,7 +456,7 @@ export const meaMassVolume: GeneratorDef = {
                 bin === 'b0'
                   ? 'gen.mea.massvolume.sort-heavier'
                   : 'gen.mea.massvolume.sort-lighter',
-                { thing, one: 1 },
+                {},
                 { op: 'drag-card', args: { id: cardId, bin } },
               ),
             );

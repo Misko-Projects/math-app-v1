@@ -50,6 +50,7 @@ const inventory: [string, CompiledNarrationEntry][] = [
   clipSet('money.dollar.one', 'dollar'),
   clipSet('money.dollar.many', 'dollars'),
   clipSet('word.and', 'and'),
+  clipSet('word.left', 'left'),
   clipSet('den.2.one', 'half'),
   clipSet('den.2.many', 'halves'),
   clipSet('den.4.one', 'fourth'),
@@ -67,9 +68,22 @@ const inventory: [string, CompiledNarrationEntry][] = [
   clipSet('noun.shell.one', 'shell'),
   clipSet('noun.shell.many', 'shells'),
   clipSet('res.shelly', 'Shelly'),
+  clipSet('ord.1', 'first'),
+  clipSet('ord.3', 'third'),
+  clipSet('ord.10', 'tenth'),
 ];
 
 const lines: Record<string, CompiledNarrationEntry> = {
+  'tp.CNT.15.t1.prompt': {
+    text: 'Start at the {from|word}. Tap the {k|ord} one.',
+    clips: [
+      'tp.CNT.15.t1.prompt#0',
+      '$from|word',
+      'tp.CNT.15.t1.prompt#1',
+      '$k|ord',
+      'tp.CNT.15.t1.prompt#2',
+    ],
+  },
   'p.count.how-many': { text: 'How many fish?', clips: ['p.count.how-many#0'] },
   'tp.ADD.08.t1.prompt': {
     text: 'Fill the shell to make ten. How many is {a} + {b}?',
