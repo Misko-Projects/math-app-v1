@@ -1,6 +1,8 @@
 // Pure geometry for the base-ten-build mat (03 §5.5): the unit size pieces are drawn at, how each
 // column lays its pieces out, and how wide the mat and the side panel are. DOM-free, unit-tested.
 import type { PieceKind } from '@number-island/engine';
+import type { AgeMode } from '../../tokens/tokens';
+import { PAD_KEYS_CHOICES, type PadKeysChoice, padKeysSize } from '../kit/padKeys';
 
 /** Kinds largest first (the mat's columns run left to right in this order). */
 export const KINDS: readonly PieceKind[] = ['thousands', 'hundreds', 'tens', 'ones'];
@@ -407,6 +409,11 @@ export interface SidePlan {
   askCols: 1 | 2;
   /** The goal numeral drawn large. */
   lg: boolean;
+  /**
+   * A short room: the goal and chips in a column of their own, beside the tray and "check"
+   * (stacked, they are taller than the room).
+   */
+  split?: true;
   /** The narrowest panel this arrangement needs, and its height (px). */
   width: number;
   height: number;
@@ -431,18 +438,27 @@ function goalWidth(text: string, min: number, size: 'normal' | 'lg' | 'compact')
  * and chips one per row (or two to a row when `crowded`), the goal large only when it has room
  * across and the panel still fits its height.
  */
-export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SidePlan {
+export function sidePlan(
+  spec: SideSpec,
+  width: number,
+  crowded: boolean,
+  split = false,
+): SidePlan {
   const s = spec.sizes ?? modelSizes(spec);
   const n = spec.piles.length;
   const trayW = (c: number) => 2 * TRAY_PAD.x + c * s.pileW + (c - 1) * PILE_GAP.x;
   const options = [n, n === 4 || (crowded && n === 3) ? 2 : 0, 1];
-  const pileCols = n === 0 ? 1 : (options.find((c) => c > 0 && trayW(c) <= width) ?? 1);
+  const cells = (s.goal !== null ? 1 : 0) + s.chips.length;
+  // Split: the tray has the width left beside the goal and chips (one per row, their usual size).
+  const askW = split
+    ? Math.max(s.goal?.w ?? 0, ...s.chips.map((c) => c.w)) + (cells > 0 ? SIDE_GAP : 0)
+    : 0;
+  const pileCols = n === 0 ? 1 : (options.find((c) => c > 0 && trayW(c) <= width - askW) ?? 1);
   let trayH = TRAY_PAD.top + TRAY_PAD.bottom;
   for (let r = 0; r * pileCols < n; r++) {
     const row = s.tileH.slice(r * pileCols, (r + 1) * pileCols);
     trayH += (r > 0 ? PILE_GAP.y : 0) + Math.max(...row);
   }
-  const cells = (s.goal !== null ? 1 : 0) + s.chips.length;
   const askCols: 1 | 2 = crowded && cells >= 2 ? 2 : 1;
   const ask = (lg: boolean) => {
     if (cells === 0) return { w: 0, h: 0 };
@@ -471,6 +487,16 @@ export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SideP
   };
   const plan = (lg: boolean): SidePlan => {
     const a = ask(lg);
+    if (split) {
+      return {
+        pileCols,
+        askCols,
+        lg,
+        split: true,
+        width: a.w + (cells > 0 ? SIDE_GAP : 0) + Math.max(trayW(pileCols), s.checkW),
+        height: Math.max(a.h, trayH + SIDE_GAP + s.checkH),
+      };
+    }
     const blocks = [a.h, trayH, s.checkH].filter((h) => h > 0);
     return {
       pileCols,
@@ -480,7 +506,8 @@ export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SideP
       height: blocks.reduce((s, h) => s + h, 0) + (blocks.length - 1) * SIDE_GAP,
     };
   };
-  const canLg = askCols === 1 && spec.goal !== null && spec.goal.length * 44 + 70 <= width;
+  const canLg =
+    !split && askCols === 1 && spec.goal !== null && spec.goal.length * 44 + 70 <= width;
   if (canLg) {
     const big = plan(true);
     if (big.height <= spec.height) return big;
@@ -492,16 +519,18 @@ export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SideP
  * The side panel (px, at least `min`) whose contents fit its height, and whether it must be
  * crowded (goal and chips two to a row, three piles 2 + 1). The usual (balanced) panel at its
  * narrowest comes first, if `matFits` says the mat still fits beside it; else the narrower crowded
- * one. The mat shrinks its unit to leave the panel that room.
+ * one. The mat shrinks its unit to leave the panel that room. In a room too short for either at
+ * any width (the smallest landscape area), the panel is `split`: the goal and chips beside the
+ * tray and "check".
  */
 export function sideNeed(
   spec: SideSpec,
   min: number,
   matFits: (width: number) => boolean = () => true,
-): { width: number; crowded: boolean } {
-  const narrowest = (crowded: boolean) => {
+): { width: number; crowded: boolean; split?: true } {
+  const narrowest = (crowded: boolean, split = false) => {
     for (let w = Math.ceil(min); w <= 600; w++) {
-      const p = sidePlan(spec, w, crowded);
+      const p = sidePlan(spec, w, crowded, split);
       if (p.width <= w && p.height <= spec.height) return w;
     }
     return Number.POSITIVE_INFINITY;
@@ -514,8 +543,65 @@ export function sideNeed(
     ...(Number.isFinite(crowded) && crowded < loose ? [{ width: crowded, crowded: true }] : []),
   ];
   const last = options.at(-1);
-  if (!last) return { width: Math.ceil(min), crowded: true };
+  if (!last) {
+    const split = narrowest(false, true);
+    if (Number.isFinite(split)) return { width: split, crowded: false, split: true };
+    return { width: Math.ceil(min), crowded: true };
+  }
   return options.find((o) => matFits(o.width)) ?? last;
+}
+
+// ---------- read mode's side panel: the answer, the pad and "check" ----------
+
+/** Between the pad, the answer and "check" (base-ten-build.css `.ni-btb__side--pad`). */
+export const READ_GAP = 20;
+
+export interface ReadSide extends PadKeysChoice {
+  /** The answer and "check" beside the keys (a short room) instead of over and under them. */
+  beside: boolean;
+  w: number;
+  h: number;
+}
+
+/** The panel's box for one choice of keys: `blank` and `button` as the browser draws them. */
+export function readSideSize(
+  keys: PadKeysChoice,
+  beside: boolean,
+  blank: { w: number; h: number },
+  button: { w: number; h: number },
+  ageMode: AgeMode,
+): { w: number; h: number } {
+  const k = padKeysSize(keys, ageMode);
+  return beside
+    ? {
+        w: k.w + READ_GAP + Math.max(blank.w, button.w),
+        h: Math.max(k.h, blank.h + READ_GAP + button.h),
+      }
+    : {
+        w: Math.max(k.w, blank.w, button.w),
+        h: blank.h + READ_GAP + k.h + READ_GAP + button.h,
+      };
+}
+
+/**
+ * Read mode's panel in a room `height` px tall: the first that fits of the answer over the keys
+ * over "check", then the answer and "check" beside the keys; in each, the keys as roomy as fit
+ * (kit `PAD_KEYS_CHOICES`: never under the minimum target). The last when none fits.
+ */
+export function readSide(
+  height: number,
+  blank: { w: number; h: number },
+  button: { w: number; h: number },
+  ageMode: AgeMode,
+): ReadSide {
+  let last: ReadSide | null = null;
+  for (const beside of [false, true]) {
+    for (const keys of PAD_KEYS_CHOICES) {
+      last = { ...keys, beside, ...readSideSize(keys, beside, blank, button, ageMode) };
+      if (last.h <= height) return last;
+    }
+  }
+  return last as ReadSide;
 }
 
 // ---------- the whole widget: the mat beside its side panel ----------
@@ -529,7 +615,7 @@ export interface PlanInput {
 
 export interface WidgetPlan {
   layout: MatLayout;
-  side: { width: number; crowded: boolean };
+  side: { width: number; crowded: boolean; split?: true };
 }
 
 /** The room a side panel of `width` px gets: at least that, at most 260 px or that. */

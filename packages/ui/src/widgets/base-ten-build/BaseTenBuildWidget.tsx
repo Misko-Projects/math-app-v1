@@ -25,10 +25,14 @@ import {
   NumberPadKeys,
   type PadKey,
   padValue,
+  useActionSize,
   useAlive,
   useDemoPause,
+  useFirstRoom,
   useInviteHand,
   useSubmitGuard,
+  useWidgetRoom,
+  type WidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import {
@@ -42,6 +46,7 @@ import {
   type PlanInput,
   pieceGap,
   planMat,
+  readSide,
   rodHit,
   roomForMove,
   type SideSizes,
@@ -90,11 +95,14 @@ type Target = 'mat' | 'tray';
 const OPS: readonly string[] = [...FORMAT_SUPPORT['base-ten-build'].ops, 'answer'];
 
 /*
- * The mat takes the widget's full height. In the 1280 × 800 widget area (about 1146 × 666 px):
- * 2 px root padding, a 5 px wooden frame, the header row (40 px; 58 px in K for 40 px icons),
- * 8 px above and below the pieces, and the rest for the pieces (596 px; 578 px in K).
+ * The mat takes the widget's full height: the measured room's (06 §1), at most 666 px, which is
+ * also what a host that grows with its content gets. Of that: 2 px root padding, a 5 px wooden
+ * frame, the header row (40 px; 58 px in K for 40 px icons), 8 px above and below the pieces, and
+ * the rest for the pieces (at 666 px: 596 px; 578 px in K).
  */
 const WIDGET_H = 666;
+const heightIn = (room: WidgetRoom | null) =>
+  room && Number.isFinite(room.height) ? Math.min(WIDGET_H, room.height) : WIDGET_H;
 const ROOT_PAD_Y = 2;
 const BODY_PAD = 8;
 const HEAD_H = { k: 58, 'g1-up': 40 } as const;
@@ -470,10 +478,30 @@ export function BaseTenBuildWidget({
   const kMode = prefs.ageMode === 'k';
   const targetMin = TARGET_PX[prefs.ageMode].min;
   const gutter = read ? COL_GAP : targetMin + 2 * GUTTER_PAD;
-  // The kit pad: three keys of --target-big with 12 px gaps.
-  const padSide = 3 * TARGET_PX[prefs.ageMode].big + 2 * 12;
+  // The mat's height follows the room as it is now. The side panel's arrangement is chosen in
+  // the first room measured for the item (`useFirstRoom`), so a resize never moves its parts.
+  const room = useWidgetRoom(rootRef);
+  const widgetH = heightIn(room);
+  const sideH = heightIn(useFirstRoom(room)) - 2 * ROOT_PAD_Y;
   const headH = HEAD_H[prefs.ageMode];
-  const bodyH = WIDGET_H - 2 * ROOT_PAD_Y - 2 * FRAME - headH - 2 * BODY_PAD;
+  const bodyH = widgetH - 2 * ROOT_PAD_Y - 2 * FRAME - headH - 2 * BODY_PAD;
+  // Read mode's panel (the answer, the pad, "check"), from their sizes as mounted.
+  const padRef = useRef<HTMLDivElement | null>(null);
+  const blankRef = useRef<HTMLSpanElement | null>(null);
+  const unzoomed = useRef(1);
+  const button = useActionSize(padRef, unzoomed, prefs.ageMode);
+  const [blank, setBlank] = useState(() => ({
+    w: TARGET_PX[prefs.ageMode].big * 1.5,
+    h: TARGET_PX[prefs.ageMode].big,
+  }));
+  useLayoutEffect(() => {
+    const r = blankRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const next = { w: Math.ceil(r.width), h: Math.ceil(r.height) };
+    setBlank((b) => (b.w === next.w && b.h === next.h ? b : next));
+  });
+  const pad = readSide(sideH, blank, button, prefs.ageMode);
+  const padSide = pad.w;
 
   // A build that starts with pieces is arithmetic (mda.addsub, pv.tenmore; bond.parts, whose
   // prompt states the whole): the target is the result the child finds, so no goal card is drawn,
@@ -557,7 +585,7 @@ export function BaseTenBuildWidget({
     goal: goalHidden ? null : String(goalValue),
     exact: exactKinds,
     exactN: exactKinds.map((k) => config.exact?.[k] ?? 0),
-    height: WIDGET_H - 2 * ROOT_PAD_Y,
+    height: sideH,
     // The measured parts, once the measurer shows this item's goal, chips and piles.
     sizes: usableSizes(measured, {
       piles: trayKinds.length,
@@ -1256,8 +1284,12 @@ export function BaseTenBuildWidget({
         <div className="ni-btb__picture" role="img" aria-label={t('ui.widget.picture')}>
           {work}
         </div>
-        <div className="ni-btb__side ni-btb__side--pad">
-          <span className="ni-btb__slot">
+        <div
+          ref={padRef}
+          className="ni-btb__side ni-btb__side--pad"
+          data-beside={pad.beside ? 'true' : undefined}
+        >
+          <span ref={blankRef} className="ni-btb__slot">
             <button
               type="button"
               className={[
@@ -1284,11 +1316,14 @@ export function BaseTenBuildWidget({
             allowDecimal={decimal}
             disabled={!interactive}
             highlighted={pressedKey ?? invitedKey}
+            shape={pad.shape}
+            compact={pad.compact}
           />
           <CheckButton
             onPress={submit}
             disabled={!interactive || typedValue(text) === null}
             invited={inviteTarget === 'check'}
+            compact={pad.beside}
           />
         </div>
         {inviteHand}
@@ -1298,7 +1333,7 @@ export function BaseTenBuildWidget({
 
   // The panel as it lays out at its width: balanced pile rows, the goal and chips (two to a row
   // when crowded), the goal large only when there is room (layout.ts sidePlan).
-  const plan = sidePlan(sideSpec, layout.sideWidth, side.crowded);
+  const plan = sidePlan(sideSpec, layout.sideWidth, side.crowded, side.split);
   const pileCols = plan.pileCols;
   const ready = model.toResponse(state) !== null;
 
@@ -1439,7 +1474,7 @@ export function BaseTenBuildWidget({
       style={rootStyle}
     >
       {work}
-      <div className="ni-btb__side">
+      <div className="ni-btb__side" data-split={plan.split ? 'true' : undefined}>
         {goalHidden ? null : (
           <div className="ni-btb__ask" data-cols={plan.askCols === 2 ? '2' : undefined}>
             {goalButton(plan.lg, false)}
