@@ -207,7 +207,14 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     expect(load).toHaveBeenCalled();
     await settle();
 
-    // From here time is the test's: it moves only when a timer on the way has to fire.
+    // From here time is the test's: it moves only when a timer on the way has to fire. Real
+    // waiting (the local database, the chunk) is not on that clock: how long this machine takes
+    // is not what is measured.
+    const realTimeout = globalThis.setTimeout;
+    const wait = () =>
+      act(async () => {
+        await new Promise((resolve) => realTimeout(resolve, 5));
+      });
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'performance'],
     });
@@ -215,13 +222,10 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     fireEvent.click(first as HTMLElement);
     expect(router.state.location.pathname).toBe(`/play/${CHILD_K}/workshop/practice-pier`);
     const before = firstProblem.lastMs();
-    let quiet = 0;
-    while (firstProblem.lastMs() === before) {
-      await settle();
-      quiet += 1;
-      if (quiet % 50 === 0) {
-        // Nothing arrived by itself: the path is waiting on a timer, so time moves to it.
-        expect(vi.getTimerCount()).toBeGreaterThan(0);
+    for (let quiet = 1; firstProblem.lastMs() === before; quiet += 1) {
+      await wait();
+      // Nothing arrived by itself for a while and a timer is pending: time moves to it.
+      if (quiet % 100 === 0 && vi.getTimerCount() > 0) {
         await act(async () => {
           await vi.advanceTimersToNextTimerAsync();
         });

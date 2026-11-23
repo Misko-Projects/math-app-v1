@@ -280,14 +280,14 @@ export function IslandHub({
             </div>
           ) : null}
         </div>
-        <div className="pointer-events-none relative flex items-center justify-center gap-5 px-[13rem] pt-[max(1rem,env(safe-area-inset-top))] *:pointer-events-auto">
+        <div className="pointer-events-none relative flex items-center justify-center gap-5 px-4 pt-[calc(max(1rem,env(safe-area-inset-top))+6.25rem)] *:pointer-events-auto">
           <SpeechBubble say={line} tail="none" showText />
           <ReplayButton onPress={() => say(line)} />
         </div>
         {/* The requests: a bubble over each resident, the recommended one first. */}
         {requests ? (
           <ul
-            className="absolute inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] flex items-end justify-center gap-8 px-24"
+            className="absolute inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] flex items-end justify-center gap-6 px-20"
             aria-label={text('ui.island.requests')}
             data-testid="requests"
           >
@@ -304,10 +304,10 @@ export function IslandHub({
                 ...names,
               ].join(' ');
               return (
-                <li key={request.id} className="flex flex-col items-center gap-3">
+                <li key={request.id} className="relative">
                   <button
                     type="button"
-                    className="flex cursor-pointer flex-col items-center gap-6 rounded-[28px] p-2 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                    className="flex min-w-[13.5rem] cursor-pointer flex-col items-start gap-5 rounded-[28px] p-1 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"
                     aria-label={label}
                     data-request={request.id}
                     data-recommended={i === 0 ? 'true' : undefined}
@@ -326,13 +326,16 @@ export function IslandHub({
                       <Pebbling
                         {...pebblingFromResident(resident)}
                         pose={i === 0 ? 'wave' : 'idle'}
-                        size={120}
+                        size={112}
                       />
                     ) : (
-                      <Pip size={120} />
+                      <Pip size={112} />
                     )}
                   </button>
-                  <ReplayButton onPress={() => hear(request)} />
+                  {/* Beside the resident, in the card's free corner. */}
+                  <span className="absolute right-0 bottom-0">
+                    <ReplayButton caption={false} onPress={() => hear(request)} />
+                  </span>
                 </li>
               );
             })}

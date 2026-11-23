@@ -72,14 +72,14 @@ ui.btn.okay:
   text: "Okay!"
   level: K
 ui.island.hello:
-  text: "Hello! Who do you want to help today?"
+  text: "Hello! Who do you want to help?"
   voice: pip
   level: K
 ui.island.requests:
   text: "Friends who want help"
   level: K
 ui.island.made:
-  text: "Look what you made! It is in the Storehouse now."
+  text: "Look! Your new things are in the Storehouse."
   voice: pip
   level: K
 ui.island.empty:
