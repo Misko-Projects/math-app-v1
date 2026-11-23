@@ -186,17 +186,59 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     expect(await types(app)).toEqual(['session.started']);
   });
 
-  it('the speaker under a bubble says the request, then the material it is for', async () => {
-    const { say } = await renderHome();
-    const [first] = await bubbles();
+  it('the speaker beside a resident says the request and the material as one line that a new one replaces', async () => {
+    const { app, say } = await renderHome();
+    const phrases = vi.spyOn(app.audio, 'sayPhrases');
+    const [first, second] = await bubbles();
     say.mockClear();
-    const speaker = within(first?.closest('li') as HTMLElement).getByRole('button', {
-      name: 'Hear it again',
+    const speaker = (bubble: HTMLElement | undefined) =>
+      within(bubble?.closest('li') as HTMLElement).getByRole('button', { name: 'Hear it again' });
+    fireEvent.click(speaker(first));
+    // One call for the whole line: speech that comes after it (another speaker, the Storehouse's
+    // name) replaces all of it, and nothing of it is said later.
+    expect(phrases).toHaveBeenCalledTimes(1);
+    expect(phrases.mock.calls[0]?.[0]).toEqual([
+      { id: 'req.help' },
+      { id: expect.stringMatching(/^game\.material\.(stone|light)$/) },
+    ]);
+    fireEvent.click(speaker(second));
+    await settle();
+    expect(phrases).toHaveBeenCalledTimes(2);
+    expect(say).not.toHaveBeenCalled();
+  });
+
+  it('Back and then Forward while the request is still being written does not start it again', async () => {
+    const { app, router } = await renderHome();
+    const [first] = await bubbles();
+    fireEvent.click(first as HTMLElement);
+    await waitFor(async () => expect(await types(app)).toContain('request.accepted'));
+    // The completion is slow to write: the child is back on the island before it lands.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    fireEvent.click(speaker);
-    await vi.waitFor(() => expect(say).toHaveBeenCalledTimes(2));
-    expect(say.mock.calls[0]?.[0]).toBe('req.help');
-    expect(say.mock.calls[1]?.[0]).toMatch(/^game\.material\.(stone|light)$/);
+    const append = app.store.append.bind(app.store);
+    vi.spyOn(app.store, 'append').mockImplementation(async (type, payload, opts) => {
+      if (type === 'request.completed') await held;
+      return append(type, payload, opts);
+    });
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await settle();
+    expect(router.state.location.pathname).toBe(`/play/${CHILD_K}`);
+    await act(async () => {
+      await router.navigate(1);
+    });
+    // The Forward entry is no way back into a request the child has left: the island stays.
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/play/${CHILD_K}`));
+    await settle();
+    expect(await types(app)).toEqual(['session.started', 'request.accepted']);
+    release();
+    await waitFor(async () => expect(await types(app)).toContain('request.completed'));
+    await bubbles();
+    await settle();
+    expect(await types(app)).toEqual(['session.started', 'request.accepted', 'request.completed']);
   });
 
   it('fetches the workshop ahead, and the first problem is on screen within 10 s of the tap', async () => {

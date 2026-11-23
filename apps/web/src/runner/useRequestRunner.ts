@@ -29,13 +29,14 @@ export function useRaise(): (error: unknown) => void {
 
 /**
  * The runner of `request`, or null until it is ready. The request of the first render is played.
- * `onFinished` gets the request's summary once the screen is gone and the request is written.
+ * `onFinished` is called once the screen is gone and the request is over: with its summary, or
+ * with null when it could not be written (the error is in the diagnostics).
  */
 export function useRequestRunner(
   child: ChildProfile,
   session: ActiveSession,
   request: PlannedRequest,
-  onFinished?: (summary: RequestSummary) => void,
+  onFinished?: (summary: RequestSummary | null) => void,
 ): PierTaskRunner | null {
   const { store, content } = useAppServices();
   const { controller } = useSession();
@@ -92,8 +93,13 @@ export function useRequestRunner(
         if (mounted.current) return;
         void starting.current
           ?.then((r) => r.finish())
-          .then((summary) => finished.current?.(summary))
-          .catch((e) => recordDiagnostic('pier.finish', e));
+          .then(
+            (summary) => finished.current?.(summary),
+            (e) => {
+              recordDiagnostic('pier.finish', e);
+              finished.current?.(null);
+            },
+          );
       }, 0);
     };
   }, []);

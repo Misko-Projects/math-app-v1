@@ -250,10 +250,12 @@ export function PierRequest({
   useEffect(() => {
     let alive = true;
     const first = runner.current() as PierTask | null;
-    // The request's first task is on screen from here (05 §2: within 10 s of the tap).
-    firstProblem.shown();
-    if (first) setTask(first);
-    else void runner.finish().then((s) => alive && setSummary(s), raise);
+    if (first) {
+      // The request's first task is on its way to the screen (05 §2: within 10 s of the tap).
+      firstProblem.shown();
+      setTask(first);
+    }
+    if (!first) void runner.finish().then((s) => alive && setSummary(s), raise);
     return () => {
       alive = false;
     };

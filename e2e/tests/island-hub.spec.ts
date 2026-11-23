@@ -104,3 +104,56 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
   expect((await types(page)).includes('session.ended')).toBe(false);
   expect(errors).toEqual([]);
 });
+
+test('in portrait every request control keeps its whole target: nothing lies over a speaker', async ({
+  page,
+}) => {
+  // A grade 2 child is offered three requests, the widest row the island shows.
+  await page.setViewportSize({ width: 800, height: 1280 });
+  await seedLocalChild(page, {
+    id: '019c0000-0000-7000-8000-00000000e2f2',
+    name: 'Ben',
+    grade: '2',
+  });
+  await page.getByTestId('tap-to-start').click();
+  await page.getByRole('button', { name: 'Ben', exact: true }).click();
+  const cards = page.getByTestId('requests').getByRole('listitem');
+  await expect(cards).toHaveCount(3);
+  for (let i = 0; i < 3; i += 1) {
+    for (const control of [
+      cards.nth(i).locator('[data-request]'),
+      cards.nth(i).getByRole('button', { name: 'Hear it again' }),
+    ]) {
+      const box = await control.boundingBox();
+      if (!box) throw new Error('a request control is not on screen');
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(64);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(800);
+    }
+    // The speaker is round: it is hit at the middle of each edge and at its centre, so the parent
+    // gate, the next card and the bubble's own button are not on top of it.
+    const speaker = cards.nth(i).getByRole('button', { name: 'Hear it again' });
+    const hits = await speaker.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const points = [
+        [r.left + 6, cy],
+        [r.right - 6, cy],
+        [cx, r.top + 6],
+        [cx, r.bottom - 6],
+        [cx, cy],
+      ];
+      return points.map(([x, y]) =>
+        el.contains(document.elementFromPoint(x as number, y as number)),
+      );
+    });
+    expect(hits).toEqual([true, true, true, true, true]);
+  }
+  expect(
+    await page.evaluate(() => ({
+      w: document.documentElement.scrollWidth - window.innerWidth,
+      h: document.documentElement.scrollHeight - window.innerHeight,
+    })),
+  ).toEqual({ w: 0, h: 0 });
+});

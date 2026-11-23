@@ -5,7 +5,15 @@
 // produced goes back to the island with it.
 
 import type { ChildProfile, PlannedRequest, WorkshopExitReason } from '@number-island/shared';
-import { type ComponentType, lazy, Suspense, useCallback } from 'react';
+import {
+  type ComponentType,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { ChildUi, useAppServices } from '@/app/AppServices';
 import type { ActiveSession } from '@/app/session/SessionController';
@@ -52,21 +60,37 @@ export function WorkshopHost() {
   );
 }
 
-function HostedRequest({
-  child,
-  session,
-  request,
-}: {
+interface HostedProps {
   child: ChildProfile;
   session: ActiveSession;
   request: PlannedRequest;
-}) {
+}
+
+/**
+ * One screen plays a picked request. The browser's Forward into a request the child has left,
+ * while it is still being written, is not a second start: that visit goes back to the island.
+ */
+function HostedRequest(props: HostedProps) {
+  const { claim } = useHub();
+  // The ref outlives StrictMode's simulated remount: the same screen claims the same request.
+  const me = useRef({});
+  const [mine, setMine] = useState<boolean | null>(null);
+  const requestId = props.request.id;
+  useEffect(() => setMine(claim(requestId, me.current)), [claim, requestId]);
+  if (mine === null) return null;
+  if (!mine) return <Navigate to={`/play/${props.child.id}`} replace />;
+  return <OwnedRequest {...props} />;
+}
+
+function OwnedRequest({ child, session, request }: HostedProps) {
   const { audio } = useAppServices();
   const navigate = useNavigate();
   const { complete } = useHub();
-  // Called once the screen is gone and the request is written, whichever way the child left.
+  // Called once the screen is gone and the request is over, whichever way the child left. A
+  // request that could not be written made nothing.
   const finished = useCallback(
-    (summary: RequestSummary) => complete({ requestId: request.id, materials: summary.materials }),
+    (summary: RequestSummary | null) =>
+      complete({ requestId: request.id, materials: summary?.materials ?? {} }),
     [complete, request.id],
   );
   const runner = useRequestRunner(child, session, request, finished);

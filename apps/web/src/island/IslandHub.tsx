@@ -170,11 +170,9 @@ export function IslandHub({
   const materialOf = (id: string) => gameData.materials.find((m) => m.id === id);
   const hear = (request: PlannedRequest) => {
     const names = Object.keys(request.reward.materials).flatMap((id) => materialOf(id)?.name ?? []);
-    void names
-      .reduce(
-        (before, name) => before.then(() => audio.say(name)),
-        audio.say(request.narration, request.vars),
-      )
+    // One line: whatever is said next (another speaker, a button's name) replaces all of it.
+    void audio
+      .sayPhrases([{ id: request.narration }, ...names.map((id) => ({ id }))])
       .catch(() => {});
   };
 
@@ -286,7 +284,7 @@ export function IslandHub({
         {/* The requests: a bubble over each resident, the recommended one first. */}
         {requests ? (
           <ul
-            className="absolute inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] flex items-end justify-center gap-6 px-20"
+            className="absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] flex items-end justify-center gap-6 px-4"
             aria-label={text('ui.island.requests')}
             data-testid="requests"
           >
