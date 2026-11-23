@@ -307,18 +307,18 @@ export function IslandHub({
                 <li key={request.id} className="flex flex-col items-center gap-3">
                   <button
                     type="button"
-                    className="flex cursor-pointer flex-col items-center gap-1 rounded-[28px] p-2 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                    className="flex cursor-pointer flex-col items-center gap-6 rounded-[28px] p-2 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"
                     aria-label={label}
                     data-request={request.id}
                     data-recommended={i === 0 ? 'true' : undefined}
                     onClick={() => pick(request)}
                   >
                     <SpeechBubble recommended={i === 0} tail="bottom">
-                      <span className="grid min-h-[48px] min-w-[96px] grid-cols-4 place-items-center gap-1">
+                      <span className="flex min-h-[48px] max-w-[13rem] flex-wrap items-center justify-center gap-1">
                         {made.length > 0 ? (
                           made.map((id, n) => picture(id, n, 44))
                         ) : (
-                          <icons.CrateIcon width={48} height={48} className="col-span-4" />
+                          <icons.CrateIcon width={48} height={48} />
                         )}
                       </span>
                     </SpeechBubble>
