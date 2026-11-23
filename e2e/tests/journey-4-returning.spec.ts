@@ -1,17 +1,18 @@
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import {
   type LocalEvent,
   localEvents,
   seedLocalChild,
   seedLocalEvents,
 } from '../fixtures/localChild';
+import { ANSWER, waiting } from '../fixtures/workshopPlay';
 
 // Golden journey 4 (09 §3), the returning session: pick the profile → the first math interaction
 // → three requests played to their end → build → wind-down at the budget.
 //
-// - "Three different workshops": only the Practice Pier is registered so far, and it hosts every
-//   request (02 §5.6), so the three requests are the island's own, one after another, each for
-//   the material its resident asked for. Q01 plays this journey again with themed workshops.
+// - "Three different workshops": Road Crew and the Practice Pier are registered so far (02 §5.6),
+//   so the three requests are the island's own, one after another, each in its workshop and for
+//   the material its resident asked for. Q01 plays this journey again with more themed workshops.
 // - "The first math interaction within 10 s (measured)": that time is measured on an injected
 //   clock, from the tap on a request to the mount of its first widget, in
 //   `apps/web/src/island/ChildHomePage.test.tsx`. Here the journey checks what is measured: one
@@ -25,62 +26,6 @@ import {
 const CHILD = { id: '019c0000-0000-7000-8000-00000000e4a1', name: 'Ada', grade: 'K' as const };
 const STOREHOUSE = { stone: 5, light: 3 };
 const K_BUDGET_MS = 10 * 60_000;
-
-type Screen = 'home' | 'summary' | 'feedback' | 'turn' | 'answer';
-
-/** Plays out what is playing (a lesson's demo, a spoken line) until a screen waits for the child. */
-async function waiting(page: Page): Promise<Screen> {
-  let screen: Screen | null = null;
-  await expect(async () => {
-    screen = await page.evaluate(() => {
-      if (document.querySelector('[data-testid="child-home"]')) return 'home';
-      if (document.querySelector('[data-testid="pier-summary"]')) return 'summary';
-      const phase = document.querySelector('[data-testid="pier"]')?.getAttribute('data-phase');
-      return phase === 'feedback' || phase === 'turn' || phase === 'answer' ? phase : null;
-    });
-    if (screen === null) {
-      await page.clock.runFor(1000);
-      throw new Error('still playing');
-    }
-  }).toPass();
-  return screen as unknown as Screen;
-}
-
-/** How this journey answers each format it meets, in the real widget, right. */
-const ANSWER: Record<string, (stage: Locator) => Promise<void>> = {
-  // "What comes next?" on the number chart: the cell after the marked one, or, where the chart
-  // is small and the answer is typed (a short screen), its digits on the number pad.
-  'hundred-chart': async (stage) => {
-    const chart = stage.locator('.ni-hc[data-mode="next"]');
-    const start = Number(await chart.locator('[data-start="true"]').getAttribute('data-n'));
-    const pad = stage.locator('.ni-pad');
-    if ((await pad.count()) === 0) await chart.locator(`[data-n="${start + 1}"]`).click();
-    else
-      for (const digit of String(start + 1))
-        await pad.locator(`.ni-pad__key[aria-label="${digit}"]`).click();
-  },
-  // Number cards into their boxes, in the order the cue shows.
-  order: async (stage) => {
-    const board = stage.locator('.ni-ord');
-    const down = (await board.getAttribute('data-direction')) === 'desc';
-    const numbers = (
-      await board
-        .locator('.ni-ord__tray [data-place-item]')
-        .evaluateAll((cards) => cards.map((card) => Number(card.getAttribute('aria-label'))))
-    ).sort((a, b) => (down ? b - a : a - b));
-    for (const [i, n] of numbers.entries()) {
-      await board.locator(`.ni-ord__tray [data-place-item][aria-label="${n}"]`).first().click();
-      await board.locator(`[data-place-target="slot-${i}"]`).click();
-    }
-  },
-  // Count every object, then pick how many.
-  'tap-count': async (stage) => {
-    const things = stage.getByRole('group', { name: 'Look at the picture' }).getByRole('button');
-    const count = await things.count();
-    for (let i = 0; i < count; i += 1) await things.nth(i).click();
-    await stage.getByRole('button', { name: String(count), exact: true }).click();
-  },
-};
 
 /** Plays the request on screen to its end and back to the island; returns the formats it met. */
 async function playRequest(page: Page): Promise<string[]> {
@@ -102,7 +47,9 @@ async function playRequest(page: Page): Promise<string[]> {
       const format = (await stage.locator('.ni-widget').getAttribute('data-format')) ?? '';
       const answer = ANSWER[format];
       if (!answer)
-        throw new Error(`journey 4 cannot answer the "${format}" format yet: add it to ANSWER`);
+        throw new Error(
+          `journey 4 cannot answer the "${format}" format yet: add it to ANSWER (fixtures/workshopPlay.ts)`,
+        );
       formats.push(format);
       await answer(stage);
       // Never a "rapid tap" (04 §6.4), and past the widget's check debounce (06 §4).
@@ -150,7 +97,7 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
   await test.step('the first math interaction: one tap, and a widget takes the answer', async () => {
     const first = await requests.first().getAttribute('data-request');
     await requests.first().click();
-    await expect(page).toHaveURL(/\/workshop\/practice-pier$/);
+    await expect(page).toHaveURL(/\/workshop\/(road-crew|practice-pier)$/);
     await expect(page.getByTestId('pier')).toBeVisible();
     // The session's warmup comes first (04 §6.1): for a child who has answered nothing yet it is
     // the lesson of the first skill, whose demo plays by itself up to the child's turn.
@@ -167,6 +114,7 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
   });
 
   await test.step('three requests, each played to its end and paid in the material asked for', async () => {
+    let roadStones = 0;
     for (let n = 1; n <= 3; n += 1) {
       if (n > 1) {
         await expect(requests.first()).toBeVisible();
@@ -179,6 +127,8 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
       const formats = await playRequest(page);
       expect(formats.length, `request ${n} had items to answer`).toBeGreaterThan(0);
       await expect(page.getByTestId('child-home')).toBeVisible();
+      // The request's result is in (what it made, a road stone laid): the island offers requests.
+      await expect(requests.first()).toBeVisible();
       const events = await localEvents(page);
       const completed = of(events, 'request.completed');
       expect(completed).toHaveLength(n);
@@ -195,7 +145,14 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
       expect(produced.requestId).toBe(played[n - 1]);
       const units = Object.values(produced.materials).reduce((sum, k) => sum + k, 0);
       expect(units).toBeGreaterThan(0);
-      await expect(page.getByTestId('arrived')).toHaveAttribute('data-count', String(units));
+      // A Road Crew request laid one of its stones on the road (#27): the others arrived.
+      const onRoad = of(events, 'road.extended').length - roadStones;
+      expect([0, 1]).toContain(onRoad);
+      roadStones += onRoad;
+      await expect(page.getByTestId('arrived')).toHaveAttribute(
+        'data-count',
+        String(units - onRoad),
+      );
     }
     const events = await localEvents(page);
     expect(of(events, 'request.accepted')).toHaveLength(3);

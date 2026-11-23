@@ -26,6 +26,7 @@ import type { PierTaskRunner, RequestSummary } from '@/runner/TaskRunner';
 import { useRequestRunner } from '@/runner/useRequestRunner';
 import { type DecorGrant, decorGrantFor, settleDecorGrant } from './decorGrant';
 import { workshopFor } from './registry';
+import { requestResult } from './requestResult';
 import type { AppWorkshop, AppWorkshopProps } from './types';
 
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -92,6 +93,12 @@ function OwnedRequest({ child, session, request }: HostedProps) {
   // The runner the screen plays with: its `finish()` also writes the decor a request played to
   // its end earns (`decorGrant.ts`), so the family owns it as soon as the request is over.
   const granting = useRef<DecorGrant<PierTaskRunner> | null>(null);
+  // The road stone the workshop is laying at its parade: the island gets the request's result
+  // once it is written, whichever way the child left (the workshop's exit, Home, Back).
+  const road = useRef<Promise<number | null> | null>(null);
+  const onRoadStone = useCallback((laying: Promise<number | null>) => {
+    road.current = laying;
+  }, []);
   // Called once the screen is gone and the request is over, whichever way the child left. A
   // request that could not be written made nothing.
   const finished = useCallback(
@@ -102,7 +109,9 @@ function OwnedRequest({ child, session, request }: HostedProps) {
         const decor = granting.current
           ? await settleDecorGrant(granting.current, (e) => recordDiagnostic('decor.earned', e))
           : [];
-        complete({ requestId: request.id, materials: summary?.materials ?? {}, decor });
+        // A stone that could not be written is on the workshop's error screen; none was laid.
+        const laid = await (road.current ?? Promise.resolve(null)).catch(() => null);
+        complete(requestResult(request.id, summary?.materials ?? {}, decor, laid));
       })();
     },
     [complete, request.id],
@@ -129,8 +138,10 @@ function OwnedRequest({ child, session, request }: HostedProps) {
         <Screen
           request={request}
           runner={runner}
+          childId={child.id}
           avatar={child.avatar}
           audio={audio}
+          onRoadStone={onRoadStone}
           onExit={exit}
         />
       )}

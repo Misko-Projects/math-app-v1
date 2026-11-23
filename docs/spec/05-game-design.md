@@ -48,6 +48,8 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 | W13 | **Puzzle Tower** | G1+ or any child after 10 mastered skills | PUZ + any | `puzzle-grid`, `balance`, `story-problem` | star shards (rare decor) | Optional "spicy" challenges: mini KenKen, magic squares, missing-number puzzles, a 24-style game, Hidato paths. Challenge is the reward. |
 | — | **Practice Pier** | start | any | **all formats** | any requested material | The fallback host (04 §6.3): a plain pier where Pip brings crates of tasks. Used only when no themed workshop hosts a needed format. |
 
+**Road Crew and the road.** A Road Crew request that makes at least one stone lays the road's next stone with one of them at its parade, for the same cost as the island's "Lay the next stone" (one stone; 02 §5.6). The request's other stones go to the Storehouse, where buildings need them, and the island's button stays for laying more.
+
 **Workshop design rules**
 1. **Remove-the-math test:** if the math were removed, the workshop would not function.
 2. **Feedback is diegetic first:** the boat tips when unbalanced, the brick doesn't fuse, the pie slices look unequal. Narration explains next.

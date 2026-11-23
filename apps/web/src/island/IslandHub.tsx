@@ -236,15 +236,23 @@ export function IslandHub({
                 : 'ui.island.hello';
 
   // The guide speaks once per visit: that a building has to be placed again, what the request
-  // just made, the island's name, or the greeting.
+  // just made, the island's name, or the greeting. Back from a request that laid a road stone
+  // (Road Crew), the island counts on to that stone instead, as it does for its own button.
   const greeted = useRef(false);
+  const laid = hub.result?.road;
+  const { countOn } = build;
   useEffect(() => {
     if (!idle || displaced === null || welcome === undefined || greeted.current) return;
     greeted.current = true;
+    if (laid !== undefined) {
+      // Nothing was said: a placement warning or a welcome is still owed on a later visit.
+      countOn(laid);
+      return;
+    }
     say(line);
     if (displaced.length > 0) markDisplacedTold(displaced);
     if (welcome && line === welcome.welcome) markWelcomed(child.id, welcome);
-  }, [idle, displaced, welcome, line, say, child.id]);
+  }, [idle, displaced, welcome, line, say, child.id, laid, countOn]);
 
   // The wind-down hook: no item is ever in progress here, so end now and show the sunset.
   useEffect(
@@ -472,7 +480,7 @@ export function IslandHub({
           // decorate mode) stays under every control of the screen, the parent gate included.
           className="absolute inset-0 isolate overflow-hidden"
           onPointerUp={(e) => {
-            if ((e.target as Element).closest?.('[data-hit="next"]')) build.layStone();
+            if (idle && (e.target as Element).closest?.('[data-hit="next"]')) build.layStone();
           }}
         >
           <IslandScene
@@ -631,7 +639,9 @@ export function IslandHub({
             label="ui.build.open"
             icon={<HammerIcon size={56} />}
             tone="cloud"
-            disabled={busy || decorate.open || !build.ready}
+            // Nothing is bought while a request is still being written: what it made, and the
+            // road stone its workshop may be laying, are not all in the Storehouse yet.
+            disabled={busy || decorate.open || !build.ready || !idle}
             onPress={build.openSheet}
             data={{ 'data-testid': 'build-open' }}
           />
@@ -645,7 +655,7 @@ export function IslandHub({
                 </span>
               }
               tone="cloud"
-              disabled={busy || decorate.open}
+              disabled={busy || decorate.open || !idle}
               onPress={build.layStone}
               data={{
                 'data-testid': 'road-next',

@@ -63,6 +63,27 @@
   }
 }
 
+/* Road Crew (05 §4 rule 3): a stone a right answer made drops into the row of stones, and at
+   the end of the request the stones pass by in a line (reduced motion: no movement). */
+@keyframes ni-stone-in {
+  from {
+    transform: translateY(-72px) scale(1.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes ni-parade {
+  from {
+    transform: translateX(-40vw);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* The sunset sinks slowly behind the sea at the end of a session (reduced motion: no movement). */
 @keyframes ni-sunset {
   from {

@@ -1,6 +1,8 @@
-// The Practice Pier's screen (06 §2 workshop layout), without the runner: the frame, the item's
-// row of controls and the widget in the workshop area. `PierPage` plays a request in it; the fit
-// check (`pierFit.browser.test.tsx`) renders every template in it and measures the area.
+// The workshop screen every workshop shares (06 §2 workshop layout), without the runner: the
+// frame, the item's row of controls and the widget in the workshop area. `RequestPlay` plays a
+// request in it; the fit check (`practice-pier/pierFit.browser.test.tsx`) renders every template
+// in it and measures the area. A themed workshop names itself on the frame (`workshop`) and puts
+// what it has made in the bottom row (`bottom`), which is as tall as the pier's.
 //
 // After a wrong answer (06 §6, #20 part 2) the cue is at the widget: the workshop area sways once
 // and takes a sunshine edge with a look-again badge on it. The line being spoken (the feedback,
@@ -19,6 +21,7 @@ import type {
   StimulusSpec,
   Tier,
   WidgetConfig,
+  WorkshopId,
 } from '@number-island/shared';
 import {
   BigButton,
@@ -71,7 +74,9 @@ export interface LessonControls {
 }
 
 /** One item on screen: Home, the prompt, the cue and "next", the widget, the request's beads. */
-export function PierItemScreen({
+export function PlayItemScreen({
+  workshop,
+  bottom,
   item,
   lesson = null,
   tier,
@@ -91,6 +96,10 @@ export function PierItemScreen({
   onResponse,
   onInteract,
 }: {
+  /** A themed workshop's id, on the frame. */
+  workshop?: WorkshopId;
+  /** The bottom row, in place of the beads alone. */
+  bottom?: ReactNode;
   /** Null while the request loads. */
   item: PresentedItem | PierStage | null;
   /** Set while a lesson step is on screen. */
@@ -123,8 +132,9 @@ export function PierItemScreen({
   onInteract: (event: InteractionEvent) => void;
 }) {
   return (
-    <PierFrame
+    <PlayFrame
       testId="pier"
+      workshop={workshop}
       phase={item ? phase : 'loading'}
       lookAgain={cue?.kind === 'again'}
       over={
@@ -174,7 +184,7 @@ export function PierItemScreen({
           </div>
         </>
       }
-      bottom={<Beads done={progress.done} total={progress.total} />}
+      bottom={bottom ?? <Beads done={progress.done} total={progress.total} />}
     >
       {item && (
         <WidgetHost
@@ -189,15 +199,16 @@ export function PierItemScreen({
           onInteract={onInteract}
         />
       )}
-    </PierFrame>
+    </PlayFrame>
   );
 }
 
 /** The workshop frame: a top row, the widget area (a bounded box the widget measures) and a bottom row. */
-export function PierFrame({
+export function PlayFrame({
   top,
   bottom,
   testId,
+  workshop,
   phase,
   lookAgain = false,
   over,
@@ -206,6 +217,7 @@ export function PierFrame({
   top: ReactNode;
   bottom?: ReactNode;
   testId: string;
+  workshop?: WorkshopId;
   /** Where the item on screen is (tests wait on it instead of on time). */
   phase?: string;
   /** The look-again cue at the widget (06 §6: a diegetic cue, never a red X). */
@@ -218,6 +230,7 @@ export function PierFrame({
     <div
       className="grid h-dvh min-h-[600px] w-full grid-rows-[auto_minmax(0,1fr)_auto] gap-3 overflow-hidden bg-sky-light px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
       data-testid={testId}
+      data-workshop={workshop}
       data-phase={phase}
     >
       <header className="flex min-h-24 items-center gap-4">{top}</header>
@@ -335,17 +348,19 @@ function LookAgainIcon() {
 }
 
 /** The break offer after an easy item (04 §6.4 rule 4): keep playing, or stop here with the celebration. */
-export function PierBreakOffer({
+export function BreakOffer({
+  workshop,
   onKeep,
   onBreak,
   onLeave,
 }: {
+  workshop?: WorkshopId;
   onKeep: () => void;
   onBreak: () => void;
   onLeave: () => void;
 }) {
   return (
-    <PierFrame top={<HomeButton onPress={onLeave} />} testId="pier-break">
+    <PlayFrame top={<HomeButton onPress={onLeave} />} testId="pier-break" workshop={workshop}>
       <div className="flex h-full flex-col items-center justify-center gap-8">
         <SpeechBubble say="ui.pier.break" tail="none" tone="sun" showText />
         <div className="flex flex-wrap items-center justify-center gap-6">
@@ -365,6 +380,6 @@ export function PierBreakOffer({
           />
         </div>
       </div>
-    </PierFrame>
+    </PlayFrame>
   );
 }

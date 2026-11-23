@@ -24,17 +24,17 @@ import type {
   WorkshopId,
 } from '@number-island/shared';
 import { practicePier } from './practice-pier';
+import { roadCrew } from './road-crew';
 import type { AppWorkshop } from './types';
 
 /** Every registered workshop. */
-export const WORKSHOPS: readonly AppWorkshop[] = [practicePier];
+export const WORKSHOPS: readonly AppWorkshop[] = [practicePier, roadCrew];
 
 /**
  * What each workshop makes (05 §4 "Produces") until its module registers; a registered
  * workshop's definition says its own, and its entry here goes. The Puzzle Tower makes no material.
  */
 export const UNREGISTERED_PRODUCTS: Readonly<Record<WorkshopId, readonly MaterialId[]>> = {
-  'road-crew': ['stone'],
   'lantern-grove': ['light'],
   'ten-boat-dock': ['plank'],
   'treasure-beach': ['gem'],

@@ -202,6 +202,9 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
     [audio],
   );
 
+  /** Counts on aloud to a stone that was laid elsewhere (Road Crew's parade). */
+  const countOn = useCallback((to: number) => walk(countingWalk(gameData, to)), [walk, gameData]);
+
   const layStone = useCallback(() => {
     write(async () => {
       const r = await layNextStone(store, child.id, gameData);
@@ -232,6 +235,7 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
     construction,
     skipConstruction: endConstruction,
     counting,
+    countOn,
     /** The road's next stone, when one can be laid, and whether the family has a stone for it. */
     next,
     hasStone: (inventory?.materials[ROAD_MATERIAL] ?? 0) >= ROAD_STONE_COST,

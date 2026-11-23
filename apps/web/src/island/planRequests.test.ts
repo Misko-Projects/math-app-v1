@@ -96,8 +96,9 @@ async function playRight(store: DataStore, request: PlannedRequest) {
 describe('workshop registration (02 §5.6)', () => {
   it('a request plays in its registered workshop, and on the Practice Pier when it has none', () => {
     expect(workshopFor('practice-pier').id).toBe('practice-pier');
-    expect(workshopFor('road-crew').id).toBe('practice-pier');
-    expect(WORKSHOPS.map((w) => w.id)).toContain('practice-pier');
+    expect(workshopFor('road-crew').id).toBe('road-crew');
+    expect(workshopFor('lantern-grove').id).toBe('practice-pier');
+    expect(WORKSHOPS.map((w) => w.id)).toEqual(['practice-pier', 'road-crew']);
   });
 
   it('the stand-in products are only for workshops that have not registered, and are real', () => {
@@ -127,8 +128,13 @@ describe('workshop registration (02 §5.6)', () => {
       ['practice-pier', true, []],
     ]);
     for (const cap of available.filter((c) => c.workshopId !== 'practice-pier')) {
-      // Not registered yet: it hosts no format, so its requests go to the Practice Pier.
-      expect(cap.formats).toEqual([]);
+      // Road Crew is registered and brings its formats. A workshop that is not registered yet
+      // hosts no format, so its requests go to the Practice Pier.
+      expect(cap.formats).toEqual(
+        cap.workshopId === 'road-crew'
+          ? ['hundred-chart', 'number-line-jump', 'tap-count', 'order']
+          : [],
+      );
       expect(cap.residents.length).toBeGreaterThan(0);
       for (const id of cap.residents) {
         const resident = gameData.residents.find((r) => r.id === id);
@@ -177,17 +183,17 @@ describe('a built workshop makes its product (05 §4; #22 part 2)', () => {
     expect(residentsOf(caps, 'lantern-grove').length).toBeGreaterThan(0);
 
     // The planner's own output: over a few visits a request asks for planks, and playing it
-    // puts planks in the Storehouse. One made of items only: `playRight` plays no lesson.
+    // puts planks in the Storehouse. With Road Crew registered the pier's request for a new
+    // child opens with a lesson; `playRight` plays no lesson, so its items are played.
     let plank: PlannedRequest | undefined;
     for (let visit = 0; visit < 12 && !plank; visit += 1) {
       env.clock.advance(60 * 60_000);
-      plank = (await plan(store)).find(
-        (r) => 'plank' in r.reward.materials && r.tasks.every((t) => t.mode === 'item'),
-      );
+      plank = (await plan(store)).find((r) => 'plank' in r.reward.materials);
     }
     if (!plank) throw new Error('no request asked for planks in 12 visits');
     expect(plank.workshopId).toBe('practice-pier');
     expect(['seela', 'hobb']).toContain(plank.residentId);
+    plank = { ...plank, tasks: plank.tasks.filter((t) => t.mode === 'item') };
     const summary = await playRight(store, plank);
     expect(summary.materials.plank).toBeGreaterThan(0);
     expect((await store.inventory()).materials.plank).toBe(summary.materials.plank);
@@ -289,11 +295,13 @@ describe('the island plan (04 §6.3)', () => {
     expect(requests.length).toBeGreaterThanOrEqual(2);
     expect(requests.length).toBeLessThanOrEqual(3);
     for (const request of requests) {
-      expect(request.workshopId).toBe('practice-pier');
+      expect(['practice-pier', 'road-crew']).toContain(request.workshopId);
       expect(gameData.residents.some((r) => r.id === request.residentId)).toBe(true);
       const made = Object.entries(request.reward.materials);
       expect(made).toHaveLength(1);
       expect(['stone', 'light']).toContain(made[0]?.[0]);
+      // Road Crew makes road stones and nothing else.
+      if (request.workshopId === 'road-crew') expect(made[0]?.[0]).toBe('stone');
       expect(request.tasks.length).toBeGreaterThan(0);
     }
   });
