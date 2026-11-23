@@ -88,7 +88,7 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
   // What it made arrives beside the Storehouse, and is in it: one in a ten-frame (K).
   await expect(page.getByTestId('arrived')).toHaveAttribute('data-count', '1');
   await page.getByRole('button', { name: 'Storehouse', exact: true }).click();
-  const pile = page.getByTestId('storehouse-piles').locator(`[data-material="${material}"]`);
+  const pile = page.getByTestId('storehouse-piles').locator(`li[data-material="${material}"]`);
   await expect(pile).toHaveAttribute('data-count', '1');
   await expect(pile.locator('[data-pile="ten-frame"]')).toHaveAttribute('data-filled', '1');
   await page.getByRole('button', { name: 'Go back' }).click();
