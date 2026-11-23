@@ -9,7 +9,7 @@
 //   place where its footprint fits: open land, off every plot the road will ever use, clear of
 //   what stands. A built one buys its next level (to 3) with that level's recipe; a building that
 //   stands never locks again.
-// - The road: the next stone costs one `stone` and must lie on open land.
+// - The road: the next stone costs `ROAD_STONE_COST` of `ROAD_MATERIAL` and must lie on open land.
 
 import { evaluateUnlock, type UnlockFacts } from '@number-island/engine/shell';
 import type {
@@ -26,6 +26,8 @@ import type {
 
 /** The material a road stone is made of (05 §4: the Road Crew's product). */
 export const ROAD_MATERIAL: MaterialId = 'stone';
+/** What one road stone costs, in `ROAD_MATERIAL`. Not in game data yet: the one place it is set. */
+export const ROAD_STONE_COST = 1;
 
 /** One line of a recipe: what it asks for and how much of that the family has. */
 export interface RecipeNeed {

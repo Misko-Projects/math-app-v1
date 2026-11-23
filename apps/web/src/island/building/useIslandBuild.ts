@@ -18,7 +18,14 @@ import { useRaise } from '@/runner/useRequestRunner';
 import { layNextStone, placeBuilding, upgradeBuilding } from './actions';
 import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS } from './clock';
 import { familyFacts } from './familyFacts';
-import { type BuildCard, buildCards, countingWalk, nextStone, ROAD_MATERIAL } from './rules';
+import {
+  type BuildCard,
+  buildCards,
+  countingWalk,
+  nextStone,
+  ROAD_MATERIAL,
+  ROAD_STONE_COST,
+} from './rules';
 
 export interface Construction {
   instanceId: string;
@@ -196,7 +203,7 @@ export function useIslandBuild(child: ChildProfile, onBuilt: () => void) {
     counting,
     /** The road's next stone, when one can be laid, and whether the family has a stone for it. */
     next,
-    hasStone: (inventory?.materials[ROAD_MATERIAL] ?? 0) >= 1,
+    hasStone: (inventory?.materials[ROAD_MATERIAL] ?? 0) >= ROAD_STONE_COST,
     layStone,
   };
 }

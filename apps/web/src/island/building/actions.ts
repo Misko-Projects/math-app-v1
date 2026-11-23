@@ -22,6 +22,7 @@ import {
   freeAnchors,
   nextStone,
   ROAD_MATERIAL,
+  ROAD_STONE_COST,
   recipeNeeds,
 } from './rules';
 
@@ -138,7 +139,7 @@ export async function upgradeBuilding(
 
 export type StoneResult = { ok: true; to: number } | { ok: false; reason: 'short' | 'stale' };
 
-/** Lays the road's next stone for one `stone`. */
+/** Lays the road's next stone for its cost (`ROAD_STONE_COST`). */
 export async function layNextStone(
   store: Store,
   childId: ChildId,
@@ -146,12 +147,12 @@ export async function layNextStone(
 ): Promise<StoneResult> {
   const next = nextStone(gameData, await store.island());
   if (!next) return { ok: false, reason: 'stale' };
-  if (((await store.inventory()).materials[ROAD_MATERIAL] ?? 0) < 1)
+  if (((await store.inventory()).materials[ROAD_MATERIAL] ?? 0) < ROAD_STONE_COST)
     return { ok: false, reason: 'short' };
   await store.append('road.extended', { to: next.n }, { childId });
   await store.append(
     'material.spent',
-    { materials: { [ROAD_MATERIAL]: 1 }, purpose: { kind: 'build', ref: ROAD_REF } },
+    { materials: { [ROAD_MATERIAL]: ROAD_STONE_COST }, purpose: { kind: 'build', ref: ROAD_REF } },
     { childId },
   );
   return { ok: true, to: next.n };
