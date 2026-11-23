@@ -12,7 +12,9 @@ test('every Storybook story matches its visual baseline', async ({ page, request
     entries: Record<string, IndexEntry>;
   };
   const stories = Object.values(index.entries).filter(
-    (e) => e.type === 'story' && !e.tags?.includes('!visual'),
+    // `visual` is on every story (packages/ui/.storybook/preview.tsx); `tags: ['!visual']` on a
+    // story or its file takes it off. The index never lists a negated tag itself.
+    (e) => e.type === 'story' && e.tags?.includes('visual') === true,
   );
   expect(stories.length).toBeGreaterThan(0);
   // One test walks every story, so its budget grows with the story count (each story loads,

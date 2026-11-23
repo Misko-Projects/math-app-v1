@@ -64,6 +64,9 @@ const withUi: Decorator = (Story, context) => {
 };
 
 const preview: Preview = {
+  // Every story is in the visual suite (e2e/visual) unless it says `tags: ['!visual']`: Storybook
+  // keeps a negated tag out of its index, so the suite looks for this one instead.
+  tags: ['visual'],
   parameters: {
     layout: 'fullscreen',
     // axe violations fail the story test in `pnpm test` (09 §3, Accessibility row).

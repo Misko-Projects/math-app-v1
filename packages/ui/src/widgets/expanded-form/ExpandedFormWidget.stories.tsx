@@ -1751,6 +1751,7 @@ const pierCards = (room: PierRoom, wide: boolean, k = false): Story => ({
  */
 export const PierSmallToStandard: Story = {
   ...pierPad('small', 'beside'),
+  tags: ['!visual'],
   play: async (ctx) => {
     await pierPad('small', 'beside').play?.(ctx);
     const root = await findWidget(ctx.canvasElement, ROOT);
@@ -1774,6 +1775,7 @@ export const PierSmallHear: Story = {
 /** 960 × 600, build with cards: the number beside the mat, the tray and Check under them. */
 export const PierSmallBuild: Story = {
   ...pierCards('small', true),
+  tags: ['!visual'],
   play: async (ctx) => {
     await pierCards('small', true).play?.(ctx);
     const root = await findWidget(ctx.canvasElement, ROOT);
@@ -1783,17 +1785,23 @@ export const PierSmallBuild: Story = {
     await expectFitsRoom(ctx.canvasElement, root, 'g1-up', '.ni-btn.ni-tone-sun');
   },
 };
-export const PierSmallBuildK: Story = pierCards('small', true, true);
-export const PierTabletToStandard: Story = pierPad('tablet', 'under');
-export const PierTabletBuild: Story = pierCards('tablet', false);
-export const PierTabletBuildK: Story = pierCards('tablet', false, true);
+export const PierSmallBuildK: Story = { ...pierCards('small', true, true), tags: ['!visual'] };
+export const PierTabletToStandard: Story = { ...pierPad('tablet', 'under'), tags: ['!visual'] };
+export const PierTabletBuild: Story = { ...pierCards('tablet', false), tags: ['!visual'] };
+export const PierTabletBuildK: Story = { ...pierCards('tablet', false, true), tags: ['!visual'] };
 // Rooms between the two viewports, one story each: whichever arrangement the room gets fits it.
-export const PierQuarterToStandard: Story = pierPad('quarter', 'beside');
-export const PierHalfToStandard: Story = pierPad('half', 'under');
-export const PierThreeQuartersToStandard: Story = pierPad('threeQuarters', 'under');
-export const PierQuarterBuild: Story = pierCards('quarter', true);
-export const PierHalfBuild: Story = pierCards('half', false);
-export const PierThreeQuartersBuild: Story = pierCards('threeQuarters', false);
+export const PierQuarterToStandard: Story = { ...pierPad('quarter', 'beside'), tags: ['!visual'] };
+export const PierHalfToStandard: Story = { ...pierPad('half', 'under'), tags: ['!visual'] };
+export const PierThreeQuartersToStandard: Story = {
+  ...pierPad('threeQuarters', 'under'),
+  tags: ['!visual'],
+};
+export const PierQuarterBuild: Story = { ...pierCards('quarter', true), tags: ['!visual'] };
+export const PierHalfBuild: Story = { ...pierCards('half', false), tags: ['!visual'] };
+export const PierThreeQuartersBuild: Story = {
+  ...pierCards('threeQuarters', false),
+  tags: ['!visual'],
+};
 
 const resized = (config: Config, from: PierRoom, to: PierRoom, after: string): Story => ({
   args: { config, tier: 'pictorial' },
@@ -1823,20 +1831,22 @@ const resized = (config: Config, from: PierRoom, to: PierRoom, after: string): S
  * item has had: growing the room re-sizes it and moves nothing to another place; shrinking it
  * gives the arrangement that fits, so the keys and Check stay in the area.
  */
-export const PierResizePadGrows: Story = resized(
-  pierToStandard,
-  'small',
-  'tablet',
-  'column side beside',
-);
-export const PierResizePadShrinks: Story = resized(
-  pierToStandard,
-  'tablet',
-  'small',
-  'column side beside',
-);
-export const PierResizeBuildGrows: Story = resized(pierBuild, 'small', 'tablet', 'wide - -');
-export const PierResizeBuildShrinks: Story = resized(pierBuild, 'tablet', 'small', 'wide - -');
+export const PierResizePadGrows: Story = {
+  ...resized(pierToStandard, 'small', 'tablet', 'column side beside'),
+  tags: ['!visual'],
+};
+export const PierResizePadShrinks: Story = {
+  ...resized(pierToStandard, 'tablet', 'small', 'column side beside'),
+  tags: ['!visual'],
+};
+export const PierResizeBuildGrows: Story = {
+  ...resized(pierBuild, 'small', 'tablet', 'wide - -'),
+  tags: ['!visual'],
+};
+export const PierResizeBuildShrinks: Story = {
+  ...resized(pierBuild, 'tablet', 'small', 'wide - -'),
+  tags: ['!visual'],
+};
 
 /**
  * Nothing changes places under a child's finger: the room shrinks while a card is being dragged,

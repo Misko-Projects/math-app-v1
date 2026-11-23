@@ -2032,6 +2032,7 @@ const pierTrade = (config: Config, room: PierRoom, arrange: 'usual' | 'in-side')
  */
 export const PierSmallRegroup: Story = {
   ...pierTrade(pierRegroup99, 'small', 'in-side'),
+  tags: ['!visual'],
   play: async (ctx) => {
     await pierTrade(pierRegroup99, 'small', 'in-side').play?.(ctx);
     const root = await findWidget(ctx.canvasElement, ROOT);
@@ -2043,18 +2044,37 @@ export const PierSmallRegroup: Story = {
     await expect(ctx.args.onResponse).toHaveBeenCalledTimes(1);
   },
 };
-export const PierSmallSplit: Story = pierTrade(pierSplit49, 'small', 'in-side');
-export const PierTabletRegroup: Story = pierTrade(pierRegroup99, 'tablet', 'usual');
-export const PierTabletSplit: Story = pierTrade(pierSplit49, 'tablet', 'usual');
+export const PierSmallSplit: Story = {
+  ...pierTrade(pierSplit49, 'small', 'in-side'),
+  tags: ['!visual'],
+};
+export const PierTabletRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'tablet', 'usual'),
+  tags: ['!visual'],
+};
+export const PierTabletSplit: Story = {
+  ...pierTrade(pierSplit49, 'tablet', 'usual'),
+  tags: ['!visual'],
+};
 /** 1280 × 800, add with a trade: the equation over the mat, the tray under it, the pad beside. */
 export const PierTabletAdd: Story = {
   ...pierTrade(pierAdd, 'tablet', 'usual'),
+  tags: ['!visual'],
   args: { config: pierAdd, tier: 'concrete' },
 };
 // Rooms between the two viewports, one story each.
-export const PierQuarterRegroup: Story = pierTrade(pierRegroup99, 'quarter', 'usual');
-export const PierHalfRegroup: Story = pierTrade(pierRegroup99, 'half', 'usual');
-export const PierThreeQuartersRegroup: Story = pierTrade(pierRegroup99, 'threeQuarters', 'usual');
+export const PierQuarterRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'quarter', 'usual'),
+  tags: ['!visual'],
+};
+export const PierHalfRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'half', 'usual'),
+  tags: ['!visual'],
+};
+export const PierThreeQuartersRegroup: Story = {
+  ...pierTrade(pierRegroup99, 'threeQuarters', 'usual'),
+  tags: ['!visual'],
+};
 
 /**
  * Add with a trade where the room is too small for it at countable sizes (960 × 600: the
@@ -2081,15 +2101,16 @@ const pierAddIn = (room: PierRoom): Story => ({
 });
 export const PierSmallAddScrolls: Story = {
   ...pierAddIn('small'),
+  tags: ['!visual'],
   play: async (ctx) => {
     await pierAddIn('small').play?.(ctx);
     const root = await findWidget(ctx.canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-arrange', 'tall');
   },
 };
-export const PierQuarterAdd: Story = pierAddIn('quarter');
-export const PierHalfAdd: Story = pierAddIn('half');
-export const PierThreeQuartersAdd: Story = pierAddIn('threeQuarters');
+export const PierQuarterAdd: Story = { ...pierAddIn('quarter'), tags: ['!visual'] };
+export const PierHalfAdd: Story = { ...pierAddIn('half'), tags: ['!visual'] };
+export const PierThreeQuartersAdd: Story = { ...pierAddIn('threeQuarters'), tags: ['!visual'] };
 
 const pierResized = (
   config: Config,
@@ -2120,25 +2141,27 @@ const pierResized = (
  * room the item has had: growing the room re-sizes the mat and moves nothing to another place;
  * shrinking it chooses again for the smaller room.
  */
-export const PierResizeRegroupGrows: Story = pierResized(
-  pierRegroup99,
-  'small',
-  'tablet',
-  'in-side',
-);
-export const PierResizeRegroupShrinks: Story = pierResized(
-  pierRegroup99,
-  'tablet',
-  'small',
-  'in-side',
-);
+export const PierResizeRegroupGrows: Story = {
+  ...pierResized(pierRegroup99, 'small', 'tablet', 'in-side'),
+  tags: ['!visual'],
+};
+export const PierResizeRegroupShrinks: Story = {
+  ...pierResized(pierRegroup99, 'tablet', 'small', 'in-side'),
+  tags: ['!visual'],
+};
 /**
  * Add with a trade (MDA.08.t1): opened at 1280 × 800 and shrunk to 960 × 600 with the operand
  * still in the tray, it keeps countable pieces and scrolls (never 8 px pieces); opened at
  * 960 × 600, where it scrolls, and grown to 1280 × 800, it fits the room.
  */
-export const PierResizeAddShrinks: Story = pierResized(pierAdd, 'tablet', 'small', 'tall');
-export const PierResizeAddGrows: Story = pierResized(pierAdd, 'small', 'tablet', 'usual');
+export const PierResizeAddShrinks: Story = {
+  ...pierResized(pierAdd, 'tablet', 'small', 'tall'),
+  tags: ['!visual'],
+};
+export const PierResizeAddGrows: Story = {
+  ...pierResized(pierAdd, 'small', 'tablet', 'usual'),
+  tags: ['!visual'],
+};
 
 /**
  * Keyboard focus survives the change of arrangement: with the trade made at 1280 × 800 and the

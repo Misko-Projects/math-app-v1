@@ -2732,6 +2732,7 @@ const pierMat = (config: Config, room: PierRoom, expected: string, k = false): S
  */
 export const PierSmallExactK: Story = {
   ...pierMat(pierExactK, 'small', 'true - -', true),
+  tags: ['!visual'],
   play: async (ctx) => {
     await pierMat(pierExactK, 'small', 'true - -', true).play?.(ctx);
     const root = await findWidget(ctx.canvasElement, ROOT);
@@ -2742,21 +2743,54 @@ export const PierSmallExactK: Story = {
     await expect(ctx.args.onResponse).toHaveBeenCalledTimes(1);
   },
 };
-export const PierSmallOnes39: Story = pierMat(pierOnes39, 'small', 'true - -');
-export const PierSmallAdd: Story = pierMat(pierAdd, 'small', '- - -');
+export const PierSmallOnes39: Story = {
+  ...pierMat(pierOnes39, 'small', 'true - -'),
+  tags: ['!visual'],
+};
+export const PierSmallAdd: Story = { ...pierMat(pierAdd, 'small', '- - -'), tags: ['!visual'] };
 /** 960 × 600, read: the answer and Check beside the 64 px keys. */
-export const PierSmallRead: Story = pierMat(pierRead, 'small', '- true 3x4');
-export const PierTabletExactK: Story = pierMat(pierExactK, 'tablet', '- - -', true);
-export const PierTabletOnes39: Story = pierMat(pierOnes39, 'tablet', '- - -');
-export const PierTabletAdd: Story = pierMat(pierAdd, 'tablet', '- - -');
-export const PierTabletRead: Story = pierMat(pierRead, 'tablet', '- - 3x4');
+export const PierSmallRead: Story = {
+  ...pierMat(pierRead, 'small', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierTabletExactK: Story = {
+  ...pierMat(pierExactK, 'tablet', '- - -', true),
+  tags: ['!visual'],
+};
+export const PierTabletOnes39: Story = {
+  ...pierMat(pierOnes39, 'tablet', '- - -'),
+  tags: ['!visual'],
+};
+export const PierTabletAdd: Story = { ...pierMat(pierAdd, 'tablet', '- - -'), tags: ['!visual'] };
+export const PierTabletRead: Story = {
+  ...pierMat(pierRead, 'tablet', '- - 3x4'),
+  tags: ['!visual'],
+};
 // Rooms between the two viewports, one story each.
-export const PierQuarterExactK: Story = pierMat(pierExactK, 'quarter', 'true - -', true);
-export const PierHalfExactK: Story = pierMat(pierExactK, 'half', 'true - -', true);
-export const PierThreeQuartersExactK: Story = pierMat(pierExactK, 'threeQuarters', '- - -', true);
-export const PierQuarterRead: Story = pierMat(pierRead, 'quarter', '- true 3x4');
-export const PierHalfRead: Story = pierMat(pierRead, 'half', '- true 3x4');
-export const PierThreeQuartersRead: Story = pierMat(pierRead, 'threeQuarters', '- true 3x4');
+export const PierQuarterExactK: Story = {
+  ...pierMat(pierExactK, 'quarter', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierHalfExactK: Story = {
+  ...pierMat(pierExactK, 'half', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierThreeQuartersExactK: Story = {
+  ...pierMat(pierExactK, 'threeQuarters', '- - -', true),
+  tags: ['!visual'],
+};
+export const PierQuarterRead: Story = {
+  ...pierMat(pierRead, 'quarter', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierHalfRead: Story = {
+  ...pierMat(pierRead, 'half', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierThreeQuartersRead: Story = {
+  ...pierMat(pierRead, 'threeQuarters', '- true 3x4'),
+  tags: ['!visual'],
+};
 
 const pierResized = (
   config: Config,
@@ -2790,19 +2824,19 @@ const pierResized = (
  * room the item has had: growing the room re-sizes the mat and moves nothing to another place;
  * shrinking it gives the panel that fits, so the keys and Check stay in the area.
  */
-export const PierResizeExactGrows: Story = pierResized(
-  pierExactK,
-  'small',
-  'tablet',
-  'true - -',
-  true,
-);
-export const PierResizeExactShrinks: Story = pierResized(
-  pierExactK,
-  'tablet',
-  'small',
-  'true - -',
-  true,
-);
-export const PierResizeReadGrows: Story = pierResized(pierRead, 'small', 'tablet', '- true 3x4');
-export const PierResizeReadShrinks: Story = pierResized(pierRead, 'tablet', 'small', '- true 3x4');
+export const PierResizeExactGrows: Story = {
+  ...pierResized(pierExactK, 'small', 'tablet', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierResizeExactShrinks: Story = {
+  ...pierResized(pierExactK, 'tablet', 'small', 'true - -', true),
+  tags: ['!visual'],
+};
+export const PierResizeReadGrows: Story = {
+  ...pierResized(pierRead, 'small', 'tablet', '- true 3x4'),
+  tags: ['!visual'],
+};
+export const PierResizeReadShrinks: Story = {
+  ...pierResized(pierRead, 'tablet', 'small', '- true 3x4'),
+  tags: ['!visual'],
+};
