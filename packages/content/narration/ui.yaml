@@ -1470,3 +1470,17 @@ ui.pier.done:
 ui.pier.progress:
   text: "How many are done"
   level: K
+# The break offer after an easy item (04 §6.4 rule 4), and the picture a hint shows.
+ui.pier.break:
+  text: "Do you want to stop now? We can go and build!"
+  voice: pip
+  level: K
+ui.pier.break.yes:
+  text: "Stop now"
+  level: K
+ui.pier.break.no:
+  text: "Play more"
+  level: K
+ui.pier.picture:
+  text: "A picture to help you"
+  level: K

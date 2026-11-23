@@ -1,24 +1,38 @@
 // The Practice Pier's screen (06 §2 workshop layout), without the runner: the frame, the item's
 // row of controls and the widget in the workshop area. `PierPage` plays a request in it; the fit
 // check (`pierFit.browser.test.tsx`) renders every template in it and measures the area.
+//
+// After a wrong answer (06 §6, #20 part 2) the cue is at the widget: the workshop area sways once
+// and takes a sunshine edge with a look-again badge on it. The line being spoken (the feedback,
+// a hint, a step of the worked solution) takes the prompt's place in the bubble while it plays.
+// A hint's picture is a card over the area, and the lightbulb asks for the next hint.
 
 import type {
   InteractionEvent,
   NarrationKey,
   PresentedItem,
   ResponseValue,
+  StimulusSpec,
   Tier,
 } from '@number-island/shared';
 import {
   BigButton,
+  HintButton,
   HomeButton,
   icons,
+  ReplayButton,
   SpeechBubble,
   useNarrationText,
   VisuallyHidden,
+  type WidgetDemo,
   WidgetHost,
 } from '@number-island/ui';
-import type { ReactNode } from 'react';
+import { lazy, type ReactNode, Suspense } from 'react';
+
+// Only a representation hint shows a picture. It is drawn by the widget kit, whose code (and the
+// engine's item core under it, loaded at boot, 02 §6a) the widgets already share: it is a chunk of
+// its own beside the runner, not part of a workshop's chunk.
+const HintPicture = lazy(() => import('@/runner/HintPicture'));
 
 export type Cue = { kind: 'right' | 'again' | 'onward'; say: NarrationKey | undefined };
 
@@ -26,7 +40,14 @@ export type Phase =
   | 'prompt' // the prompt is being spoken; no input yet
   | 'answer' // item ready: the widget takes input
   | 'checking' // an answer is being checked and written
+  | 'hint' // a feedback line, a hint or the worked solution is playing; no input
   | 'feedback'; // resolved: "next" moves on
+
+/** A line being spoken in place of the prompt. */
+export interface SpokenLine {
+  say: NarrationKey;
+  vars?: Record<string, string | number>;
+}
 
 /** One item on screen: Home, the prompt, the cue and "next", the widget, the request's beads. */
 export function PierItemScreen({
@@ -35,21 +56,42 @@ export function PierItemScreen({
   itemKey,
   phase,
   cue,
+  line = null,
+  picture = null,
+  demo,
   progress,
   onLeave,
   onNext,
+  onHint,
+  onReplayPrompt,
+  onClosePicture,
   onResponse,
   onInteract,
 }: {
   /** Null while the request loads. */
   item: PresentedItem | null;
   tier: Tier;
-  itemKey: number;
+  itemKey: number | string;
   phase: Phase;
   cue: Cue | null;
+  /** The line playing now (feedback, hint or solution step); null shows the prompt. */
+  line?: SpokenLine | null;
+  /** A representation hint's picture, shown over the workshop area until closed. */
+  picture?: StimulusSpec | null;
+  /** Drives the widget for a hint's actions and the worked solution. */
+  demo?: WidgetDemo;
   progress: { done: number; total: number };
   onLeave: () => void;
   onNext: () => void;
+  /** The lightbulb: the next hint. Shown while the item takes an answer. */
+  onHint?: () => void;
+  /**
+   * Brings the item's instruction back: said again, and back in the bubble in place of the
+   * hint's line. While a hint's line has the bubble, this speaker is the way back to the
+   * instruction (06 §5: every instruction has a replay).
+   */
+  onReplayPrompt?: () => void;
+  onClosePicture?: () => void;
   onResponse: (response: ResponseValue) => void;
   onInteract: (event: InteractionEvent) => void;
 }) {
@@ -57,16 +99,33 @@ export function PierItemScreen({
     <PierFrame
       testId="pier"
       phase={item ? phase : 'loading'}
+      lookAgain={cue?.kind === 'again'}
+      over={
+        picture &&
+        picture.kind !== 'none' && (
+          <Suspense fallback={null}>
+            <HintPicture spec={picture} onClose={onClosePicture ?? (() => {})} />
+          </Suspense>
+        )
+      }
       top={
         <>
           <HomeButton onPress={onLeave} />
           {item && (
             <div className="flex min-w-0 flex-1 items-center">
-              <SpeechBubble say={item.prompt.narration} vars={item.prompt.vars} tail="left" />
+              {line ? (
+                <SpeechBubble say={line.say} vars={line.vars} tail="left" tone="sun" />
+              ) : (
+                <SpeechBubble say={item.prompt.narration} vars={item.prompt.vars} tail="left" />
+              )}
             </div>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-4">
+            {item && line && phase === 'answer' && onReplayPrompt && !picture && (
+              <ReplayButton onPress={onReplayPrompt} />
+            )}
             <CueBadge cue={cue} />
+            {item && phase === 'answer' && onHint && !picture && <HintButton onPress={onHint} />}
             {phase === 'feedback' && (
               <BigButton
                 label="ui.btn.next"
@@ -86,7 +145,8 @@ export function PierItemScreen({
           config={item.widget}
           tier={tier}
           itemKey={itemKey}
-          disabled={phase !== 'answer'}
+          disabled={phase !== 'answer' || Boolean(picture)}
+          demo={demo}
           onResponse={onResponse}
           onInteract={onInteract}
         />
@@ -101,6 +161,8 @@ export function PierFrame({
   bottom,
   testId,
   phase,
+  lookAgain = false,
+  over,
   children,
 }: {
   top: ReactNode;
@@ -108,6 +170,10 @@ export function PierFrame({
   testId: string;
   /** Where the item on screen is (tests wait on it instead of on time). */
   phase?: string;
+  /** The look-again cue at the widget (06 §6: a diegetic cue, never a red X). */
+  lookAgain?: boolean;
+  /** A card over the workshop area. */
+  over?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -117,12 +183,32 @@ export function PierFrame({
       data-phase={phase}
     >
       <header className="flex min-h-24 items-center gap-4">{top}</header>
-      <main
-        className="grid min-h-0 overflow-auto rounded-card border-[3px] border-sand-deep bg-sand p-6 shadow-soft"
-        data-testid="pier-stage"
-      >
-        {children}
-      </main>
+      <div className="relative grid min-h-0 grid-rows-[minmax(0,1fr)]">
+        <main
+          // The edge is a ring, not a wider border: the widget keeps its room and does not move.
+          className={`grid min-h-0 overflow-auto rounded-card border-[3px] bg-sand p-6 shadow-soft ${
+            lookAgain
+              ? 'border-wood-deep ring-[6px] ring-sunshine motion-safe:animate-[ni-wiggle_450ms_ease-in-out_1]'
+              : 'border-sand-deep'
+          }`}
+          data-testid="pier-stage"
+          data-look-again={lookAgain ? 'true' : undefined}
+        >
+          {children}
+        </main>
+        {lookAgain && (
+          <span
+            aria-hidden="true"
+            data-testid="pier-stage-cue"
+            className="pointer-events-none absolute top-0 left-1/2 z-20 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-wood-deep bg-sunshine-light"
+          >
+            <span className="size-7">
+              <LookAgainIcon />
+            </span>
+          </span>
+        )}
+        {over}
+      </div>
       <footer className="flex min-h-7 items-center justify-center">{bottom}</footer>
     </div>
   );
@@ -207,5 +293,40 @@ function LookAgainIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+/** The break offer after an easy item (04 §6.4 rule 4): keep playing, or stop here with the celebration. */
+export function PierBreakOffer({
+  onKeep,
+  onBreak,
+  onLeave,
+}: {
+  onKeep: () => void;
+  onBreak: () => void;
+  onLeave: () => void;
+}) {
+  return (
+    <PierFrame top={<HomeButton onPress={onLeave} />} testId="pier-break">
+      <div className="flex h-full flex-col items-center justify-center gap-8">
+        <SpeechBubble say="ui.pier.break" tail="none" tone="sun" showText />
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <BigButton
+            label="ui.pier.break.no"
+            icon={<icons.ArrowIcon tone="light" />}
+            tone="leaf"
+            showLabel
+            onPress={onKeep}
+          />
+          <BigButton
+            label="ui.pier.break.yes"
+            icon={<icons.HomeIcon />}
+            tone="cloud"
+            showLabel
+            onPress={onBreak}
+          />
+        </div>
+      </div>
+    </PierFrame>
   );
 }

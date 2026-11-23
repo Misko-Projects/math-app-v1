@@ -18,6 +18,7 @@ import type {
   ItemFormat,
   ItemTemplate,
   LearnerState,
+  MisconceptionId,
   PlannedRequest,
   SkillGraph,
   SkillId,
@@ -60,9 +61,15 @@ export function planPierRequest(
     island: IslandState;
     now: number;
     minutes: number;
+    /** A remediation queued in an earlier request (04 §6.4 rule 5): the plan starts with it. */
+    remediation?: { skillId: SkillId; misconceptionId: MisconceptionId };
   },
 ): PlannedRequest | null {
-  const plan = engine.planSession({ ...input, workshopsAvailable: [] });
+  const { remediation, ...rest } = input;
+  const plan = engine.planSession(
+    { ...rest, workshopsAvailable: [] },
+    remediation ? { remediation } : {},
+  );
   for (const request of plan.requests) {
     const playable = playableTasks(request, input.graph);
     if (playable.tasks.length > 0) return playable;

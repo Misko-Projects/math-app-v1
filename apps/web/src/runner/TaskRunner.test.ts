@@ -136,7 +136,7 @@ describe('TaskRunner', () => {
     expect(runner.endReason()).toBe('complete');
     expect(played).toBe(runner.progress().total);
     const summary = await runner.finish();
-    expect(summary).toEqual({ items: played, firstTryCorrect: played, reason: 'complete' });
+    expect(summary).toMatchObject({ items: played, firstTryCorrect: played, reason: 'complete' });
     // Finishing twice writes one event.
     await runner.finish();
 
@@ -210,7 +210,7 @@ describe('TaskRunner', () => {
 
     const fb2 = await runner.submit(wrongAnswer, { latencyMs: 3000 });
     expect(fb2).toMatchObject({ correct: false, retry: false });
-    expect(fb2.say.key).toBe('fb.skip');
+    expect(fb2.say.key).toBe('fb.reveal');
     expect(runner.progress().done).toBe(1);
     // An item that is resolved takes no further answer.
     await expect(runner.submit(wrongAnswer, { latencyMs: 1 })).rejects.toThrow(/no item/);
@@ -258,7 +258,11 @@ describe('TaskRunner', () => {
     await runner.submit(engine.itemExampleCorrect(last()), { latencyMs: 4000 });
     expect(runner.next()).toBeNull();
     expect(runner.endReason()).toBe('wind-down');
-    expect(await runner.finish()).toEqual({ items: 2, firstTryCorrect: 1, reason: 'wind-down' });
+    expect(await runner.finish()).toMatchObject({
+      items: 2,
+      firstTryCorrect: 1,
+      reason: 'wind-down',
+    });
     const completed = (await store.events()).find((e) => e.type === 'request.completed');
     expect(completed?.payload).toMatchObject({ items: 2, endedEarly: true });
   });
@@ -285,7 +289,11 @@ describe('TaskRunner', () => {
     winding = true;
     expect(runner.next()).toBeNull();
     expect(runner.endReason()).toBe('wind-down');
-    expect(await runner.finish()).toEqual({ items: 1, firstTryCorrect: 1, reason: 'wind-down' });
+    expect(await runner.finish()).toMatchObject({
+      items: 1,
+      firstTryCorrect: 1,
+      reason: 'wind-down',
+    });
   });
 
   it('logs a misconception once per item, however many tries repeat it', async () => {
@@ -405,7 +413,7 @@ describe('TaskRunner', () => {
     expect(log).toEqual({ items: 1, mathMs: 1500 });
     const summary = await runner.finish();
     await writing;
-    expect(summary).toEqual({ items: 1, firstTryCorrect: 1, reason: 'child-exit' });
+    expect(summary).toMatchObject({ items: 1, firstTryCorrect: 1, reason: 'child-exit' });
     const types = (await store.events()).map((e) => e.type);
     expect(types).toEqual(['request.accepted', 'attempt', 'request.completed']);
   });
