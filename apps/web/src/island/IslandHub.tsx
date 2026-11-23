@@ -36,7 +36,6 @@ import {
   pebblingFromResident,
   plotBox,
   ReplayButton,
-  RoadStone,
   SCENE_H,
   SCENE_W,
   Sheet,
@@ -112,6 +111,8 @@ export function IslandHub({
   const made = hub.result ? units(hub.result.materials) : [];
   // What the island is busy with: choosing a plot, or a building going up.
   const busy = build.placing !== null || build.construction !== null;
+  // The requests step aside for it, and for the walk along the road, which they would cover.
+  const aside = busy || build.counting !== null;
   const line = build.placing
     ? 'ui.build.place'
     : build.construction
@@ -349,14 +350,31 @@ export function IslandHub({
             label="ui.build.open"
             icon={<HammerIcon size={56} />}
             tone="cloud"
-            disabled={busy}
+            disabled={busy || !build.ready}
             onPress={build.openSheet}
             data={{ 'data-testid': 'build-open' }}
           />
           {build.next ? (
             <IconButton
               label="ui.road.next"
-              icon={<RoadStone n={build.next.n} state="next" size={60} />}
+              icon={
+                // The stone to lay, as a numeral a child reads (32 px), on a stone still to come.
+                <span
+                  className="flex items-center justify-center rounded-full bg-sand font-display font-bold leading-none text-ink"
+                  style={{
+                    // Wider than the button's icon box, and centred on it.
+                    flex: 'none',
+                    width: 68,
+                    height: 68,
+                    margin: '-10px',
+                    fontSize: build.next.n < 1000 ? 32 : 26,
+                    outline: '3px dashed rgb(36 59 83 / 0.8)',
+                    outlineOffset: -3,
+                  }}
+                >
+                  {build.next.n}
+                </span>
+              }
               tone="cloud"
               disabled={busy}
               onPress={build.layStone}
@@ -367,7 +385,7 @@ export function IslandHub({
               }}
             />
           ) : null}
-          {made.length > 0 && !busy ? (
+          {made.length > 0 && !aside ? (
             <div
               className="flex max-w-[15rem] flex-wrap items-center justify-end gap-1 rounded-[20px] bg-paper/95 px-3 py-2 shadow-soft ring-4 ring-sunshine"
               role="img"
@@ -405,7 +423,7 @@ export function IslandHub({
             )}
           </div>
         ) : null}
-        {requests && !busy ? (
+        {requests && !aside ? (
           <ul
             className="absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] pointer-events-none z-20 flex items-end justify-center gap-6 px-4"
             aria-label={text('ui.island.requests')}
@@ -475,23 +493,19 @@ export function IslandHub({
           }
         />
       </footer>
-      <Sheet
-        open={build.sheetOpen}
-        onClose={build.closeSheet}
-        label="ui.build.open"
-        placement="center"
-      >
-        {build.sheetOpen ? (
-          <Suspense fallback={null}>
-            <BuildSheet
-              cards={build.cards}
-              gameData={gameData}
-              mode={child.grade === 'K' ? 'ten-frames' : 'base-ten'}
-              onBuy={build.buy}
-            />
-          </Suspense>
-        ) : null}
-      </Sheet>
+      {/* Loaded when it is first opened, and kept: closing returns the focus as any sheet does. */}
+      {build.sheetUsed ? (
+        <Suspense fallback={null}>
+          <BuildSheet
+            open={build.sheetOpen}
+            onClose={build.closeSheet}
+            cards={build.cards}
+            gameData={gameData}
+            mode={child.grade === 'K' ? 'ten-frames' : 'base-ten'}
+            onBuy={build.buy}
+          />
+        </Suspense>
+      ) : null}
       <Sheet
         open={storehouseOpen}
         onClose={() => setStorehouseOpen(false)}

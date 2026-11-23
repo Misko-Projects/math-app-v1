@@ -40,10 +40,10 @@ async function expectSheetFits(page: Page) {
   const fits = await page.evaluate(() => {
     const dialog = document.querySelector('dialog[open]');
     if (!dialog) return { scrolls: true, outside: ['no dialog'] };
-    const scrolls = [dialog, ...dialog.querySelectorAll('*')].some(
+    const scrolls = [dialog, ...Array.from(dialog.querySelectorAll('*'))].some(
       (el) => el.scrollHeight > el.clientHeight + 1 && getComputedStyle(el).overflowY !== 'visible',
     );
-    const outside = [...dialog.querySelectorAll('[data-card], button')]
+    const outside = Array.from(dialog.querySelectorAll('[data-card], button'))
       .filter((el) => {
         const r = el.getBoundingClientRect();
         return r.left < 0 || r.top < 0 || r.right > innerWidth || r.bottom > innerHeight;
@@ -71,9 +71,9 @@ test('build the first home: the recipe, a highlighted plot, the construction ste
   // What can be bought comes first: the first home, paid in full (no unit missing).
   const cottage = sheet.locator('[data-card="shell-cottage"]');
   await expect(cottage).toHaveAttribute('data-state', 'ready');
-  await expect(cottage.locator('[data-material="stone"]')).toHaveAttribute('data-missing', '0');
+  await expect(cottage.locator('li[data-material="stone"]')).toHaveAttribute('data-missing', '0');
   await expect(cottage.locator('[data-unit="missing"]')).toHaveCount(0);
-  await expect(cottage.locator('[data-material="stone"] [data-unit="have"]')).toHaveCount(5);
+  await expect(cottage.locator('li[data-material="stone"] [data-unit="have"]')).toHaveCount(5);
   // Every page fits the screen without scrolling, and a locked card shows no way to build.
   const pages = Number(await sheet.getAttribute('data-pages'));
   expect(pages).toBeGreaterThan(1);
@@ -127,7 +127,7 @@ test('build the first home: the recipe, a highlighted plot, the construction ste
   // The Storehouse holds what is left: two stones.
   await page.getByRole('button', { name: 'Storehouse', exact: true }).click();
   await expect(
-    page.locator('[data-testid="storehouse-piles"] [data-material="stone"]'),
+    page.locator('[data-testid="storehouse-piles"] li[data-material="stone"]'),
   ).toHaveAttribute('data-count', '2');
   await page.getByRole('button', { name: 'Go back' }).click();
   // The home is at level 1: the sheet now offers its next level, which is short.

@@ -458,7 +458,10 @@ describe('building on the island (05 §6, 06 §2 Build; #22 part 2)', () => {
   };
   const openSheet = async () => {
     await bubbles();
-    fireEvent.click(screen.getByRole('button', { name: 'Build' }));
+    const open = screen.getByRole('button', { name: 'Build' }) as HTMLButtonElement;
+    // Enabled once the island and the Storehouse are read.
+    await waitFor(() => expect(open.disabled).toBe(false));
+    fireEvent.click(open);
     return screen.findByTestId('build-sheet');
   };
   /** The card of a building, paging forward through the sheet until it shows. */
