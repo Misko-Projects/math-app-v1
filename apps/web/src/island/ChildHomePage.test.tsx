@@ -598,7 +598,7 @@ describe('building on the island (05 §6, 06 §2 Build; #22 part 2)', () => {
       );
     });
     await screen.findByTestId('construction');
-    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go on' }));
     expect(screen.queryByTestId('construction')).toBeNull();
     expect(clock.pending()).toBe(0);
   });

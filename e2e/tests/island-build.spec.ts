@@ -110,7 +110,7 @@ test('build the first home: the recipe, a highlighted plot, the construction ste
 
   // The construction step, skipped; the home stands and the requests are back.
   await expect(page.getByTestId('construction')).toBeVisible();
-  await page.getByRole('button', { name: 'Skip', exact: true }).click();
+  await page.getByRole('button', { name: 'Go on', exact: true }).click();
   await expect(page.getByTestId('construction')).toHaveCount(0);
   await expect(page.locator('[data-building="shell-cottage"][data-stage="1"]')).toBeVisible();
   await expect(page.getByTestId('requests').locator('[data-request]').first()).toBeVisible();
@@ -132,6 +132,10 @@ test('build the first home: the recipe, a highlighted plot, the construction ste
   await page.getByRole('button', { name: 'Go back' }).click();
   // The home is at level 1: the sheet now offers its next level, which is short.
   await page.getByRole('button', { name: 'Build', exact: true }).click();
+  // (The free workshops, which now have room, come first: page to the home's card.)
+  await expect(sheet).toBeVisible();
+  while ((await sheet.locator('[data-card="shell-cottage"]').count()) === 0)
+    await page.getByTestId('build-next').click();
   await expect(sheet.locator('[data-card="shell-cottage"]')).toHaveAttribute('data-level', '2');
   await expect(sheet.locator('[data-card="shell-cottage"]')).toHaveAttribute('data-state', 'short');
   expect(errors).toEqual([]);

@@ -100,7 +100,7 @@ ui.build.short:
   text: "We need more things first. Help a friend!"
   level: K
 ui.build.noroom:
-  text: "There is no room for it yet."
+  text: "There is no place for it now."
   level: K
 ui.build.locked.building:
   text: "Build this one first."
@@ -112,22 +112,22 @@ ui.build.locked.residents:
   text: "A friend has to move in first."
   level: K
 ui.build.locked.practice:
-  text: "Keep playing to open this."
+  text: "Play more to open this."
   level: K
 ui.build.place:
-  text: "Tap a spot to build."
+  text: "Tap where you want to build."
   level: K
 ui.build.spot:
-  text: "Build here, spot {n}"
+  text: "Build here, {n}"
   level: K
 ui.build.working:
   text: "Building!"
   level: K
 ui.build.done:
-  text: "We built it!"
+  text: "We did it!"
   level: K
 ui.build.skip:
-  text: "Skip"
+  text: "Go on"
   level: K
 ui.build.prev:
   text: "Back"
