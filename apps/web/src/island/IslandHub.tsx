@@ -27,20 +27,16 @@ import {
   BigButton,
   BuildingArtView,
   buildingArtFor,
-  HORIZON_Y,
   HomeButton,
   IconButton,
   IslandScene,
   icons,
-  landCrop,
   materialArtFor,
   Pebbling,
   PlacedBuilding,
   pebblingFromResident,
   plotBox,
   ReplayButton,
-  SCENE_H,
-  SCENE_W,
   Sheet,
   SpeechBubble,
   useNarrationText,
@@ -75,6 +71,7 @@ import { offeredPlots, PlotTargets, useSceneMap } from './building/PlotTargets';
 import { useIslandBuild } from './building/useIslandBuild';
 import { firstProblem } from './firstProblem';
 import { useHub } from './hub';
+import { landBox, roomCrop, useIslandRoom } from './layout';
 import { isRemediation, planIslandRequests } from './planRequests';
 import { Storehouse } from './Storehouse';
 import {
@@ -128,6 +125,7 @@ export function IslandHub({
     useCallback(() => setBuilds((n) => n + 1), []),
   );
   const sceneBox = useRef<HTMLDivElement>(null);
+  const home = useRef<HTMLDivElement>(null);
 
   // The island waits for a request that is still being written (the child just left it).
   const idle = hub.picked === null;
@@ -253,17 +251,22 @@ export function IslandHub({
   };
 
   const rings = island?.ringsUnlocked ?? 1;
+  // The land is drawn in the room the controls leave (`layout.ts`): measured again when the
+  // guide's line, the requests or the columns change.
+  const layout = useIslandRoom(
+    home,
+    `${line}:${requests?.length ?? 0}:${aside}:${build.next?.n ?? 0}:${made.length}`,
+  );
   const crop = useMemo(() => {
-    const land = landCrop(gameData.island, rings);
-    const w = Math.max(land.w, MIN_VIEW_W);
-    const h = w / (SCENE_W / SCENE_H);
-    return {
-      x: land.x + land.w / 2 - w / 2,
-      y: Math.max(HORIZON_Y, land.y + land.h / 2 - h / 2),
-      w,
-      h,
-    };
-  }, [gameData.island, rings]);
+    const land = landBox(gameData.island, rings);
+    // Before the screen is laid out (and in jsdom): the land, centred.
+    const size = layout?.size ?? { w: 1280, h: 800 };
+    const room = layout?.room ?? { left: 0, top: 0, right: size.w, bottom: size.h };
+    return roomCrop(land, room, size, MIN_VIEW_W);
+  }, [gameData.island, rings, layout]);
+  const rowLow = layout?.rowFits ?? true;
+  // The low row is centred between the corners, the raised one on the screen.
+  const rowInset = rowLow && layout ? layout.rowInset : { left: 0, right: 0 };
   // The road: the stones laid and, when one can be laid, the next one as its target. While a
   // plot is chosen the next stone steps aside, so its target takes no tap meant for a plot.
   const roadTo = build.next && !busy ? build.next.n : (island?.roadLength ?? 0);
@@ -341,7 +344,11 @@ export function IslandHub({
   };
 
   return (
-    <div className="relative h-dvh min-h-[600px] w-full overflow-hidden" data-testid="child-home">
+    <div
+      ref={home}
+      className="relative h-dvh min-h-[600px] w-full overflow-hidden"
+      data-testid="child-home"
+    >
       <main className="absolute inset-0">
         {/* The next stone's tap target is art (`data-hit="next"`); its accessible control is the
             road button under the Storehouse. */}
@@ -401,23 +408,39 @@ export function IslandHub({
             </div>
           ) : null}
         </div>
-        {/* Top left: Home (back to "Who is playing?") and who is playing. */}
-        <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10 flex items-center gap-4">
-          <HomeButton onPress={() => void goHome()} />
-          <div className="flex items-center gap-3 rounded-pill bg-paper/90 py-2 pr-6 pl-2 shadow-soft ring-4 ring-sand-deep">
-            <ChildAvatar
-              name={child.name}
-              avatar={child.avatar}
-              index={index}
-              className="size-16"
-            />
-            <span className="max-w-[12rem] truncate font-body text-[1.5rem] font-bold text-ink">
-              {child.name}
-            </span>
+        {/* The top row: Home (back to "Who is playing?"), who is playing, and the guide's line
+            with its speaker, in the room left of the right column. */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-10 flex items-start gap-4 pr-[calc(max(1rem,env(safe-area-inset-right))+7.5rem)] pl-[max(1rem,env(safe-area-inset-left))] *:pointer-events-auto"
+          data-room="top"
+        >
+          <div className="flex shrink-0 items-center gap-4">
+            <HomeButton onPress={() => void goHome()} />
+            <div className="flex items-center gap-3 rounded-pill bg-paper/90 py-2 pr-6 pl-2 shadow-soft ring-4 ring-sand-deep">
+              <ChildAvatar
+                name={child.name}
+                avatar={child.avatar}
+                index={index}
+                className="size-16"
+              />
+              <span className="max-w-[12rem] truncate font-body text-[1.5rem] font-bold text-ink">
+                {child.name}
+              </span>
+            </div>
+          </div>
+          <div
+            className="flex min-w-0 flex-1 items-center justify-center gap-4"
+            data-testid="island-line"
+          >
+            <SpeechBubble say={line} tail="none" showText />
+            <ReplayButton onPress={() => say(line)} />
           </div>
         </div>
         {/* Top right: the Storehouse, and what the last request brought to it. */}
-        <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-10 flex flex-col items-end gap-3">
+        <div
+          className="absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-10 flex flex-col items-end gap-3"
+          data-room="right"
+        >
           <IconButton
             label="game.building.storehouse"
             icon={<BuildingArtView id="storehouse" stage={1} size={64} />}
@@ -464,10 +487,18 @@ export function IslandHub({
             </div>
           ) : null}
         </div>
-        <div className="pointer-events-none relative flex items-center justify-center gap-5 px-4 pt-[calc(max(1rem,env(safe-area-inset-top))+6.25rem)] *:pointer-events-auto">
-          <SpeechBubble say={line} tail="none" showText />
-          <ReplayButton onPress={() => say(line)} />
-        </div>
+        {/* The request row's place, kept while the requests step aside, so the map stays where
+            it is: at the very bottom between the avatars and the parent gate, or above them
+            where it does not fit there (portrait). */}
+        <div
+          className={`pointer-events-none absolute inset-x-0 h-[13.25rem] ${
+            rowLow
+              ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]'
+              : 'bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)]'
+          }`}
+          data-room="bottom"
+          data-row={rowLow ? 'low' : 'raised'}
+        />
         {/* The requests: a bubble over each resident, the recommended one first. They lie above
             the parent gate's hint, which opens over this row on a narrow screen: a request and
             its speaker stay whole targets while the hint shows. */}
@@ -492,7 +523,12 @@ export function IslandHub({
         ) : null}
         {requests && !aside ? (
           <ul
-            className="absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] pointer-events-none z-20 flex items-end justify-center gap-6 px-4"
+            className={`pointer-events-none absolute z-20 flex items-end justify-center gap-4 ${
+              rowLow
+                ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]'
+                : 'bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] px-4'
+            }`}
+            style={rowInset}
             aria-label={text('ui.island.requests')}
             data-testid="requests"
           >
@@ -545,19 +581,25 @@ export function IslandHub({
           </ul>
         ) : null}
         {/* Bottom left: the children of this island, clear of the requests. */}
-        <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-10">
+        <div
+          className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-10"
+          data-room="corner"
+        >
           <FamilyAvatars members={members} playing={child.id} />
         </div>
         {devFlag() && (
           <Link
             to={`/play/${child.id}/pier?browse`}
-            className="absolute bottom-24 left-4 rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
+            className="absolute top-[8.5rem] left-4 z-30 rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
           >
             Content browser (dev)
           </Link>
         )}
       </main>
-      <footer className="absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))]">
+      <footer
+        className="absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))]"
+        data-room="corner"
+      >
         <HoldToOpen
           onOpen={() =>
             navigate('/parent', { state: { gateHeldAt: Date.now() } satisfies GateHeldState })
