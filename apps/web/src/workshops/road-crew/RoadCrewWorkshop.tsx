@@ -17,7 +17,12 @@ import type { AppWorkshopProps } from '../types';
 import { layParadeStone, stonesMade } from './paradeStone';
 import { RoadCrewBottom, StoneParade } from './RoadCrewScene';
 
-export default function RoadCrewWorkshop({ runner, childId, onExit }: AppWorkshopProps) {
+export default function RoadCrewWorkshop({
+  runner,
+  childId,
+  onExit,
+  onRoadStone,
+}: AppWorkshopProps) {
   const { store, content } = useAppServices();
   const raise = useRaise();
   const { gameData } = content.store;
@@ -26,10 +31,13 @@ export default function RoadCrewWorkshop({ runner, childId, onExit }: AppWorksho
   const laying = useRef<Promise<number | null> | null>(null);
   const lay = useCallback(
     (summary: RequestSummary) => {
-      laying.current ??= layParadeStone(store, childId, gameData, summary.materials);
+      if (laying.current) return;
+      laying.current = layParadeStone(store, childId, gameData, summary.materials);
+      // The host waits for the write before the island gets the request's result.
+      onRoadStone(laying.current);
       laying.current.then(setLaid, raise);
     },
-    [store, childId, gameData, raise],
+    [store, childId, gameData, raise, onRoadStone],
   );
 
   const scene = useMemo<PlayScene>(
@@ -46,19 +54,15 @@ export default function RoadCrewWorkshop({ runner, childId, onExit }: AppWorksho
     <RequestPlay
       runner={runner}
       scene={scene}
-      onLeave={(summary) => {
-        const reason =
+      onLeave={(summary) =>
+        onExit(
           summary.reason === 'wind-down'
             ? 'wind-down'
             : summary.reason === 'child-exit'
               ? 'child-exit'
-              : 'completed';
-        // The stone being laid is written before the island shows the road.
-        (laying.current ?? Promise.resolve(null)).then(
-          (to) => onExit(reason, to === null ? undefined : { road: to }),
-          raise,
-        );
-      }}
+              : 'completed',
+        )
+      }
     />
   );
 }

@@ -155,7 +155,8 @@ test('a child plays a Road Crew request with a wrong answer: stones, the parade,
     await expect(
       page.locator('[data-stone="1"][data-state="laid"], [data-stone="1"][data-state="counting"]'),
     ).toHaveCount(1);
-    await expect(page.getByTestId('arrived')).toHaveAttribute('data-count', String(stones));
+    // Beside the Storehouse: what arrived in it, without the stone that went onto the road.
+    await expect(page.getByTestId('arrived')).toHaveAttribute('data-count', String(stones - 1));
 
     const events = await localEvents(page);
     const produced = of(events, 'material.produced');

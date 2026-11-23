@@ -8,7 +8,7 @@ import { createContext, type ReactNode, useContext, useMemo, useRef, useState } 
 
 export interface RequestResult {
   requestId: string;
-  /** What the request produced: already in the Storehouse (`material.produced`). */
+  /** What the request brought to the Storehouse: what it made, less a stone it laid on the road. */
   materials: Recipe;
   /** The decor a completed request earned (`reward.decor`): already in the collection. */
   decor: DecorId[];

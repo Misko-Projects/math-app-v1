@@ -172,8 +172,26 @@ export type StoneResult =
   /** `arrived`: how many residents the longer road brought. */
   { ok: true; to: number; arrived: number } | { ok: false; reason: 'short' | 'stale' };
 
-/** Lays the road's next stone for its cost (`ROAD_STONE_COST`). */
-export async function layNextStone(
+/**
+ * Lays the road's next stone for its cost (`ROAD_STONE_COST`). One stone at a time per store: a
+ * call that starts while another is writing (the island's button and Road Crew's parade) waits
+ * for it and then reads the road and the Storehouse again, so no stone is ever paid for twice.
+ */
+export function layNextStone(
+  store: Store,
+  childId: ChildId,
+  gameData: Pick<GameData, 'island' | 'residents'>,
+): Promise<StoneResult> {
+  const before = layingStone.get(store) ?? Promise.resolve();
+  const pass = before.catch(() => {}).then(() => layStonePass(store, childId, gameData));
+  layingStone.set(store, pass);
+  return pass;
+}
+
+/** The road stone being laid (or the last one) of each store. */
+const layingStone = new WeakMap<Store, Promise<unknown>>();
+
+async function layStonePass(
   store: Store,
   childId: ChildId,
   gameData: Pick<GameData, 'island' | 'residents'>,

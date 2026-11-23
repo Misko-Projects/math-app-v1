@@ -244,8 +244,12 @@ export function IslandHub({
   useEffect(() => {
     if (!idle || displaced === null || welcome === undefined || greeted.current) return;
     greeted.current = true;
-    if (laid !== undefined) countOn(laid);
-    else say(line);
+    if (laid !== undefined) {
+      // Nothing was said: a placement warning or a welcome is still owed on a later visit.
+      countOn(laid);
+      return;
+    }
+    say(line);
     if (displaced.length > 0) markDisplacedTold(displaced);
     if (welcome && line === welcome.welcome) markWelcomed(child.id, welcome);
   }, [idle, displaced, welcome, line, say, child.id, laid, countOn]);

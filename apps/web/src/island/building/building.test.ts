@@ -472,6 +472,38 @@ describe('the Numbered Road (05 §3)', () => {
     expect(await layNextStone(store, CHILD_K, gameData)).toEqual({ ok: false, reason: 'short' });
   });
 
+  it("two stones asked for together (the button and Road Crew's parade) are laid one after the other, each paid once", async () => {
+    const { store } = await family();
+    await produce(store, { stone: 2 });
+    expect(
+      await Promise.all([
+        layNextStone(store, CHILD_K, gameData),
+        layNextStone(store, CHILD_K, gameData),
+      ]),
+    ).toEqual([
+      { ok: true, to: 1, arrived: 0 },
+      { ok: true, to: 2, arrived: 0 },
+    ]);
+    expect((await store.island()).roadLength).toBe(2);
+    expect((await store.inventory()).materials.stone).toBe(0);
+    expect((await types(store)).filter((type) => type === 'material.spent')).toHaveLength(2);
+  });
+
+  it('with one stone, two asked for together lay one: the second finds the Storehouse empty', async () => {
+    const { store } = await family();
+    await produce(store, { stone: 1 });
+    expect(
+      await Promise.all([
+        layNextStone(store, CHILD_K, gameData),
+        layNextStone(store, CHILD_K, gameData),
+      ]),
+    ).toEqual([
+      { ok: true, to: 1, arrived: 0 },
+      { ok: false, reason: 'short' },
+    ]);
+    expect(await types(store)).toEqual(['material.produced', 'road.extended', 'material.spent']);
+  });
+
   it('a stone is laid only on open land: the road waits at the sandbar for the first shore', async () => {
     const { store } = await family();
     const island = await store.island();
