@@ -17,7 +17,7 @@ import { testDevice } from '@/app/boot/boot.test-support';
 import type { SessionTimers } from '@/app/session/SessionController';
 import { CHILD_G2, CHILD_K, profile, testEnv } from '@/data/store.test-support';
 import { remediationQueue } from '@/runner/remediationQueue';
-import { practicePier } from '@/workshops/practice-pier';
+import { WORKSHOPS } from '@/workshops/registry';
 import { WorkshopHost } from '@/workshops/WorkshopHost';
 import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS, manualClock } from './building/clock';
 import { ChildHomePage } from './ChildHomePage';
@@ -283,12 +283,12 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
   });
 
   it('fetches the workshop ahead, and the first problem is on screen within 10 s of the tap', async () => {
-    const load = vi.spyOn(practicePier, 'load');
+    const loads = new Map(WORKSHOPS.map((w) => [w.id, vi.spyOn(w, 'load')]));
     const { app, router } = await renderHome();
     const [first] = await bubbles();
-    // The request's workshop was fetched when its bubble appeared, before any tap.
-    expect(load).toHaveBeenCalled();
     await settle();
+    // Which workshops were fetched when the bubbles appeared, before any tap.
+    const fetched = [...loads].filter(([, load]) => load.mock.calls.length > 0).map(([id]) => id);
 
     // From here time is the test's: it moves only when a timer on the way has to fire. Real
     // waiting (the local database, the chunk) is not on that clock: how long this machine takes
@@ -303,7 +303,10 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     });
     const tappedAt = performance.now();
     fireEvent.click(first as HTMLElement);
-    expect(router.state.location.pathname).toBe(`/play/${CHILD_K}/workshop/practice-pier`);
+    // The request's workshop (Road Crew or the Practice Pier) was one of them.
+    const workshop = router.state.location.pathname.split('/').pop();
+    expect(router.state.location.pathname).toBe(`/play/${CHILD_K}/workshop/${workshop}`);
+    expect(fetched).toContain(workshop);
     const before = firstProblem.lastMs();
     for (let quiet = 1; firstProblem.lastMs() === before; quiet += 1) {
       await wait();

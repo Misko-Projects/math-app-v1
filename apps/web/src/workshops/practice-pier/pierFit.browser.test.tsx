@@ -15,6 +15,10 @@
 // with the lesson's controls and the longest line the example puts in the bubble. The same pass
 // reads which ops each widget animates in demo mode, and holds the lesson steps whose action a
 // widget does not show against `LESSON_OPS_NOT_SHOWN` (the line is still spoken).
+//
+// A themed workshop plays in the same screen with its own bottom row. Road Crew (#27): every K–1
+// template of its formats again in its screen, with its row of stones full, plain and under the
+// longest line, and the workshop area exactly as large as the pier's.
 
 import * as engine from '@number-island/engine';
 import type { GeneratedItem, ItemTemplate, StimulusSpec } from '@number-island/shared';
@@ -38,6 +42,8 @@ import '@fontsource/baloo-2/latin-800.css';
 import '@/styles.css';
 import { buildLesson, type LessonExamplePlay } from '@/runner/lesson';
 import { BreakOffer, PlayItemScreen, type SpokenLine } from '../play/PlayScreen';
+import { roadCrew } from '../road-crew';
+import { RoadCrewBottom } from '../road-crew/RoadCrewScene';
 import {
   FIT_SEED_EXCEPTIONS,
   FIT_VIEWPORTS,
@@ -111,7 +117,13 @@ interface FeedbackState {
   picture?: StimulusSpec;
 }
 
-function show(item: GeneratedItem, ageMode: AgeMode, feedback: FeedbackState = {}) {
+function show(
+  item: GeneratedItem,
+  ageMode: AgeMode,
+  feedback: FeedbackState = {},
+  /** In Road Crew's screen, with this many stones made. */
+  roadCrewStones?: number,
+) {
   const { answer: _answer, ...presented } = item;
   shown += 1;
   root.render(
@@ -121,6 +133,12 @@ function show(item: GeneratedItem, ageMode: AgeMode, feedback: FeedbackState = {
       narrationText={(key, vars) => planLine(content.narration, key, vars)?.text}
     >
       <PlayItemScreen
+        workshop={roadCrewStones === undefined ? undefined : roadCrew.id}
+        bottom={
+          roadCrewStones === undefined ? undefined : (
+            <RoadCrewBottom done={0} total={5} made={roadCrewStones} />
+          )
+        }
         item={presented}
         tier={item.tier}
         itemKey={shown}
@@ -338,6 +356,75 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
     );
     expect(failing, 'templates that do not fit the workshop area').toEqual([]);
     expect(fitsAgain, 'allowlisted templates that fit: remove them from the list').toEqual([]);
+  });
+});
+
+describe.each(FIT_VIEWPORTS)('Road Crew fits its formats at %s (#27)', (viewport: FitViewport) => {
+  /** More stones than a request makes (one per item). */
+  const STONES = 12;
+  const stageSize = () => {
+    const stage = document.querySelector<HTMLElement>('[data-testid="pier-stage"]');
+    return stage ? `${stage.clientWidth}x${stage.clientHeight}` : 'no stage';
+  };
+
+  it('every K–1 template of its formats fits its screen, which gives the widget the room the pier does', async () => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    await page.viewport(width, height);
+    const { graph } = content.store;
+    const templates = Object.values(graph.templates)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .filter((t) => roadCrew.formats.includes(t.format))
+      .filter((t) => ['K', '1'].includes(String(graph.skills[t.skillId]?.grade)))
+      // What does not fit the pier yet (`pierFitAllowlist.ts`) does not fit here either.
+      .filter((t) => !fitAllowance(t, viewport));
+    for (const format of roadCrew.formats) {
+      expect(
+        templates.some((t) => t.format === format),
+        format,
+      ).toBe(true);
+    }
+    const failing: string[] = [];
+    for (const template of templates) {
+      const item = engine.generateItem(template, 1);
+      const ageMode = ageModeOf(template);
+      show(item, ageMode);
+      await measure(template.id);
+      const pierRoom = stageSize();
+      // In K the bubble shows no words (06 §5), so a line cannot change the layout.
+      const states: FeedbackState[] = ageMode === 'k' ? [{}] : [{}, { line: longestLine(item) }];
+      for (const state of states) {
+        show(item, ageMode, state, STONES);
+        const misfit = await measure(template.id);
+        if (!state.line && stageSize() !== pierRoom) {
+          misfit.push(`the workshop area is ${stageSize()}, the pier's is ${pierRoom}`);
+        }
+        const frame = document.querySelector<HTMLElement>('[data-testid="pier"]');
+        const tray = document.querySelector<HTMLElement>('[data-testid="road-crew-tray"]');
+        const box = tray?.getBoundingClientRect();
+        if (frame?.dataset.workshop !== roadCrew.id) misfit.push('not the Road Crew screen');
+        if (tray?.dataset.made !== String(STONES)) misfit.push('the row of stones is not drawn');
+        if (
+          !box ||
+          box.left < 0 ||
+          box.right > width + SLACK_PX ||
+          box.bottom > height + SLACK_PX
+        ) {
+          misfit.push('the row of stones is off the screen');
+        }
+        if (misfit.length > 0) {
+          failing.push(
+            `${template.id} (${template.format}, ${template.tier})${state.line ? ' under a line' : ''}: ${misfit.join('; ')} [${describeParts()}]`,
+          );
+        }
+      }
+      if (SHOTS.includes(template.id)) {
+        await page.screenshot({ path: `__fit__/${template.id}-road-crew-${viewport}.png` });
+      }
+    }
+    console.info(
+      `Road Crew fit at ${viewport}: ${templates.length} K–1 templates, ${failing.length} do not fit`,
+    );
+    expect(failing, 'templates that do not fit the Road Crew screen').toEqual([]);
   });
 });
 

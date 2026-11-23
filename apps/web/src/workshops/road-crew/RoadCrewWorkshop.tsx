@@ -3,24 +3,19 @@
 // with the crew's scene: every right first answer makes a stone, which drops into the row at the
 // bottom, and at the end the stones parade.
 //
-// The road physically extends: at the parade of a request that made at least one stone, the crew
-// lays the road's next stone with one of them (`layNextStone`: `road.extended`, then
-// `material.spent` of one stone, the island's own action and accounting); the others stay in the
-// Storehouse for building. With no stone to lay (the road is complete, or its next stone lies
-// on land that is not open yet) every stone stays in the Storehouse. A child who leaves before
-// the end (Home) keeps the stones made; the road waits for a request played to its parade.
+// The road physically extends: the parade of a request that made at least one stone lays the
+// road's next stone with one of them (`paradeStone.ts`), and the island counts on to it when the
+// child is back. A child who leaves before the end (Home) keeps the stones made; the road waits
+// for a request played to its parade.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppServices } from '@/app/AppServices';
-import { layNextStone } from '@/island/building/actions';
-import { ROAD_MATERIAL } from '@/island/building/rules';
 import type { RequestSummary } from '@/runner/TaskRunner';
 import { useRaise } from '@/runner/useRequestRunner';
 import { type PlayScene, RequestPlay } from '../play/RequestPlay';
 import type { AppWorkshopProps } from '../types';
+import { layParadeStone, stonesMade } from './paradeStone';
 import { RoadCrewBottom, StoneParade } from './RoadCrewScene';
-
-const stonesOf = (summary: RequestSummary) => summary.materials[ROAD_MATERIAL] ?? 0;
 
 export default function RoadCrewWorkshop({ runner, childId, onExit }: AppWorkshopProps) {
   const { store, content } = useAppServices();
@@ -31,11 +26,7 @@ export default function RoadCrewWorkshop({ runner, childId, onExit }: AppWorksho
   const laying = useRef<Promise<number | null> | null>(null);
   const lay = useCallback(
     (summary: RequestSummary) => {
-      laying.current ??= (async () => {
-        if (stonesOf(summary) < 1) return null;
-        const r = await layNextStone(store, childId, gameData);
-        return r.ok ? r.to : null;
-      })();
+      laying.current ??= layParadeStone(store, childId, gameData, summary.materials);
       laying.current.then(setLaid, raise);
     },
     [store, childId, gameData, raise],
@@ -83,5 +74,5 @@ function Parade({
   onShown: (summary: RequestSummary) => void;
 }) {
   useEffect(() => onShown(summary), [onShown, summary]);
-  return <StoneParade made={stonesOf(summary)} laid={laid} />;
+  return <StoneParade made={stonesMade(summary.materials)} laid={laid} />;
 }
