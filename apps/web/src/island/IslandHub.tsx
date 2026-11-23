@@ -142,6 +142,9 @@ function FlagIcon({ size = 48 }: { size?: number }) {
   );
 }
 
+/** The usual height of a request card, in px: the least the request row's place is. */
+const ROW_HEIGHT = 212;
+
 /** The narrowest view of the map, in scene units: the sandbar fills the screen on day one. */
 const MIN_VIEW_W = 800;
 
@@ -342,9 +345,10 @@ export function IslandHub({
   const rings = island?.ringsUnlocked ?? 1;
   // The land is drawn in the room the controls leave (`layout.ts`): measured again when the
   // guide's line, the requests or the columns change.
+  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
   const layout = useIslandRoom(
     home,
-    `${line}:${requests?.length ?? 0}:${aside}:${build.next?.n ?? 0}:${made.length}:${island?.name ?? ''}`,
+    `${line}:${requests?.length ?? 0}:${aside}:${rowHeight}:${build.next?.n ?? 0}:${made.length}:${island?.name ?? ''}`,
   );
   const crop = useMemo(() => {
     const land = landBox(gameData.island, rings);
@@ -354,6 +358,12 @@ export function IslandHub({
     return roomCrop(land, room, size, MIN_VIEW_W);
   }, [gameData.island, rings, layout]);
   const rowLow = layout?.rowFits ?? true;
+  // The request row's place is as tall as the cards last shown (at least the usual card), so
+  // the map does not move when the requests step aside or come back.
+  const drawnRow = layout?.rowHeight ?? 0;
+  useEffect(() => {
+    if (drawnRow > 0) setRowHeight(Math.max(ROW_HEIGHT, Math.ceil(drawnRow)));
+  }, [drawnRow]);
   // The low row is centred between the corners, the raised one on the screen.
   const rowInset = rowLow && layout ? layout.rowInset : { left: 0, right: 0 };
   // The road: the stones laid and, when one can be laid, the next one as its target. While a
@@ -458,7 +468,9 @@ export function IslandHub({
             road button under the Storehouse. */}
         <div
           ref={sceneBox}
-          className="absolute inset-0 overflow-hidden"
+          // Its own stacking layer: what lies over the map (plot buttons, the drag layer of
+          // decorate mode) stays under every control of the screen, the parent gate included.
+          className="absolute inset-0 isolate overflow-hidden"
           onPointerUp={(e) => {
             if ((e.target as Element).closest?.('[data-hit="next"]')) build.layStone();
           }}
@@ -664,23 +676,24 @@ export function IslandHub({
             it is: at the very bottom between the avatars and the parent gate, or above them
             where it does not fit there (portrait). */}
         <div
-          className={`pointer-events-none absolute inset-x-0 h-[13.25rem] ${
+          className={`pointer-events-none absolute inset-x-0 ${
             rowLow
               ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]'
               : 'bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)]'
           }`}
+          style={{ height: rowHeight }}
           data-room="bottom"
           data-row={rowLow ? 'low' : 'raised'}
         />
         {/* Decorate mode's tray stands in the request row's place. */}
         {decorate.used && decorate.open ? (
           <div
-            className={`absolute z-20 h-[13.25rem] ${
+            className={`absolute z-20 ${
               rowLow
                 ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]'
                 : 'bottom-[calc(max(1rem,env(safe-area-inset-bottom))+5rem)] px-4'
             }`}
-            style={rowInset}
+            style={{ ...rowInset, height: rowHeight }}
           >
             <Suspense fallback={null}>
               <DecorTray
@@ -725,6 +738,9 @@ export function IslandHub({
             }`}
             style={rowInset}
             aria-label={text('ui.island.requests')}
+            // The map ends above the cards as tall as they are: a request with many pictures
+            // has two rows of them and is taller than the row's kept place.
+            data-room="bottom"
             data-testid="requests"
           >
             {requests.map((request, i) => {

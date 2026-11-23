@@ -87,20 +87,60 @@ for (const viewport of VIEWPORTS) {
       })),
     ).toEqual({ w: 0, h: 0 });
 
+    // A request with many pictures is taller than the row's usual place (two rows of them):
+    // the map makes room for the cards as tall as they are.
+    const lighthouse = scene.locator('[data-building="lighthouse"]');
+    const usual = await lighthouse.boundingBox();
+    await cards.first().evaluate((card) => {
+      (card as HTMLElement).style.paddingTop = '70px';
+    });
+    await expect
+      .poll(async () => (await cards.first().boundingBox())?.height ?? 0)
+      .toBeGreaterThan(270);
+    await expect.poll(() => hidden(page, ON_THE_MAP, COVERS)).toEqual([]);
+    // The map was drawn smaller for it, and is as it was once the card is its usual height.
+    expect((await lighthouse.boundingBox())?.height).toBeLessThan(usual?.height ?? 0);
+    await cards.first().evaluate((card) => {
+      (card as HTMLElement).style.paddingTop = '';
+    });
+    await expect.poll(() => lighthouse.boundingBox()).toEqual(usual);
+    expect(await hidden(page, ON_THE_MAP, COVERS)).toEqual([]);
+
     // A new building: the plots offered for it are under no line of the guide either, and the
     // map has not moved (the requests step aside, their place is kept).
-    const before = await scene.locator('[data-building="lighthouse"]').boundingBox();
+    const before = await lighthouse.boundingBox();
     await page.getByRole('button', { name: 'Build', exact: true }).click();
     const card = page.getByTestId('build-sheet').locator(`[data-card="${DISPLACED}"]`);
     await card.getByRole('button', { name: 'Build it' }).click();
     const targets = page.getByTestId('plot-targets').getByRole('button');
     await expect(targets.first()).toBeVisible();
     await expect(cards).toHaveCount(0);
+    // However small the map is drawn, a plot's target is at least 64 px each way, and the
+    // targets keep 12 px between them (06 §4): the drawn marker is only its picture.
+    const boxes = await targets.evaluateAll((els) =>
+      els.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      }),
+    );
+    expect(boxes.length).toBeGreaterThan(0);
+    for (const b of boxes) {
+      expect(b.right - b.left).toBeGreaterThanOrEqual(64);
+      expect(b.bottom - b.top).toBeGreaterThanOrEqual(64);
+    }
+    for (const [i, a] of boxes.entries())
+      for (const b of boxes.slice(i + 1)) {
+        const gap = Math.max(
+          Math.max(a.left, b.left) - Math.min(a.right, b.right),
+          Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom),
+        );
+        expect(gap).toBeGreaterThanOrEqual(12);
+      }
     await expect
       .poll(() => hidden(page, '[data-testid="plot-targets"] button', COVERS))
       .toEqual([]);
     expect(await hidden(page, ON_THE_MAP, COVERS)).toEqual([]);
-    expect(await scene.locator('[data-building="lighthouse"]').boundingBox()).toEqual(before);
+    expect(await lighthouse.boundingBox()).toEqual(before);
     expect(errors).toEqual([]);
   });
 }

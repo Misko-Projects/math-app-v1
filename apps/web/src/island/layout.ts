@@ -78,6 +78,8 @@ export interface IslandRoom {
    * gate. Where it does not (portrait, a large family), it stands above them.
    */
   rowFits: boolean;
+  /** The request row's height as it is drawn, in px; 0 while no request shows. */
+  rowHeight: number;
   /** The corners' widths (px from each edge): the low row is centred between them. */
   rowInset: { left: number; right: number };
 }
@@ -90,6 +92,7 @@ const ROW_GAP = 12;
 const sameRoom = (a: IslandRoom | null, b: IslandRoom) =>
   a !== null &&
   a.rowFits === b.rowFits &&
+  a.rowHeight === b.rowHeight &&
   a.rowInset.left === b.rowInset.left &&
   a.rowInset.right === b.rowInset.right &&
   a.size.w === b.size.w &&
@@ -142,6 +145,10 @@ export function useIslandRoom(
       size: { w: box.width, h: box.height },
       room,
       rowFits: width + rowInset.left + rowInset.right <= box.width,
+      rowHeight:
+        cards.length === 0
+          ? 0
+          : Math.max(...cards.map((r) => r.bottom)) - Math.min(...cards.map((r) => r.top)),
       rowInset,
     };
     setMeasured((prev) => (sameRoom(prev, next) ? prev : next));

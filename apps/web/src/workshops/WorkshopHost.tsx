@@ -11,6 +11,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -21,8 +22,9 @@ import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
 import { useHub } from '@/island/hub';
-import type { RequestSummary } from '@/runner/TaskRunner';
+import type { PierTaskRunner, RequestSummary } from '@/runner/TaskRunner';
 import { useRequestRunner } from '@/runner/useRequestRunner';
+import { type DecorGrant, withDecorGrant } from './decorGrant';
 import { workshopFor } from './registry';
 import type { AppWorkshop, AppWorkshopProps } from './types';
 
@@ -87,28 +89,35 @@ function OwnedRequest({ child, session, request }: HostedProps) {
   const { audio, store } = useAppServices();
   const navigate = useNavigate();
   const { complete } = useHub();
+  // The runner the screen plays with: its `finish()` also writes the decor a request played to
+  // its end earns (`decorGrant.ts`), so the family owns it as soon as the request is over.
+  const granting = useRef<DecorGrant<PierTaskRunner> | null>(null);
   // Called once the screen is gone and the request is over, whichever way the child left. A
-  // request that could not be written made nothing. One played to its end also earns its decor
-  // (`reward.decor`, 04 §6.3): the family owns one more of each, to place in decorate mode.
+  // request that could not be written made nothing.
   const finished = useCallback(
     (summary: RequestSummary | null) => {
-      const decor = summary?.reason === 'complete' ? (request.reward.decor ?? []) : [];
       void (async () => {
-        const earned: typeof decor = [];
-        for (const id of decor) {
-          try {
-            await store.append('collection.unlocked', { kind: 'decor', id }, { childId: child.id });
-            earned.push(id);
-          } catch (e) {
-            recordDiagnostic('decor.earned', e);
-          }
-        }
-        complete({ requestId: request.id, materials: summary?.materials ?? {}, decor: earned });
+        // The grants of a request that ended complete are in before the island shows them.
+        await granting.current?.runner.finish().catch((e) => recordDiagnostic('decor.earned', e));
+        complete({
+          requestId: request.id,
+          materials: summary?.materials ?? {},
+          decor: granting.current?.earned() ?? [],
+        });
       })();
     },
-    [complete, request, store, child.id],
+    [complete, request.id],
   );
-  const runner = useRequestRunner(child, session, request, finished);
+  const base = useRequestRunner(child, session, request, finished);
+  const runner = useMemo(() => {
+    if (!base) return null;
+    granting.current = withDecorGrant<RequestSummary, PierTaskRunner>(
+      base,
+      request.reward.decor ?? [],
+      (id) => store.append('collection.unlocked', { kind: 'decor', id }, { childId: child.id }),
+    );
+    return granting.current.runner;
+  }, [base, request, store, child.id]);
   const Screen = screenOf(workshopFor(request.workshopId));
   const exit = useCallback(
     (_reason: WorkshopExitReason) => navigate(`/play/${child.id}`, { replace: true }),

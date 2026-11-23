@@ -223,6 +223,12 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
     const tray = page.getByTestId('decor-tray');
     await expect(tray).toBeVisible();
     await expect(requests).toHaveCount(0);
+    // The parent gate stays a grown-up's way in while the child decorates: nothing lies over it.
+    const gateOnTop = await page.getByRole('button', { name: /^Grown-ups/ }).evaluate((gate) => {
+      const r = gate.getBoundingClientRect();
+      return gate.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+    });
+    expect(gateOnTop).toBe(true);
     await tray.locator('[data-state="spare"]').first().click();
     await page.getByTestId('plot-targets').getByRole('button').first().click();
     await expect(scene.locator('[data-decor-instance]')).toHaveCount(1);
