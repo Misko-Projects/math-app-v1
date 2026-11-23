@@ -1,9 +1,10 @@
-// Practice Pier at `/play/:childId/pier` (05 §4): the plain workshop that hosts every format.
-// #20 part 1: one request, played item by item through the TaskRunner.
+// Practice Pier (05 §4): the plain workshop that hosts every format. One request, played item by
+// item through the TaskRunner the app passes in (02 §5.6): the island's request arrives through
+// the workshop host (`PierWorkshop`), the dev content browser's through `/play/:childId/pier`.
 //
 // The screen (06 §2 workshop layout): Home, the prompt in a speech bubble with a replay button,
 // the widget in the workshop area, a right / look-again cue beside "next", and the request's
-// progress as beads. At the end a short summary, then back to the child home (which plays the
+// progress as beads. At the end a short summary, then back to the island (which plays the
 // sunset when the session is winding down).
 //
 // One item on screen: the prompt is spoken first and the widget takes no input until it has
@@ -46,7 +47,7 @@ import {
   SpeechBubble,
   type WidgetDemo,
 } from '@number-island/ui';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ChildUi, useAppServices } from '@/app/AppServices';
 import { devFlag } from '@/app/devFlag';
@@ -54,18 +55,17 @@ import { recordDiagnostic } from '@/app/diagnostics';
 import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
+import { firstProblem } from '@/island/firstProblem';
 import { type AnswerTime, createAnswerTime } from '@/runner/answerTime';
-import { childContext } from '@/runner/childContext';
 import { createIdleWatch, type IdleWatch } from '@/runner/idleWatch';
-import { remediationQueue } from '@/runner/remediationQueue';
 import { createSayAgain, type SayAgain } from '@/runner/sayAgain';
-import {
-  createTaskRunner,
-  type PierItemTask,
-  type PierLessonStep,
-  type PierTaskRunner,
-  type RequestSummary,
+import type {
+  PierItemTask,
+  PierLessonStep,
+  PierTaskRunner,
+  RequestSummary,
 } from '@/runner/TaskRunner';
+import { useRaise, useRequestRunner } from '@/runner/useRequestRunner';
 import { createVisibleClock, type VisibleClock } from '@/runner/visibleClock';
 import {
   Beads,
@@ -83,7 +83,6 @@ import {
   pierLesson,
   pierMisfit,
   pierPlayable,
-  planPierRequest,
 } from './pierRequest';
 
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -102,56 +101,59 @@ export function PierPage() {
     return <Navigate to="/" replace />;
   }
   const home = () => navigate(`/play/${child.id}`, { replace: true });
-  const browser = query.has('browse') && devFlag();
-  let screen: ReactNode;
-  if (!browser) {
-    screen = <PierRequest key="plan" child={child} session={session} skill={null} onLeave={home} />;
-  } else if (browsing === null) {
-    screen = <ContentBrowser onPick={setBrowsing} onLeave={home} />;
-  } else {
-    screen = (
-      <PierRequest
-        key={`${browsing.skillId}:${browsing.templateId}:${browsing.lesson === true}`}
-        child={child}
-        session={session}
-        skill={browsing}
-        onLeave={() => setBrowsing(null)}
-      />
-    );
-  }
-  return <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>{screen}</ChildUi>;
+  // The island's requests come through the workshop host; this page is the dev content browser.
+  if (!query.has('browse') || !devFlag()) return <Navigate to={`/play/${child.id}`} replace />;
+  return (
+    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>
+      {browsing === null ? (
+        <ContentBrowser onPick={setBrowsing} onLeave={home} />
+      ) : (
+        <BrowsedRequest
+          key={`${browsing.skillId}:${browsing.templateId}:${browsing.lesson === true}`}
+          child={child}
+          session={session}
+          pick={browsing}
+          onLeave={() => setBrowsing(null)}
+        />
+      )}
+    </ChildUi>
+  );
 }
 
-type PierTask = PierItemTask | PierLessonStep;
-
-/** Throws `error` from render, so the route's error screen shows it (never a silent stall). */
-function useRaise(): (error: unknown) => void {
-  const [, set] = useState<null>(null);
-  return useCallback((error: unknown) => {
-    set(() => {
-      throw error;
-    });
-  }, []);
-}
-
-function PierRequest({
+/** The content browser's pick as a request, with its own runner. */
+function BrowsedRequest({
   child,
   session,
-  skill,
+  pick,
   onLeave,
 }: {
   child: ChildProfile;
   session: ActiveSession;
-  /** The content browser's pick; null plays the planner's request. */
-  skill: BrowsePick | null;
+  pick: BrowsePick;
   onLeave: () => void;
 }) {
-  const services = useAppServices();
-  const { controller } = useSession();
-  const raise = useRaise();
-  const { store, audio, content } = services;
+  const { store, content } = useAppServices();
+  // One request per mount: the seeds come from the clock once.
+  const [request] = useState<PlannedRequest>(() =>
+    browseRequest(content.store.graph, pick, store.now() % 1_000_000),
+  );
+  const runner = useRequestRunner(child, session, request);
+  return runner && <PierRequest runner={runner} onLeave={onLeave} />;
+}
 
-  const [runner, setRunner] = useState<PierTaskRunner | null>(null);
+type PierTask = PierItemTask | PierLessonStep;
+
+/** One request on screen. The runner is the app's (02 §5.6); `onLeave` gets what it produced. */
+export function PierRequest({
+  runner,
+  onLeave,
+}: {
+  runner: PierTaskRunner;
+  onLeave: (summary: RequestSummary) => void;
+}) {
+  const { audio } = useAppServices();
+  const raise = useRaise();
+
   const [task, setTask] = useState<PierTask | null>(null);
   const [phase, showPhase] = useState<Phase>('prompt');
   // The phase as of now, for handlers: two taps can land before the next render (a double tap on
@@ -220,7 +222,7 @@ function PierRequest({
   answerTime.current ??= createAnswerTime(clockNow);
   const time = answerTime.current;
   const trace = useRef<InteractionEvent[]>([]);
-  const runnerNow = useRef<PierTaskRunner | null>(null);
+  const runnerNow = useRef(runner);
   runnerNow.current = runner;
   // The long-idle signal (04 §6.4 rule 4): 45 s of visible time without a touch while answering.
   const idle = useRef<IdleWatch | null>(null);
@@ -231,7 +233,7 @@ function PierRequest({
         const id = setTimeout(fn, ms);
         return () => clearTimeout(id);
       },
-      onIdle: () => runnerNow.current?.idle(),
+      onIdle: () => runnerNow.current.idle(),
     });
     idle.current = watch;
     return () => {
@@ -244,66 +246,18 @@ function PierRequest({
     else idle.current?.stop();
   }, [phase, picture]);
 
-  // One runner per mounted request. The ref outlives StrictMode's simulated remount, so the
-  // request is accepted (and its event written) once.
-  const starting = useRef<Promise<PierTaskRunner> | null>(null);
+  // The request's first task. With none (nothing left to play), the summary comes at once.
   useEffect(() => {
     let alive = true;
-    starting.current ??= (async () => {
-      const engine = await import('@number-island/engine');
-      const graph = content.store.graph;
-      const ctx = childContext(child, await store.childSettings(child.id));
-      const budgetMs = session.budgetMinutes * 60_000;
-      let request: PlannedRequest | null;
-      if (skill !== null) {
-        request = browseRequest(graph, skill, store.now() % 1_000_000);
-      } else {
-        const state = await store.skillStates(child.id);
-        if (!state) throw new Error(`Practice Pier: no learner state for ${child.id}`);
-        request = planPierRequest(engine, {
-          child: ctx,
-          state,
-          graph,
-          island: await store.island(),
-          now: store.now(),
-          minutes: Math.max(1, Math.ceil((budgetMs - controller.activeMs()) / 60_000)),
-          remediation: remediationQueue.take(child.id),
-        });
-        if (!request) throw new Error('Practice Pier: the plan holds nothing the pier can play');
-      }
-      return createTaskRunner({
-        engine,
-        store,
-        graph,
-        child: ctx,
-        request,
-        hosts: pierPlayable,
-        misconceptions: content.misconceptions,
-        queueRemediation: (r) => remediationQueue.add(child.id, r),
-        session: {
-          sessionId: session.sessionId,
-          budgetMs,
-          elapsedMs: () => controller.activeMs(),
-          windingDown: () => {
-            const snap = controller.getSnapshot();
-            return snap.status === 'active' && snap.windDown !== null;
-          },
-          recordMath: (ms) => controller.recordMath(ms),
-          recordItem: () => controller.recordItem(),
-        },
-      });
-    })();
-    starting.current.then((r) => {
-      if (!alive) return;
-      setRunner(r);
-      const first = r.current() as PierTask | null;
-      if (first) setTask(first);
-      else void r.finish().then((s) => alive && setSummary(s), raise);
-    }, raise);
+    const first = runner.current() as PierTask | null;
+    // The request's first task is on screen from here (05 §2: within 10 s of the tap).
+    firstProblem.shown();
+    if (first) setTask(first);
+    else void runner.finish().then((s) => alive && setSummary(s), raise);
     return () => {
       alive = false;
     };
-  }, [child, session, skill, store, content, controller, raise]);
+  }, [runner, raise]);
 
   // A new item: speak the prompt, then the item is ready.
   const item = task?.kind === 'item' ? task.item : null;
@@ -433,8 +387,8 @@ function PierRequest({
     setPhase('feedback');
   };
 
-  // Leaving another way than Home (the browser's back button) still completes the request.
-  // StrictMode's simulated unmount is followed at once by a remount; a real one is not.
+  // Leaving another way than Home (the browser's back button) still completes the request: the
+  // runner's owner finishes it (`useRequestRunner`). Here, what is playing just goes stale.
   const mounted = useRef(false);
   /** Home was pressed: the request is being finished and the screen is on its way out. */
   const left = useRef(false);
@@ -442,12 +396,6 @@ function PierRequest({
     mounted.current = true;
     return () => {
       mounted.current = false;
-      setTimeout(() => {
-        if (mounted.current) return;
-        void starting.current
-          ?.then((r) => r.finish())
-          .catch((e) => recordDiagnostic('pier.finish', e));
-      }, 0);
     };
   }, []);
 
@@ -485,7 +433,7 @@ function PierRequest({
   lineNow.current = line;
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new step is what plays
   useEffect(() => {
-    if (!step || !runner || started.current === step) return;
+    if (!step || started.current === step) return;
     started.current = step;
     playing.current += 1;
     const mine = playing.current;
@@ -512,7 +460,6 @@ function PierRequest({
 
   /** The child's answer on their turn in a faded example. */
   const onTurn = (turn: PierLessonStep, response: ResponseValue) => {
-    if (!runner) return;
     setPhase('checking');
     const latencyMs = time.elapsed();
     time.pause();
@@ -568,7 +515,6 @@ function PierRequest({
   );
 
   const onResponse = (response: ResponseValue) => {
-    if (!runner) return;
     if (step && phaseNow.current === 'turn' && response.kind !== 'skip') {
       onTurn(step, response);
       return;
@@ -619,7 +565,7 @@ function PierRequest({
 
   /** The lightbulb: the next rung of the ladder. */
   const onHint = () => {
-    if (!runner || phaseNow.current !== 'answer') return;
+    if (phaseNow.current !== 'answer') return;
     const step = runner.hint();
     if (!step) return;
     const shown = runner.current() as PierTask | null;
@@ -635,7 +581,7 @@ function PierRequest({
   };
 
   const goNext = () => {
-    if (!runner || phaseNow.current !== 'feedback') return;
+    if (phaseNow.current !== 'feedback') return;
     // After the easy item that follows a frustration signal: offer a break first.
     if (runner.breakOffered()) {
       setPhase('prompt');
@@ -647,7 +593,7 @@ function PierRequest({
   };
 
   const answerBreak = (take: boolean) => {
-    if (!runner || !breakOffer) return;
+    if (!breakOffer) return;
     audio.stop();
     runner.answerBreak(take);
     setBreakOffer(false);
@@ -658,8 +604,7 @@ function PierRequest({
     left.current = true;
     playing.current += 1;
     audio.stop();
-    if (!runner) onLeave();
-    else runner.finish().then(onLeave, raise);
+    runner.finish().then(onLeave, raise);
   };
 
   if (summary) {
@@ -705,8 +650,8 @@ function PierRequest({
         },
         onSkip: step._canSkip
           ? () => {
-              const upcoming = runner?.skipWorked() as PierTask | null | undefined;
-              if (!runner || upcoming === undefined) return;
+              const upcoming = runner.skipWorked() as PierTask | null | undefined;
+              if (upcoming === undefined) return;
               audio.stop();
               show(runner, upcoming);
             }
@@ -728,7 +673,7 @@ function PierRequest({
       line={line}
       picture={picture}
       demo={demo}
-      progress={runner?.progress() ?? { done: 0, total: 0 }}
+      progress={runner.progress()}
       onLeave={leave}
       onNext={goNext}
       onHint={onHint}

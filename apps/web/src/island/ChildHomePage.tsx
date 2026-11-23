@@ -1,32 +1,15 @@
-// The child home at `/play/:childId`: a placeholder until the island hub (I01) lands. The island
-// scene, Pip's greeting (spoken once, with a replay button), a Home button that ends the session
-// and returns to the Profile Picker, and the small parent-gate entry in the corner.
-//
-// Wind-down (04 §6.4, 05 §8): when the session signals it, the current item finishes first. There
-// are no items here yet, so the session ends at once with the signal's reason and the calm
-// sunset plays ("Great playing! See you next time!", no guilt, 05 §7), then the picker returns.
+// The child's home at `/play/:childId`: the island hub (`IslandHub`) while the session runs, and
+// the calm sunset when it winds down ("Great playing! See you next time!", no guilt, 05 §7), after
+// which the picker returns.
 
-import type { ChildProfile } from '@number-island/shared';
-import {
-  BigButton,
-  HomeButton,
-  icons,
-  ReplayButton,
-  SpeechBubble,
-  useSpeech,
-} from '@number-island/ui';
-import { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { BigButton, icons, ReplayButton, SpeechBubble, useSpeech } from '@number-island/ui';
+import { useEffect, useState } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router';
 import { ChildUi } from '@/app/AppServices';
-import { devFlag } from '@/app/devFlag';
-import { recordDiagnostic } from '@/app/diagnostics';
-import { ChildAvatar } from '@/app/picker/ChildAvatar';
 import type { WindDownReason } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
-import { HoldToOpen } from '@/parent/HoldToOpen';
-import type { GateHeldState } from '@/parent/ParentGateScreen';
-import { IslandScene } from './IslandScene';
+import { IslandHub } from './IslandHub';
 
 /** The sunset stays this long before the picker comes back (a tap on "okay" goes sooner). */
 export const SUNSET_MS = 9000;
@@ -51,117 +34,9 @@ export function ChildHomePage() {
       {sunset ? (
         <SunsetScreen />
       ) : (
-        <ChildHome child={child} index={Math.max(0, index)} onWindDown={setSunset} />
+        <IslandHub child={child} index={Math.max(0, index)} onWindDown={setSunset} />
       )}
     </ChildUi>
-  );
-}
-
-function ChildHome({
-  child,
-  index,
-  onWindDown,
-}: {
-  child: ChildProfile;
-  index: number;
-  onWindDown: (reason: WindDownReason) => void;
-}) {
-  const { say } = useSpeech();
-  const navigate = useNavigate();
-  const { session, controller, windDown } = useSession();
-  const sessionId = session?.sessionId ?? '';
-
-  const greeted = useRef(false);
-  useEffect(() => {
-    if (greeted.current) return;
-    greeted.current = true;
-    say('ui.home.hello');
-  }, [say]);
-
-  // The wind-down hook: no item is ever in progress here yet, so end now and show the sunset.
-  useEffect(
-    () =>
-      controller.onWindDown((reason, s) => {
-        if (s.sessionId !== sessionId) return;
-        onWindDown(reason);
-        void controller.end(reason).catch((e) => recordDiagnostic('session.end', e));
-      }),
-    [controller, sessionId, onWindDown],
-  );
-  // The signal fires once. When it came while the child was at the Practice Pier (which lets the
-  // current item finish, 04 §6.4), the session is already winding down when this page returns.
-  const pendingWindDown = useRef(windDown);
-  useEffect(() => {
-    const reason = pendingWindDown.current;
-    if (reason === null || sessionId === '') return;
-    pendingWindDown.current = null;
-    onWindDown(reason);
-    void controller.end(reason).catch((e) => recordDiagnostic('session.end', e));
-  }, [controller, sessionId, onWindDown]);
-
-  const goHome = async () => {
-    try {
-      await controller.end('child-exit');
-    } catch (e) {
-      recordDiagnostic('session.end', e);
-    }
-    navigate('/', { replace: true });
-  };
-
-  return (
-    <div className="relative h-dvh min-h-[600px] w-full" data-testid="child-home">
-      <main className="absolute inset-0">
-        <IslandScene
-          className="absolute inset-0 size-full"
-          title="A sunny little island with palm trees, a workshop hut and friendly shore critters."
-        />
-        {/* Top left: Home (back to "Who is playing?", 06 §2 Island hub) and who is playing. The
-            top right stays clear for the scene's sun. */}
-        <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10 flex items-center gap-4">
-          <HomeButton onPress={() => void goHome()} />
-          <div className="flex items-center gap-3 rounded-pill bg-paper/90 py-2 pr-6 pl-2 shadow-soft ring-4 ring-sand-deep">
-            <ChildAvatar
-              name={child.name}
-              avatar={child.avatar}
-              index={index}
-              className="size-16"
-            />
-            <span className="max-w-[12rem] truncate font-body text-[1.5rem] font-bold text-ink">
-              {child.name}
-            </span>
-          </div>
-        </div>
-        <div className="pointer-events-none relative flex items-center justify-center gap-5 px-6 pt-[clamp(6.5rem,16vh,9rem)] *:pointer-events-auto">
-          <SpeechBubble say="ui.home.hello" tail="none" showText />
-          <ReplayButton onPress={() => say('ui.home.hello')} />
-        </div>
-        {/* Until the island hub (I01) offers requests, the Practice Pier is the way to play. */}
-        <div className="absolute inset-x-0 bottom-[clamp(5rem,18vh,9rem)] flex flex-col items-center gap-3">
-          <BigButton
-            label="ui.pier.open"
-            icon={<icons.CrateIcon />}
-            tone="leaf"
-            showLabel
-            onPress={() => navigate(`/play/${child.id}/pier`)}
-          />
-          {devFlag() && (
-            <Link
-              to={`/play/${child.id}/pier?browse`}
-              className="rounded-pill bg-paper/90 px-4 py-2 font-body text-[1rem] text-ink underline"
-            >
-              Content browser (dev)
-            </Link>
-          )}
-        </div>
-      </main>
-      <footer className="absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))]">
-        <HoldToOpen
-          onOpen={() =>
-            navigate('/parent', { state: { gateHeldAt: Date.now() } satisfies GateHeldState })
-          }
-        />
-      </footer>
-    </div>
   );
 }
 

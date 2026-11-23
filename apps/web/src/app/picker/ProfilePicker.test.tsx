@@ -1,9 +1,11 @@
+import '@/island/island.test-support';
 import { defaultChildSettings, settingsKey } from '@number-island/shared';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CHILD_G2, CHILD_K, profile } from '@/data/store.test-support';
 import { ChildHomePage } from '@/island/ChildHomePage';
+import { PlayLayout } from '@/island/PlayLayout';
 import { AppProviders } from '../AppServices';
 import type { AppServices } from '../boot/boot';
 import { testDevice } from '../boot/boot.test-support';
@@ -60,7 +62,11 @@ async function renderPicker(
             </StartGate>
           ),
         },
-        { path: 'play/:childId', Component: ChildHomePage },
+        {
+          path: 'play/:childId',
+          Component: PlayLayout,
+          children: [{ index: true, Component: ChildHomePage }],
+        },
         { path: 'parent', element: <p>parent area</p> },
       ],
     },

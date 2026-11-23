@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { ChildHomePage } from '@/island/ChildHomePage';
 import { PlayLayout } from '@/island/PlayLayout';
+import { WorkshopHost } from '@/workshops/WorkshopHost';
 import { lazyRoute } from './lazyRoutes';
 import { ProfilePicker } from './picker/ProfilePicker';
 import { RootLayout } from './RootLayout';
@@ -8,7 +9,8 @@ import { FIRST_RUN_HOME, RouteError } from './RouteError';
 import { StartGate } from './StartGate';
 
 // React Router 7 in library (data) mode (02 §1). Child area: `/` (first-run detection, then the
-// Profile Picker) and `/play/:childId` (the child home while a session runs). First run:
+// Profile Picker), `/play/:childId` (the island while a session runs) and
+// `/play/:childId/workshop/:workshopId` (the request the child picked, in its workshop). First run:
 // `/welcome`, `/setup` (the Setup Wizard), `/join` (pair with a code). Parent area, behind the
 // parent gate: `/parent/*`. Later issues add the island hub, workshops and the rest of the parent
 // area.
@@ -38,6 +40,7 @@ export const routes: RouteObject[] = [
         Component: PlayLayout,
         children: [
           { index: true, Component: ChildHomePage },
+          { path: 'workshop/:workshopId', Component: WorkshopHost },
           { path: 'pier', lazy: lazyRoute.pier },
         ],
       },

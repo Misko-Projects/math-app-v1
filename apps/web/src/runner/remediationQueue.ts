@@ -7,6 +7,8 @@ import type { QueuedRemediation } from './TaskRunner';
 
 export interface RemediationQueue {
   add(childId: string, remediation: QueuedRemediation): void;
+  /** The oldest queued remediation of the child, left in the queue; undefined when none. */
+  peek(childId: string): QueuedRemediation | undefined;
   /** The oldest queued remediation of the child, removed from the queue; undefined when none. */
   take(childId: string): QueuedRemediation | undefined;
 }
@@ -21,6 +23,9 @@ export function createRemediationQueue(): RemediationQueue {
           r.skillId === remediation.skillId && r.misconceptionId === remediation.misconceptionId,
       );
       if (!known) queued.set(childId, [...list, remediation]);
+    },
+    peek(childId) {
+      return queued.get(childId)?.[0];
     },
     take(childId) {
       const [first, ...rest] = queued.get(childId) ?? [];
