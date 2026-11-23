@@ -30,13 +30,43 @@
   padding: 8px 16px 40px;
 }
 
-/* Pad modes: the question on the left, the pad and "check" on the right (as number-pad). */
+/*
+ * Pad modes: the question on the left, the pad and "check" on the right, sized in the measured
+ * room (layout.ts `padPlanIn`; the gaps here are number-pad's ASK_GAP and CHECK_GAP, the side
+ * padding is PAD_EDGE).
+ */
 .ni-efw[data-layout="pad"] {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  flex-direction: row;
+  gap: 24px;
+  max-width: none;
+  margin: auto;
+  padding: 0 8px;
+  contain: inline-size;
+}
+/* Narrow, tall rooms: the controls under the question. */
+.ni-efw[data-layout="pad"][data-pad="stack"] {
+  flex-direction: column;
+}
+.ni-efw__askbox {
+  display: flex;
+  flex: none;
   align-items: center;
-  gap: 32px 48px;
-  padding: 16px 24px 40px;
+  justify-content: center;
+  min-width: 0;
+}
+/*
+ * Build in a short room (the column measured taller than it): the number beside the mat, the tray
+ * and "check" under them.
+ */
+.ni-efw[data-arr="wide"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 20px;
+  padding-top: 0;
+}
+.ni-efw[data-arr="wide"] > .ni-efw__bottom {
+  grid-column: 1 / -1;
 }
 .ni-efw__ask {
   display: flex;
@@ -48,9 +78,13 @@
 }
 .ni-efw__controls {
   display: flex;
+  flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
+}
+.ni-efw[data-check="beside"] .ni-efw__controls {
+  flex-direction: row;
 }
 .ni-efw__answers {
   display: flex;
@@ -495,12 +529,4 @@
 .ni-efw .ni-efw__hear .ni-btn__icon {
   width: calc(var(--icon-size) * 1.7);
   height: calc(var(--icon-size) * 1.7);
-}
-
-/* Portrait or narrow: stack the pad under the question. */
-@media (max-width: 900px), (orientation: portrait) {
-  .ni-efw[data-layout="pad"] {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-  }
 }

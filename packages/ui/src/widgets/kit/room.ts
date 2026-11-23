@@ -1,4 +1,4 @@
-import { type RefObject, useLayoutEffect, useState } from 'react';
+import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * The room a widget has (06 §1: container-relative layout), measured from its root element:
@@ -50,4 +50,16 @@ export function useWidgetRoom(rootRef: RefObject<HTMLElement | null>): WidgetRoo
     return () => ro.disconnect();
   }, [rootRef]);
   return room;
+}
+
+/**
+ * The room an item's arrangement is chosen in: the first one measured (a widget mounts once per
+ * item). A later resize, or a prompt that wraps onto another line, changes the sizes the parts are
+ * drawn at, never which arrangement they are in, so nothing changes places under a child's hand.
+ * Null until measured.
+ */
+export function useFirstRoom(room: WidgetRoom | null): WidgetRoom | null {
+  const first = useRef<WidgetRoom | null>(null);
+  if (first.current === null && room !== null) first.current = room;
+  return first.current;
 }

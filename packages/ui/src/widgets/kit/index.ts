@@ -234,7 +234,7 @@ export {
   usePadEntry,
 } from './PadEntry';
 export { PAD_KEYS_CHOICES, type PadKeysChoice, type PadShape, padKeysSize } from './padKeys';
-export { useWidgetRoom, type WidgetRoom } from './room';
+export { useFirstRoom, useWidgetRoom, type WidgetRoom } from './room';
 export { isRoomy, ROOMY_HEIGHT_PX, ROOMY_WIDTH_PX, useRoomy } from './roomy';
 export {
   countedParts,

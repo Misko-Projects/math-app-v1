@@ -1,6 +1,31 @@
 // Pure helpers for the expanded-form widget: the card tray with duplicate copies, trace ids, the
 // expression's size and what a demo invite points at. No DOM, so they have plain unit tests.
 import type { ExpressionToken, WidgetAction } from '@number-island/shared';
+import type { AgeMode } from '../../tokens/tokens';
+import type { Size } from '../kit';
+import { ASK_GAP, MIN_ASK, type PadPlan, padControlsSize, planPad } from '../number-pad/layout';
+
+/** The pad layout's side padding (expanded-form.css), px each side. */
+export const PAD_EDGE = 8;
+
+/**
+ * The pad modes' layout (06 §1): number-pad's plan (`planPad`: Check beside the keys, smaller
+ * keys, a 4 × 3 pad, as the room needs). The controls are chosen in `first`, the first room
+ * measured for the item; the question's box follows `live`, the room as it is now.
+ */
+export function padPlanIn(first: Size, live: Size, button: Size, ageMode: AgeMode): PadPlan {
+  const chosen = planPad({ w: first.w - 2 * PAD_EDGE, h: first.h }, button, ageMode);
+  const controls = padControlsSize(chosen, button, ageMode);
+  const ask = chosen.stacked
+    ? { w: live.w, h: live.h - controls.h - ASK_GAP }
+    : { w: live.w - controls.w - ASK_GAP, h: live.h };
+  return {
+    ...chosen,
+    controls,
+    ask: { w: Math.max(ask.w, MIN_ASK.w), h: Math.max(ask.h, MIN_ASK.h) },
+  };
+}
+
 
 /** One card in the tray, in config order. */
 export interface TrayCard {

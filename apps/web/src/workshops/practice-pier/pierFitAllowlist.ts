@@ -19,49 +19,10 @@ export interface FitException {
   templates: readonly TemplateId[];
 }
 
-const BOTH = FIT_VIEWPORTS;
 const SMALL = ['960x600'] as const;
 
 /** Templates whose widget is taller or wider than the area, by widget. */
 export const FIT_EXCEPTIONS: Readonly<Partial<Record<ItemFormat, readonly FitException[]>>> = {
-  'base-ten-build': [
-    {
-      reason:
-        'The mat and the block trays are drawn at a fixed height (84 px over the area at 1280 × 800, 284 px at 960 × 600); fix: plan the mat in the measured room.',
-      at: BOTH,
-      templates: [
-        'CNT.19.t3',
-        'CPS.04.t3',
-        'CPS.09.t1',
-        'MDA.01.t1',
-        'MDA.02.t1',
-        'MDA.09.t1',
-        'PV.01.t1',
-        'PV.01.t2',
-        'PV.03.t1',
-        'PV.09.t2',
-        'PV.10.t1',
-        'PV.11.t1',
-        'PV.11.t2',
-      ],
-    },
-  ],
-  'base-ten-trade': [
-    {
-      reason:
-        'The trade controls and Check are under a fixed-height mat (78 px over the area at 1280 × 800, 278 px at 960 × 600); fix: plan in the measured room.',
-      at: BOTH,
-      templates: ['MDA.08.t1', 'PV.01.t4', 'PV.09.t3'],
-    },
-  ],
-  'expanded-form': [
-    {
-      reason:
-        'The picture, the parts and Check are stacked at fixed sizes (57 to 120 px over the area at 960 × 600); fix: plan in the measured room.',
-      at: SMALL,
-      templates: ['CPS.07.t3', 'MDA.09.t2', 'PV.01.t5', 'PV.13.t1', 'PV.13.t2', 'PV.13.t3'],
-    },
-  ],
   'make-set': [
     {
       reason:
