@@ -114,6 +114,7 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
   });
 
   await test.step('three requests, each played to its end and paid in the material asked for', async () => {
+    let roadStones = 0;
     for (let n = 1; n <= 3; n += 1) {
       if (n > 1) {
         await expect(requests.first()).toBeVisible();
@@ -142,7 +143,14 @@ test('golden journey 4: a returning child plays three requests, builds, and the 
       expect(produced.requestId).toBe(played[n - 1]);
       const units = Object.values(produced.materials).reduce((sum, k) => sum + k, 0);
       expect(units).toBeGreaterThan(0);
-      await expect(page.getByTestId('arrived')).toHaveAttribute('data-count', String(units));
+      // A Road Crew request laid one of its stones on the road (#27): the others arrived.
+      const onRoad = of(events, 'road.extended').length - roadStones;
+      expect([0, 1]).toContain(onRoad);
+      roadStones += onRoad;
+      await expect(page.getByTestId('arrived')).toHaveAttribute(
+        'data-count',
+        String(units - onRoad),
+      );
     }
     const events = await localEvents(page);
     expect(of(events, 'request.accepted')).toHaveLength(3);
