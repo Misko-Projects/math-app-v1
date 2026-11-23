@@ -361,3 +361,102 @@ export async function expectFill(box: HTMLElement, parts: Element[], min = 0.6) 
   await expect(fill, `widget fill ${Math.round(fill * 100)} %`).toBeGreaterThanOrEqual(min);
   return fill;
 }
+
+/**
+ * The Practice Pier's workshop area as a widget gets it (the stage's inner box, measured in the
+ * pier by `pierFit.browser.test.tsx`): 858 × 358 at the 960 × 600 viewport, 1178 × 558 at
+ * 1280 × 800, and three rooms evenly between them.
+ */
+export const PIER_ROOMS = {
+  small: { width: 858, height: 358 },
+  quarter: { width: 938, height: 408 },
+  half: { width: 1018, height: 458 },
+  threeQuarters: { width: 1098, height: 508 },
+  tablet: { width: 1178, height: 558 },
+} as const;
+export type PierRoom = keyof typeof PIER_ROOMS;
+
+/**
+ * Renders the widget in a box exactly a pier room's size (no padding: the room is the box). It is
+ * a scroll box that never grows, so a play function can prove nothing scrolls (`areaBox` finds it).
+ */
+export function inRoom(room: PierRoom) {
+  const { width, height } = PIER_ROOMS[room];
+  return (args: WidgetHostProps) => (
+    <div
+      className="story-widget-area"
+      data-room={room}
+      style={{
+        width,
+        height,
+        maxWidth: 'none',
+        justifySelf: 'center',
+        marginInline: `min(0px, calc((100% - ${width}px) / 2))`,
+        boxSizing: 'border-box',
+        display: 'grid',
+        overflow: 'auto',
+        background: 'var(--color-sand)',
+      }}
+    >
+      <WidgetHost {...args} />
+    </div>
+  );
+}
+
+/** Gives the room box another pier room's size (a resize while the item is on screen). */
+export function resizeRoom(canvasElement: HTMLElement, room: PierRoom) {
+  const box = areaBox(canvasElement);
+  box.style.width = `${PIER_ROOMS[room].width}px`;
+  box.style.height = `${PIER_ROOMS[room].height}px`;
+  box.style.marginInline = `min(0px, calc((100% - ${PIER_ROOMS[room].width}px) / 2))`;
+}
+
+/** Waits until `root`'s box is the same for three frames (a measured layout takes a few). */
+export async function stableLayout(root: Element) {
+  let last = '';
+  let same = 0;
+  for (let i = 0; i < 240 && same < 3; i += 1) {
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    const b = root.getBoundingClientRect();
+    const now = [b.left, b.top, b.width, b.height].join();
+    same = now === last ? same + 1 : 0;
+    last = now;
+  }
+}
+
+const ROOM_CONTROLS =
+  'button, input, select, textarea, [role="button"], [role="slider"], [tabindex="0"]';
+
+/**
+ * The pier fit check's rules, on one widget in a room box (`inRoom`): the room scrolls neither
+ * way, every control lies inside it and no part inside scrolls. `actions` (the pad's keys,
+ * "check": what a short room rearranges) also keep the age mode's target size and 12 px gaps.
+ */
+export async function expectFitsRoom(
+  canvasElement: HTMLElement,
+  root: HTMLElement,
+  ageMode: AgeMode,
+  actions = '.ni-pad__key, .ni-btn.ni-tone-sun',
+) {
+  const box = areaBox(canvasElement);
+  await stableLayout(root);
+  await expectNoScroll(box);
+  const inner = contentBox(box);
+  const live = (el: Element) => el.closest('[inert]') === null;
+  for (const el of root.querySelectorAll(ROOM_CONTROLS)) {
+    const r = el.getBoundingClientRect();
+    if (!live(el) || r.width <= 1 || r.height <= 1) continue;
+    await expectInside(r, inner, 0, `${describeEl(el)} in the room`);
+  }
+  for (const el of root.querySelectorAll<HTMLElement>('*')) {
+    const cs = getComputedStyle(el);
+    const scrolls = (v: string) => v === 'auto' || v === 'scroll';
+    const tall = el.scrollHeight - el.clientHeight > 1 && scrolls(cs.overflowY);
+    const wide = el.scrollWidth - el.clientWidth > 1 && scrolls(cs.overflowX);
+    await expect(tall || wide, `${describeEl(el)} scrolls`).toBe(false);
+  }
+  const targets = [...root.querySelectorAll(actions)].filter(live);
+  await expect(targets.length, 'action controls').toBeGreaterThan(0);
+  for (const el of targets) await expectTargetSize(el, ageMode);
+  await expectTargetGaps(targets);
+}

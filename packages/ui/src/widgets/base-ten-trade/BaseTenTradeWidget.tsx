@@ -39,9 +39,9 @@ import {
   useDemoPause,
   useFirstRoom,
   useInviteHand,
+  useSubmitGuard,
   useWidgetRoom,
   type WidgetRoom,
-  useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import { breakGhosts, bundleGhosts, EASE, type Ghost, moveGhosts } from './fx';
@@ -49,12 +49,9 @@ import {
   ageSizes,
   answerPlaces,
   type Box,
-  COL_PAD,
   BUDGET,
+  COL_PAD,
   chooseSide,
-  itemFit,
-  ROOT_PAD_Y,
-  U_FLOOR,
   colInsets,
   digitsValue,
   extent,
@@ -63,6 +60,7 @@ import {
   growCaps,
   holderMargins,
   holderWidth,
+  itemFit,
   itemUnit,
   MAT_BORDER,
   naturalLayout,
@@ -74,10 +72,12 @@ import {
   placeTaken,
   planCaps,
   planMat,
+  ROOT_PAD_Y,
   ROW_GAP,
   SIDE_GAP,
   stateCaps,
   stripWidth,
+  U_FLOOR,
 } from './layout';
 import './base-ten-trade.css';
 
@@ -817,9 +817,7 @@ function TradeMat({
       path,
     });
     const fitsRoom =
-      fit.fits &&
-      fit.unit >= U_FLOOR &&
-      chosen.side.sideH <= budgetIn(firstRoom) - 2 * ROOT_PAD_Y;
+      fit.fits && fit.unit >= U_FLOOR && chosen.side.sideH <= budgetIn(firstRoom) - 2 * ROOT_PAD_Y;
     arranged.current = !fitsRoom ? 'tall' : chosen.side.problemInSide ? 'in-side' : 'usual';
     if (fitsRoom) return chosen;
     return chooseSide({
@@ -1461,11 +1459,7 @@ function TradeMat({
       ],
     };
     return (
-      <div
-        className="ni-btt__problem"
-        data-in-side={inSide ? 'true' : undefined}
-        style={cardStyle}
-      >
+      <div className="ni-btt__problem" data-in-side={inSide ? 'true' : undefined} style={cardStyle}>
         <ExpressionView
           expr={expr}
           renderBlank={() => (

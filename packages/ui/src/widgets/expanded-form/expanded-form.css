@@ -39,9 +39,7 @@
   flex-direction: row;
   gap: 24px;
   max-width: none;
-  margin: auto;
   padding: 0 8px;
-  contain: inline-size;
 }
 /* Narrow, tall rooms: the controls under the question. */
 .ni-efw[data-layout="pad"][data-pad="stack"] {

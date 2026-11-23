@@ -490,7 +490,7 @@ export function BaseTenBuildWidget({
   const blankRef = useRef<HTMLSpanElement | null>(null);
   const unzoomed = useRef(1);
   const button = useActionSize(padRef, unzoomed, prefs.ageMode);
-  const [blank, setBlank] = useState(() => ({
+  const [blank, setBlank] = useState<{ w: number; h: number }>(() => ({
     w: TARGET_PX[prefs.ageMode].big * 1.5,
     h: TARGET_PX[prefs.ageMode].big,
   }));

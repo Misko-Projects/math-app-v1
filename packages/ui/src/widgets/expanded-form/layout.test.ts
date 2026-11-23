@@ -7,6 +7,8 @@ import {
   type InviteContext,
   inviteTarget,
   isPlaceValue,
+  PAD_EDGE,
+  padPlanIn,
   traceTarget,
   trayValueOf,
   wrappedRows,
@@ -153,5 +155,33 @@ describe('inviteTarget', () => {
     expect(inviteTarget(padRemove, padFill)).toBe('blank-b1');
     // Placing on the pad points at the first empty blank.
     expect(inviteTarget({ op: 'place-card', args: { value: 40 } }, padFill)).toBe('blank-b0');
+  });
+});
+
+describe('padPlanIn: the pad modes in the measured room (#13)', () => {
+  const button = { w: 150, h: 82 };
+  it('the pier at 960 × 600: 64 px keys, three by four, Check beside them', () => {
+    const room = { w: 858, h: 358 };
+    const plan = padPlanIn(room, { w: room.w - 2 * PAD_EDGE, h: room.h }, button, 'g1-up');
+    expect(plan).toMatchObject({ shape: '3x4', check: 'beside', stacked: false, fits: true });
+    expect(plan.controls.h).toBeLessThanOrEqual(358);
+    expect(plan.ask.w + plan.controls.w).toBeLessThanOrEqual(858 - 2 * PAD_EDGE);
+  });
+  it('the pier at 1280 × 800: the big keys with Check under them', () => {
+    const room = { w: 1178, h: 558 };
+    const plan = padPlanIn(room, { w: room.w - 2 * PAD_EDGE, h: room.h }, button, 'g1-up');
+    expect(plan).toMatchObject({ shape: '3x4', compact: false, check: 'under', fits: true });
+  });
+  it("the controls are the first room's; only the question follows the room as it is now", () => {
+    const small = { w: 858, h: 358 };
+    const big = { w: 1178, h: 558 };
+    const live = (r: { w: number; h: number }) => ({ w: r.w - 2 * PAD_EDGE, h: r.h });
+    const grown = padPlanIn(small, live(big), button, 'g1-up');
+    const first = padPlanIn(small, live(small), button, 'g1-up');
+    expect(grown).toMatchObject({ shape: first.shape, compact: first.compact, check: first.check });
+    expect(grown.controls).toEqual(first.controls);
+    expect(grown.ask.w).toBe(first.ask.w + 320);
+    const shrunk = padPlanIn(big, live(small), button, 'g1-up');
+    expect(shrunk.check).toBe('under');
   });
 });

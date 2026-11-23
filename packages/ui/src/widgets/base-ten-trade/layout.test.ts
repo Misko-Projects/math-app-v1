@@ -19,6 +19,7 @@ import {
   colMinWidth,
   digitsValue,
   extent,
+  GAP,
   growCaps,
   holderMargins,
   holderWidth,
@@ -36,8 +37,12 @@ import {
   placeTaken,
   planCaps,
   planMat,
+  ROOT_PAD_Y,
+  ROW_GAP,
   rodStacks,
+  SIDE_GAP,
   sideLayout,
+  sideWidth,
   stateCaps,
   stripWidth,
   U_FLOOR,
@@ -934,5 +939,121 @@ describe('fx', () => {
   it('moves pieces one after another', () => {
     const ghosts = moveGhosts('ones', [rod, rod], [rod, rod]);
     expect(ghosts[1]?.delay).toBeGreaterThan(ghosts[0]?.delay ?? 0);
+  });
+});
+
+describe('short rooms: the problem card in the side panel (#13)', () => {
+  const regroup99 = {
+    format: 'base-ten-trade',
+    start: { hundreds: 0, tens: 8, ones: 19 },
+    goal: 'regroup-to',
+    regroupTarget: { hundreds: 0, tens: 9, ones: 9 },
+    showAlgorithm: false,
+    thenAsk: false,
+  } as Config;
+  const add = {
+    format: 'base-ten-trade',
+    start: { hundreds: 0, tens: 6, ones: 9 },
+    operation: { op: '+', operand: { hundreds: 0, tens: 0, ones: 8 } },
+    goal: 'compute',
+    showAlgorithm: false,
+    thenAsk: true,
+  } as Config;
+  const args = (c: Config) => ({
+    age: 'g1-up' as const,
+    goal: c.goal,
+    showWork: false,
+    thenAsk: c.thenAsk,
+    answerInWork: false,
+    places: 2,
+    base: planCaps(c),
+    path: pathStates(c),
+  });
+  // As measured in the pier: the labelled check 180 px, the icon check 70, the goal chips in a
+  // column 153 × 245, the equation card 240 × 74.
+  const chips = { pad: 0, check: 180, card: 0, problem: { w: 153, h: 245 }, checkIcon: 70 };
+  const equation = { pad: 216, check: 180, card: 0, problem: { w: 240, h: 74 }, checkIcon: 70 };
+
+  it('sideLayout follows the budget: at 558 px the pad and check still stack under the row', () => {
+    const s = sideLayout({ ...args(add), budget: 558 });
+    expect(s.spaceH).toBe(558 - 2 * ROOT_PAD_Y - s.problemH - ROW_GAP);
+    expect(s.sideH).toBeLessThanOrEqual(558 - 2 * ROOT_PAD_Y);
+  });
+  it('in the side, the card takes no height from the mat', () => {
+    const s = sideLayout({ ...args(regroup99), budget: 358, inSide: chips.problem });
+    expect(s).toMatchObject({ problemInSide: true, showProblemRow: false, spaceH: 346 });
+    expect(s.sideH).toBe(245 + SIDE_GAP + 70);
+    expect(s.padWide).toBeUndefined();
+  });
+  it('with a pad in a short room the pad is 4 × 3 and check stands beside the card', () => {
+    const s = sideLayout({ ...args(add), budget: 358, inSide: equation.problem });
+    expect(s).toMatchObject({ problemInSide: true, padWide: true });
+    expect(s.sideH).toBe(74 + SIDE_GAP + 3 * 68 + 2 * 12);
+    expect(sideWidth(s, equation, 'g1-up')).toBe(240 + SIDE_GAP + 70);
+    // In a taller room the pad keeps its three columns, check under it.
+    const tall = sideLayout({ ...args(add), budget: 558, inSide: equation.problem });
+    expect(tall.padWide).toBeUndefined();
+    expect(sideWidth(tall, equation, 'g1-up')).toBe(240);
+  });
+  it('960 × 600, regroup 99: the card goes in the side and the pieces stay countable', () => {
+    const { side, width } = chooseSide({
+      ...args(regroup99),
+      budget: 358,
+      contentW: 850,
+      parts: chips,
+    });
+    expect(side.problemInSide).toBe(true);
+    expect(width).toBe(850 - GAP - 153);
+    const fit = itemFit({ ...args(regroup99), width, height: side.spaceH });
+    expect(fit.fits).toBe(true);
+    expect(fit.unit).toBeGreaterThanOrEqual(U_FLOOR);
+  });
+  it('1280 × 800: the usual layout draws the same 20 px pieces, so it is kept', () => {
+    for (const [c, parts] of [
+      [regroup99, chips],
+      [add, equation],
+    ] as const) {
+      const { side } = chooseSide({ ...args(c), budget: 558, contentW: 1170, parts });
+      expect(side.problemInSide).toBeUndefined();
+      expect(side.showProblemRow).toBe(true);
+    }
+  });
+  it('960 × 600, add with a trade: neither way draws countable pieces (the pier lists it)', () => {
+    const { side, width } = chooseSide({
+      ...args(add),
+      budget: 358,
+      contentW: 850,
+      parts: equation,
+    });
+    const fit = itemFit({ ...args(add), width, height: side.spaceH });
+    expect(fit.unit).toBeLessThan(U_FLOOR);
+  });
+  it('a made choice is kept whatever the room becomes', () => {
+    const grown = chooseSide({
+      ...args(regroup99),
+      budget: 558,
+      contentW: 1170,
+      parts: chips,
+      arrange: 'in-side',
+    });
+    expect(grown.side.problemInSide).toBe(true);
+    const shrunk = chooseSide({
+      ...args(regroup99),
+      budget: 358,
+      contentW: 850,
+      parts: chips,
+      arrange: 'usual',
+    });
+    expect(shrunk.side.problemInSide).toBeUndefined();
+  });
+  it('with the algorithm shown the card stays where it is', () => {
+    const { side } = chooseSide({
+      ...args(add),
+      showWork: true,
+      budget: 358,
+      contentW: 850,
+      parts: equation,
+    });
+    expect(side.problemInSide).toBeUndefined();
   });
 });

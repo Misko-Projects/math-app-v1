@@ -438,12 +438,7 @@ function goalWidth(text: string, min: number, size: 'normal' | 'lg' | 'compact')
  * and chips one per row (or two to a row when `crowded`), the goal large only when it has room
  * across and the panel still fits its height.
  */
-export function sidePlan(
-  spec: SideSpec,
-  width: number,
-  crowded: boolean,
-  split = false,
-): SidePlan {
+export function sidePlan(spec: SideSpec, width: number, crowded: boolean, split = false): SidePlan {
   const s = spec.sizes ?? modelSizes(spec);
   const n = spec.piles.length;
   const trayW = (c: number) => 2 * TRAY_PAD.x + c * s.pileW + (c - 1) * PILE_GAP.x;

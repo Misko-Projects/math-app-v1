@@ -19,6 +19,8 @@ import {
   type PlanInput,
   pieceBox,
   planMat,
+  READ_GAP,
+  readSide,
   roomForMove,
   type SideSpec,
   sideNeed,
@@ -658,5 +660,91 @@ describe('valueSpeech: every value is spoken (PR #74 review rounds 1 and 2)', ()
     expect(spoken(10, true, true)).toBe('1 tenth');
     expect(spoken(120, true, true)).toBe('12 tenths');
     for (let n = 1; n <= 29; n++) expect(spoken(n * 10, true, true)).not.toBe('');
+  });
+});
+
+describe('short rooms: the Practice Pier at 960 × 600 (#13)', () => {
+  // The room is 858 × 358 (366 with an icon-only prompt); the panel has that less the root padding.
+  const exactK: SideSpec = {
+    k: true,
+    piles: [false, false],
+    tall: [true, false],
+    goal: '19',
+    exact: ['tens', 'ones'],
+    exactN: [1, 9],
+    height: 354,
+  };
+  it('a panel taller than the room at any width is split: goal and chips beside tray and check', () => {
+    const need = sideNeed(exactK, 150);
+    expect(need.split).toBe(true);
+    const plan = sidePlan(exactK, need.width, need.crowded, need.split);
+    expect(plan.split).toBe(true);
+    expect(plan.height).toBeLessThanOrEqual(354);
+    expect(plan.width).toBeLessThanOrEqual(need.width);
+    // Stacked, neither the usual nor the crowded panel fits that height.
+    expect(sidePlan(exactK, 600, false).height).toBeGreaterThan(354);
+    expect(sidePlan(exactK, 600, true).height).toBeGreaterThan(354);
+  });
+  it('the same panel at 1280 × 800 is not split', () => {
+    expect(sideNeed({ ...exactK, height: 554 }, 150).split).toBeUndefined();
+  });
+  it('a stock tag on the rods (PV.09.t2) and a goal: split, within the room', () => {
+    const spec: SideSpec = { ...exactK, k: false, piles: [true, true], goal: '39', exactN: [3, 9] };
+    const need = sideNeed(spec, 156);
+    expect(need.split).toBe(true);
+    expect(sidePlan(spec, need.width, false, true).height).toBeLessThanOrEqual(354);
+  });
+  it('without a goal card the tray and check fit stacked, so nothing is split', () => {
+    const spec: SideSpec = { ...exactK, k: false, goal: null, exact: [] };
+    expect(sideNeed(spec, 156)).toEqual({ width: expect.any(Number), crowded: false });
+  });
+  it('the fullest Grade 1 mat (9 tens, 9 ones) beside each panel keeps countable pieces', () => {
+    const counts = { thousands: 0, hundreds: 0, tens: 9, ones: 9 };
+    const mat = {
+      units: unitCandidates(false),
+      width: 858,
+      height: 358 - 4 - 10 - 40 - 16,
+      gutter: 70,
+      columnPad: 4,
+      frame: 9,
+      gap: 12,
+      headerWidth: () => 99,
+    };
+    for (const goal of ['99', null]) {
+      const spec: SideSpec = { ...exactK, k: false, goal, exact: [] };
+      const plan = planMat({ mat, side: { spec, min: 156 } }, ['tens', 'ones'], counts);
+      expect(plan.layout.overflow).toBe(false);
+      expect(plan.layout.u).toBeGreaterThanOrEqual(U_FLOOR);
+    }
+  });
+});
+
+describe('readSide: the answer, the pad and check in read mode (#13)', () => {
+  const blank = { w: 98, h: 80 };
+  const button = { w: 150, h: 88 };
+  it('1280 × 800: the answer over the big keys over check', () => {
+    expect(readSide(554, blank, button, 'g1-up')).toMatchObject({
+      shape: '3x4',
+      compact: false,
+      beside: false,
+    });
+  });
+  it('960 × 600: the answer and check beside the keys, which keep their size', () => {
+    const side = readSide(354, blank, button, 'g1-up');
+    expect(side).toMatchObject({ shape: '3x4', compact: false, beside: true });
+    expect(side.h).toBeLessThanOrEqual(354);
+    expect(side.w).toBe(3 * 76 + 2 * 12 + READ_GAP + 150);
+  });
+  it('K at 960 × 600: 80 px keys only fit four by three', () => {
+    const side = readSide(362, { w: 120, h: 100 }, { w: 96, h: 108 }, 'k');
+    expect(side).toMatchObject({ shape: '4x3', compact: true, beside: true });
+    expect(side.h).toBeLessThanOrEqual(362);
+  });
+  it('every choice keeps the keys at the minimum target or more', () => {
+    for (const h of [200, 300, 354, 420, 554]) {
+      const side = readSide(h, blank, button, 'g1-up');
+      expect(side.compact ? 64 : 76).toBeGreaterThanOrEqual(64);
+      expect(side.w).toBeGreaterThan(0);
+    }
   });
 });

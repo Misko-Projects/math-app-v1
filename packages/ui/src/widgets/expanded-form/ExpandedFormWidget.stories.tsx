@@ -14,10 +14,16 @@ import {
   touchDragAndHold,
 } from '../../test-support/storyHelpers';
 import {
+  areaBox,
+  expectFitsRoom,
   expectPointerOn,
   expectTraceOrdered,
   findWidget,
+  inRoom,
+  type PierRoom,
   renderWidget,
+  resizeRoom,
+  stableLayout,
   traceOf,
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
@@ -1654,3 +1660,142 @@ export const ReducedMotionPad: Story = {
     );
   },
 };
+
+// ---------- the Practice Pier's rooms (#13): 858 × 358 at 960 × 600, 1178 × 558 at 1280 × 800 ----------
+
+/** MDA.09.t2 as generated: the longest expression a Grade 1 template shows, answered on the pad. */
+const pierToStandard: Config = {
+  format: 'expanded-form',
+  target: 87,
+  mode: 'to-standard',
+  unusualOrder: false,
+  expression: {
+    tokens: [
+      { t: 'paren', v: '(' },
+      { t: 'num', v: 30 },
+      { t: 'op', v: '+' },
+      { t: 'num', v: 50 },
+      { t: 'paren', v: ')' },
+      { t: 'op', v: '+' },
+      { t: 'paren', v: '(' },
+      { t: 'num', v: 3 },
+      { t: 'op', v: '+' },
+      { t: 'num', v: 4 },
+      { t: 'paren', v: ')' },
+      { t: 'rel', v: '=' },
+      { t: 'blank', id: 'x' },
+    ],
+  },
+};
+/** PV.01.t5 as generated: three place-value cards with their pictures. */
+const pierBuild: Config = {
+  format: 'expanded-form',
+  target: 80,
+  mode: 'build',
+  unusualOrder: false,
+  cards: [800, 8, 80],
+};
+/** CPS.07.t3 as generated (K). */
+const pierBuildK: Config = {
+  format: 'expanded-form',
+  target: 13,
+  mode: 'build',
+  unusualOrder: false,
+  cards: [30, 10, 1, 3],
+};
+
+/** How the widget is arranged: what a resize must never change. */
+const arrangement = (root: HTMLElement) =>
+  [root.dataset.arr ?? 'column', root.dataset.pad ?? '-', root.dataset.check ?? '-'].join(' ');
+
+const pierPad = (room: PierRoom, check: 'under' | 'beside'): Story => ({
+  args: { config: pierToStandard, tier: 'pictorial' },
+  render: inRoom(room),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsRoom(canvasElement, root, 'g1-up');
+    await expect(root).toHaveAttribute('data-check', check);
+    await expectNumeralsAtLeast32(root, '.ni-expr');
+  },
+});
+const pierCards = (room: PierRoom, wide: boolean, k = false): Story => ({
+  ...(k ? { globals: { ageMode: 'k' } } : {}),
+  args: { config: k ? pierBuildK : pierBuild, tier: 'pictorial' },
+  render: inRoom(room),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsRoom(canvasElement, root, k ? 'k' : 'g1-up', '.ni-btn.ni-tone-sun');
+    await expect(root.dataset.arr).toBe(wide ? 'wide' : undefined);
+    for (const card of trayCards(root)) await expectTargetSize(card, k ? 'k' : 'g1-up');
+  },
+});
+
+/**
+ * 960 × 600, the pad modes: the keys stay 64 px with Check beside them, the expression is drawn
+ * in the room that leaves, and the task is the same (type 87, check, one `number` response).
+ */
+export const PierSmallToStandard: Story = {
+  ...pierPad('small', 'beside'),
+  play: async (ctx) => {
+    await pierPad('small', 'beside').play?.(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    await userEvent.click(key(root, '8'));
+    await userEvent.click(key(root, '7'));
+    await userEvent.click(checkButton(root));
+    await expect(ctx.args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 87 });
+  },
+};
+/** 960 × 600, "hear the number, then tap it in" (PV.13.t3). */
+export const PierSmallHear: Story = {
+  args: { config: wordsHear, tier: 'abstract' },
+  render: inRoom('small'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsRoom(canvasElement, root, 'g1-up');
+  },
+};
+/** 960 × 600, build with cards: the number beside the mat, the tray and Check under them. */
+export const PierSmallBuild: Story = {
+  ...pierCards('small', true),
+  play: async (ctx) => {
+    await pierCards('small', true).play?.(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    await tapPlace(root, 80);
+    await userEvent.click(checkButton(root));
+    await expect(ctx.args.onResponse).toHaveBeenCalledTimes(1);
+    await expectFitsRoom(ctx.canvasElement, root, 'g1-up', '.ni-btn.ni-tone-sun');
+  },
+};
+export const PierSmallBuildK: Story = pierCards('small', true, true);
+export const PierTabletToStandard: Story = pierPad('tablet', 'under');
+export const PierTabletBuild: Story = pierCards('tablet', false);
+export const PierTabletBuildK: Story = pierCards('tablet', false, true);
+// Rooms between the two viewports, one story each: whichever arrangement the room gets fits it.
+export const PierQuarterToStandard: Story = pierPad('quarter', 'beside');
+export const PierHalfToStandard: Story = pierPad('half', 'under');
+export const PierThreeQuartersToStandard: Story = pierPad('threeQuarters', 'under');
+export const PierQuarterBuild: Story = pierCards('quarter', true);
+export const PierHalfBuild: Story = pierCards('half', false);
+export const PierThreeQuartersBuild: Story = pierCards('threeQuarters', false);
+
+const resized = (config: Config, from: PierRoom, to: PierRoom): Story => ({
+  args: { config, tier: 'pictorial' },
+  render: inRoom(from),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    const before = arrangement(root);
+    resizeRoom(canvasElement, to);
+    await stableLayout(root);
+    await expect(areaBox(canvasElement).clientHeight).toBe(to === 'small' ? 358 : 558);
+    await expect(arrangement(root)).toBe(before);
+  },
+});
+/**
+ * The arrangement is the one chosen in the first room measured for the item: a resize while the
+ * item is on screen (either way) re-sizes it and moves nothing to another place.
+ */
+export const PierResizePadGrows: Story = resized(pierToStandard, 'small', 'tablet');
+export const PierResizePadShrinks: Story = resized(pierToStandard, 'tablet', 'small');
+export const PierResizeBuildGrows: Story = resized(pierBuild, 'small', 'tablet');
+export const PierResizeBuildShrinks: Story = resized(pierBuild, 'tablet', 'small');

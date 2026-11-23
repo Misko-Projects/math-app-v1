@@ -5,7 +5,7 @@
 //   child, so its tasks are left out. `PIER_EXCLUDED` lists the templates whose widget puts a
 //   control the child needs below the workshop area on the 1280 × 800 tablet, each with the
 //   reason (#20 part 1, "Does not fit yet": measured per template in the pier; the fix belongs to
-//   the widget, and the entry goes when it lands).
+//   the widget, and the entry goes when it lands). It is empty since #13.
 // - `planPierRequest`: the session planner with no themed workshop built, so every request falls
 //   back to the pier (04 §6.3); the first request with a playable item is taken. The request
 //   picker and the warmup arrive with the island hub (I01).

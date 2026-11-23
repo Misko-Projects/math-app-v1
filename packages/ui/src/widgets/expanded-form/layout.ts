@@ -26,7 +26,6 @@ export function padPlanIn(first: Size, live: Size, button: Size, ageMode: AgeMod
   };
 }
 
-
 /** One card in the tray, in config order. */
 export interface TrayCard {
   /** The item id: `card-<value>` for the first copy, `card-<value>~<k>` for copy k. */
