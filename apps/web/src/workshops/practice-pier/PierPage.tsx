@@ -488,6 +488,10 @@ function PierRequest({
         return;
       }
       setPhase('lesson');
+      if (step._lead) {
+        await sayLine(step._lead);
+        if (stale()) return;
+      }
       await Promise.all([sayLine(step.narration, step.vars), step.demo ? act(step.demo) : null]);
       while (againAsked.current && !stale()) {
         againAsked.current = false;

@@ -404,6 +404,79 @@ describe('TaskRunner: lessons', () => {
     );
   });
 
+  describe("after the skill's test-out items (03 §6.5, 04 §3)", () => {
+    /** A request of one test-out item and the lesson, over a store whose projection the test controls. */
+    async function afterDraw(passed: boolean) {
+      const store: DataStore = await testEnv().open();
+      await store.putProfile(kid);
+      const items: GeneratedItem[] = [];
+      const request = browseRequest(
+        graph(),
+        { skillId: SKILL, templateId: null, lesson: true },
+        11,
+      );
+      const [lessonTask, item] = request.tasks;
+      if (!lessonTask || !item) throw new Error('the lesson request has two tasks');
+      const runner = await createTaskRunner({
+        engine: {
+          ...engine,
+          generateItem: (...args) => {
+            const made = engine.generateItem(...args);
+            items.push(made);
+            return made;
+          },
+        },
+        store: {
+          append: (...args) => store.append(...args),
+          now: () => store.now(),
+          // The learner's verdict on the draw (the model decides it; here the test does).
+          skillStates: async (id) => {
+            const state = await store.skillStates(id);
+            const st = state?.skills[SKILL];
+            if (!state || !st || !passed) return state;
+            return { ...state, skills: { ...state.skills, [SKILL]: { ...st, practicedAt: 1 } } };
+          },
+        },
+        graph: graph(),
+        child: childK,
+        request: { ...request, tasks: [item, lessonTask] },
+        hosts: pierPlayable,
+        session: {
+          sessionId: 'session-1',
+          elapsedMs: () => 0,
+          budgetMs: 10 * 60_000,
+          windingDown: () => false,
+          recordMath: () => {},
+          recordItem: () => {},
+        },
+      });
+      await runner.submit(engine.itemExampleCorrect(items.at(-1) as GeneratedItem), {
+        latencyMs: 3000,
+      });
+      return { runner, store };
+    }
+
+    it('a passed test-out skips the lesson', async () => {
+      const { runner, store } = await afterDraw(true);
+      expect(runner.next()).toBeNull();
+      expect(runner.endReason()).toBe('complete');
+      await runner.finish();
+      expect((await store.events()).filter((e) => e.type === 'lesson.step')).toEqual([]);
+    });
+
+    it('otherwise the full lesson follows, opened by the transition line', async () => {
+      const { runner } = await afterDraw(false);
+      const intro = asStep(runner.next());
+      expect(intro).toMatchObject({ phase: 'intro', _lead: 'fb.testout.to-lesson' });
+      expect(asStep(runner.next())).toMatchObject({ phase: 'worked', step: 0, _lead: null });
+    });
+  });
+
+  it('a lesson that opens a request has no transition line', async () => {
+    const { runner } = await start();
+    expect(asStep(runner.current())._lead).toBeNull();
+  });
+
   it('no new part of a lesson starts after the wind-down', async () => {
     let winding = false;
     const { runner } = await start({ session: { windingDown: () => winding } });

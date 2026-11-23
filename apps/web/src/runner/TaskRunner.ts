@@ -30,7 +30,9 @@
 // and `next()` writes `demo-corrected`. Then the scaffolded items: real items of the lesson's
 // template in context `lesson`, through `submit` like any item, with the hint ladder opened at
 // `hintStart` (the rung is on the task as `_nudge`; it is not a hint the child used). The
-// shortening rules and "I can try" (`skipWorked`) write `skipped`.
+// shortening rules and "I can try" (`skipWorked`) write `skipped`. A lesson that follows its
+// skill's test-out items is passed over when the test-out succeeded (04 §3: the skill is on the
+// practiced track), and otherwise opens with the transition line (03 §6.5).
 //
 // Not here yet: AI feedback (`onAiFeedback` never calls back, #21).
 
@@ -158,6 +160,8 @@ export interface PierLessonStep extends LessonStepTask {
   _prior: WidgetAction[];
   /** "I can try" is on offer (grade 1 up, after the first worked step, 03 §6.2). */
   _canSkip: boolean;
+  /** A line to say before this step's own: the transition after a test-out that did not pass. */
+  _lead: NarrationKey | null;
 }
 
 /** An item as the pier plays it: a scaffolded lesson item carries the rung that opens its ladder. */
@@ -216,6 +220,8 @@ interface LessonRun {
   planned: PlannedTask;
   script: LessonScript;
   pos: LessonPos;
+  /** The lesson follows the skill's test-out items, which did not pass (03 §6.5). */
+  afterTestOut: boolean;
 }
 
 interface Current {
@@ -354,7 +360,13 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
         const skill = graph.skills[planned.skillId];
         const script = skill ? buildLesson(engine, graph, skill, deps.hosts) : null;
         if (!script) continue;
-        lesson = { index: i, planned, script, pos: { at: 'intro' } };
+        // Items of the skill before its lesson are its test-out (04 §6.3). Passed → the skill is
+        // on the practiced track and the lesson is skipped (04 §3); else the full lesson.
+        const afterTestOut = request.tasks
+          .slice(0, i)
+          .some((t) => isItem(t) && t.skillId === planned.skillId);
+        if (afterTestOut && (state.skills[planned.skillId]?.practicedAt ?? null) !== null) continue;
+        lesson = { index: i, planned, script, pos: { at: 'intro' }, afterTestOut };
         return;
       }
       const tpl = presentedTemplate(planned);
@@ -388,10 +400,12 @@ export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRu
       _turnLines: [],
       _prior: [],
       _canSkip: false,
+      _lead: null,
     };
     if (pos.at === 'intro' || pos.at === 'outro') {
       return {
         ...base,
+        _lead: pos.at === 'intro' && run.afterTestOut ? 'fb.testout.to-lesson' : null,
         templateId: script.templateId,
         phase: pos.at,
         example: 0,
