@@ -91,6 +91,53 @@ ui.island.empty:
 ui.island.displaced:
   text: "Someone was here first. Pick a new place to build!"
   level: K
+# Decorate mode and its caps (I01 part 4, apps/web/src/island/decorate; 05 §6, §8).
+ui.decor.open:
+  text: "Decorate"
+  level: K
+ui.decor.pick:
+  text: "Pick a thing to put on the island!"
+  voice: pip
+  level: K
+ui.decor.place:
+  text: "Now tap where it goes."
+  voice: pip
+  level: K
+ui.decor.all:
+  text: "All your things are on the island!"
+  voice: pip
+  level: K
+ui.decor.item:
+  text: "Thing {n}"
+  level: K
+ui.decor.away:
+  text: "Put it away"
+  level: K
+# 05 §8 "Decorating is open after your next request!", in the island's own words for a request
+# ("help a friend"), which are on the K–1 word list.
+ui.decor.closed:
+  text: "Decorating is open after you help a friend!"
+  voice: pip
+  level: K
+# The island's name (I01 part 4, apps/web/src/island/naming; 05 §10 step 3). The names to choose
+# from and their spoken lines are game data (game/island.yaml `names`, narration/game.yaml).
+ui.island.name.open:
+  text: "Name the island"
+  level: K
+ui.island.name.pick:
+  text: "What is the name of our island? Pick one!"
+  voice: pip
+  level: K
+# The wind-down recap (I01 part 4, apps/web/src/island/recap.ts; 06 §2 "Wind-down"): each line is
+# followed by what it names, as counts and names.
+ui.winddown.made:
+  text: "Look at your new things!"
+  voice: pip
+  level: K
+ui.winddown.built:
+  text: "You helped build"
+  voice: pip
+  level: K
 # Building and the Numbered Road on the island (I01 part 2, apps/web/src/island/building).
 ui.build.open:
   text: "Build"

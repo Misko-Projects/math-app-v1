@@ -23,7 +23,7 @@ import { buildClock, CONSTRUCTION_MS, COUNT_STEP_MS, manualClock } from './build
 import { ChildHomePage } from './ChildHomePage';
 import { FIRST_PROBLEM_BUDGET_MS, firstProblem } from './firstProblem';
 import { PlayLayout } from './PlayLayout';
-import { planIslandRequests } from './planRequests';
+import { type IslandPlan, planIslandRequests } from './planRequests';
 import { displacedFor } from './shared/family';
 
 // The island's planner, called through: the tests can see when the island plans and with what.
@@ -100,7 +100,12 @@ async function renderHome({
   return { app, router, say, tick, device };
 }
 
-const types = async (app: AppServices) => (await app.store.events()).map((e) => e.type);
+/**
+ * The log's event types, without the steps of a lesson: a new child's first request starts with
+ * the plan's warmup, the lesson of its first skill, which logs its demo steps as they play.
+ */
+const types = async (app: AppServices) =>
+  (await app.store.events()).map((e) => e.type).filter((type) => type !== 'lesson.step');
 const ended = async (app: AppServices) =>
   (await app.store.events()).filter((e) => e.type === 'session.ended');
 /** The request bubbles, once the island has planned. */
@@ -150,7 +155,9 @@ describe('<ChildHomePage>: the island', () => {
     tick(60_000); // K budget: 10 minutes (04 §6.1)
     expect(await screen.findByTestId('sunset')).toBeTruthy();
     expect(screen.getByText('Great playing! See you next time!')).toBeTruthy();
-    expect(say).toHaveBeenCalledWith('ui.winddown.done', undefined);
+    // Nothing was made or built: the goodbye alone, once the log has been read.
+    await vi.waitFor(() => expect(say).toHaveBeenCalledWith('ui.winddown.done', undefined));
+    expect(screen.queryByTestId('recap')).toBeNull();
     await waitFor(async () => expect(await ended(app)).toHaveLength(1));
     expect((await ended(app))[0]?.payload).toMatchObject({
       reason: 'wind-down',
@@ -300,6 +307,8 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     const before = firstProblem.lastMs();
     for (let quiet = 1; firstProblem.lastMs() === before; quiet += 1) {
       await wait();
+      // Measured while waiting (the first widget mounted): the clock must not move after it.
+      if (firstProblem.lastMs() !== before) break;
       // Nothing arrived by itself for a while and a timer is pending: time moves to it.
       if (quiet % 100 === 0 && vi.getTimerCount() > 0) {
         await act(async () => {
@@ -339,6 +348,15 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     );
     const completed = (await app.store.events()).at(-1);
     expect(completed?.payload).toMatchObject({ requestId: firstId, endedEarly: true, items: 0 });
+    // The request started with the plan's warmup (04 §6.1): one task more than the planned ones.
+    const planner = vi.mocked(planIslandRequests);
+    const planned = planner.mock.results[0]?.value as IslandPlan;
+    expect(planned.warmup).not.toBeNull();
+    const accepted = (await app.store.events()).find((e) => e.type === 'request.accepted');
+    expect(accepted?.payload).toMatchObject({
+      requestId: firstId,
+      taskCount: (planned.requests[0]?.tasks.length ?? 0) + 1,
+    });
     // Back on the island: nothing was made, so nothing arrives, and the bubbles are a new plan.
     await waitFor(async () => {
       const ids = (await bubbles()).map((b) => b.getAttribute('data-request'));
@@ -1088,6 +1106,256 @@ describe('the shared island (05 §3, §6; #22 part 3)', () => {
     );
     await waitFor(() => expect(planner.mock.calls.length).toBeGreaterThan(plans));
     expect(residentsPlanned()).toEqual(['hobb']);
+  });
+});
+
+describe('decorate mode and its caps (05 §6, §8; 06 §2; #22 part 4)', () => {
+  const clockFor = () => {
+    const clock = manualClock();
+    const real = buildClock.current;
+    buildClock.current = clock;
+    const prev = restore;
+    restore = () => {
+      buildClock.current = real;
+      prev();
+    };
+    return clock;
+  };
+  /** Into the recommended request, `ms` of the session there, and back to the island. */
+  async function playFor(
+    { app, router, tick }: Awaited<ReturnType<typeof renderHome>>,
+    ms: number,
+  ) {
+    const [first] = await bubbles();
+    fireEvent.click(first as HTMLElement);
+    await waitFor(async () => expect(await types(app)).toContain('request.accepted'));
+    tick(ms);
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await waitFor(async () => expect(await types(app)).toContain('request.completed'));
+    await bubbles();
+  }
+  const decorEvents = async (app: AppServices) =>
+    (await app.store.events())
+      .filter((e) => e.type.startsWith('decor.'))
+      .map((e) => [e.type, e.payload]);
+
+  it('is closed until a request has been played: the island says when it opens', async () => {
+    const { app, say } = await renderHome();
+    await bubbles();
+    const open = screen.getByRole('button', { name: 'Decorate' });
+    expect(open.getAttribute('data-capped')).toBe('false');
+    fireEvent.click(open);
+    expect(say).toHaveBeenCalledWith('ui.decor.closed', undefined);
+    expect(screen.getByText('Decorating is open after you help a friend!')).toBeTruthy();
+    expect(open.getAttribute('data-capped')).toBe('true');
+    // Nothing opened: the requests stay, the recommended one first.
+    expect(screen.queryByTestId('decor-tray')).toBeNull();
+    expect((await bubbles())[0]?.getAttribute('data-recommended')).toBe('true');
+    expect(await decorEvents(app)).toEqual([]);
+  });
+
+  it('after a request: pick a piece, tap a plot, put it away, and the time cap ends the mode', async () => {
+    const clock = clockFor();
+    const home = await renderHome();
+    const { app, say, tick } = home;
+    // Six minutes in the workshop earn two minutes on the island (a quarter of the session).
+    await playFor(home, 6 * 60_000);
+    fireEvent.click(screen.getByRole('button', { name: 'Decorate' }));
+    const tray = await screen.findByTestId('decor-tray');
+    expect(say).toHaveBeenCalledWith('ui.decor.pick', undefined);
+    expect(screen.queryByTestId('requests')).toBeNull();
+    // Every starter piece, each a button with a picture; none on the island yet.
+    const pieces = within(tray).getAllByRole('button', { name: /^Thing \d+$/ });
+    expect(pieces).toHaveLength(Number(tray.getAttribute('data-pieces')));
+    expect(tray.getAttribute('data-spare')).toBe(tray.getAttribute('data-pieces'));
+    expect(pieces[0]?.getAttribute('data-decor-item')).toBe('shell-bench-1');
+    expect(pieces[0]?.querySelector('svg')).toBeTruthy();
+    expect(screen.queryByTestId('plot-targets')).toBeNull();
+
+    // In hand: the island offers the sandbar's one free plot.
+    fireEvent.click(pieces[0] as HTMLElement);
+    expect(say).toHaveBeenCalledWith('ui.decor.place', undefined);
+    expect(pieces[0]?.getAttribute('aria-pressed')).toBe('true');
+    const plots = within(await screen.findByTestId('plot-targets')).getAllByRole('button');
+    expect(plots.map((b) => b.getAttribute('data-plot'))).toEqual(['3,4']);
+    await act(async () => {
+      fireEvent.click(plots[0] as HTMLElement);
+    });
+    await waitFor(async () =>
+      expect(await decorEvents(app)).toEqual([
+        ['decor.placed', { instanceId: 'shell-bench-1', decorId: 'shell-bench', pos: [3, 4] }],
+      ]),
+    );
+    // It stands on the map, is marked in the tray, and is no longer in hand.
+    const scene = screen.getByTestId('child-home').querySelector('[data-scene="island"]');
+    await waitFor(() =>
+      expect(scene?.querySelector('[data-decor-instance="shell-bench-1"]')).toBeTruthy(),
+    );
+    expect(scene?.querySelector('[data-decor="shell-bench"]')).toBeTruthy();
+    await waitFor(() => expect(pieces[0]?.getAttribute('data-state')).toBe('placed'));
+    expect(screen.queryByTestId('plot-targets')).toBeNull();
+    // The plot is taken: the next piece has nowhere to go on the sandbar.
+    fireEvent.click(pieces[1] as HTMLElement);
+    expect(screen.queryByTestId('plot-targets')?.querySelectorAll('button')).toHaveLength(0);
+    const away = screen.getByRole('button', { name: 'Put it away' }) as HTMLButtonElement;
+    expect(away.disabled).toBe(true);
+
+    // The piece on the island is put away again.
+    fireEvent.click(pieces[0] as HTMLElement);
+    expect(away.disabled).toBe(false);
+    await act(async () => {
+      fireEvent.click(away);
+    });
+    await waitFor(async () =>
+      expect((await decorEvents(app)).at(-1)).toEqual([
+        'decor.removed',
+        { instanceId: 'shell-bench-1' },
+      ]),
+    );
+    await waitFor(() => expect(pieces[0]?.getAttribute('data-state')).toBe('spare'));
+
+    // The cap: two minutes on the island are allowed. A second before, the mode is still open.
+    tick(2 * 60_000 - 1000);
+    act(() => clock.advance(2 * 60_000));
+    expect(screen.queryByTestId('decor-tray')).toBeTruthy();
+    say.mockClear();
+    tick(1000);
+    act(() => clock.advance(1000));
+    expect(screen.queryByTestId('decor-tray')).toBeNull();
+    expect(say).toHaveBeenCalledWith('ui.decor.closed', undefined);
+    expect(screen.getByText('Decorating is open after you help a friend!')).toBeTruthy();
+    expect((await bubbles())[0]?.getAttribute('data-recommended')).toBe('true');
+    // Closed until the next request: another tap says so again and opens nothing.
+    fireEvent.click(screen.getByRole('button', { name: 'Decorate' }));
+    expect(screen.queryByTestId('decor-tray')).toBeNull();
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('"Okay" leaves the mode, and the requests come back', async () => {
+    clockFor();
+    const home = await renderHome();
+    await playFor(home, 6 * 60_000);
+    fireEvent.click(screen.getByRole('button', { name: 'Decorate' }));
+    const tray = await screen.findByTestId('decor-tray');
+    fireEvent.click(within(tray).getByRole('button', { name: 'Okay!' }));
+    expect(screen.queryByTestId('decor-tray')).toBeNull();
+    expect((await bubbles()).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Decorate' }).getAttribute('data-capped')).toBe(
+      'false',
+    );
+  });
+});
+
+describe("the island's name (05 §10 step 3; #22 part 4)", () => {
+  it('the first child picks one of the spoken names in the game data: island.named, and the island says welcome', async () => {
+    const { app, say } = await renderHome();
+    await bubbles();
+    expect(screen.queryByTestId('island-name')).toBeNull();
+    // The sign shows once the island is read: it has no name yet.
+    fireEvent.click(await screen.findByRole('button', { name: 'Name the island' }));
+    const sheet = await screen.findByTestId('name-sheet');
+    const names = Array.from(sheet.querySelectorAll('[data-island-name]'));
+    // The game data's names (game/island.yaml), each shown as it is said.
+    expect(names.map((b) => b.textContent)).toEqual([
+      'Shell Island',
+      'Lantern Island',
+      'Stone Island',
+      'Garden Island',
+      'Lighthouse Island',
+      'Boat Island',
+    ]);
+    // The sheet is a dialog: its controls are there once it has opened.
+    const okay = (await within(sheet).findByRole('button', { name: 'Okay!' })) as HTMLButtonElement;
+    expect(okay.disabled).toBe(true);
+    fireEvent.click(names[2] as HTMLElement);
+    expect(say).toHaveBeenCalledWith('game.island.name.stone', undefined);
+    expect(names[2]?.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => {
+      fireEvent.click(okay);
+    });
+    await waitFor(async () => expect((await app.store.island()).name).toBe('Stone'));
+    expect((await app.store.events()).at(-1)).toMatchObject({
+      type: 'island.named',
+      childId: CHILD_K,
+      payload: { name: 'Stone' },
+    });
+    await vi.waitFor(() =>
+      expect(say).toHaveBeenCalledWith('game.island.welcome.stone', undefined),
+    );
+    // The name shows beside the child's, and the sign is gone: the island is named once.
+    expect((await screen.findByTestId('island-name')).textContent).toBe('Stone Island');
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Name the island' })).toBeNull(),
+    );
+  });
+
+  it('a sibling is welcomed to the island by name, once on a device', async () => {
+    const named = async (a: AppServices) => {
+      await a.store.putProfile(profile(CHILD_G2, '2', 'Ben'));
+      await a.store.append('island.named', { name: 'Garden' }, { childId: CHILD_G2 });
+    };
+    const first = await renderHome({ before: named });
+    await vi.waitFor(() =>
+      expect(first.say).toHaveBeenCalledWith('game.island.welcome.garden', undefined),
+    );
+    expect(screen.getByText('Welcome to Garden Island!')).toBeTruthy();
+    expect(first.say).not.toHaveBeenCalledWith('ui.island.hello', undefined);
+    expect(screen.getByTestId('island-name').textContent).toBe('Garden Island');
+    expect(screen.queryByRole('button', { name: 'Name the island' })).toBeNull();
+    cleanup();
+    // The next visit on this device: the usual greeting.
+    const again = await renderHome({ before: named });
+    await vi.waitFor(() => expect(again.say).toHaveBeenCalledWith('ui.island.hello', undefined));
+    expect(again.say).not.toHaveBeenCalledWith('game.island.welcome.garden', undefined);
+  });
+});
+
+describe('the wind-down recap (06 §2; #22 part 4)', () => {
+  it('shows and says what the child made and built in the session, then the goodbye', async () => {
+    const { app, tick } = await renderHome();
+    await bubbles();
+    const phrases = vi.spyOn(app.audio, 'sayPhrases');
+    const started = (await app.store.events()).find((e) => e.type === 'session.started');
+    if (!started) throw new Error('no session was started');
+    const sessionId = (started.payload as { sessionId: string }).sessionId;
+    await act(async () => {
+      await app.store.append(
+        'material.produced',
+        { sessionId, requestId: 'r1', workshopId: 'practice-pier', materials: { stone: 12 } },
+        { childId: CHILD_K },
+      );
+      await app.store.append(
+        'building.placed',
+        { instanceId: 'shell-cottage', buildingId: 'shell-cottage', plot: [3, 4] },
+        { childId: CHILD_K },
+      );
+      await app.store.append('road.extended', { to: 1 }, { childId: CHILD_K });
+    });
+    tick(10 * 60_000);
+    expect(await screen.findByTestId('sunset')).toBeTruthy();
+    const recap = await screen.findByTestId('recap');
+    // Made: the Storehouse's piles (kindergarten: a full ten-frame and one with two).
+    const pile = within(recap).getByTestId('recap-made').querySelector('li[data-material="stone"]');
+    expect(pile?.getAttribute('data-count')).toBe('12');
+    expect(pile?.querySelectorAll('[data-pile="ten-frame"]')).toHaveLength(2);
+    // Built: the home's picture and the stone laid.
+    const built = within(recap).getByTestId('recap-built');
+    expect(within(built).getByRole('img', { name: 'Shell Cottage' })).toBeTruthy();
+    expect(built.querySelector('[data-built="road"]')?.getAttribute('data-stones')).toBe('1');
+    expect(phrases).toHaveBeenCalledWith([
+      { id: 'ui.winddown.made' },
+      { number: 12 },
+      { id: 'game.material.stone' },
+      { id: 'ui.winddown.built' },
+      { id: 'game.building.shell-cottage' },
+      { number: 1 },
+      { id: 'game.material.stone' },
+      { id: 'ui.winddown.done' },
+    ]);
+    expect(screen.getByText('Great playing! See you next time!')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Okay!' })).toBeTruthy();
   });
 });
 

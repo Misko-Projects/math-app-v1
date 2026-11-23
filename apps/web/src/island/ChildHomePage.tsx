@@ -2,16 +2,24 @@
 // the calm sunset when it winds down ("Great playing! See you next time!", no guilt, 05 §7), after
 // which the picker returns.
 
+import type { ChildProfile } from '@number-island/shared';
 import { BigButton, icons, ReplayButton, SpeechBubble, useSpeech } from '@number-island/ui';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
-import { ChildUi } from '@/app/AppServices';
-import type { WindDownReason } from '@/app/session/SessionController';
+import { ChildUi, useAppServices } from '@/app/AppServices';
+import { recordDiagnostic } from '@/app/diagnostics';
+import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
 import { IslandHub } from './IslandHub';
+import { emptyRecap, type Recap, recapPhrases, sessionRecap } from './recap';
 
-/** The sunset stays this long before the picker comes back (a tap on "okay" goes sooner). */
+const WindDownRecap = lazy(() => import('./WindDownRecap'));
+
+/**
+ * The sunset stays this long before the picker comes back (a tap on "okay" goes sooner): from
+ * the start of the goodbye, or from the end of the recap when there is one to say.
+ */
 export const SUNSET_MS = 9000;
 
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -20,7 +28,9 @@ export function ChildHomePage() {
   const { childId = '' } = useParams();
   const profiles = useProfiles();
   const { session } = useSession();
-  const [sunset, setSunset] = useState<WindDownReason | null>(null);
+  // The session that wound down: it is over by the time the sunset shows.
+  const [sunset, setSunset] = useState<ActiveSession | null>(null);
+  const windDown = useCallback(() => setSunset(session), [session]);
   if (profiles === undefined) return null;
   const index = [...profiles]
     .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
@@ -32,38 +42,91 @@ export function ChildHomePage() {
   return (
     <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>
       {sunset ? (
-        <SunsetScreen />
+        <SunsetScreen child={child} session={sunset} />
       ) : (
-        <IslandHub child={child} index={Math.max(0, index)} onWindDown={setSunset} />
+        <IslandHub child={child} index={Math.max(0, index)} onWindDown={windDown} />
       )}
     </ChildUi>
   );
 }
 
-/** The wind-down sunset (06 §2): warm, slow and short, then back to the picker. */
-export function SunsetScreen() {
+/**
+ * The wind-down sunset (06 §2): warm, slow and short, then back to the picker. It shows and says
+ * what the child made and built in the session (`recap.ts`), then the goodbye; with nothing made
+ * or built, the goodbye alone.
+ */
+export function SunsetScreen({ child, session }: { child: ChildProfile; session: ActiveSession }) {
   const { say } = useSpeech();
+  const { store, content, audio } = useAppServices();
   const navigate = useNavigate();
+  const { gameData } = content.store;
+  // undefined while the log is read; null with nothing to recap.
+  const [recap, setRecap] = useState<Recap | null | undefined>(undefined);
   useEffect(() => {
-    say('ui.winddown.done');
-    const t = setTimeout(() => navigate('/', { replace: true }), SUNSET_MS);
-    return () => clearTimeout(t);
-  }, [say, navigate]);
+    let alive = true;
+    store.events().then(
+      (events) => {
+        const found = sessionRecap(events, gameData, child.id, session);
+        if (alive) setRecap(emptyRecap(found) ? null : found);
+      },
+      (e) => {
+        recordDiagnostic('winddown.recap', e);
+        if (alive) setRecap(null);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [store, gameData, child.id, session]);
+
+  const speak = useCallback(
+    () =>
+      recap
+        ? audio.sayPhrases(recapPhrases(recap, gameData)).catch(() => {})
+        : Promise.resolve(say('ui.winddown.done')),
+    [recap, audio, gameData, say],
+  );
+  useEffect(() => {
+    if (recap === undefined) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const leaveLater = () => {
+      if (alive) timer = setTimeout(() => navigate('/', { replace: true }), SUNSET_MS);
+    };
+    const spoken = speak();
+    // The goodbye alone: the time runs from its start. A recap is heard to its end first.
+    if (recap === null) leaveLater();
+    else void spoken.then(leaveLater);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [recap, speak, navigate]);
+
   return (
     <div className="relative h-dvh min-h-[600px] w-full overflow-hidden" data-testid="sunset">
       <SunsetArt className="absolute inset-0 size-full" />
-      <main className="relative flex h-full flex-col items-center justify-end gap-6 px-6 pb-[clamp(2rem,9vh,5rem)]">
-        <div className="flex items-center gap-5">
+      <main className="relative flex h-full flex-col items-center justify-end gap-4 px-6 pb-[clamp(1rem,5vh,5rem)]">
+        {recap ? (
+          <Suspense fallback={null}>
+            <WindDownRecap
+              recap={recap}
+              gameData={gameData}
+              mode={child.grade === 'K' ? 'ten-frames' : 'base-ten'}
+            />
+          </Suspense>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-center gap-5">
           <SpeechBubble say="ui.winddown.done" tail="none" tone="sun" showText />
-          <ReplayButton onPress={() => say('ui.winddown.done')} />
+          <ReplayButton onPress={() => void speak()} />
+          <BigButton
+            label="ui.btn.okay"
+            icon={<icons.CheckIcon tone="light" />}
+            tone="leaf"
+            showLabel
+            onPress={() => navigate('/', { replace: true })}
+          />
         </div>
-        <BigButton
-          label="ui.btn.okay"
-          icon={<icons.CheckIcon tone="light" />}
-          tone="leaf"
-          showLabel
-          onPress={() => navigate('/', { replace: true })}
-        />
       </main>
     </div>
   );

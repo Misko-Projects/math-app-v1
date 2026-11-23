@@ -350,3 +350,18 @@ island:
     - { n: 980, plot: [0, 1] }
     - { n: 990, plot: [0, 1] }
     - { n: 1000, plot: [0, 1] }
+  # The names a child may give the island (05 §10 step 3): plain names made from things that are
+  # on the island (a building, a material). `name` is what the `island.named` event records;
+  # `say` and `welcome` are its spoken lines (narration/game.yaml), so a name is never free text
+  # read aloud. Edit this list to change the choices; a name already given stays as it is.
+  names:
+    - { name: Shell, say: game.island.name.shell, welcome: game.island.welcome.shell }
+    - { name: Lantern, say: game.island.name.lantern, welcome: game.island.welcome.lantern }
+    - { name: Stone, say: game.island.name.stone, welcome: game.island.welcome.stone }
+    - { name: Garden, say: game.island.name.garden, welcome: game.island.welcome.garden }
+    - {
+        name: Lighthouse,
+        say: game.island.name.lighthouse,
+        welcome: game.island.welcome.lighthouse,
+      }
+    - { name: Boat, say: game.island.name.boat, welcome: game.island.welcome.boat }

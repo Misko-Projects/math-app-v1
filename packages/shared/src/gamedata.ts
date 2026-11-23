@@ -124,6 +124,11 @@ export interface GameData {
     grid: [12, 8];
     rings: { plots: Plot[]; unlock: UnlockRule }[];
     road: { n: number; plot: Plot }[]; // stone n → plot (n up to 1000)
+    /**
+     * The names a child may give the island (05 §10 step 3): `name` is what `island.named`
+     * records, `say` the name as spoken and shown ("Shell Island"), `welcome` the greeting.
+     */
+    names?: { name: string; say: NarrationKey; welcome: NarrationKey }[];
   };
   festivals: {
     id: string;
@@ -155,6 +160,11 @@ export const islandDefSchema = z.object({
   grid: z.tuple([z.literal(12), z.literal(8)]),
   rings: z.array(z.object({ plots: z.array(plotSchema), unlock: unlockRuleSchema })),
   road: z.array(z.object({ n: z.number().int().positive(), plot: plotSchema })),
+  names: z
+    .array(
+      z.object({ name: z.string().min(1), say: narrationKeySchema, welcome: narrationKeySchema }),
+    )
+    .optional(),
 });
 export const festivalDefSchema = z.object({
   id: z.string().min(1),

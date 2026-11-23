@@ -11,17 +11,20 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { ChildUi, useAppServices } from '@/app/AppServices';
+import { recordDiagnostic } from '@/app/diagnostics';
 import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
 import { useHub } from '@/island/hub';
-import type { RequestSummary } from '@/runner/TaskRunner';
+import type { PierTaskRunner, RequestSummary } from '@/runner/TaskRunner';
 import { useRequestRunner } from '@/runner/useRequestRunner';
+import { type DecorGrant, decorGrantFor, settleDecorGrant } from './decorGrant';
 import { workshopFor } from './registry';
 import type { AppWorkshop, AppWorkshopProps } from './types';
 
@@ -83,17 +86,38 @@ function HostedRequest(props: HostedProps) {
 }
 
 function OwnedRequest({ child, session, request }: HostedProps) {
-  const { audio } = useAppServices();
+  const { audio, store } = useAppServices();
   const navigate = useNavigate();
   const { complete } = useHub();
+  // The runner the screen plays with: its `finish()` also writes the decor a request played to
+  // its end earns (`decorGrant.ts`), so the family owns it as soon as the request is over.
+  const granting = useRef<DecorGrant<PierTaskRunner> | null>(null);
   // Called once the screen is gone and the request is over, whichever way the child left. A
   // request that could not be written made nothing.
   const finished = useCallback(
-    (summary: RequestSummary | null) =>
-      complete({ requestId: request.id, materials: summary?.materials ?? {} }),
+    (summary: RequestSummary | null) => {
+      void (async () => {
+        // The grants of a request that ended complete are in before the island shows them.
+        // (`settleDecorGrant`: a write that failed while this joined it is made once more.)
+        const decor = granting.current
+          ? await settleDecorGrant(granting.current, (e) => recordDiagnostic('decor.earned', e))
+          : [];
+        complete({ requestId: request.id, materials: summary?.materials ?? {}, decor });
+      })();
+    },
     [complete, request.id],
   );
-  const runner = useRequestRunner(child, session, request, finished);
+  const base = useRequestRunner(child, session, request, finished);
+  const runner = useMemo(() => {
+    if (!base) return null;
+    // One per runner (`decorGrantFor`), so a second render gets the same one.
+    granting.current = decorGrantFor<RequestSummary, PierTaskRunner>(
+      base,
+      request.reward.decor ?? [],
+      (id) => store.append('collection.unlocked', { kind: 'decor', id }, { childId: child.id }),
+    );
+    return granting.current.runner;
+  }, [base, request, store, child.id]);
   const Screen = screenOf(workshopFor(request.workshopId));
   const exit = useCallback(
     (_reason: WorkshopExitReason) => navigate(`/play/${child.id}`, { replace: true }),

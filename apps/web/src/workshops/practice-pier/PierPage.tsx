@@ -250,11 +250,7 @@ export function PierRequest({
   useEffect(() => {
     let alive = true;
     const first = runner.current() as PierTask | null;
-    if (first) {
-      // The request's first task is on its way to the screen (05 §2: within 10 s of the tap).
-      firstProblem.shown();
-      setTask(first);
-    }
+    if (first) setTask(first);
     if (!first) void runner.finish().then((s) => alive && setSummary(s), raise);
     return () => {
       alive = false;
@@ -685,6 +681,8 @@ export function PierRequest({
         if (item) void audio.say(item.prompt.narration, item.prompt.vars).catch(() => {});
       }}
       onClosePicture={() => setPicture(null)}
+      // The request's first widget is on screen (05 §2: within 10 s of the tap; once per tap).
+      onWidgetMount={firstProblem.shown}
       onResponse={onResponse}
       onInteract={(e) => {
         idle.current?.touch();

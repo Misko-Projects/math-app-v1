@@ -5,19 +5,36 @@ import { localEvents, seedLocalChild } from '../fixtures/localChild';
 // taps the recommended one, answers its first item in the Practice Pier, and comes home with what
 // that made in the Storehouse and new requests on the island.
 //
-// The child is local to this browser (no pairing, no sync). A new kindergartner's recommended
-// request starts with "what comes next" on the number chart (CNT.01), which this spec answers.
-// Nothing here waits on, or asserts, elapsed real time.
+// The child is local to this browser (no pairing, no sync). A new kindergartner's first request
+// opens with the session's warmup (04 §6.1; part 4): the lesson of "what comes next" on the number
+// chart (CNT.01), whose last step is the child's, and then its first item, which this spec answers.
+//
+// Time: the first test runs on Playwright's clock, and no line is spoken in real time (the audio
+// manifest is not served): the lesson's demo is played out by running the clock. Nothing here
+// waits on, or asserts, elapsed real time.
 
 const CHILD = { id: '019c0000-0000-7000-8000-00000000e2f1', name: 'Ada', grade: 'K' as const };
 
-const types = async (page: Page) => (await localEvents(page)).map((e) => e.type);
+/** The log's event types, without the steps of the lesson (one per demo step played). */
+const types = async (page: Page) =>
+  (await localEvents(page)).map((e) => e.type).filter((type) => type !== 'lesson.step');
+
+/** Plays out what is playing (the lesson's demo) until the pier shows one of `phases`. */
+async function until(page: Page, phases: RegExp): Promise<void> {
+  const pier = page.getByTestId('pier');
+  await expect(async () => {
+    await page.clock.runFor(1000);
+    await expect(pier).toHaveAttribute('data-phase', phases, { timeout: 250 });
+  }).toPass();
+}
 
 test('the island loop: requests, one item at the pier, materials in the Storehouse, a new plan', async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/audio/manifest.json', (route) => route.abort());
+  await page.clock.install();
   await seedLocalChild(page, CHILD);
   await page.getByTestId('tap-to-start').click();
   await page.getByRole('button', { name: CHILD.name, exact: true }).click();
@@ -50,20 +67,33 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
   await expect(page.getByTestId('storehouse-piles')).toHaveCount(0);
   await page.getByRole('button', { name: 'Go back' }).click();
 
-  // Into the recommended request: its workshop opens on the first item.
+  // Into the recommended request: its workshop opens on the warmup, the skill's lesson.
   const first = await requests.first().getAttribute('data-request');
   const asked = (await requests.first().getAttribute('aria-label')) ?? '';
   await requests.first().click();
   const pier = page.getByTestId('pier');
-  await expect(pier).toHaveAttribute('data-phase', 'answer');
+  await expect(pier).toHaveAttribute('data-phase', /lesson|turn/);
   await expect(page).toHaveURL(/\/workshop\/practice-pier$/);
   const chart = page.getByTestId('pier-stage').locator('.ni-hc[data-mode="next"]');
-  await expect(chart).toBeVisible();
-  const start = Number(await chart.locator('[data-start="true"]').getAttribute('data-n'));
-  await chart.locator(`[data-n="${start + 1}"]`).click();
-  await page.getByTestId('pier-stage').getByRole('button', { name: 'Check' }).click();
-  await expect(page.getByTestId('pier-cue')).toHaveAttribute('data-cue', 'right');
-  await expect(pier).toHaveAttribute('data-phase', 'feedback');
+  const check = page.getByTestId('pier-stage').getByRole('button', { name: 'Check' });
+  /** Taps the number after the marked one and checks it, after a jump in time (06 §4). */
+  const answerNext = async () => {
+    await expect(chart).toBeVisible();
+    const start = Number(await chart.locator('[data-start="true"]').getAttribute('data-n'));
+    await chart.locator(`[data-n="${start + 1}"]`).click();
+    await page.clock.fastForward(3000);
+    await check.click();
+    await expect(page.getByTestId('pier-cue')).toHaveAttribute('data-cue', 'right');
+    await expect(pier).toHaveAttribute('data-phase', 'feedback');
+  };
+  // The demo shows the worked example, then the last step of the next one is the child's.
+  await until(page, /turn/);
+  await answerNext();
+  expect(await types(page)).toEqual(['session.started', 'request.accepted']);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  // The first item: answered right, it makes one of what the resident asked for.
+  await until(page, /answer/);
+  await answerNext();
 
   // Home, mid-request: the request is recorded with what it made so far.
   await page.getByRole('button', { name: 'Go home' }).click();

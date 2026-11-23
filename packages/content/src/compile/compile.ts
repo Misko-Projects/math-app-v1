@@ -1687,6 +1687,15 @@ function checkGame(
         `plot [${stone.plot.join(', ')}] holds more than ${MAX_ROAD_STONES_PER_PLOT} road stones (stone ${stone.n})`,
       );
   });
+  // The names a child may give the island: each once, each with its two spoken lines.
+  const islandNames = new Set<string>();
+  (game.island.names ?? []).forEach((n, i) => {
+    const loc = islandAt(`island.names[${i}]`);
+    if (islandNames.has(n.name)) err('V02', sub(loc, '.name'), `duplicate island name ${n.name}`);
+    islandNames.add(n.name);
+    key(sub(loc, '.say'), n.say);
+    key(sub(loc, '.welcome'), n.welcome);
+  });
   game.festivals.forEach((f, i) => {
     f.rewardDecor.forEach((x, j) => {
       if (!decor.has(x))
@@ -1779,6 +1788,8 @@ function checkNarration(
     need('narration/numbers.yaml', '', k, null, 'clip inventory, 03 §8.3');
   for (const r of c.game?.residents ?? []) referenced.set(`res.${r.id}`, []);
   for (const m of c.game?.materials ?? []) referenced.set(m.name, referenced.get(m.name) ?? []);
+  for (const n of c.game?.island.names ?? [])
+    for (const k of [n.say, n.welcome]) referenced.set(k, referenced.get(k) ?? []);
   for (const r of c.game?.residents ?? [])
     for (const l of r.lines) referenced.set(l, referenced.get(l) ?? []);
   for (const ctx of c.contexts) {

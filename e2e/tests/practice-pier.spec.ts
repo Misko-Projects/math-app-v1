@@ -232,9 +232,11 @@ test('a request opens from the island and Home leaves it without ending the sess
   await expect(page.getByRole('link', { name: 'Content browser (dev)' })).toHaveCount(0);
   await page.locator('[data-request][data-recommended="true"]').click();
   const pier = page.getByTestId('pier');
-  await expect(pier).toHaveAttribute('data-phase', 'answer');
+  // The session's warmup opens the request (04 §6.1): for a child who has answered nothing yet,
+  // the lesson of the first skill, shown in its widget.
+  await expect(pier).toHaveAttribute('data-phase', /lesson|turn/);
   const widget = page.getByTestId('pier-stage').locator('.ni-widget');
-  // The planner's request for a new kindergartner: a real item in a registered widget.
+  // The planner's request for a new kindergartner: real tasks in a registered widget.
   await expect(widget).toHaveAttribute('data-registered', 'true');
   expect(
     Number(await page.getByTestId('pier-progress').getAttribute('aria-valuemax')),
@@ -248,12 +250,15 @@ test('a request opens from the island and Home leaves it without ending the sess
 
   await page.getByRole('button', { name: 'Go home' }).click();
   await expect(page.getByTestId('child-home')).toBeVisible();
-  const types = async () => (await localEvents(page)).map((e) => e.type);
+  // (The lesson logs the demo steps that played before the child left.)
+  const types = async () =>
+    (await localEvents(page)).map((e) => e.type).filter((type) => type !== 'lesson.step');
   expect(await types()).toEqual(['session.started', 'request.accepted', 'request.completed']);
 
-  // Leaving with the browser's back button completes the request too.
+  // Leaving with the browser's back button completes the request too. The lesson was not
+  // played to its end, so it is still owed: this request opens with it again.
   await page.locator('[data-request][data-recommended="true"]').click();
-  await expect(pier).toHaveAttribute('data-phase', 'answer');
+  await expect(pier).toHaveAttribute('data-phase', /lesson|turn/);
   await page.goBack();
   await expect(page.getByTestId('child-home')).toBeVisible();
   await expect

@@ -9,11 +9,14 @@ import {
   Component,
   type ComponentType,
   type ErrorInfo,
+  Fragment,
   type LazyExoticComponent,
   lazy,
   type ReactNode,
   Suspense,
+  useEffect,
   useMemo,
+  useRef,
 } from 'react';
 import { createDemoController, type WidgetDemo } from './demo';
 import { PlaceholderWidget } from './PlaceholderWidget';
@@ -59,6 +62,21 @@ export interface WidgetHostProps {
   /** Override the registry (stories, tests). Defaults to the app's widgetRegistry. */
   registry?: WidgetRegistry;
   className?: string;
+  /**
+   * Called when an item's widget is mounted: its code has loaded and it is on screen (the
+   * placeholder counts, for a format without a widget). Once per mounted instance.
+   */
+  onWidgetMount?: () => void;
+}
+
+/** Mounts with the widget beside it (inside its Suspense boundary), and says so. */
+function Mounted({ onMount }: { onMount: (() => void) | undefined }) {
+  const latest = useRef(onMount);
+  latest.current = onMount;
+  useEffect(() => {
+    latest.current?.();
+  }, []);
+  return null;
 }
 
 interface BoundaryProps {
@@ -98,6 +116,7 @@ export function WidgetHost({
   itemKey,
   registry = widgetRegistry,
   className,
+  onWidgetMount,
 }: WidgetHostProps) {
   const instanceKey = `${config.format}:${itemKey ?? ''}`;
   const fallbackDemo = useMemo(() => createDemoController(), []);
@@ -110,7 +129,12 @@ export function WidgetHost({
     demo: demo ?? fallbackDemo,
   };
   const loader = loaderFor(registry, config.format);
-  const placeholder = <PlaceholderWidget key={instanceKey} {...props} />;
+  const placeholder = (
+    <Fragment key={instanceKey}>
+      <PlaceholderWidget {...props} />
+      <Mounted onMount={onWidgetMount} />
+    </Fragment>
+  );
   let body: ReactNode = placeholder;
   if (loader) {
     const Widget = lazyWidget(loader);
@@ -118,6 +142,7 @@ export function WidgetHost({
       <WidgetErrorBoundary key={instanceKey} fallback={placeholder}>
         <Suspense fallback={<div className="ni-widget__loading" />}>
           <Widget {...props} />
+          <Mounted onMount={onWidgetMount} />
         </Suspense>
       </WidgetErrorBoundary>
     );
