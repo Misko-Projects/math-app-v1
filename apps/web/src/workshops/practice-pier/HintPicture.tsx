@@ -14,16 +14,32 @@ export default function HintPicture({
   onClose: () => void;
 }) {
   const label = useNarrationText()('ui.pier.picture');
-  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [room, setRoom] = useState<HTMLDivElement | null>(null);
+  const [drawn, setDrawn] = useState<HTMLDivElement | null>(null);
   const [box, setBox] = useState<{ width: number; height: number } | null>(null);
+  const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
-    if (!el) return;
-    const measure = () => setBox({ width: el.clientWidth, height: el.clientHeight });
+    if (!room) return;
+    const measure = () => setBox({ width: room.clientWidth, height: room.clientHeight });
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(el);
+    observer.observe(room);
     return () => observer.disconnect();
-  }, [el]);
+  }, [room]);
+  // A picture keeps its pieces at a size a child can count, so a crowded one can come out larger
+  // than the room it was given: it is then drawn smaller as a whole, never cut off.
+  useLayoutEffect(() => {
+    if (!drawn || !box) return;
+    const fit = () => {
+      const w = drawn.offsetWidth;
+      const h = drawn.offsetHeight;
+      if (w > 0 && h > 0) setScale(Math.min(1, box.width / w, box.height / h));
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(drawn);
+    return () => observer.disconnect();
+  }, [drawn, box]);
   return (
     <div
       role="dialog"
@@ -31,9 +47,14 @@ export default function HintPicture({
       data-testid="pier-hint-picture"
       className="absolute inset-0 z-10 flex flex-col items-center gap-3 rounded-card bg-sunshine-light p-4"
     >
-      <div ref={setEl} className="flex min-h-0 w-full flex-1 items-center justify-center">
+      <div
+        ref={setRoom}
+        className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden"
+      >
         {box && box.width > 0 && box.height > 0 && (
-          <StimulusView spec={spec} maxWidth={box.width} maxHeight={box.height} label={label} />
+          <div ref={setDrawn} className="shrink-0" style={{ transform: `scale(${scale})` }}>
+            <StimulusView spec={spec} maxWidth={box.width} maxHeight={box.height} label={label} />
+          </div>
         )}
       </div>
       <BigButton
