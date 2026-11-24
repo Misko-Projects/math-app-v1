@@ -36,14 +36,20 @@
   outline: 5px solid var(--color-sea-deep);
   outline-offset: 2px;
 }
+/* The terms and, beside them, the child's units: everything stands on the tray. */
 .ni-bal__contents {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
+  align-items: flex-end;
+  justify-content: center;
   gap: 10px;
   box-sizing: border-box;
   padding-bottom: 8px;
+}
+/* A pan too narrow for that: the child's units stacked directly on top of the terms. */
+.ni-bal__contents[data-zone-at="over"] {
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: flex-start;
 }
 .ni-bal__terms {
   display: flex;

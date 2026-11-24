@@ -194,6 +194,9 @@ describe('story-problem: the answer box and the one source of the answer', () =>
     });
     expect(storyAnswerIssues(both, split(7))).toEqual([]);
     expect(storyAnswerIssues(both, split(100))).not.toEqual([]);
+    // Two parts of at least one each: a whole of 1 has no right answer.
+    expect(storyAnswerIssues(both, split(2))).toEqual([]);
+    expect(storyAnswerIssues(both, split(1))).not.toEqual([]);
     expect(storyAnswerIssues(both, { kind: 'number', value: 7 })).not.toEqual([]);
     // Every split of the whole can be typed into the two boxes and is sent as its parts.
     const s = play(both, [act('answer', { values: [3, 4] })]);

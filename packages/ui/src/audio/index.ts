@@ -15,6 +15,7 @@ export {
 } from './AudioManager';
 export { isKnownMusic, type KnownMusicId, MUSIC_CATALOG, MUSIC_IDS } from './music/tracks';
 export { type LinePlan, type PlannedClip, planLine, planPhrases } from './narration';
+export { type SpokenLineRequest, sayLines, sayThrough } from './sayLines';
 export {
   type AudioSettings,
   audioSettingsFromFamily,

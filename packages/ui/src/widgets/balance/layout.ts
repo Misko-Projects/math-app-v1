@@ -2,9 +2,9 @@
 //
 // Two pans side by side on a beam. A pan shows its side's terms: groups of sprites in fives,
 // number tiles (a numeral, the box, a letter) and operation signs, in one row when that fits and
-// stacked otherwise. In `make-equal` a pan also has a zone over its terms for the units the child
-// adds (they pile up from the pan), with room for all the pan can still take, so adding one moves
-// and resizes nothing; and under each pan sit its two buttons (take one off, add one). Both pans
+// stacked otherwise. In `make-equal` a pan also has a zone beside its terms, on the same tray, for
+// the units the child adds (rows of five that fill from the tray up, next to the terms), with room
+// for all the pan can still take, so adding one moves and resizes nothing; and under each pan sit its two buttons (take one off, add one). Both pans
 // use one sprite size, one tile size and one box.
 //
 // Everything is in CSS px. `planScale` keeps the largest picture that fits the box it is given
@@ -31,7 +31,7 @@ export type PanPart =
   /** A tile of `chars` characters at numeral size (a number, the box, a letter). */
   | { kind: 'tile'; chars: number }
   | { kind: 'op' }
-  /** `make-equal`: room for `cap` units the child may add (always over the terms). */
+  /** `make-equal`: room for `cap` units the child may add (beside the terms, on the tray). */
   | { kind: 'zone'; cap: number };
 
 /** A tile at its smallest: 32 px numerals (05 §11) with room round them. */
@@ -44,6 +44,8 @@ export const OP_PX = 32;
 export const TILE_ZOOM_MAX = 1.75;
 /** Between the parts of a pan. */
 export const PART_GAP = 10;
+/** The child's units stand in rows of five beside the pan's terms. */
+export const ZONE_COLS = 5;
 /** Between the two pans (wider where the stand shows between the two pairs of buttons). */
 export const PAN_GAP = 24;
 export const BUTTONS_PAN_GAP = 48;
@@ -87,6 +89,8 @@ export interface ScaleLayout {
   cols: number;
   /** Each pan's terms in one row, or stacked (a pan takes the row when it is narrow enough). */
   flow: Record<Side, 'row' | 'column'>;
+  /** Each pan's zone: beside its terms on the tray, or stacked on top of them. */
+  zone: Record<Side, ZoneAt>;
   /** One pan's box (its contents and the room round them); both pans are this size. */
   pan: Size;
   /** The room under the trays: the stand, or the buttons. */
@@ -100,11 +104,15 @@ export interface ScaleLayout {
 
 export type Side = 'left' | 'right';
 
+/** Where a pan's zone stands: beside its terms on the tray, or stacked on top of them. */
+export type ZoneAt = 'beside' | 'over';
+
 interface Draw {
   s: number;
   tile: number;
   cols: number;
   flow: 'row' | 'column';
+  zone: ZoneAt;
 }
 
 /** A part's box as drawn (the widget draws tiles and signs with these). */
@@ -115,7 +123,7 @@ export const partSize = (p: PanPart, d: Draw): Size => {
       return { w: g.w, h: g.h };
     }
     case 'zone': {
-      const g = fivesGrid(p.cap, d.cols, d.s);
+      const g = fivesGrid(p.cap, d.zone === 'beside' ? ZONE_COLS : d.cols, d.s);
       return { w: g.w, h: g.h };
     }
     case 'tile':
@@ -134,14 +142,18 @@ const along = (sizes: readonly Size[], flow: 'row' | 'column'): Size => {
     : { w: Math.max(...real.map((x) => x.w)), h: real.reduce((a, x) => a + x.h, gaps) };
 };
 
-/** A pan's contents: its terms along the flow, with the zone over them. */
+/**
+ * A pan's contents: its terms along the flow and the zone of the child's units, which fills from
+ * the bottom up: beside the terms on the same tray (rows of five), or, where the pan is too
+ * narrow for that, stacked directly on top of the terms.
+ */
 export function panContentSize(parts: readonly PanPart[], d: Draw): Size {
   const terms = along(
     parts.filter((p) => p.kind !== 'zone').map((p) => partSize(p, d)),
     d.flow,
   );
   const zones = parts.filter((p) => p.kind === 'zone').map((p) => partSize(p, d));
-  return along([...zones, terms], 'column');
+  return along([terms, ...zones], d.zone === 'beside' ? 'row' : 'column');
 }
 
 /** The room under the trays. */
@@ -150,21 +162,35 @@ export function baseHeight(ageMode: AgeMode, buttons: boolean): number {
 }
 
 function sized(input: ScaleInput, zoom: number, cols: number): ScaleLayout {
-  const draw = (flow: 'row' | 'column'): Draw => ({
+  const draw = (flow: 'row' | 'column', zone: ZoneAt): Draw => ({
     s: Math.round(MIN_ITEM_PX + (Math.max(MIN_ITEM_PX, input.maxItem) - MIN_ITEM_PX) * zoom),
     tile: 1 + (TILE_ZOOM_MAX - 1) * zoom,
     cols,
     flow,
+    zone,
   });
   const gap = input.buttons ? BUTTONS_PAN_GAP : PAN_GAP;
-  // A pan reads as one line where the line fits its half of the box; else its terms are stacked.
+  // Each pan takes, of the ways that fit its half of the box, the shortest: its terms in one
+  // line before a stack, the child's units beside them before on top of them.
   const half = (input.w - gap) / 2 - 2 * PAN_PAD;
-  const flowOf = (parts: readonly PanPart[]): 'row' | 'column' =>
-    panContentSize(parts, draw('row')).w <= half ? 'row' : 'column';
-  const flow = { left: flowOf(input.left), right: flowOf(input.right) };
-  const d = draw('row');
-  const l = panContentSize(input.left, draw(flow.left));
-  const r = panContentSize(input.right, draw(flow.right));
+  const WAYS = [
+    draw('row', 'beside'),
+    draw('column', 'beside'),
+    draw('row', 'over'),
+    draw('column', 'over'),
+  ];
+  const wayOf = (parts: readonly PanPart[]): Draw => {
+    const fitting = WAYS.filter((w) => panContentSize(parts, w).w <= half);
+    const least = (ways: readonly Draw[]) =>
+      ways.reduce((a, b) => (panContentSize(parts, b).h < panContentSize(parts, a).h ? b : a));
+    return fitting.length > 0 ? least(fitting) : (WAYS[3] as Draw);
+  };
+  const ways = { left: wayOf(input.left), right: wayOf(input.right) };
+  const flow = { left: ways.left.flow, right: ways.right.flow };
+  const zone = { left: ways.left.zone, right: ways.right.zone };
+  const d = ways.left;
+  const l = panContentSize(input.left, ways.left);
+  const r = panContentSize(input.right, ways.right);
   const buttonsW = input.buttons ? 2 * TARGET_PX[input.ageMode].icon + TARGET_GAP_PX : 0;
   const pan: Size = {
     w: Math.max(l.w + 2 * PAN_PAD, r.w + 2 * PAN_PAD, buttonsW, PAN_MIN_W),
@@ -180,6 +206,7 @@ function sized(input: ScaleInput, zoom: number, cols: number): ScaleLayout {
     tile: d.tile,
     cols,
     flow,
+    zone,
     pan,
     base,
     gap,

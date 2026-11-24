@@ -431,7 +431,22 @@ export const MakeEqualBlocks: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectAreaFit(canvasElement, fit(root, 'g1-up', 'balance make-equal blocks 906x373'));
-    for (let i = 0; i < 11; i += 1) await userEvent.click(add(root, 'right'));
+    // The first block stands on its own pan's tray, beside the number, not above the pans.
+    await userEvent.click(add(root, 'right'));
+    const tray = q(root, '.ni-bal__pan[data-side="right"] .ni-bal__tray').getBoundingClientRect();
+    const tile = q(root, '.ni-bal__pan[data-side="right"] .ni-bal__tile').getBoundingClientRect();
+    const first = q(root, '[data-zone="right"] .ni-bal__item').getBoundingClientRect();
+    await expect(first.left).toBeGreaterThanOrEqual(tray.left);
+    await expect(first.right).toBeLessThanOrEqual(tray.right);
+    await expect(Math.abs(first.bottom - tile.bottom)).toBeLessThanOrEqual(2);
+    await expect(tray.top - first.bottom).toBeLessThanOrEqual(12);
+    for (let i = 1; i < 11; i += 1) await userEvent.click(add(root, 'right'));
+    // Every block of the eleven is inside that pan's span.
+    for (const el of all(root, '[data-zone="right"] .ni-bal__item')) {
+      const r = el.getBoundingClientRect();
+      await expect(r.left).toBeGreaterThanOrEqual(tray.left);
+      await expect(r.right).toBeLessThanOrEqual(tray.right);
+    }
     await expect(beam(root)).toBe('level');
     await expectCountable(scale(root));
     await expect(q(root, '[data-side="right"] [role="img"]')).toHaveAccessibleName(

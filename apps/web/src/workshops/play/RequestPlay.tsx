@@ -68,6 +68,7 @@ import {
   PlayItemScreen,
   type SpokenLine,
 } from './PlayScreen';
+import { tellItem } from './tellItem';
 
 type PierTask = PierItemTask | PierLessonStep;
 
@@ -237,7 +238,9 @@ export function RequestPlay({
       time.start();
       setPhase('answer');
     };
-    audio.say(item.prompt.narration, item.prompt.vars).then(ready, ready);
+    // The prompt, and a story problem's story with it: the answer time starts when the telling
+    // is over (`tellItem`).
+    tellItem(audio, item, () => !alive).then(ready, ready);
     return () => {
       alive = false;
       playing.current += 1;

@@ -93,6 +93,42 @@ export const STORY_COUNTERS_MAX = 20;
 /** A drawn bar has 1 to this many parts, each a whole number from 1 to STORY_BAR_PART_MAX. */
 export const STORY_BAR_PARTS_MAX = 3;
 export const STORY_BAR_PART_MAX = 999;
+/** The colours a story can name for its told groups; the widget draws each (kit sprite tones). */
+export const STORY_COLOURS = ['red', 'white', 'blue'] as const;
+export type StoryColour = (typeof STORY_COLOURS)[number];
+
+/**
+ * The one place a story's colour words meet its picture: the lines that tell the scene's groups
+ * by colour, with the colours in the order the line names them (which is the order of the
+ * scene's groups). The content check in apps/web (`storyColours.test.ts`) reads every shipped
+ * story line's words against this table.
+ */
+export const STORY_LINE_COLOURS: Readonly<Record<string, readonly StoryColour[]>> = {
+  'p.story.pt.two': ['red', 'white'],
+  'p.story.pt.three': ['red', 'white', 'blue'],
+};
+
+/**
+ * Lines that name colours for the parts of ONE told group (the whole: "some are red and some are
+ * white", and the questions about its parts). The scene shows the whole only, in the thing's own
+ * colour: its parts are what the child works out, so there is nothing to colour.
+ */
+export const STORY_COLOUR_LINES_OF_A_WHOLE: readonly string[] = [
+  'p.story.pt.total',
+  'p.story.pt.red',
+  'p.story.q.white',
+  'p.story.q.both',
+];
+
+/** The colour each scene group is drawn in (null: the thing's own colour), in group order. */
+export function storySceneColours(c: Pick<Config, 'scene' | 'lines'>): (StoryColour | null)[] {
+  const groups = c.scene.kind === 'scene' ? c.scene.sprites.length : 0;
+  const named = c.lines
+    .map((line) => STORY_LINE_COLOURS[line.key])
+    .find((colours) => colours !== undefined && colours.length === groups);
+  return Array.from({ length: groups }, (_, i) => named?.[i] ?? null);
+}
+
 /** The workspaces the widget draws. */
 export const STORY_WORKSPACES = ['none', 'counters', 'ten-frame', 'bar-model'] as const;
 
@@ -114,9 +150,11 @@ export function storyAnswerIssues(c: Config, answer: AnswerSpec): string[] {
       return ['put-together/both answers bond.split'];
     }
     const total = answer.target.whole;
-    return typeof total === 'number' && whole(total, 0, max)
+    // Two parts that may not be zero need a whole of at least 2, or no answer is right.
+    const least = answer.target.nonZero === true ? 2 : 0;
+    return typeof total === 'number' && whole(total, least, max)
       ? []
-      : [`the whole ${String(total)} is not a whole number from 0 to ${max}`];
+      : [`the whole ${String(total)} is not a whole number from ${least} to ${max}`];
   }
   if (answer.kind !== 'number') return ['a story with one box answers a number'];
   return whole(answer.value, 0, max)

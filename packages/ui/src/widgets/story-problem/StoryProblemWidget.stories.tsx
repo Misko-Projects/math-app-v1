@@ -199,26 +199,23 @@ export const StoryKindergarten: Story = {
     // (Storybook's narration does not spell out names and nouns; the app's does.)
     await expect(card(root)).toHaveAccessibleName(expect.stringMatching(/has 9 .* How many/));
     await expect(q(root, '.ni-story__scene')).toHaveAccessibleName('Look at the picture: 9 Shell');
-    // Read aloud when the item opens, from the first line.
-    await waitFor(() => expect(said(audioOf(parameters))[0]).toBe('p.story.has'));
+    // The play screen tells the story when the item opens; the widget itself says nothing.
+    await expect(audioOf(parameters).say).not.toHaveBeenCalled();
   },
 };
 
-/** The story is read line by line, each marked while it is read; a touch reads it again. */
+/** A touch on the story reads it again, line by line, in order. */
 export const ReadsTheStoryAloud: Story = {
   tags: ['!visual'],
   parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, args, parameters }) => {
     const root = await findWidget(canvasElement, ROOT);
     const audio = audioOf(parameters);
+    await userEvent.click(card(root));
     await waitFor(() =>
       expect(said(audio)).toEqual(['p.story.has', 'p.story.beach-shells.take', 'p.story.q.left']),
     );
     await waitFor(() => expect(root.querySelector('[data-marked="true"]')).toBeNull());
-    await expect(args.onInteract).not.toHaveBeenCalled();
-    audio.say.mockClear();
-    await userEvent.click(card(root));
-    await waitFor(() => expect(said(audio)).toHaveLength(3));
     await expect(steps(args)).toEqual(['tap:story']);
   },
 };
@@ -234,6 +231,7 @@ export const MarksTheLineBeingRead: Story = {
   },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(card(root));
     await waitFor(() => expect(q(root, '[data-line="0"]')).toHaveAttribute('data-marked', 'true'));
     // The child's next step ends the reading.
     await userEvent.click(addButton(root));

@@ -14,7 +14,7 @@ import type { ReactElement } from 'react';
  * is the alternate tint for coloured sub-groups: darker as well as a different hue.
  */
 
-type Tone = 'a' | 'b';
+type Tone = 'a' | 'b' | 'red' | 'white' | 'blue';
 
 export type MeasureDraw = (tone: Tone) => ReactElement;
 
@@ -72,7 +72,23 @@ const BOBBER = pair('cloud', 'ink-soft');
 /** Tone b's default pair (as `toneFill` in sprites.tsx): darker and bluer than every tone a. */
 const SEA_B = pair('sea-deep', 'sea-dark');
 
-const tint = (tone: Tone, a: Pair, b: Pair = SEA_B) => (tone === 'b' ? b : a);
+/** The named colours (sprites.tsx `SpriteTone`): the same on every drawing. */
+const WHITE = pair('cloud', 'ink');
+
+const tint = (tone: Tone, a: Pair, b: Pair = SEA_B) => {
+  switch (tone) {
+    case 'b':
+      return b;
+    case 'blue':
+      return SEA_B;
+    case 'red':
+      return CORAL;
+    case 'white':
+      return WHITE;
+    default:
+      return a;
+  }
+};
 
 const SHADOW = <ellipse cx="32" cy="57" rx="20" ry="4.5" fill="rgb(38 70 83 / 0.18)" />;
 

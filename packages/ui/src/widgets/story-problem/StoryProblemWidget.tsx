@@ -3,6 +3,7 @@ import {
   formatModel,
   STORY_COUNTERS_MAX,
   type StoryProblemState,
+  storySceneColours,
 } from '@number-island/engine';
 import { FORMAT_SUPPORT, type NarrationKey, type WidgetAction } from '@number-island/shared';
 import {
@@ -14,6 +15,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { sayLines } from '../../audio/sayLines';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { IconButton } from '../../primitives/IconButton';
@@ -61,8 +63,9 @@ import './story-problem.css';
  *
  * Two steps (kit `twoStep`), each fitted to the widget's room (06 §1):
  *
- * - **story**: the story on a card, read aloud line by line when the item opens (a touch reads
- *   it again; the line being read is marked). Beside it the scene (the things the story tells,
+ * - **story**: the story on a card. The play screen tells it when the item opens, before the
+ *   child can answer; a touch on the card reads it again, line by line, the line being read
+ *   marked. Beside it the scene (the things the story tells,
  *   a group to a row) and the counters board: "add a counter" and "take a counter away" (at
  *   most twenty; in ten-frames when the item says so). The board is a tool: it is never
  *   graded, and its use is only in the trace. Then Next.
@@ -129,6 +132,7 @@ export function StoryProblemWidget({
   const sceneGroups = config.scene.kind === 'scene' ? config.scene.sprites : [];
   const maxDigits = Math.max(...config.blanks.map((b) => b.maxDigits));
   const split = answersSplit(config);
+  const sceneColours = storySceneColours(config);
   /** What the two parts of a split are parts of: the story's thing, or a counter. */
   const partSprite = sceneGroups[0]?.sprite ?? COUNTER;
 
@@ -159,40 +163,28 @@ export function StoryProblemWidget({
     setReading(null);
   };
   /**
-   * Reads lines `from` … `to` one after the other (each `say` resolves when its line ends),
-   * marking the one being read. A step of the child's, a demonstration or the widget being
-   * switched off ends it.
+   * Reads lines `from` … `to` one after the other, marking the one being read (kit audio
+   * `sayLines`). It ends when a line is cut off by something else speaking, at a step of the
+   * child's, at a demonstration, and when the widget is switched off.
    */
-  const read = async (from: number, to: number) => {
+  const read = (from: number, to: number) => {
     if (!audio) return;
     readRun.current += 1;
     const run = readRun.current;
-    for (let i = from; i <= to; i += 1) {
-      const line = lines[i];
-      if (!line) break;
-      setReading(i);
-      await audio.say(line.key, line.vars).catch(() => {});
-      if (!alive.current || readRun.current !== run) return;
-    }
-    setReading(null);
+    void sayLines(audio, lines.slice(from, to + 1), {
+      stopped: () => !alive.current || readRun.current !== run,
+      onLine: (i) => setReading(i === null ? null : from + i),
+    });
   };
-  const readRef = useRef(read);
-  readRef.current = read;
 
-  // The story is read once, when the item opens for the child: the runner enables the widget
-  // when the prompt has been spoken. While the widget is off (a demonstration, feedback, a hint
-  // being spoken) nothing is read, and a reading under way ends.
-  const opened = useRef(false);
+  // The play screen tells the story when the item opens, before the child can answer (the story
+  // is the prompt); here it is read again on a touch. While the widget is off (a demonstration,
+  // feedback, a hint being spoken) a reading under way ends.
   useEffect(() => {
-    if (disabled) {
-      readRun.current += 1;
-      setReading(null);
-      return;
-    }
-    if (opened.current) return;
-    opened.current = true;
-    void readRef.current(0, lines.length - 1);
-  }, [disabled, lines.length]);
+    if (!disabled) return;
+    readRun.current += 1;
+    setReading(null);
+  }, [disabled]);
 
   /** A child step ends the reading, the demo's invite and the last limit note. */
   const childStep = () => {
@@ -280,13 +272,13 @@ export function StoryProblemWidget({
     setInvite(null);
     setNote(null);
     trace('tap', 'story');
-    void read(0, lines.length - 1);
+    read(0, lines.length - 1);
   };
   const onQuestion = () => {
     if (!interactive) return;
     setInvite(null);
     trace('tap', 'question');
-    void read(question, question);
+    read(question, question);
   };
 
   const submit = useSubmitGuard(() => {
@@ -550,8 +542,8 @@ export function StoryProblemWidget({
                 className="ni-story__item ni-invite-glyph"
                 style={{ left: p.x, top: p.y, width: s, height: s }}
               >
-                {/* The kit's two group tones in turn (a, b, a), as the told groups differ. */}
-                <ObjectSprite sprite={g.sprite} tone={gi % 2 === 0 ? 'a' : 'b'} />
+                {/* The colour the story names for this group (engine `storySceneColours`). */}
+                <ObjectSprite sprite={g.sprite} tone={sceneColours[gi] ?? 'a'} />
               </span>,
             );
           }

@@ -60,6 +60,8 @@ import {
   TILE_H,
   TILT_PX,
   tileWidth,
+  ZONE_COLS,
+  type ZoneAt,
 } from './layout';
 import './balance.css';
 
@@ -74,8 +76,9 @@ import './balance.css';
  * - **fill-blank**: one side has a box; the kit number entry fills it, and the box shows the
  *   number.
  * - **make-equal**: under each pan, "add one" and "take one off" (the pan's own objects, or unit
- *   blocks beside its number). A pan holds at most twenty; the place for every one it can still
- *   take is there from the start, so adding moves nothing. A button that can do nothing more (a
+ *   blocks beside its number). What is added stands on the pan's own tray, next to what was
+ *   there, in rows of five from the tray up. A pan holds at most twenty; the place for every one
+ *   it can still take is there from the start, so adding moves nothing. A button that can do nothing more (a
  *   full pan, nothing added to take off) is drawn dashed; pressing it says why. Any amounts that
  *   make the pans level are right (`balance.equal`); Check is live from the start.
  *
@@ -482,10 +485,11 @@ export function BalanceWidget({
     sprite: string,
     name: NarrationKey,
     s: number,
-    /** Rows fill from the bottom (things piling up on a pan). */
-    up = false,
+    /** The child's units fill from the bottom up: `beside` the terms in fives, or `over` them. */
+    zoneAt: ZoneAt | null = null,
   ) => {
-    const grid = fivesGrid(cap, layout.cols, s);
+    const up = zoneAt !== null;
+    const grid = fivesGrid(cap, zoneAt === 'beside' ? ZONE_COLS : layout.cols, s);
     const items: ReactNode[] = [];
     for (let k = 0; k < n; k += 1) {
       const cell = fivesCell(k, grid.cols, s);
@@ -565,7 +569,7 @@ export function BalanceWidget({
   const renderPan = (side: Side, l: ScaleLayout) => {
     const unit = unitOf(side);
     const zone = making
-      ? renderSprites(state.added[side], roomOn(side), unit.sprite, unit.name, l.s, true)
+      ? renderSprites(state.added[side], roomOn(side), unit.sprite, unit.name, l.s, l.zone[side])
       : null;
     return (
       <div
@@ -581,11 +585,15 @@ export function BalanceWidget({
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: tap-to-hear is a pointer extra; the pan is one image to assistive tech */}
         <div
           className="ni-bal__contents"
+          data-zone-at={l.zone[side]}
           role="img"
           aria-label={sideWords(side)}
           style={{ height: l.pan.h }}
           onClick={(e) => onPanTap(side, e)}
         >
+          <div className="ni-bal__terms" data-flow={l.flow[side]}>
+            {termsOf(side).map((x, i) => renderTerm(x, i, l.s))}
+          </div>
           {zone && zone.grid.w > 0 ? (
             <span
               className="ni-bal__group ni-bal__zone"
@@ -595,9 +603,6 @@ export function BalanceWidget({
               {zone.items}
             </span>
           ) : null}
-          <div className="ni-bal__terms" data-flow={l.flow[side]}>
-            {termsOf(side).map((x, i) => renderTerm(x, i, l.s))}
-          </div>
         </div>
         <div className="ni-bal__tray" aria-hidden="true" />
       </div>
