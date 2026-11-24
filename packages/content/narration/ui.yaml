@@ -1371,9 +1371,10 @@ ui.widget.pz.line:
 ui.widget.pz.look.row:
   text: "Look at this row again"
   level: K
+# A column is marked in a mini-KenKen only (grade 2 and up).
 ui.widget.pz.look.col:
   text: "Look at this column again"
-  level: K
+  level: "2"
 ui.widget.pz.look.cage:
   text: "Look at this group again"
   level: K
@@ -1381,13 +1382,13 @@ ui.widget.pz.look.line:
   text: "Look at this line again"
   level: K
 ui.widget.pz.look.step:
-  text: "Look at these two boxes again"
+  text: "Look at the two boxes again"
   level: K
 ui.widget.pz.look.ways:
-  text: "This way is here already"
+  text: "This way is here again. Try a new one."
   level: K
 ui.widget.pz.look.pieces:
-  text: "Count these again"
+  text: "Count them again"
   level: K
 ui.widget.pz.look.pairs:
   text: "A rectangle covers two boxes side by side"

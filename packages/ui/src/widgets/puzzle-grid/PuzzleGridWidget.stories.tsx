@@ -459,7 +459,7 @@ export const NumberPathLookAgain: Story = {
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(marked(root)).toEqual(['1,3', '1,2']);
     await expect(q(root, '.ni-pz__look')).toBeVisible();
-    await expectNote(root, 'Look at these two boxes again');
+    await expectNote(root, 'Look at the two boxes again');
     await expectAreaFit(canvasElement, fit(root, 'g1-up', 'puzzle-grid look-again 906x373'));
     await fill(root, 1, 2, 85);
     await expect(marked(root)).toEqual([]);
@@ -586,7 +586,7 @@ export const AllWays: Story = {
     for (const v of [1, 9, 2, 8, 3, 7, 4, 6, 9, 1]) await userEvent.click(card(root, v));
     await userEvent.click(stepButton(root, 'check'));
     await expect(marked(root)).toEqual(['4,0', '4,1']);
-    await expectNote(root, 'This way is here already');
+    await expectNote(root, 'This way is here again. Try a new one.');
     await fill(root, 4, 0, 5);
     await fill(root, 4, 1, 5);
     await expect(marked(root)).toEqual([]);
@@ -668,7 +668,7 @@ export const ShapeFillLookAgain: Story = {
     for (let k = 0; k < 10; k += 1) await userEvent.click(card(root, 'square'));
     await userEvent.click(stepButton(root, 'check'));
     await expect(marked(root)).toHaveLength(10);
-    await expectNote(root, 'Count these again');
+    await expectNote(root, 'Count them again');
   },
 };
 
