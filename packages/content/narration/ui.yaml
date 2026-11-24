@@ -1426,7 +1426,7 @@ ui.widget.story.take:
   text: "Take a counter away"
   level: K
 ui.widget.story.note.full:
-  text: "There is no more room"
+  text: "It is full"
   level: K
 ui.widget.story.note.none:
   text: "No counters to take away"

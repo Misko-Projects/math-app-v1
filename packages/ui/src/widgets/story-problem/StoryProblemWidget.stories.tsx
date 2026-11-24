@@ -327,7 +327,7 @@ export const BoardFull: Story = {
     await userEvent.click(addButton(root));
     await expect(onBoard(root)).toBe(20);
     await expect(said(audioOf(parameters))).toContain('ui.widget.story.note.full');
-    await expect(status(root)).toBe('There is no more room');
+    await expect(status(root)).toBe('It is full');
     // Measured without the focus ring the last press left on the button.
     (document.activeElement as HTMLElement | null)?.blur();
     await expectAreaFit(canvasElement, storyFit(root, 'g1-up', 'story 906x373 board full'));
