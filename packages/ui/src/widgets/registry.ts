@@ -56,6 +56,7 @@ export const widgetRegistry: WidgetRegistry = {
   // U04 (#13): equality and stories
   balance: () => import('./balance/BalanceWidget'),
   'story-problem': () => import('./story-problem/StoryProblemWidget'),
+  'puzzle-grid': () => import('./puzzle-grid/PuzzleGridWidget'),
 };
 
 /** Formats that have a registered widget. */

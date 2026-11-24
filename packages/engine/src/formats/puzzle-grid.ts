@@ -72,7 +72,7 @@ export const PUZZLE_GRID: Readonly<
   'shape-fill': { rows: [1, 4], cols: [1, 4] },
   'cage-sum': { rows: [3, 4], cols: [3, 4] },
   'magic-square': { rows: [3, 3], cols: [3, 3] },
-  'missing-digit': { rows: [1, 4], cols: [1, 4] },
+  'missing-digit': { rows: [1, 3], cols: [1, 4] },
 };
 /** Every number in a number puzzle (a given, a tray number, a sum) is a whole number up to this. */
 export const PUZZLE_NUMBER_MAX = 99;

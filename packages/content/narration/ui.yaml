@@ -1352,6 +1352,46 @@ ui.widget.eg.word.each.nest:
   level: K
 # end equal-groups
 
+# U04 puzzle-grid widget (packages/ui/src/widgets/puzzle-grid): keys under ui.widget.pz.*
+ui.widget.pz.puzzle:
+  text: "The puzzle"
+  level: K
+ui.widget.pz.pieces:
+  text: "Pieces"
+  level: K
+ui.widget.pz.empty:
+  text: "Empty box"
+  level: K
+ui.widget.pz.clear:
+  text: "Take it out"
+  level: K
+ui.widget.pz.line:
+  text: "This line makes"
+  level: K
+ui.widget.pz.look.row:
+  text: "Look at this row again"
+  level: K
+ui.widget.pz.look.col:
+  text: "Look at this column again"
+  level: K
+ui.widget.pz.look.cage:
+  text: "Look at this group again"
+  level: K
+ui.widget.pz.look.line:
+  text: "Look at this line again"
+  level: K
+ui.widget.pz.look.step:
+  text: "Look at these two boxes again"
+  level: K
+ui.widget.pz.look.ways:
+  text: "This way is here already"
+  level: K
+ui.widget.pz.look.pieces:
+  text: "Count these again"
+  level: K
+ui.widget.pz.look.pairs:
+  text: "A rectangle covers two boxes side by side"
+  level: K
 # U04 balance widget (packages/ui/src/widgets/balance): keys under ui.widget.bal.*
 ui.widget.bal.scale:
   text: "The balance"
