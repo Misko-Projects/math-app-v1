@@ -55,6 +55,7 @@ export function useRequestRunner(
       const budgetMs = session.budgetMinutes * 60_000;
       return createTaskRunner({
         engine,
+        residents: content.store.gameData.residents,
         store,
         graph: content.store.graph,
         child: ctx,

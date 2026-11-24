@@ -114,6 +114,7 @@ async function start(
     },
   };
   const runner = await createTaskRunner({
+    residents: [],
     engine: spied,
     store,
     graph: graph(),

@@ -59,10 +59,18 @@ export {
   rectanglesOf,
 } from './formats/array-build';
 export {
+  BALANCE_N_MAX,
+  BALANCE_PAN_MAX,
+  BALANCE_PAN_OBJECTS_MAX,
+  BALANCE_VALUES_MAX,
+  BALANCE_WEIGHT_MAX,
   type BalanceState,
   type BalanceTerm,
+  balanceAnswerIssues,
   balanceBlanks,
   balanceChoices,
+  balanceEntryMax,
+  balanceValues,
   heavier,
   sideValue,
 } from './formats/balance';
@@ -352,7 +360,22 @@ export {
 export {
   answersSplit,
   SITUATION_PRIOR,
+  STORY_BAR_PARTS_MAX,
+  STORY_COLOUR_LINES_OF_A_WHOLE,
+  STORY_COLOURS,
+  STORY_COUNTERS_MAX,
+  STORY_DIGITS_MAX,
+  STORY_LINE_COLOURS,
+  STORY_LINES_MAX,
+  STORY_SCENE_GROUPS_MAX,
+  STORY_SCENE_ROWS_MAX,
+  STORY_SCENE_TOTAL_MAX,
+  type StoryColour,
   type StoryProblemState,
+  storyAnswerIssues,
+  storyEntryMax,
+  storySceneColours,
+  storySceneRows,
 } from './formats/story-problem';
 export {
   type BuildContext,

@@ -105,6 +105,7 @@ describe('TaskRunner', () => {
     const { engine: spied, last } = spiedEngine();
     const { session, log } = fakeSession();
     const runner = await createTaskRunner({
+      residents: [],
       engine: spied,
       store,
       graph: fixtureContent().graph,
@@ -188,6 +189,7 @@ describe('TaskRunner', () => {
     const { engine: spied, last, items } = spiedEngine();
     const { session, log } = fakeSession();
     const runner = await createTaskRunner({
+      residents: [],
       engine: spied,
       store,
       graph,
@@ -237,6 +239,7 @@ describe('TaskRunner', () => {
     let winding = false;
     const { session } = fakeSession({ windingDown: () => winding });
     const runner = await createTaskRunner({
+      residents: [],
       engine: spied,
       store,
       graph: fixtureContent().graph,
@@ -274,6 +277,7 @@ describe('TaskRunner', () => {
     let winding = false;
     const { session } = fakeSession({ windingDown: () => winding });
     const runner = await createTaskRunner({
+      residents: [],
       engine: spied,
       store,
       graph: fixtureContent().graph,
@@ -306,6 +310,7 @@ describe('TaskRunner', () => {
     let count = 0;
     for (let nonce = 1; nonce < 40 && count < 4; nonce += 1) {
       runner = await createTaskRunner({
+        residents: [],
         engine: spied,
         store,
         graph,
@@ -346,6 +351,7 @@ describe('TaskRunner', () => {
     const { session } = fakeSession();
     const start = (nonce: number) =>
       createTaskRunner({
+        residents: [],
         engine: spied,
         store,
         graph,
@@ -397,6 +403,7 @@ describe('TaskRunner', () => {
     const { engine: spied, last } = spiedEngine();
     const { session, log } = fakeSession();
     const runner = await createTaskRunner({
+      residents: [],
       engine: spied,
       store,
       graph: fixtureContent().graph,
@@ -445,6 +452,7 @@ describe('TaskRunner', () => {
     };
     const { session } = fakeSession();
     const runner = await createTaskRunner({
+      residents: [],
       engine: spied,
       store,
       graph,

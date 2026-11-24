@@ -69,6 +69,7 @@ async function playRight(store: DataStore, request: PlannedRequest) {
     },
   };
   const runner = await createTaskRunner({
+    residents: [],
     engine: spied,
     store,
     graph,

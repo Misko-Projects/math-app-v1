@@ -57,6 +57,7 @@ import {
   type PlannedTask,
   type PresentedItem,
   type Recipe,
+  type ResidentDef,
   type ResponseValue,
   type RunnerFeedback,
   type RunnerTask,
@@ -69,6 +70,7 @@ import {
 } from '@number-island/shared';
 import type { DataStore } from '@/data/store';
 import { buildLesson, type LessonExamplePlay, type LessonScript } from './lesson';
+import { requestingResident, residentEngine } from './resident';
 
 /** The engine functions the runner calls (the full entry, loaded through a dynamic import). */
 export type RunnerEngine = Pick<
@@ -98,6 +100,11 @@ export interface RunnerSession {
 
 export interface TaskRunnerDeps {
   engine: RunnerEngine;
+  /**
+   * The game's residents (03 §4.6): a story's "resident who asked" is the request's resident,
+   * or the first starter buddy when the request names none of them (`resident.ts`).
+   */
+  residents: readonly Pick<ResidentDef, 'id' | 'name' | 'starterBuddy'>[];
   store: Pick<DataStore, 'append' | 'skillStates' | 'now'>;
   graph: SkillGraph;
   child: ChildContext;
@@ -263,8 +270,13 @@ function dealMaterials(reward: Recipe, units: number): Recipe {
 
 /** Starts a request: writes `request.accepted` and presents the first item. */
 export async function createTaskRunner(deps: TaskRunnerDeps): Promise<PierTaskRunner> {
-  const { engine, store, graph, child, session } = deps;
+  const { store, graph, child, session } = deps;
   const request: PlannedRequest = { ...deps.request, tasks: [...deps.request.tasks] };
+  // Every item, lesson example and worked solution is presented about the resident who asked.
+  const engine = residentEngine(
+    deps.engine,
+    requestingResident(deps.residents, request.residentId),
+  );
   const childId = child.childId;
 
   const loaded = await store.skillStates(childId);

@@ -13,7 +13,12 @@ import { MEASURE_DRAWINGS } from './sprites-measure';
  */
 
 /** A sprite's tint for coloured sub-groups (`ObjectSet.groups`) and highlighted objects. */
-export type SpriteTone = 'a' | 'b';
+/**
+ * `a` and `b` are the two group tones. `red`, `white` and `blue` are the colours a story names
+ * for its groups (story-problem): coral, a white fill with an ink outline (it reads on the sand
+ * and on paper), and the deep sea blue of tone `b`.
+ */
+export type SpriteTone = 'a' | 'b' | 'red' | 'white' | 'blue';
 
 /** The contact shadow, scaled to the object's footprint (`rx` 20 is the full-size one). */
 const shadow = (rx: number, cx = 32) => (
@@ -28,7 +33,17 @@ const HIGHLIGHT = (d: string) => (
 
 /** Fill and outline for each tone (group b uses a darker, warmer pair: lightness differs too). */
 function toneFill(base: { fill: string; line: string }, tone: SpriteTone) {
-  return tone === 'b' ? { fill: 'var(--color-sea-deep)', line: 'var(--color-sea-dark)' } : base;
+  switch (tone) {
+    case 'b':
+    case 'blue':
+      return { fill: 'var(--color-sea-deep)', line: 'var(--color-sea-dark)' };
+    case 'red':
+      return { fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' };
+    case 'white':
+      return { fill: 'var(--color-cloud)', line: 'var(--color-ink)' };
+    default:
+      return base;
+  }
 }
 
 type Draw = (tone: SpriteTone) => ReactElement;
