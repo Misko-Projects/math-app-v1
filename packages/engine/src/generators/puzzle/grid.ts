@@ -16,6 +16,7 @@
 // K01 builds puzzle-grid, hundred-chart, number-bond and order.
 
 import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
+import { PUZZLE_GRID, PUZZLE_NUMBER_MAX } from '../../formats/puzzle-grid';
 import type { Rng } from '../../rng';
 import {
   asNum,
@@ -287,13 +288,17 @@ export const puzzleGrid: GeneratorDef = {
       if (t.format !== 'puzzle-grid') return false;
       const cells = asNum(p.rows) * asNum(p.cols);
       const start = asNum(p.start);
+      // The sizes and numbers the puzzle-grid widget draws (`PUZZLE_GRID`, `PUZZLE_NUMBER_MAX`):
+      // at most 3 × 4, and a tray (one before the path to one after it) that ends at 99.
       return (
         asNum(p.rows) >= 1 &&
+        asNum(p.rows) <= PUZZLE_GRID['number-path'].rows[1] &&
         asNum(p.cols) >= 2 &&
+        asNum(p.cols) <= PUZZLE_GRID['number-path'].cols[1] &&
         asNum(p.blanks) >= 1 &&
         asNum(p.blanks) <= cells - 2 &&
         start >= 0 &&
-        start + cells - 1 <= 100
+        start + cells <= PUZZLE_NUMBER_MAX
       );
     }
     if (variant === 'sum-triangle') {
