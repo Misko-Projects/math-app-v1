@@ -179,18 +179,20 @@ function sized(input: ScaleInput, zoom: number, cols: number): ScaleLayout {
     draw('row', 'over'),
     draw('column', 'over'),
   ];
-  const wayOf = (parts: readonly PanPart[]): Draw => {
-    const fitting = WAYS.filter((w) => panContentSize(parts, w).w <= half);
-    const least = (ways: readonly Draw[]) =>
-      ways.reduce((a, b) => (panContentSize(parts, b).h < panContentSize(parts, a).h ? b : a));
-    return fitting.length > 0 ? least(fitting) : (WAYS[3] as Draw);
+  const wayOf = (parts: readonly PanPart[]): { way: Draw; size: Size } => {
+    const sizes = WAYS.map((way) => ({ way, size: panContentSize(parts, way) }));
+    const fitting = sizes.filter((x) => x.size.w <= half);
+    return fitting.length > 0
+      ? fitting.reduce((a, b) => (b.size.h < a.size.h ? b : a))
+      : (sizes[3] as { way: Draw; size: Size });
   };
-  const ways = { left: wayOf(input.left), right: wayOf(input.right) };
-  const flow = { left: ways.left.flow, right: ways.right.flow };
-  const zone = { left: ways.left.zone, right: ways.right.zone };
-  const d = ways.left;
-  const l = panContentSize(input.left, ways.left);
-  const r = panContentSize(input.right, ways.right);
+  const left = wayOf(input.left);
+  const right = wayOf(input.right);
+  const flow = { left: left.way.flow, right: right.way.flow };
+  const zone = { left: left.way.zone, right: right.way.zone };
+  const d = left.way;
+  const l = left.size;
+  const r = right.size;
   const buttonsW = input.buttons ? 2 * TARGET_PX[input.ageMode].icon + TARGET_GAP_PX : 0;
   const pan: Size = {
     w: Math.max(l.w + 2 * PAN_PAD, r.w + 2 * PAN_PAD, buttonsW, PAN_MIN_W),
@@ -219,12 +221,22 @@ function sized(input: ScaleInput, zoom: number, cols: number): ScaleLayout {
 export function planScale(input: ScaleInput): ScaleLayout {
   let best: ScaleLayout | null = null;
   for (const cols of [10, 5]) {
-    for (let i = ZOOM_STEPS; i >= 0; i -= 1) {
-      const l = sized(input, i / ZOOM_STEPS, cols);
-      if (!l.fits) continue;
-      if (!best || l.zoom > best.zoom) best = l;
-      break;
+    // A larger picture never fits where a smaller one does not: the largest step by halving.
+    let lo = sized(input, 0, cols);
+    if (!lo.fits) continue;
+    let low = 0;
+    let high = ZOOM_STEPS;
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      const l = sized(input, mid / ZOOM_STEPS, cols);
+      if (l.fits) {
+        low = mid;
+        lo = l;
+      } else {
+        high = mid - 1;
+      }
     }
+    if (!best || lo.zoom > best.zoom) best = lo;
   }
   return best ?? sized(input, 0, 5);
 }
