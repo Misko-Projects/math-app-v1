@@ -17,16 +17,12 @@ export const CHILD_K = '019a0000-0000-7000-8000-00000000c001';
 export const CHILD_G2 = '019a0000-0000-7000-8000-00000000c002';
 export const DEVICE = '019a0000-0000-7000-8000-00000000d001';
 
-let content: StoreContent | null = null;
-
-/** The fixture content (graph, game data, content hash), bound to the engine once. */
-export function fixtureContent(): StoreContent {
-  if (content) return content;
+function compileFixture(): StoreContent {
   const result = compileContent(readContentFiles());
   if (!result.content || !result.contentVersion) {
     throw new Error('the fixture content does not compile');
   }
-  content = {
+  return {
     contentVersion: result.contentVersion,
     gameData: result.content.game,
     graph: buildSkillGraph({
@@ -36,6 +32,17 @@ export function fixtureContent(): StoreContent {
       graph: result.content.graph,
     }),
   };
+}
+
+// Compiled when a test file loads this module, not inside its first test. Compiling the whole
+// catalog is the largest single cost of a data-layer test file (about half a second alone, many
+// times that on a loaded CI runner), and when it was lazy the first test to open a store paid
+// for it out of its own 5 s: backup.test.ts's export test timed out that way. Loading a file is
+// not under a test's timeout.
+const content = compileFixture();
+
+/** The fixture content (graph, game data, content hash), compiled once per test file. */
+export function fixtureContent(): StoreContent {
   return content;
 }
 
