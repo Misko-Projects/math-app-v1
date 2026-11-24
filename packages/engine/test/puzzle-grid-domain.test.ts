@@ -832,6 +832,34 @@ describe('puzzle-grid: the shipped templates (500 seeds each)', () => {
       }
       expect(puzzleAnswerIssues(c, { kind: 'number', value: 1 })).not.toEqual([]);
     }
+    // The form of the cells is the one the checker reads for the variant (review of PR #117).
+    const k = kenken();
+    expect(puzzleAnswerIssues(k, targetOf(k))).toEqual([]);
+    const asPairs: AnswerSpec = {
+      kind: 'state',
+      checker: 'puzzle.satisfies',
+      target: {
+        ...(targetOf(k) as { target: Record<string, unknown> }).target,
+        cells: k.cells.map((x) => [x.r, x.c]),
+        givens: [[2, 2, 2]],
+      },
+    };
+    expect(puzzleAnswerIssues(k, asPairs)).not.toEqual([]);
+    expect(accepted(asPairs, filled(k, [1, 2, 3, 2, 3, 1, 3, 1]))).toBe(false);
+    const s = shapes();
+    const asObjects: AnswerSpec = {
+      kind: 'state',
+      checker: 'puzzle.satisfies',
+      target: {
+        variant: s.variant,
+        rows: s.rows,
+        cols: s.cols,
+        cells: s.cells,
+        constraints: s.constraints,
+      },
+    };
+    expect(puzzleAnswerIssues(s, asObjects)).not.toEqual([]);
+    expect(accepted(asObjects, filled(s, ['rectangle', 'rectangle', 'square']))).toBe(false);
     // A number path's cells are the path: the same cells in another order are another puzzle.
     const item = generateItem(fixtureTemplate('PUZ.01.t1'), 1);
     if (item.answer.kind !== 'state') throw new Error('a puzzle answers a state');

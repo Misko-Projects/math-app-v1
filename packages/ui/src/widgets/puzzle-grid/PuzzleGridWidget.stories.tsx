@@ -385,6 +385,15 @@ export const NumberPath: Story = {
     await expectAreaFit(canvasElement, fit(root, 'g1-up', 'puzzle-grid number-path 906x373'));
     await expectReadable(root);
     await expect(cellPx(root)).toBeGreaterThanOrEqual(64);
+    // The path's direction is a filled arrowhead in each gap, never a bare chevron: beside two
+    // numbers a chevron reads as the "greater than" or "less than" sign of the compare widget.
+    const arrows = [...root.querySelectorAll<SVGPathElement>('.ni-pz__arrow')];
+    await expect(arrows).toHaveLength(11);
+    for (const arrow of arrows) {
+      await expect(arrow.getAttribute('d')).toMatch(/Z$/);
+      await expect(getComputedStyle(arrow).fill).not.toBe('none');
+    }
+    await expect(q(root, '.ni-pz__puzzle').textContent).not.toMatch(/[<>]/);
     // The first empty box is the current one; Check waits for every box.
     await expect(current(root)).toBe(box(root, 0, 1));
     await expect(stepButton(root, 'check')).toBeDisabled();
@@ -401,7 +410,8 @@ export const NumberPath: Story = {
     await userEvent.click(box(root, 1, 2));
     await userEvent.click(clearCard(root));
     await expect(box(root, 1, 2)).toHaveAttribute('data-kind', 'empty');
-    await expect(box(root, 1, 2)).toHaveAccessibleName('Empty box');
+    await expect(box(root, 1, 2)).toHaveAccessibleName('Empty box, Row 2, box 3');
+    await expect(box(root, 0, 0)).toHaveAccessibleName('80 Row 1, box 1');
     await fill(root, 1, 2, 85);
     await fill(root, 1, 3, 84);
     await fill(root, 2, 0, 88);
@@ -461,6 +471,10 @@ export const NumberPathLookAgain: Story = {
     await expect(q(root, '.ni-pz__look')).toBeVisible();
     await expectNote(root, 'Look at the two boxes again');
     await expectAreaFit(canvasElement, fit(root, 'g1-up', 'puzzle-grid look-again 906x373'));
+    // Touching a marked box, or a given, changes nothing: the mark stays until a box changes.
+    await userEvent.click(box(root, 1, 2));
+    await userEvent.click(box(root, 0, 0));
+    await expect(marked(root)).toEqual(['1,3', '1,2']);
     await fill(root, 1, 2, 85);
     await expect(marked(root)).toEqual([]);
     await expectNote(root, null);
@@ -477,6 +491,13 @@ export const SumTriangle: Story = {
     await expectAreaFit(canvasElement, fit(root, 'g1-up', 'puzzle-grid sum-triangle 906x373'));
     await expectReadable(root);
     await expect(all(root, '.ni-pz__side-line')).toHaveLength(3);
+    // Every box says what it holds and where it is: which corner, or the middle of which side.
+    await expect(box(root, 0, 2)).toHaveAccessibleName('Empty box, Top corner');
+    await expect(box(root, 1, 1)).toHaveAccessibleName('Empty box, Middle of the left side');
+    await expect(box(root, 1, 3)).toHaveAccessibleName('4 Middle of the right side');
+    await expect(box(root, 2, 0)).toHaveAccessibleName('2 Left corner');
+    await expect(box(root, 2, 2)).toHaveAccessibleName('Empty box, Middle of the bottom side');
+    await expect(box(root, 2, 4)).toHaveAccessibleName('5 Right corner');
     // Cards go into the boxes in reading order: top, left middle, bottom.
     await userEvent.click(card(root, 3));
     await userEvent.click(card(root, 6));
@@ -485,7 +506,7 @@ export const SumTriangle: Story = {
     // 3 + 6 + 2 is 11: the left side is marked, and its line with it.
     await expect(marked(root)).toEqual(['0,2', '1,1', '2,0']);
     await expect(all(root, '.ni-pz__side-line[data-marked="true"]')).toHaveLength(1);
-    await expectNote(root, 'Look at this line again');
+    await expectNote(root, 'Look at the left side again');
     await fill(root, 1, 1, 7);
     await expect(marked(root)).toEqual([]);
     await waitFor(() => expect(stepButton(root, 'check')).toBeEnabled());
@@ -629,7 +650,7 @@ export const ShapeFill: Story = {
     await expect(q(root, '.ni-pz__tray')).toHaveAccessibleName('Pieces');
     await userEvent.click(card(root, 'square'));
     await expect(said(audioOf(parameters))).toContain('shape.square.one');
-    await expect(box(root, 0, 1)).toHaveAccessibleName('square');
+    await expect(box(root, 0, 1)).toHaveAccessibleName('square, Row 1, box 2');
     await userEvent.click(card(root, 'rectangle'));
     await expect(all(root, '.ni-pz__piece--half')).toHaveLength(1);
     await userEvent.click(card(root, 'rectangle'));
@@ -641,6 +662,8 @@ export const ShapeFill: Story = {
     await fill(root, 2, 0, 'square');
     await fill(root, 2, 1, 'square');
     await fill(root, 3, 0, 'rectangle');
+    // Half of the last rectangle is on: its card is still needed, and looks it.
+    await expect(card(root, 'rectangle')).not.toHaveAttribute('data-spent');
     await fill(root, 3, 1, 'rectangle');
     await expect(card(root, 'rectangle')).toHaveAttribute('data-spent', 'true');
     await fill(root, 3, 2, 'square');
@@ -688,7 +711,7 @@ export const KenKen3: Story = {
       '4+',
       '2',
     ]);
-    await expect(box(root, 0, 0)).toHaveAccessibleName('3+ Empty box');
+    await expect(box(root, 0, 0)).toHaveAccessibleName('3+ Empty box, Row 1, box 1');
     for (const v of [1, 2, 3, 2, 3, 1, 3, 1]) await userEvent.click(card(root, v));
     await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(

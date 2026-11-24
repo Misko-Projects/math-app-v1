@@ -7,6 +7,7 @@ import {
   puzzleBlanks,
   puzzleUnmet,
   rectanglePairs,
+  TRIANGLE_CELLS,
 } from '@number-island/engine';
 import { FORMAT_SUPPORT, type NarrationKey, type WidgetAction } from '@number-island/shared';
 import { type CSSProperties, type KeyboardEvent, useMemo, useRef, useState } from 'react';
@@ -60,6 +61,9 @@ import './puzzle-grid.css';
  *   sum and a plus in its first box.
  * - **magic-square**, **missing-digit**: the sum of each line printed at its end.
  *
+ * Every box says where it is (its row and place, or a sum triangle's corner or side) to a
+ * screen reader, after what it holds.
+ *
  * The widget never judges: Check sends the grid. After a Check that leaves a rule unmet, the
  * boxes of that rule (the row, column, cage, line, step or pieces) are marked at the grid until
  * the child changes a box; the rule is read from the config, which `answerIssues` holds equal to
@@ -106,6 +110,21 @@ const LOOK: Record<PuzzleMark['kind'], NarrationKey> = {
   pieces: 'ui.widget.pz.look.pieces',
   pairs: 'ui.widget.pz.look.pairs',
 };
+
+/** The six boxes of a sum triangle, in `TRIANGLE_CELLS` order, and its sides in `line-sum` order. */
+const TRIANGLE_SPOT: readonly NarrationKey[] = [
+  'ui.widget.pz.spot.top',
+  'ui.widget.pz.spot.left-middle',
+  'ui.widget.pz.spot.right-middle',
+  'ui.widget.pz.spot.left',
+  'ui.widget.pz.spot.bottom-middle',
+  'ui.widget.pz.spot.right',
+];
+const TRIANGLE_SIDE_LOOK: readonly NarrationKey[] = [
+  'ui.widget.pz.look.side.left',
+  'ui.widget.pz.look.side.right',
+  'ui.widget.pz.look.side.bottom',
+];
 
 const cls = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(' ');
 const centre = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
@@ -195,7 +214,8 @@ export function PuzzleGridWidget({
         : config.cells.filter((x) => x.blank);
     const holding = pool.filter((x) => valueAt(state, x.r, x.c) === value).length;
     // A rectangle is one piece on two boxes.
-    return Math.ceil(holding / (value === 'rectangle' ? 2 : 1)) >= have;
+    // Half a rectangle still needs its card: only whole pieces count.
+    return Math.floor(holding / (value === 'rectangle' ? 2 : 1)) >= have;
   };
 
   // ---------- child input ----------
@@ -223,7 +243,8 @@ export function PuzzleGridWidget({
 
   const onCell = (r: number, c: number) => {
     if (!interactive) return;
-    childStep();
+    // Touching a box changes nothing in it: the mark stays until a box changes.
+    setInvite(null);
     trace('tap', `cell-${r}-${c}`);
     speak(valueAt(stateRef.current, r, c));
     if (isBlank(r, c)) moveCursor([r, c]);
@@ -429,7 +450,7 @@ export function PuzzleGridWidget({
                 <path
                   key={key}
                   className="ni-pz__arrow"
-                  d="M-4 -6 4 0 -4 6"
+                  d="M-5 -7 6 0 -5 7Z"
                   transform={`translate(${(from.x + p.x) / 2} ${(from.y + p.y) / 2}) rotate(${angle})`}
                 />
               );
@@ -519,6 +540,24 @@ export function PuzzleGridWidget({
 
   // ---------- render ----------
 
+  /**
+   * Where a box is, in words, for a child who cannot see the picture: a sum triangle's corner or
+   * the side it is the middle of (a corner is on two sides), else its row and its place in it.
+   */
+  const placeOf = (r: number, c: number): string => {
+    if (config.variant === 'sum-triangle') {
+      const spot = TRIANGLE_CELLS.findIndex(([tr, tc]) => tr === r && tc === c);
+      const key = TRIANGLE_SPOT[spot];
+      if (key) return t(key);
+    }
+    return t('ui.widget.pz.at', { r: r + 1, c: c + 1 });
+  };
+  /** The status line of a mark: a sum triangle's side by its name, else by the kind of rule. */
+  const lookKey = (m: PuzzleMark): NarrationKey => {
+    const side = m.constraint === undefined ? undefined : TRIANGLE_SIDE_LOOK[m.constraint];
+    return config.variant === 'sum-triangle' && m.kind === 'line' && side ? side : LOOK[m.kind];
+  };
+
   const numeral = numeralPx(cell);
   const cageSum = (id: string) => {
     const k = config.constraints.find((x) => x.kind === 'cage-sum' && x.cage === id);
@@ -543,7 +582,10 @@ export function PuzzleGridWidget({
     const label = sum === undefined ? '' : cageOf(cage as string).length > 1 ? `${sum}+` : `${sum}`;
     const piece = typeof value === 'string' && value !== '' ? PIECE_NAME[value] : undefined;
     // The box's name is what it shows: the cage's label, then its number, or these words.
-    const words = value === '' ? t('ui.widget.pz.empty') : piece ? t(piece) : '';
+    const words = [
+      ...(value === '' ? [t('ui.widget.pz.empty')] : piece ? [t(piece)] : []),
+      placeOf(x.r, x.c),
+    ].join(', ');
     return (
       <button
         key={key}
@@ -569,7 +611,7 @@ export function PuzzleGridWidget({
         ) : null}
         {label ? ' ' : null}
         {typeof value === 'number' ? <span className="ni-pz__numeral">{value}</span> : null}
-        {words ? <span className="ni-visually-hidden">{words}</span> : null}
+        <span className="ni-visually-hidden">{words}</span>
       </button>
     );
   });
@@ -714,7 +756,7 @@ export function PuzzleGridWidget({
       </div>
       {/* Which boxes to look at again, in words (the mark at the grid is a picture). */}
       <p className="ni-visually-hidden" role="status">
-        {mark ? t(LOOK[mark.kind]) : ''}
+        {mark ? t(lookKey(mark)) : ''}
       </p>
       {inviteHand}
     </div>

@@ -149,16 +149,17 @@
   stroke-dasharray: 7 6;
 }
 
-/* A number path: a sand track from box to box, an arrow in each gap. */
+/* A number path: a sand track from box to box, a filled arrowhead in each gap (never a bare
+   chevron: beside two numbers that reads as "greater than" or "less than"). */
 .ni-pz__track {
   stroke: var(--color-sand-deep);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .ni-pz__arrow {
+  fill: var(--color-ink);
   stroke: var(--color-ink);
-  stroke-width: 3px;
-  stroke-linecap: round;
+  stroke-width: 2px;
   stroke-linejoin: round;
 }
 

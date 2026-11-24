@@ -671,7 +671,14 @@ export function puzzleAnswerIssues(c: Config, answer: AnswerSpec): string[] {
   }
   if (!sameJson(t.constraints, c.constraints)) out.push("the target's rules are not the config's");
   const cells = Array.isArray(t.cells) ? (t.cells as unknown[]) : [];
-  if (cells.length > 0 && Array.isArray(cells[0])) {
+  // The checker reads [r, c] cells for a shape puzzle and K01's three number variants, and the
+  // config's own cells for the others: a target in the other form would reject every grid.
+  const pairs = cells.length > 0 && Array.isArray(cells[0]);
+  const wantsPairs = ['shape-fill', 'number-path', 'sum-triangle', 'all-ways'].includes(c.variant);
+  if (pairs && !wantsPairs) out.push(`a ${c.variant} target lists the config's own cells`);
+  if (!pairs && c.variant === 'shape-fill')
+    out.push('a shape-fill target lists its cells as [r, c]');
+  if (pairs) {
     // K01's form: cells as [r, c] (a number path in path order), givens as [r, c, value].
     const own = c.cells.map((x) => [x.r, x.c]);
     const sorted = (list: unknown[]) => [...list].map((x) => JSON.stringify(x)).sort();
