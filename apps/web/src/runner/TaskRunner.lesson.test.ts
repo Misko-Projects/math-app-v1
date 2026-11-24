@@ -96,6 +96,7 @@ async function start(
     }) as DataStore['append'],
   };
   const runner = await createTaskRunner({
+    residents: [],
     engine: spied,
     store: flaky,
     graph: graph(),
@@ -399,6 +400,7 @@ describe('TaskRunner: lessons', () => {
     const store: DataStore = await testEnv().open();
     await store.putProfile(kid);
     const runner = await createTaskRunner({
+      residents: [],
       engine,
       store,
       graph: graph(),
@@ -441,6 +443,7 @@ describe('TaskRunner: lessons', () => {
       const [lessonTask, item] = request.tasks;
       if (!lessonTask || !item) throw new Error('the lesson request has two tasks');
       const runner = await createTaskRunner({
+        residents: [],
         engine: {
           ...engine,
           generateItem: (...args) => {
