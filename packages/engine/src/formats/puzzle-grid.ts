@@ -35,15 +35,6 @@ export interface PuzzleGridState extends FormatState<'puzzle-grid'> {
   checkedLine: number | null;
 }
 
-/** The constraint kinds `puzzle.satisfies` evaluates for the numeric variants. */
-export const NUMERIC_CONSTRAINTS: readonly PuzzleConstraint['kind'][] = [
-  'cage-sum',
-  'row-unique',
-  'col-unique',
-  'line-sum',
-  'use-each',
-];
-
 /** Blank cells in reading order. */
 export function puzzleBlanks(c: Config): { r: number; c: number }[] {
   return c.cells
@@ -52,7 +43,289 @@ export function puzzleBlanks(c: Config): { r: number; c: number }[] {
     .map(({ r, c: col }) => ({ r, c: col }));
 }
 
+// ---------- what the widget draws (U04, #13) ----------
+//
+// The puzzle-grid widget draws seven variants: the four K01 ships (`number-path`, `sum-triangle`,
+// `all-ways`, `shape-fill`) and mini-KenKen (`cage-sum`), `magic-square` and the missing-number
+// grid (`missing-digit`). Every size and number below is a bound of the schema, inside what the
+// widget's layout fits in the smallest play area (packages/ui/src/widgets/puzzle-grid/layout.ts).
+// The other variant names of the shared schema belong to later grades and are refused.
+
+export const PUZZLE_VARIANTS = [
+  'number-path',
+  'sum-triangle',
+  'all-ways',
+  'shape-fill',
+  'cage-sum',
+  'magic-square',
+  'missing-digit',
+] as const;
+export type PuzzleVariant = (typeof PUZZLE_VARIANTS)[number];
+
+/** The grid sizes each variant is drawn at: [fewest, most] rows and columns. */
+export const PUZZLE_GRID: Readonly<
+  Record<PuzzleVariant, { rows: readonly [number, number]; cols: readonly [number, number] }>
+> = {
+  'number-path': { rows: [1, 3], cols: [2, 4] },
+  'sum-triangle': { rows: [3, 3], cols: [5, 5] },
+  'all-ways': { rows: [1, 5], cols: [2, 2] },
+  'shape-fill': { rows: [1, 4], cols: [1, 4] },
+  'cage-sum': { rows: [3, 4], cols: [3, 4] },
+  'magic-square': { rows: [3, 3], cols: [3, 3] },
+  'missing-digit': { rows: [1, 4], cols: [1, 4] },
+};
+/** Every number in a number puzzle (a given, a tray number, a sum) is a whole number up to this. */
+export const PUZZLE_NUMBER_MAX = 99;
+/** The tray holds at most this many cards. */
+export const PUZZLE_PALETTE_MAX = 14;
+/** A KenKen cage has at most this many cells (its label sits in one of them). */
+export const PUZZLE_CAGE_CELLS_MAX = 4;
+/** A number path counts on by a whole number up to this. */
+export const PUZZLE_STEP_MAX = 10;
+
+export type GridCell = readonly [number, number];
+
+/** The six sum-triangle cells on the 3 × 5 grid, and its sides in `line-sum` order. */
+export const TRIANGLE_CELLS: readonly GridCell[] = [
+  [0, 2],
+  [1, 1],
+  [1, 3],
+  [2, 0],
+  [2, 2],
+  [2, 4],
+];
+export const TRIANGLE_SIDES: readonly (readonly GridCell[])[] = [
+  [
+    [0, 2],
+    [1, 1],
+    [2, 0],
+  ],
+  [
+    [0, 2],
+    [1, 3],
+    [2, 4],
+  ],
+  [
+    [2, 0],
+    [2, 2],
+    [2, 4],
+  ],
+];
+
+const cellKey = (r: number, c: number) => `${r},${c}`;
+const isDrawn = (v: string): v is PuzzleVariant =>
+  (PUZZLE_VARIANTS as readonly string[]).includes(v);
+const wholeIn = (v: unknown, min: number, max: number): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+const sameCells = (a: readonly GridCell[], b: readonly GridCell[]) =>
+  a.length === b.length && a.every(([r, c], i) => b[i]?.[0] === r && b[i]?.[1] === c);
+
+/** A straight line of a grid that a sum can be printed at the end of. */
+export type PuzzleLine =
+  | { kind: 'row'; index: number }
+  | { kind: 'col'; index: number }
+  | { kind: 'diagonal' }
+  | { kind: 'anti-diagonal' };
+
+/**
+ * The straight line a `line-sum` runs along: every puzzle cell of one row or one column (two or
+ * more), or a whole diagonal of a square grid; undefined for any other set of cells.
+ */
+export function puzzleLine(
+  c: Pick<Config, 'rows' | 'cols' | 'cells'>,
+  line: readonly GridCell[],
+): PuzzleLine | undefined {
+  if (line.length < 2) return undefined;
+  const keys = new Set(line.map(([r, col]) => cellKey(r, col)));
+  if (keys.size !== line.length) return undefined;
+  const all = (cells: { r: number; c: number }[]) =>
+    cells.length === keys.size && cells.every((x) => keys.has(cellKey(x.r, x.c)));
+  const [r0, c0] = line[0] as GridCell;
+  if (all(c.cells.filter((x) => x.r === r0))) return { kind: 'row', index: r0 };
+  if (all(c.cells.filter((x) => x.c === c0))) return { kind: 'col', index: c0 };
+  if (c.rows !== c.cols || line.length !== c.rows) return undefined;
+  if (all(c.cells.filter((x) => x.r === x.c))) return { kind: 'diagonal' };
+  if (all(c.cells.filter((x) => x.r + x.c === c.rows - 1))) return { kind: 'anti-diagonal' };
+  return undefined;
+}
+
+const NEXT_TO = [
+  [0, 1],
+  [1, 0],
+  [0, -1],
+  [-1, 0],
+] as const;
+
+/** Whether the cells hang together side by side. */
+function connected(cells: readonly { r: number; c: number }[]): boolean {
+  const left = new Set(cells.map((x) => cellKey(x.r, x.c)));
+  const first = cells[0];
+  if (!first) return false;
+  const queue: [number, number][] = [[first.r, first.c]];
+  left.delete(cellKey(first.r, first.c));
+  while (queue.length > 0) {
+    const [r, col] = queue.pop() as [number, number];
+    for (const [dr, dc] of NEXT_TO) {
+      if (left.delete(cellKey(r + dr, col + dc))) queue.push([r + dr, col + dc]);
+    }
+  }
+  return left.size === 0;
+}
+
+interface DrawnIssue {
+  path: (string | number)[];
+  message: string;
+}
+
+/** The bounds of what the widget draws (the table in packages/engine/README.md). */
+function drawnIssues(c: Config): DrawnIssue[] {
+  const out: DrawnIssue[] = [];
+  const add = (path: (string | number)[], message: string) => out.push({ path, message });
+  if (!isDrawn(c.variant)) {
+    add(['variant'], `the widget draws no ${c.variant} puzzle`);
+    return out;
+  }
+  const size = PUZZLE_GRID[c.variant];
+  if (c.rows < size.rows[0] || c.rows > size.rows[1]) {
+    add(['rows'], `a ${c.variant} grid has ${size.rows[0]} to ${size.rows[1]} rows`);
+  }
+  if (c.cols < size.cols[0] || c.cols > size.cols[1]) {
+    add(['cols'], `a ${c.variant} grid has ${size.cols[0]} to ${size.cols[1]} columns`);
+  }
+  if (c.palette.length > PUZZLE_PALETTE_MAX) {
+    add(['palette'], `the tray holds at most ${PUZZLE_PALETTE_MAX} cards`);
+  }
+  if (new Set(c.palette).size !== c.palette.length) {
+    add(['palette'], 'every tray card is different');
+  }
+  if (c.variant === 'shape-fill') {
+    // The tray shows how many of each piece are left, so the puzzle lists its pieces once.
+    if (c.constraints.filter((k) => k.kind === 'use-each').length !== 1) {
+      add(['constraints'], 'a shape puzzle lists its pieces once');
+    }
+    if (!c.palette.every((v) => typeof v === 'string' && Object.hasOwn(GRID_PIECES, v))) {
+      add(['palette'], 'the tray holds squares and rectangles');
+    }
+    return out;
+  }
+
+  const least = c.variant === 'all-ways' ? 1 : 0;
+  if (!c.palette.every((v) => wholeIn(v, least, PUZZLE_NUMBER_MAX))) {
+    add(['palette'], `tray numbers are whole numbers from ${least} to ${PUZZLE_NUMBER_MAX}`);
+  }
+  for (const [i, cell] of c.cells.entries()) {
+    if (cell.given !== undefined && !wholeIn(cell.given, 0, PUZZLE_NUMBER_MAX)) {
+      add(['cells', i], `a given is a whole number from 0 to ${PUZZLE_NUMBER_MAX}`);
+    }
+  }
+  for (const [i, k] of c.constraints.entries()) {
+    if ((k.kind === 'line-sum' || k.kind === 'cage-sum') && !wholeIn(k.sum, 0, PUZZLE_NUMBER_MAX)) {
+      add(['constraints', i], `a sum is a whole number from 0 to ${PUZZLE_NUMBER_MAX}`);
+    }
+    if (k.kind === 'adjacent-step' && !wholeIn(k.step, 1, PUZZLE_STEP_MAX)) {
+      add(['constraints', i], `a path counts on by a whole number from 1 to ${PUZZLE_STEP_MAX}`);
+    }
+  }
+  const kinds = c.constraints.map((k) => k.kind);
+  const count = (kind: PuzzleConstraint['kind']) => kinds.filter((k) => k === kind).length;
+  const only = (...allowed: PuzzleConstraint['kind'][]) => {
+    for (const [i, k] of kinds.entries()) {
+      if (!allowed.includes(k)) add(['constraints', i], `a ${c.variant} puzzle has no ${k} rule`);
+    }
+  };
+  const everyPosition = c.cells.length === c.rows * c.cols;
+
+  switch (c.variant) {
+    case 'number-path': {
+      only('adjacent-step');
+      if (count('adjacent-step') !== 1) add(['constraints'], 'a number path has one step rule');
+      if (!everyPosition) add(['cells'], 'a number path has a cell at every position');
+      // The path is drawn cell to cell, so each cell lies beside the one before it.
+      for (const [i, cell] of c.cells.entries()) {
+        const prev = c.cells[i - 1];
+        if (prev && Math.abs(prev.r - cell.r) + Math.abs(prev.c - cell.c) !== 1) {
+          add(['cells', i], 'a path cell lies beside the one before it');
+        }
+      }
+      break;
+    }
+    case 'sum-triangle': {
+      only('line-sum');
+      const want = new Set(TRIANGLE_CELLS.map(([r, col]) => cellKey(r, col)));
+      if (c.cells.length !== want.size || !c.cells.every((x) => want.has(cellKey(x.r, x.c)))) {
+        add(['cells'], 'a sum triangle has three corners and three middles');
+      }
+      const sides = c.constraints.flatMap((k) => (k.kind === 'line-sum' ? [k.cells] : []));
+      if (
+        sides.length !== TRIANGLE_SIDES.length ||
+        !sides.every((side, i) => sameCells(side, TRIANGLE_SIDES[i] ?? []))
+      ) {
+        add(['constraints'], 'a sum triangle has one sum for each side, in order');
+      }
+      break;
+    }
+    case 'all-ways': {
+      only('line-sum');
+      if (!everyPosition) add(['cells'], 'every row has two cells');
+      if (!c.cells.every((x) => x.blank)) add(['cells'], 'every cell of a way is blank');
+      const sums = c.constraints.flatMap((k) => (k.kind === 'line-sum' ? [k] : []));
+      const rowByRow =
+        sums.length === c.rows &&
+        sums.every(
+          (k, r) =>
+            k.sum === sums[0]?.sum &&
+            sameCells(k.cells, [
+              [r, 0],
+              [r, 1],
+            ]),
+        );
+      if (!rowByRow) add(['constraints'], 'every row makes the same whole, row by row');
+      break;
+    }
+    case 'cage-sum': {
+      only('cage-sum', 'row-unique', 'col-unique');
+      if (count('row-unique') !== 1 || count('col-unique') !== 1) {
+        add(['constraints'], 'a KenKen has the row rule and the column rule');
+      }
+      const cages = new Map<string, { r: number; c: number }[]>();
+      for (const [i, cell] of c.cells.entries()) {
+        if (cell.cage === undefined) add(['cells', i], 'every KenKen cell is in a cage');
+        else cages.set(cell.cage, [...(cages.get(cell.cage) ?? []), cell]);
+      }
+      for (const [cage, cells] of cages) {
+        const sums = c.constraints.filter((k) => k.kind === 'cage-sum' && k.cage === cage);
+        if (sums.length !== 1) add(['constraints'], `cage ${cage} has one sum`);
+        if (cells.length > PUZZLE_CAGE_CELLS_MAX) {
+          add(['cells'], `cage ${cage} has at most ${PUZZLE_CAGE_CELLS_MAX} cells`);
+        }
+        if (!connected(cells)) add(['cells'], `the cells of cage ${cage} touch`);
+      }
+      break;
+    }
+    case 'magic-square':
+    case 'missing-digit': {
+      only('line-sum', 'use-each');
+      if (c.variant === 'magic-square' && !everyPosition) {
+        add(['cells'], 'a magic square has a cell at every position');
+      }
+      const lines = new Set<string>();
+      for (const [i, k] of c.constraints.entries()) {
+        if (k.kind !== 'line-sum') continue;
+        // Its sum is printed at the end of the line, so the line is one the widget can label.
+        const line = puzzleLine(c, k.cells);
+        const id = line ? `${line.kind}${'index' in line ? line.index : ''}` : '';
+        if (!line) add(['constraints', i], 'a sum runs along a whole row, column or diagonal');
+        else if (lines.has(id)) add(['constraints', i], 'a line has one sum');
+        lines.add(id);
+      }
+      break;
+    }
+  }
+  return out;
+}
+
 const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
+  for (const issue of drawnIssues(c)) ctx.addIssue({ code: 'custom', ...issue });
   const seen = new Set<string>();
   for (const [i, cell] of c.cells.entries()) {
     const k = `${cell.r},${cell.c}`;
@@ -85,7 +358,7 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
   }
   const cages = new Set(c.cells.flatMap((x) => (x.cage ? [x.cage] : [])));
   for (const [i, k] of c.constraints.entries()) {
-    if (k.kind === 'cage-sum' && !cages.has(k.cage)) {
+    if (c.variant === 'cage-sum' && k.kind === 'cage-sum' && !cages.has(k.cage)) {
       ctx.addIssue({
         code: 'custom',
         path: ['constraints', i],
@@ -99,27 +372,12 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
         message: 'a line-sum names a cell outside the puzzle',
       });
     }
-    // K01's number path (PUZ.01) counts on cell by cell: `puzzle.satisfies` checks its
-    // adjacent-step constraint (checkNumbers), for that variant only.
-    const stepPath = c.variant === 'number-path' && k.kind === 'adjacent-step';
-    if (
-      c.variant === 'shape-fill'
-        ? k.kind !== 'use-each'
-        : !NUMERIC_CONSTRAINTS.includes(k.kind) && !stepPath
-    ) {
+    // The number variants' rules are bounded by `drawnIssues`; a shape puzzle has its piece list.
+    if (c.variant === 'shape-fill' && k.kind !== 'use-each') {
       ctx.addIssue({
         code: 'custom',
         path: ['constraints', i],
         message: `${k.kind} constraints are not checked for ${c.variant}`,
-      });
-    }
-    // Structurally ungradable: the checker's `stepHolds` takes only whole numbers on a number
-    // path, so a non-whole step can never be met (PR #84 review rounds 6 and 7).
-    if (stepPath && !Number.isInteger(k.step)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['constraints', i],
-        message: 'a number path steps by a whole number',
       });
     }
     if (c.variant !== 'shape-fill' && k.kind === 'use-each' && !numericUseEachFits(c, k.values)) {
@@ -138,24 +396,6 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
       });
     }
   }
-  if (c.variant === 'number-path') {
-    // Structurally ungradable: `stepHolds` takes only whole numbers of 0 or more on a number path
-    // (03 §5.5), and a given is part of every fill, so a non-whole or negative given can never be
-    // graded correct. The palette is not checked: a blank only needs some palette value to fit,
-    // and whether one does is solvability. This schema does not guarantee a correct fill exists;
-    // that is the generator's job, verified by the 500-seed property test that replays every
-    // generated item (PR #84 review rounds 6 and 7).
-    const whole = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0;
-    for (const [i, cell] of c.cells.entries()) {
-      if (cell.given !== undefined && !whole(cell.given)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['cells', i],
-          message: 'a number path holds whole numbers',
-        });
-      }
-    }
-  }
   if (c.constraints.filter((k) => k.kind === 'use-each').length > 1) {
     ctx.addIssue({ code: 'custom', path: ['constraints'], message: 'one use-each list at most' });
   }
@@ -168,16 +408,6 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
           code: 'custom',
           path: ['cells', i],
           message: 'shape-fill outline cells are blank',
-        });
-      }
-    }
-  } else {
-    for (const [i, cell] of c.cells.entries()) {
-      if (cell.given !== undefined && typeof cell.given !== 'number') {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['cells', i],
-          message: 'number grids have number givens',
         });
       }
     }
@@ -251,6 +481,19 @@ function shapeUseEachFits(c: Config, values: readonly (number | string)[]): bool
 
 /** The most disjoint side-by-side cell pairs (a maximum matching on the checkerboard graph). */
 function maxDominoes(cells: readonly { r: number; c: number }[]): number {
+  return rectanglePairs(cells.map((x) => [x.r, x.c])).pairs.length;
+}
+
+/**
+ * The cells paired into side-by-side rectangles, as many as can be (a maximum matching on the
+ * checkerboard graph), and the cells left over. Every cell pairs up exactly when `alone` is empty,
+ * which is the checker's `pairsUp`. The widget draws these pairs as the rectangles.
+ */
+export function rectanglePairs(list: readonly GridCell[]): {
+  pairs: [GridCell, GridCell][];
+  alone: GridCell[];
+} {
+  const cells = [...list].sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(([r, c]) => ({ r, c }));
   const id = new Map(cells.map((x, i) => [`${x.r},${x.c}`, i]));
   const dark = cells.flatMap((x, i) => ((x.r + x.c) % 2 === 0 ? [i] : []));
   const next = (i: number) => {
@@ -278,14 +521,185 @@ function maxDominoes(cells: readonly { r: number; c: number }[]): number {
     }
     return false;
   };
-  let pairs = 0;
-  for (const i of dark) if (augment(i, new Set())) pairs += 1;
-  return pairs;
+  for (const i of dark) augment(i, new Set());
+  const at = (i: number): GridCell => [
+    (cells[i] as { r: number }).r,
+    (cells[i] as { c: number }).c,
+  ];
+  const pairs = [...partner].map(([light, darkCell]): [GridCell, GridCell] =>
+    light < darkCell ? [at(light), at(darkCell)] : [at(darkCell), at(light)],
+  );
+  pairs.sort((a, b) => a[0][0] - b[0][0] || a[0][1] - b[0][1]);
+  const paired = new Set(pairs.flatMap(([a, b]) => [cellKey(a[0], a[1]), cellKey(b[0], b[1])]));
+  return {
+    pairs,
+    alone: cells.filter((x) => !paired.has(cellKey(x.r, x.c))).map((x): GridCell => [x.r, x.c]),
+  };
+}
+
+// ---------- the rules, read from the config (one source for the widget and the checker) ----------
+
+/** The rule a fill does not meet, and the cells to look at again. */
+export interface PuzzleMark {
+  kind: 'row' | 'col' | 'cage' | 'line' | 'step' | 'ways' | 'pieces' | 'pairs';
+  cells: GridCell[];
+  /** The index of the constraint in `config.constraints` (none for `ways` and `pairs`). */
+  constraint?: number;
+}
+
+/**
+ * The first rule of the puzzle that `fill` does not meet, or null when it meets them all. A rule
+ * is read only where its cells are filled, so on a fill with every blank filled from the tray
+ * null means exactly what `puzzle.satisfies` accepts (`answerIssues` holds the checker's target
+ * to this config; a property test holds the two readings together on every shipped template).
+ * The widget shows the mark at the grid after a Check that left a rule unmet.
+ */
+export function puzzleUnmet(
+  c: Config,
+  fill: readonly (readonly PuzzleValue[])[],
+): PuzzleMark | null {
+  const at = (r: number, col: number): PuzzleValue => fill[r]?.[col] ?? '';
+  const filled = (cells: readonly GridCell[]) => cells.every(([r, col]) => at(r, col) !== '');
+  const total = (cells: readonly GridCell[]) =>
+    cells.reduce((n, [r, col]) => n + (at(r, col) as number), 0);
+  const cellsOf = (list: readonly { r: number; c: number }[]): GridCell[] =>
+    list.map((x) => [x.r, x.c]);
+  const repeats = (cells: readonly GridCell[]) => {
+    const values = cells.map(([r, col]) => at(r, col)).filter((v) => v !== '');
+    return new Set(values).size !== values.length;
+  };
+
+  for (const [constraint, k] of c.constraints.entries()) {
+    switch (k.kind) {
+      case 'row-unique':
+      case 'col-unique': {
+        const row = k.kind === 'row-unique';
+        for (let i = 0; i < (row ? c.rows : c.cols); i += 1) {
+          const line = cellsOf(c.cells.filter((x) => (row ? x.r : x.c) === i));
+          if (repeats(line)) return { kind: row ? 'row' : 'col', cells: line, constraint };
+        }
+        break;
+      }
+      case 'cage-sum': {
+        const cage = cellsOf(c.cells.filter((x) => x.cage === k.cage));
+        if (filled(cage) && total(cage) !== k.sum) return { kind: 'cage', cells: cage, constraint };
+        break;
+      }
+      case 'line-sum': {
+        const line = k.cells.map(([r, col]): GridCell => [r, col]);
+        if (filled(line) && total(line) !== k.sum) return { kind: 'line', cells: line, constraint };
+        break;
+      }
+      case 'adjacent-step': {
+        const path = cellsOf(c.cells);
+        for (const [i, cell] of path.entries()) {
+          const prev = path[i - 1];
+          if (!prev || !filled([prev, cell])) continue;
+          if ((at(cell[0], cell[1]) as number) - (at(prev[0], prev[1]) as number) !== k.step) {
+            return { kind: 'step', cells: [prev, cell], constraint };
+          }
+        }
+        break;
+      }
+      case 'use-each': {
+        const pool =
+          c.variant === 'shape-fill' || k.values.length === c.cells.length
+            ? c.cells
+            : c.cells.filter((x) => x.blank);
+        const held = pool.map((x) => at(x.r, x.c)).filter((v) => v !== '');
+        // Too many of a listed value, or a value the list does not have at all.
+        for (const value of new Set([...k.values, ...held])) {
+          // A rectangle is one piece on two cells.
+          const each = c.variant === 'shape-fill' ? (GRID_PIECES[String(value)] ?? 1) : 1;
+          const have = k.values.filter((v) => v === value).length * each;
+          const holding = cellsOf(pool.filter((x) => at(x.r, x.c) === value));
+          if (holding.length > have) return { kind: 'pieces', cells: holding, constraint };
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  if (c.variant === 'all-ways') {
+    // Every row is a different way; a turn-around (3 + 2 after 2 + 3) is the same way.
+    const ways = new Set<string>();
+    for (let r = 0; r < c.rows; r += 1) {
+      const row = cellsOf(c.cells.filter((x) => x.r === r));
+      if (!filled(row)) continue;
+      const way = row
+        .map(([rr, col]) => at(rr, col) as number)
+        .sort((a, b) => a - b)
+        .join('+');
+      if (ways.has(way)) return { kind: 'ways', cells: row };
+      ways.add(way);
+    }
+  }
+  if (c.variant === 'shape-fill' && filled(cellsOf(c.cells))) {
+    const { alone } = rectanglePairs(cellsOf(c.cells.filter((x) => at(x.r, x.c) === 'rectangle')));
+    if (alone.length > 0) return { kind: 'pairs', cells: alone };
+  }
+  return null;
+}
+
+const sameJson = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a).filter((k) => (a as Record<string, unknown>)[k] !== undefined);
+  const kb = Object.keys(b).filter((k) => (b as Record<string, unknown>)[k] !== undefined);
+  return (
+    ka.length === kb.length &&
+    ka.every((k) => sameJson((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+  );
+};
+
+/**
+ * Why an item's answer is not the one this config asks for (FormatModel.answerIssues): the
+ * answer is `puzzle.satisfies`, and its target is this config's own puzzle: the same variant,
+ * size, cells (a number path in path order), givens, rules and tray. The widget reads the rules
+ * from the config (`puzzleUnmet`), so its mark and the checker never disagree.
+ */
+export function puzzleAnswerIssues(c: Config, answer: AnswerSpec): string[] {
+  if (answer.kind !== 'state' || answer.checker !== 'puzzle.satisfies') {
+    return ['a puzzle grid is checked by puzzle.satisfies'];
+  }
+  const t = answer.target as Readonly<Record<string, unknown>>;
+  const out: string[] = [];
+  for (const key of ['variant', 'rows', 'cols'] as const) {
+    if (t[key] !== c[key]) out.push(`the target's ${key} is not the config's`);
+  }
+  if (!sameJson(t.constraints, c.constraints)) out.push("the target's rules are not the config's");
+  const cells = Array.isArray(t.cells) ? (t.cells as unknown[]) : [];
+  if (cells.length > 0 && Array.isArray(cells[0])) {
+    // K01's form: cells as [r, c] (a number path in path order), givens as [r, c, value].
+    const own = c.cells.map((x) => [x.r, x.c]);
+    const sorted = (list: unknown[]) => [...list].map((x) => JSON.stringify(x)).sort();
+    const inOrder = c.variant === 'number-path';
+    if (inOrder ? !sameJson(cells, own) : !sameJson(sorted(cells), sorted(own))) {
+      out.push("the target's cells are not the config's");
+    }
+    if (c.variant !== 'shape-fill') {
+      const givens = c.cells.flatMap((x) => (x.given === undefined ? [] : [[x.r, x.c, x.given]]));
+      const theirs = Array.isArray(t.givens) ? (t.givens as unknown[]) : [];
+      if (!sameJson(sorted(theirs), sorted(givens))) {
+        out.push("the target's givens are not the config's");
+      }
+    }
+  } else if (!sameJson(cells, c.cells)) {
+    out.push("the target's cells are not the config's");
+  }
+  // A shape-fill target has no tray: its pieces are the checker's own.
+  if (c.variant !== 'shape-fill' && !sameJson(t.palette, c.palette)) {
+    out.push("the target's tray is not the config's");
+  }
+  return out;
 }
 
 export const puzzleGrid: FormatModel<'puzzle-grid', PuzzleGridState> = {
   format: 'puzzle-grid',
   configSchema,
+  answerIssues: puzzleAnswerIssues,
   features: {
     blanks: { weight: 0.2, doc: 'blanks − 1' },
     constraints: { weight: 0.15, doc: 'constraints − 1' },
