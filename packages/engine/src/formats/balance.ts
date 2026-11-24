@@ -79,27 +79,29 @@ export const BALANCE_PAN_MAX = 20;
 
 const whole = (n: number, lo: number, hi: number) => Number.isInteger(n) && n >= lo && n <= hi;
 
-/** The numbers a config shows: its numerals and the counts of its object groups. */
-const shownNumbers = (c: Pick<Config, 'left' | 'right'>): number[] =>
-  [...c.left.terms, ...c.right.terms].flatMap((t) =>
-    'n' in t ? [t.n] : 'object' in t ? [t.count] : [],
-  );
+/** The numbers a side shows: its numerals and the counts of its object groups. */
+const shownNumbers = (terms: readonly BalanceTerm[]): number[] =>
+  terms.flatMap((t) => ('n' in t ? [t.n] : 'object' in t ? [t.count] : []));
 
 /**
  * The largest number the `fill-blank` answer control offers (0 … max): from what the pans show,
- * never from the answer. The numbers shown, added up (or multiplied, when a side multiplies),
- * bound the box of any equation of whole numbers; the range is 10, 20, 99 or 999.
+ * never from the answer. With only additions the box is at most the larger side's shown sum
+ * (8 + 5 = _ + 6: at most 13); a subtraction can ask for the two sides together (_ − 3 = 5), and
+ * a multiplication for a product. The range is 10, 20, 99 or 999.
  */
 export function balanceEntryMax(c: Pick<Config, 'left' | 'right'>): number {
-  const shown = shownNumbers(c);
-  const sum = shown.reduce((a, b) => a + b, 0);
-  const times = [...c.left.terms, ...c.right.terms].some((t) => isOp(t) && t.op === '×');
-  const bound = times
-    ? Math.max(
-        sum,
-        shown.reduce((a, b) => a * Math.max(1, b), 1),
-      )
-    : sum;
+  const left = shownNumbers(c.left.terms);
+  const right = shownNumbers(c.right.terms);
+  const add = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
+  const ops = [...c.left.terms, ...c.right.terms].flatMap((t) => (isOp(t) ? [t.op] : []));
+  let bound = Math.max(add(left), add(right));
+  if (ops.includes('-')) bound = add(left) + add(right);
+  if (ops.includes('×')) {
+    bound = Math.max(
+      add(left) + add(right),
+      [...left, ...right].reduce((a, b) => a * Math.max(1, b), 1),
+    );
+  }
   return bound <= 10 ? 10 : bound <= 20 ? 20 : bound < 100 ? 99 : BALANCE_N_MAX;
 }
 

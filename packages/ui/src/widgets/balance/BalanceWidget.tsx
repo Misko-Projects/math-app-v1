@@ -1,5 +1,4 @@
 import {
-  BALANCE_PAN_MAX,
   type BalanceState,
   type BalanceTerm,
   balanceBlanks,
@@ -28,7 +27,6 @@ import { IconButton } from '../../primitives/IconButton';
 import { useWidgetDemo } from '../demo';
 import {
   AskEntry,
-  type AskPlan,
   COMPACT_ROOM_H,
   demoEnterAnswer,
   fivesGrid,
@@ -36,9 +34,7 @@ import {
   ObjectSprite,
   type PadKey,
   PickCard,
-  planAsk,
   roomBox,
-  type Size,
   StepActions,
   spriteNameKey,
   useActionSize,
@@ -46,17 +42,22 @@ import {
   useDemoPause,
   useInviteHand,
   useModelState,
+  useSmallestRoom,
   useSubmitGuard,
   useWidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import { ChoiceArt, type ChoiceGlyph, PanButtonIcon, StandArt } from './art';
 import {
-  cardsSize,
   fivesCell,
-  type PanPart,
-  planScale,
+  NUMERAL_PX,
+  OP_PX,
+  panParts,
+  panRoom,
+  planBalance,
   type ScaleLayout,
+  type Side,
+  TILE_H,
   TILT_PX,
   tileWidth,
 } from './layout';
@@ -74,8 +75,9 @@ import './balance.css';
  *   number.
  * - **make-equal**: under each pan, "add one" and "take one off" (the pan's own objects, or unit
  *   blocks beside its number). A pan holds at most twenty; the place for every one it can still
- *   take is there from the start, so adding moves nothing. Any amounts that make the pans level
- *   are right (`balance.equal`); Check is live from the start.
+ *   take is there from the start, so adding moves nothing. A button that can do nothing more (a
+ *   full pan, nothing added to take off) is drawn dashed; pressing it says why. Any amounts that
+ *   make the pans level are right (`balance.equal`); Check is live from the start.
  *
  * The beam shows the comparison only when the item says so (`showTilt`) or a demonstration asks
  * (`tilt`, `level`). Otherwise it rests on two props: a level beam would read as "the same".
@@ -91,7 +93,6 @@ import './balance.css';
 
 type Config = ConfigFor<'balance'>;
 type State = BalanceState;
-type Side = 'left' | 'right';
 const SIDES = ['left', 'right'] as const;
 
 const OPS: readonly string[] = [...FORMAT_SUPPORT.balance.ops, 'answer'];
@@ -104,12 +105,6 @@ function stateModel() {
 const model = stateModel();
 const initial = (c: Config) => model.initialState(c) as State;
 const applyAction = (s: State, a: WidgetAction) => model.apply(s, a) as State;
-
-/** The largest sprite cell: a few things to weigh are drawn big, countable groups smaller. */
-const ITEM_MAX = { k: 56, 'g1-up': 48 } as const;
-const BIG_ITEM_MAX = 96;
-/** A pan with this many things at most is "a few". */
-const FEW = 3;
 
 // Motion (03 §6.3): short, transform-only moves.
 const PLACE_MS = 280;
@@ -194,7 +189,7 @@ export function BalanceWidget({
   const [entryHighlight, setEntryHighlight] = useState<number | PadKey | null>(null);
   const [cardHighlight, setCardHighlight] = useState<string | null>(null);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
-  const [note, setNote] = useState<{ key: NarrationKey; side: Side } | null>(null);
+  const [note, setNote] = useState<NarrationKey | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const interactive = !disabled && !busy;
 
@@ -223,78 +218,37 @@ export function BalanceWidget({
   /** In `make-equal` a pan draws the item's terms and, apart, what the child added. */
   const termsOf = (side: Side): readonly BalanceTerm[] =>
     making ? config[side].terms : state[side];
-  const baseValue = (side: Side) => sideValue(config[side].terms, weights) ?? 0;
-  const roomOn = (side: Side) => Math.max(0, BALANCE_PAN_MAX - baseValue(side));
-
-  const partsOf = (side: Side): PanPart[] => {
-    const parts: PanPart[] = termsOf(side).map((x): PanPart => {
-      if ('object' in x) return { kind: 'objects', n: x.count };
-      if ('op' in x) return { kind: 'op' };
-      if ('n' in x) return { kind: 'tile', chars: digits(x.n) };
-      if ('blank' in x) return { kind: 'tile', chars: digits(entryMax) };
-      return { kind: 'tile', chars: 1 };
-    });
-    if (making) parts.push({ kind: 'zone', cap: roomOn(side) });
-    return parts;
-  };
-  const leftParts = partsOf('left');
-  const rightParts = partsOf('right');
-  const drawn = (parts: readonly PanPart[]) =>
-    parts.reduce((n, p) => n + (p.kind === 'objects' ? p.n : p.kind === 'zone' ? p.cap : 0), 0);
-  const few = Math.max(drawn(leftParts), drawn(rightParts)) <= FEW;
-  const maxItem = few ? BIG_ITEM_MAX : ITEM_MAX[ageMode];
+  const roomOn = (side: Side) => panRoom(config, side);
 
   // ---------- layout: the measured room, the action button, the plan ----------
 
-  const room = useWidgetRoom(rootRef);
+  // The plan is made for the smallest room the item has had (kit `useSmallestRoom`): a prompt
+  // that wraps or a hint line makes the room shorter, and nothing changes places when it grows
+  // back.
+  const room = useSmallestRoom(useWidgetRoom(rootRef), rootRef);
   const box = roomBox(room);
   const actRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef(1);
   const button = useActionSize(actRef, zoomRef, ageMode);
+  const leftParts = panParts(config, 'left', termsOf('left'));
+  const rightParts = panParts(config, 'right', termsOf('right'));
   const partsKey = JSON.stringify([leftParts, rightParts]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the parts are in partsKey
-  const planned = useMemo(() => {
-    const scaleFor = (size: Size) =>
-      planScale({
-        w: size.w,
-        h: size.h,
+  const planned = useMemo(
+    () =>
+      planBalance({
+        config,
         left: leftParts,
         right: rightParts,
-        ageMode,
-        buttons: making,
-        maxItem,
-      });
-    const planWith = (control: Size | undefined): AskPlan =>
-      planAsk({
-        ageMode,
-        max: entryMax,
-        control,
-        button,
-        actions: 1,
         room: { w: box.w, h: box.h },
-        pictureScore: (size) => {
-          const l = scaleFor(size);
-          return l.fits ? l.s : 0;
-        },
-      });
-    const score = (p: AskPlan) => (p.picture ? scaleFor(p.picture).s : 0);
-    let plan: AskPlan;
-    let cards: 'row' | 'column' = 'column';
-    if (choices) {
-      const column = planWith(cardsSize(ageMode, choices.length, 'column'));
-      const row = planWith(cardsSize(ageMode, choices.length, 'row'));
-      // The cards beside the balance unless only a row under it leaves the picture its room.
-      cards = score(row) > score(column) ? 'row' : 'column';
-      plan = cards === 'row' ? row : column;
-    } else {
-      plan = planWith(making ? { w: 0, h: 0 } : undefined);
-    }
-    // A room nothing fits still shows the balance (at its smallest), flagged `data-fits`.
-    const layout = scaleFor(plan.picture ?? { w: 0, h: 0 });
-    return { plan, cards, layout, fits: plan.fits && plan.picture !== null && layout.fits };
-  }, [box.w, box.h, button, ageMode, entryMax, making, maxItem, partsKey, choices]);
-  const { plan, layout } = planned;
+        button,
+        ageMode,
+      }),
+    [config, box.w, box.h, button, ageMode, partsKey],
+  );
+  const plan = planned.ask;
+  const layout = planned.scale;
 
   // ---------- the beam ----------
 
@@ -323,7 +277,7 @@ export function BalanceWidget({
     trace('tap', `add-${side}`);
     const unit = unitOf(side);
     if (!act({ op: 'place', args: { side, term: unit.term } })) {
-      setNote({ key: NOTE.full, side });
+      setNote(NOTE.full);
       say(NOTE.full);
     }
   };
@@ -333,7 +287,7 @@ export function BalanceWidget({
     trace('undo', `take-${side}`);
     const unit = unitOf(side);
     if (!act({ op: 'place', args: { side, term: unit.term, remove: true } })) {
-      setNote({ key: NOTE.none, side });
+      setNote(NOTE.none);
       say(NOTE.none);
     }
   };
@@ -546,6 +500,12 @@ export function BalanceWidget({
   };
 
   const renderTerm = (x: BalanceTerm, i: number, s: number) => {
+    /** A tile of `chars` characters (or a sign, `chars` 0), as large as the plan draws tiles. */
+    const tileStyle = (chars: number): CSSProperties => ({
+      width: Math.round((chars > 0 ? tileWidth(chars) : OP_PX) * layout.tile),
+      height: Math.round((chars > 0 ? TILE_H : OP_PX) * layout.tile),
+      fontSize: Math.round(NUMERAL_PX * layout.tile),
+    });
     if ('object' in x) {
       const { grid, items } = renderSprites(x.count, x.count, x.object, spriteNameKey(x.object), s);
       return (
@@ -556,19 +516,20 @@ export function BalanceWidget({
     }
     if ('op' in x) {
       return (
-        <span key={i} className="ni-bal__op" data-say="" data-say-key={OP_NAME[x.op]}>
+        <span
+          key={i}
+          className="ni-bal__op"
+          data-say=""
+          data-say-key={OP_NAME[x.op]}
+          style={tileStyle(0)}
+        >
           {OP_SIGN[x.op]}
         </span>
       );
     }
     if ('n' in x) {
       return (
-        <span
-          key={i}
-          className="ni-bal__tile"
-          data-say={x.n}
-          style={{ width: tileWidth(digits(x.n)) }}
-        >
+        <span key={i} className="ni-bal__tile" data-say={x.n} style={tileStyle(digits(x.n))}>
           {x.n}
         </span>
       );
@@ -581,14 +542,14 @@ export function BalanceWidget({
           data-cue="box"
           data-empty={value === null ? 'true' : undefined}
           data-say={value ?? ''}
-          style={{ width: tileWidth(digits(entryMax)) }}
+          style={tileStyle(digits(entryMax))}
         >
           {value ?? ''}
         </span>
       );
     }
     return (
-      <span key={i} className="ni-bal__tile ni-bal__tile--letter">
+      <span key={i} className="ni-bal__tile ni-bal__tile--letter" style={tileStyle(1)}>
         {x.letter}
       </span>
     );
@@ -627,7 +588,7 @@ export function BalanceWidget({
               {zone.items}
             </span>
           ) : null}
-          <div className="ni-bal__terms" data-flow={l.flow}>
+          <div className="ni-bal__terms" data-flow={l.flow[side]}>
             {termsOf(side).map((x, i) => renderTerm(x, i, l.s))}
           </div>
         </div>
@@ -646,6 +607,7 @@ export function BalanceWidget({
           caption={false}
           onPress={() => onTake(side)}
           disabled={!interactive}
+          data={{ 'data-limit': state.added[side] === 0 ? 'true' : undefined }}
         />
       </span>
       <span data-cue={`add-${side}`}>
@@ -657,6 +619,7 @@ export function BalanceWidget({
           onPress={() => onAdd(side)}
           disabled={!interactive}
           className={ringed(`add-${side}`) ? 'ni-invite' : undefined}
+          data={{ 'data-limit': state.added[side] >= roomOn(side) ? 'true' : undefined }}
         />
       </span>
     </div>
@@ -683,16 +646,6 @@ export function BalanceWidget({
       data-reduced={reduced ? 'true' : undefined}
       style={{ width: layout.width, height: layout.height }}
     >
-      {making ? (
-        <p
-          className="ni-bal__note"
-          role="status"
-          data-side={note?.side}
-          style={{ height: layout.note }}
-        >
-          {note ? t(note.key) : ''}
-        </p>
-      ) : null}
       <div className="ni-bal__pans" style={{ gap: layout.gap, paddingTop: TILT_PX }}>
         {SIDES.map((side) => renderPan(side, layout))}
       </div>
@@ -723,8 +676,9 @@ export function BalanceWidget({
           : null}
         {making ? SIDES.map((side) => renderButtons(side, layout)) : null}
       </div>
-      <p className="ni-visually-hidden" role="status" data-beam-words="true">
-        {beamWords}
+      {/* What a sighted child sees, in words: why a press did nothing, else how the beam sits. */}
+      <p className="ni-visually-hidden" role="status">
+        {note ? t(note) : beamWords}
       </p>
     </div>
   );

@@ -20,26 +20,6 @@
   flex-direction: column;
 }
 
-/* make-equal: why nothing happened (a full pan, nothing to take off), over the pan it is about. */
-.ni-bal__note {
-  flex: none;
-  margin: 0;
-  box-sizing: border-box;
-  font-family: var(--font-body);
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 30px;
-  color: var(--color-ink);
-  white-space: nowrap;
-  text-align: center;
-}
-.ni-bal__note[data-side="left"] {
-  text-align: left;
-}
-.ni-bal__note[data-side="right"] {
-  text-align: right;
-}
-
 .ni-bal__pans {
   display: flex;
   flex: none;
@@ -50,10 +30,6 @@
   flex: none;
   border-radius: var(--radius-card);
   transition: transform 320ms cubic-bezier(0.3, 0.7, 0.2, 1);
-}
-.ni-bal__scale[data-reduced="true"] .ni-bal__pan,
-.ni-bal__scale[data-reduced="true"] .ni-bal__beam {
-  transition: none;
 }
 /* A demonstration points at a side: an ink ring round the whole pan (never colour alone). */
 .ni-bal__pan--lit {
@@ -103,9 +79,8 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  height: 56px;
+  /* Sizes (never under 32 px numerals) come from layout.ts through the element's style. */
   font-family: var(--font-display);
-  font-size: var(--text-numeral);
   font-weight: 800;
   line-height: 1;
   color: var(--color-ink);
@@ -117,10 +92,6 @@
   border-radius: 12px;
   background: var(--color-cloud);
 }
-.ni-bal__op {
-  width: 32px;
-  height: 32px;
-}
 /* The box: a dashed outline, a question mark until a number is in it. */
 .ni-bal__tile--box {
   border-style: dashed;
@@ -131,7 +102,6 @@
   color: var(--color-ink-soft);
 }
 .ni-bal__tile--letter {
-  width: 54px;
   font-style: italic;
 }
 
@@ -204,6 +174,12 @@
   width: 60%;
   height: 60%;
 }
+/* A button that can do nothing more (a full pan, nothing added to take off): a dashed outline and
+   no ledge, never colour alone. It can still be pressed, and then says why. */
+.ni-bal__buttons .ni-iconbtn[data-limit="true"]:not(:disabled) {
+  border-style: dashed;
+  box-shadow: none;
+}
 
 .ni-bal__cards {
   display: flex;
@@ -230,4 +206,10 @@
 .ni-bal__entry {
   display: inline-flex;
   flex: none;
+}
+
+/* Reduced motion (06 §7): the beam and the pans change at once. */
+.ni-bal__scale[data-reduced="true"] .ni-bal__pan,
+.ni-bal__scale[data-reduced="true"] .ni-bal__beam {
+  transition: none;
 }
