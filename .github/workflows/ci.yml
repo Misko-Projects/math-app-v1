@@ -1,6 +1,6 @@
 # CI (docs/spec/09-quality.md §2).
-# Required checks (stable names): verify, e2e, bundle-size. Non-required: visual, and stories and
-# sim, which e2e needs.
+# Required checks (stable names): verify, e2e, bundle-size. Non-required: visual, and sim, which
+# e2e needs.
 # The scheduled nightly job lives in nightly.yml so it never reports a check on pull requests.
 # No secrets are used anywhere in CI; every AI provider is mocked.
 name: ci
@@ -38,50 +38,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm i --frozen-lockfile
-      # `pnpm verify` is one command locally. Here its steps run one by one, and its `pnpm test`
-      # step is shared out: this job runs every Vitest project that needs no browser, and the
-      # `stories` job the two that run in Chromium (#35: as one job it took 11 to 14 of its 15
-      # minutes, `pnpm test` alone 11). If either script changes, this step fails until the jobs
-      # are brought back in line with it.
-      - name: The jobs match the verify and test scripts
-        run: |
-          test "$(node -p "require('./package.json').scripts.verify")" = "pnpm content:build && pnpm typecheck && pnpm lint && pnpm content:validate && pnpm test && pnpm build"
-          test "$(node -p "require('./package.json').scripts.test")" = "pnpm browsers && vitest run"
-      - run: pnpm content:build
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm content:validate
-      # No browser is installed in this job: a new browser project fails here until it is named
-      # in both lists.
-      - run: pnpm exec vitest run --project '!ui-stories' --project '!web-fit'
-      - run: pnpm build
-
-  # The browser half of `pnpm test`: story play functions and axe checks (ui-stories) and the pier
-  # fit check (web-fit), in Vitest browser mode, in two shards. Like `sim` it is not a required
-  # check by name; the required `e2e` job needs it and fails unless every shard succeeded.
-  stories:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm i --frozen-lockfile
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+      # Story play functions and axe checks run in Vitest browser mode inside `pnpm test`.
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm content:build
-      - run: pnpm exec vitest run --project ui-stories --project web-fit --shard=${{ matrix.shard }}/2
+      - run: pnpm verify
 
   # 04 §8 simulated-learner harness on the content as it is. A job of its own, next to `verify`:
   # with the full K–1 catalog the two no longer fit one 15-minute job on a slow runner (#84).
@@ -102,24 +66,21 @@ jobs:
       - run: pnpm test:sim
 
   e2e:
-    needs: [verify, stories, sim]
+    needs: [verify, sim]
     # GitHub skips a job whose needed job failed or was cancelled, and counts a skipped job as a
-    # passing required check. So this job always runs, and its first step fails unless `verify`,
-    # `stories` (every shard) and `sim` all succeeded: a failed or timed-out story shard or
-    # simulator makes the required `e2e` check fail.
+    # passing required check. So this job always runs, and its first step fails unless `verify`
+    # and `sim` both succeeded: a failed or timed-out simulator makes the required `e2e` check fail.
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Require verify, stories and sim
+      - name: Require verify and sim
         env:
           VERIFY_RESULT: ${{ needs.verify.result }}
-          STORIES_RESULT: ${{ needs.stories.result }}
           SIM_RESULT: ${{ needs.sim.result }}
         run: |
-          echo "verify: $VERIFY_RESULT, stories: $STORIES_RESULT, sim: $SIM_RESULT"
+          echo "verify: $VERIFY_RESULT, sim: $SIM_RESULT"
           test "$VERIFY_RESULT" = success
-          test "$STORIES_RESULT" = success
           test "$SIM_RESULT" = success
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
