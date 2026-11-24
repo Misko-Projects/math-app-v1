@@ -122,8 +122,9 @@
 .ni-pz[data-variant="shape-fill"] .ni-pz__cell[data-kind="filled"] {
   border-color: transparent;
 }
-.ni-pz[data-variant="shape-fill"] .ni-pz__cell[data-current="true"] {
-  background: rgb(255 255 255 / 0.55);
+/* The current box keeps its ring; a piece on it keeps its own colour. */
+.ni-pz[data-variant="shape-fill"] .ni-pz__cell[data-current="true"][data-kind="empty"] {
+  background: var(--color-sunshine-light);
 }
 .ni-pz__outline-edge {
   stroke: var(--color-ink);
