@@ -1352,6 +1352,63 @@ ui.widget.eg.word.each.nest:
   level: K
 # end equal-groups
 
+# U04 balance widget (packages/ui/src/widgets/balance): keys under ui.widget.bal.*
+ui.widget.bal.scale:
+  text: "The balance"
+  level: K
+ui.widget.bal.box:
+  text: "The box"
+  level: K
+ui.widget.bal.added:
+  text: "Added:"
+  level: K
+ui.widget.bal.op.plus:
+  text: "Plus"
+  level: K
+ui.widget.bal.op.minus:
+  text: "Minus"
+  level: K
+ui.widget.bal.op.times:
+  text: "Times"
+  level: K
+ui.widget.bal.add.left:
+  text: "Add one to the left side"
+  level: K
+ui.widget.bal.add.right:
+  text: "Add one to the right side"
+  level: K
+ui.widget.bal.take.left:
+  text: "Take one off the left side"
+  level: K
+ui.widget.bal.take.right:
+  text: "Take one off the right side"
+  level: K
+ui.widget.bal.note.full:
+  text: "This side is full"
+  level: K
+ui.widget.bal.note.none:
+  text: "Nothing to take off here"
+  level: K
+ui.widget.bal.heavier.left:
+  text: "The left side is heavier"
+  level: K
+ui.widget.bal.heavier.right:
+  text: "The right side is heavier"
+  level: K
+ui.widget.bal.heavier.same:
+  text: "They weigh the same"
+  level: K
+ui.widget.bal.beam.left:
+  text: "The left side goes down"
+  level: K
+ui.widget.bal.beam.right:
+  text: "The right side goes down"
+  level: K
+ui.widget.bal.beam.level:
+  text: "The balance is level"
+  level: K
+# end balance
+
 # U04 equal-share widget (packages/ui/src/widgets/equal-share): keys under ui.widget.es.*
 ui.widget.es.kind.pebbling:
   text: "Pebbling"

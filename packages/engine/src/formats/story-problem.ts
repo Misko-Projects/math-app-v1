@@ -6,6 +6,9 @@
 //   from its two blanks, checked by `bond.split`.
 // Ops: `show-scene`, `act-out {sprite, count}` (puts counters in the workspace), `draw-bar
 // {parts}` (draws a bar model), `highlight-line {index}`, plus the generic `answer`.
+// The workspace holds at most STORY_COUNTERS_MAX counters in all (an `act-out` that would pass it
+// changes nothing); the child's own add-one and take-one are `act-out` with the next count.
+// The domain the widget draws is stated and enforced here (README, "Balance and story problems").
 
 import {
   type AnswerSpec,
@@ -71,6 +74,50 @@ export const SITUATION_PRIOR: Record<SituationType, number> = {
 /** Whether the item answers with a free split (both addends unknown). */
 export const answersSplit = (c: Config): boolean => c.situation === 'put-together/both';
 
+/** A story is told in 1 to this many lines (the last one asks the question). */
+export const STORY_LINES_MAX = 5;
+/** The scene shows at most this many groups of told things, */
+export const STORY_SCENE_GROUPS_MAX = 3;
+/** each of 1 to this many. */
+export const STORY_SCENE_COUNT_MAX = 20;
+/** An answer box takes 1 to this many digits. */
+export const STORY_DIGITS_MAX = 3;
+/** The counters the workspace holds in all (two ten-frames). */
+export const STORY_COUNTERS_MAX = 20;
+/** A drawn bar has 1 to this many parts, each a whole number from 1 to STORY_BAR_PART_MAX. */
+export const STORY_BAR_PARTS_MAX = 3;
+export const STORY_BAR_PART_MAX = 999;
+/** The workspaces the widget draws. */
+export const STORY_WORKSPACES = ['none', 'counters', 'ten-frame', 'bar-model'] as const;
+
+const whole = (n: number, lo: number, hi: number) => Number.isInteger(n) && n >= lo && n <= hi;
+
+/** The largest number an answer box takes (0 … max): from its digits, never from the answer. */
+export const storyEntryMax = (c: Pick<Config, 'blanks'>): number =>
+  10 ** Math.max(...c.blanks.map((b) => b.maxDigits), 1) - 1;
+
+/**
+ * Why an item's answer is not the one this config asks for (FormatModel.answerIssues): one box
+ * answers a whole number its digits can hold; `put-together/both` is checked by `bond.split`
+ * with a whole its boxes can hold.
+ */
+export function storyAnswerIssues(c: Config, answer: AnswerSpec): string[] {
+  const max = storyEntryMax(c);
+  if (answersSplit(c)) {
+    if (answer.kind !== 'state' || answer.checker !== 'bond.split') {
+      return ['put-together/both answers bond.split'];
+    }
+    const total = answer.target.whole;
+    return typeof total === 'number' && whole(total, 0, max)
+      ? []
+      : [`the whole ${String(total)} is not a whole number from 0 to ${max}`];
+  }
+  if (answer.kind !== 'number') return ['a story with one box answers a number'];
+  return whole(answer.value, 0, max)
+    ? []
+    : [`the answer ${answer.value} is not a whole number from 0 to ${max}`];
+}
+
 const configSchema = storyProblemConfigSchema.superRefine((c, ctx) => {
   if (c.blanks.length === 0) {
     ctx.addIssue({ code: 'custom', path: ['blanks'], message: 'a story asks for an answer' });
@@ -89,6 +136,48 @@ const configSchema = storyProblemConfigSchema.superRefine((c, ctx) => {
   if (c.lines.length === 0) {
     ctx.addIssue({ code: 'custom', path: ['lines'], message: 'a story has narrated lines' });
   }
+  if (c.lines.length > STORY_LINES_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['lines'],
+      message: `a story has at most ${STORY_LINES_MAX} lines`,
+    });
+  }
+  if (c.blanks.length > (answersSplit(c) ? 2 : 1)) {
+    ctx.addIssue({ code: 'custom', path: ['blanks'], message: 'a story has one answer box' });
+  }
+  if (c.blanks.some((b) => b.maxDigits > STORY_DIGITS_MAX)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['blanks'],
+      message: `a box takes at most ${STORY_DIGITS_MAX} digits`,
+    });
+  }
+  if (c.unit !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['unit'], message: 'a unit beside the box is not drawn' });
+  }
+  if (!(STORY_WORKSPACES as readonly string[]).includes(c.workspace)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['workspace'],
+      message: `the workspace is one of ${STORY_WORKSPACES.join(', ')}`,
+    });
+  }
+  if (c.scene.kind === 'scene') {
+    const counts = c.scene.sprites.map((g) => g.count);
+    if (
+      counts.length > STORY_SCENE_GROUPS_MAX ||
+      counts.some((n) => !whole(n, 1, STORY_SCENE_COUNT_MAX))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['scene'],
+        message: `a scene shows at most ${STORY_SCENE_GROUPS_MAX} groups of 1 to ${STORY_SCENE_COUNT_MAX}`,
+      });
+    }
+  } else if (c.scene.kind !== 'none') {
+    ctx.addIssue({ code: 'custom', path: ['scene'], message: 'the scene is a scene or none' });
+  }
   if (c.situation === 'two-step' && c.steps !== 2) {
     ctx.addIssue({ code: 'custom', path: ['steps'], message: 'a two-step story has two steps' });
   }
@@ -97,6 +186,7 @@ const configSchema = storyProblemConfigSchema.superRefine((c, ctx) => {
 export const storyProblem: FormatModel<'story-problem', StoryProblemState> = {
   format: 'story-problem',
   configSchema,
+  answerIssues: storyAnswerIssues,
   features: {
     situation: { weight: 1, doc: 'the 03 §5.5 situation prior (x is the prior itself)' },
     'steps.two': { weight: 0.8, doc: 'a two-step story' },
@@ -136,15 +226,23 @@ export const storyProblem: FormatModel<'story-problem', StoryProblemState> = {
         const count = Math.trunc(argNumber(a, 'count') ?? 0);
         if (!sprite || count < 0) return s;
         const rest = s.actedOut.filter((x) => x.sprite !== sprite);
+        // A full workspace takes no more: the call changes nothing.
+        if (rest.reduce((n, x) => n + x.count, count) > STORY_COUNTERS_MAX) return s;
         return { ...s, actedOut: count === 0 ? rest : [...rest, { sprite, count }] };
       }
       case 'draw-bar': {
         const parts = argNumbers(a, 'parts');
-        return parts ? { ...s, bar: [...parts] } : s;
+        const drawable =
+          parts !== undefined &&
+          parts.length >= 1 &&
+          parts.length <= STORY_BAR_PARTS_MAX &&
+          parts.every((n) => whole(n, 1, STORY_BAR_PART_MAX));
+        return drawable ? { ...s, bar: [...parts] } : s;
       }
       case 'highlight-line': {
         const i = argNumber(a, 'index');
-        return { ...s, highlightedLine: i === undefined ? null : i };
+        const line = i !== undefined && whole(i, 0, s.config.lines.length - 1) ? i : null;
+        return { ...s, highlightedLine: line };
       }
       case 'answer': {
         const values = argNumbers(a, 'values');

@@ -53,6 +53,8 @@ export const widgetRegistry: WidgetRegistry = {
   'equal-share': () => import('./equal-share/EqualShareWidget'),
   'array-build': () => import('./array-build/ArrayBuildWidget'),
   'area-tiles': () => import('./area-tiles/AreaTilesWidget'),
+  // U04 (#13): equality and stories
+  balance: () => import('./balance/BalanceWidget'),
 };
 
 /** Formats that have a registered widget. */
