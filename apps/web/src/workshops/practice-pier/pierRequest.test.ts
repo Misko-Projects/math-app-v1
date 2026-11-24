@@ -24,12 +24,31 @@ describe('what the Practice Pier plays', () => {
     }
   });
 
-  it('leaves out formats without a widget and says why', () => {
-    const puzzle = Object.values(graph.templates).find((t) => t.format === 'puzzle-grid');
-    if (!puzzle) throw new Error('no puzzle-grid template in the content');
-    expect(pierMisfit(puzzle)).toBe('no widget yet');
-    const pad = Object.values(graph.templates).find((t) => t.format === 'number-pad');
-    expect(pad && pierMisfit(pad)).toBeNull();
+  it('leaves out a format without a widget and says why; every shipped format has one (#13)', () => {
+    expect(pierMisfit({ id: 'X.01.t1', format: 'no-such-format' as never })).toBe('no widget yet');
+    const registered = new Set(registeredFormats());
+    for (const t of Object.values(graph.templates)) {
+      expect(registered.has(t.format), `${t.id} (${t.format})`).toBe(true);
+      expect(pierMisfit(t), t.id).toBeNull();
+    }
+  });
+
+  it('plays every puzzle-grid template (#13: the format has its widget)', () => {
+    const templates = Object.values(graph.templates).filter((t) => t.format === 'puzzle-grid');
+    expect(templates.map((t) => t.id).sort()).toEqual([
+      'CPS.06.t3',
+      'PUZ.01.t1',
+      'PUZ.02.t1',
+      'PUZ.02.t3',
+      'PUZ.03.t2',
+    ]);
+    for (const t of templates) {
+      expect(pierPlayable(t), t.id).toBe(true);
+      const skill = browseRequest(graph, { skillId: t.skillId, templateId: null }, 1);
+      expect(skill.tasks.map((x) => x.templateId)).toContain(t.id);
+      const one = browseRequest(graph, { skillId: t.skillId, templateId: t.id }, 1);
+      expect(one.tasks.map((x) => x.templateId)).toEqual([t.id]);
+    }
   });
 
   it('plays every balance and story-problem template (#13: both have their widget)', () => {
@@ -72,14 +91,6 @@ describe('what the Practice Pier plays', () => {
       'PV.09.t5',
     ]);
     expect(new Set(all.tasks.map((t) => t.seed)).size).toBe(5);
-    // A template the pier cannot play is skipped, and picking it alone gives an empty request.
-    const puzzle = Object.values(graph.templates).find((t) => t.format === 'puzzle-grid');
-    if (!puzzle) throw new Error('no puzzle-grid template in the content');
-    const skill = browseRequest(graph, { skillId: puzzle.skillId, templateId: null }, 1);
-    expect(skill.tasks.map((t) => t.templateId)).not.toContain(puzzle.id);
-    expect(
-      browseRequest(graph, { skillId: puzzle.skillId, templateId: puzzle.id }, 1).tasks,
-    ).toEqual([]);
     const one = browseRequest(graph, { skillId: 'PV.09', templateId: 'PV.09.t4' }, 1);
     expect(one.tasks.map((t) => t.templateId)).toEqual(['PV.09.t4']);
     // The numeral-pick templates with wide cards under a picture fit now (#12) and are played.

@@ -321,9 +321,25 @@ export {
   piecesValue,
 } from './formats/place-value';
 export {
+  type GridCell,
+  PUZZLE_CAGE_CELLS_MAX,
+  PUZZLE_GRID,
+  PUZZLE_NUMBER_MAX,
+  PUZZLE_PALETTE_MAX,
+  PUZZLE_STEP_MAX,
+  PUZZLE_VARIANTS,
   type PuzzleGridState,
+  type PuzzleLine,
+  type PuzzleMark,
   type PuzzleValue,
+  type PuzzleVariant,
+  puzzleAnswerIssues,
   puzzleBlanks,
+  puzzleLine,
+  puzzleUnmet,
+  rectanglePairs,
+  TRIANGLE_CELLS,
+  TRIANGLE_SIDES,
 } from './formats/puzzle-grid';
 export {
   drawingPoints,

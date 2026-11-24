@@ -53,7 +53,27 @@ describe('the pier fit allowlist', () => {
     expect(fitAllowance(big, '1280x800')).toBeNull();
     for (const viewport of FIT_VIEWPORTS) {
       expect(fitAllowance(pad, viewport)).toBeNull();
-      expect(fitAllowance(puzzle, viewport)).toEqual({ kind: 'no-widget' });
+      expect(fitAllowance(puzzle, viewport)).toBeNull();
+      // A format without a widget has nothing to fit (every shipped format has one now, #13).
+      expect(fitAllowance({ id: 'X.01.t1', format: 'no-such-format' as never }, viewport)).toEqual({
+        kind: 'no-widget',
+      });
+    }
+  });
+
+  it('every puzzle-grid template must fit at both viewports (#13)', () => {
+    const templates = Object.values(graph.templates).filter((t) => t.format === 'puzzle-grid');
+    expect(templates.map((t) => t.id).sort()).toEqual([
+      'CPS.06.t3',
+      'PUZ.01.t1',
+      'PUZ.02.t1',
+      'PUZ.02.t3',
+      'PUZ.03.t2',
+    ]);
+    for (const template of templates) {
+      for (const viewport of FIT_VIEWPORTS) {
+        expect(fitAllowance(template, viewport), `${template.id} at ${viewport}`).toBeNull();
+      }
     }
   });
 

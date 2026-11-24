@@ -213,8 +213,11 @@ describe('every built workshop can be asked for all it makes (05 §4; #22 part 2
    * request as completed with every item right (what the runner's `finish` writes; "a played
    * request fills the Storehouse" below plays one for real) and returns what it made.
    */
+  const VISITS = 200;
   async function earn(env: ReturnType<typeof testEnv>, store: DataStore, material: string) {
-    for (let visit = 0; visit < 60; visit += 1) {
+    // The plan is seeded by the content version (planner/plan.ts), so how soon a material comes
+    // round changes with any content change: `flag` has come as late as visit 77 (PR #117).
+    for (let visit = 0; visit < VISITS; visit += 1) {
       env.clock.advance(60 * 60_000);
       const request = (await plan(store)).find((r) => material in r.reward.materials);
       if (!request) continue;
@@ -231,7 +234,7 @@ describe('every built workshop can be asked for all it makes (05 §4; #22 part 2
       );
       return request.reward.materials;
     }
-    throw new Error(`no request asked for ${material} in 60 visits`);
+    throw new Error(`no request asked for ${material} in ${VISITS} visits`);
   }
 
   it('Garden Terraces: the road brings a resident who asks for produce, and a request makes it', async () => {

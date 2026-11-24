@@ -389,12 +389,26 @@ Response shapes and state-checker targets of the place-value and operations form
   - A side's value uses × before + and −; objects count as `count × objectWeights[sprite]`.
 - **Story-problem:** `situation` is the 03 §5.5 prior itself (weight 1). `extraneous` and `inconsistentLanguage` are 0 from the config alone; the generator sets them, and generator values win.
 - **Puzzle-grid** answers `{ fill }`: rows × cols, each puzzle cell's value (given or filled), with `''` outside the puzzle, checked by `puzzle.satisfies` `{ variant, rows, cols, cells, constraints, palette }`. The generic `answer {values}` fills the blanks in reading order.
-  - **Numeric variants** (`cage-sum` mini-KenKen 3 × 3 and 4 × 4, `magic-square`, `missing-digit`, `sum-triangle`, `digit-cards`) take the config's own `cells` (`{ r, c, given?, blank?, cage? }`). Given cells keep their values, and every blank holds a number from the target's `palette` (required for these variants). The model's `fill` only takes palette values.
+  - **What the widget draws (#13), every bound in the schema with a test each** (`test/puzzle-grid-domain.test.ts`; the layout holds the largest of each to the smallest play area, `packages/ui/src/widgets/puzzle-grid/layout.test.ts`):
+
+    | Variant | Grid | Rules |
+    |---|---|---|
+    | `number-path` | 1–3 × 2–4, a cell at every position, each beside the one before it | one `adjacent-step`, a whole step 1–10 |
+    | `sum-triangle` | 3 × 5, the six cells | one `line-sum` a side, in the order left, right, bottom |
+    | `all-ways` | 1–5 rows × 2, every cell blank | one `line-sum` a row, row by row, all the same whole; tray numbers from 1 |
+    | `shape-fill` | up to 4 × 4 | one `use-each` list; the tray holds `square` and `rectangle` |
+    | `cage-sum` | 3 × 3 or 4 × 4 | `row-unique`, `col-unique`, and one `cage-sum` for every cage; every cell in a cage of at most 4 cells that touch |
+    | `magic-square` | 3 × 3, a cell at every position | `line-sum` along whole rows, columns or diagonals (one a line), `use-each` |
+    | `missing-digit` | 1–3 × 1–4 | as the magic square (diagonals on a square grid) |
+
+    Every given, tray number and sum is a whole number 0–99; the tray holds at most 14 different cards. `digit-cards`, `clues`, `coin-ways` and `rect-ways` are refused: the widget draws no such puzzle (later grades).
+  - **One source of the rules:** `answerIssues` holds an item's `puzzle.satisfies` target to its config (variant, size, cells, a path's order, givens, rules, tray). `puzzleUnmet(config, fill)` reads the first rule a fill leaves unmet (`row`, `col`, `cage`, `line`, `step`, `ways`, `pieces`, `pairs`) with its cells; the widget marks them at the grid after a Check. On a fill with every blank from the tray it is null exactly when the checker accepts (500 seeds a shipped template). `uniqueSolution` is tested there too: one solution where a generator promises one; where it does not (`all-ways`, most `shape-fill` outlines) the checker accepts every solution. `rectanglePairs` pairs rectangle cells as the checker's `pairsUp` does.
+  - **Numeric variants** (`cage-sum` mini-KenKen 3 × 3 and 4 × 4, `magic-square`, `missing-digit`, `sum-triangle`) take the config's own `cells` (`{ r, c, given?, blank?, cage? }`). Given cells keep their values, and every blank holds a number from the target's `palette` (required for these variants). The model's `fill` only takes palette values.
   - **Mini-KenKen** (`cage-sum`) is an n × n grid of the digits 1–n. The schema requires a square grid with a cell at every position, and palette and given values from 1–n. The checker rejects any other value or a missing position, whatever the target's palette says.
   - **Supported constraints:** `cage-sum`, `row-unique`, `col-unique`, `line-sum` and `use-each`. `use-each` covers the blanks, or every cell when it lists one value per cell. `adjacent-step` is accepted for `number-path` only (K01's PUZ.01): each cell, in `cells` order (the path), is `step` more than the one before it. Both target forms check it: K01's `[r, c]` targets (above) and config-cell targets.
   - **Not checked yet:** `equation` and `clue`, and `adjacent-step` on any variant but `number-path`. They fail the `puzzle-grid` schema, and the checker rejects them in both target forms. One rule (`stepHolds`) checks a number path's step in both forms: whole numbers of 0 or more, each `step` more than the one before. For a number path the schema rejects only configs that are structurally ungradable: a non-whole step, or a non-whole or negative given. It does not check the palette, and it does not guarantee that a correct fill exists. Solvability is the generator's job, verified by the 500-seed property test that replays every generated item.
   - **What the schema rejects:** configs that can't be met for structural reasons. That covers:
-    - a non-number palette or a non-number given in a number grid;
+    - a palette or a given of a number grid that is not a whole number 0–99;
     - more than one `use-each` list;
     - a numeric `use-each` that isn't palette numbers for the blanks, or the givens plus palette numbers for every cell;
     - a `shape-fill` `use-each` whose pieces aren't in the palette, don't add up to the outline's cells, or need more rectangles than the outline has disjoint side-by-side pairs (a maximum matching). `shape-fill` outline cells must all be blank (as 03 §5.5 and `geo.compose` have them), so the matching sees every cell as free;

@@ -429,9 +429,11 @@ describe('TaskRunner', () => {
     const store = await openStore();
     const graph = fixtureContent().graph;
     const request = browseRequest(graph, { skillId: 'PV.01', templateId: null }, 5);
-    // A format without a widget: the pier cannot show it (nothing is excluded for its size, #13).
-    const excluded = Object.values(graph.templates).find((t) => !pierPlayable(t))?.id as string;
-    expect(excluded).toBeDefined();
+    // Every shipped format has its widget and nothing is excluded for its size (#13), so this
+    // host leaves one real template out itself: the runner asks its host, whatever the reason.
+    const excluded = 'PUZ.01.t1';
+    expect(graph.templates[excluded]).toBeDefined();
+    const hosts = (t: Parameters<typeof pierPlayable>[0]) => t.id !== excluded && pierPlayable(t);
     const playable = request.tasks[0] as PlannedTask;
     let inserted = false;
     const { engine: base, last } = spiedEngine();
@@ -459,7 +461,7 @@ describe('TaskRunner', () => {
       child,
       session,
       request,
-      hosts: pierPlayable,
+      hosts,
     });
     const before = runner.progress().total;
 

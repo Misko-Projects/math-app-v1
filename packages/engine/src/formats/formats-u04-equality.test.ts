@@ -840,7 +840,7 @@ describe('PR #86 review round 3', () => {
       palette: [1, 2, 3],
       uniqueSolution: false,
     });
-    expect(issuePaths(puzzleGrid, c)).toEqual(['cells']);
+    expect(issuePaths(puzzleGrid, c)).toContain('cells');
     const fill = [
       [1, 2, 3],
       ['', '', ''],
@@ -894,8 +894,9 @@ describe('PR #86 review round 3', () => {
       constraints: [{ kind: 'adjacent-step', step: 1 }],
       palette: [0.5, 1, 1.5, 2],
     });
-    // Round 7: a palette with fractions is valid: whole fills from it are gradable.
-    expect(issuePaths(puzzleGrid, c)).toEqual([]);
+    // The tray of a puzzle the widget draws holds whole numbers (#13), so the schema refuses this
+    // one; the checker is still held to whole numbers on its own.
+    expect(issuePaths(puzzleGrid, c)).toEqual(['palette']);
     const fill = (a: number, b: number) =>
       puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, [[a, b]])));
     const pairs = {
@@ -935,16 +936,15 @@ describe('PR #86 review round 3', () => {
       satisfies(target(ok), puzzleGrid.toResponse(play(puzzleGrid, ok, solve(ok, [[1, 2, 3]])))),
     ).toBe(true);
     // A fractional step, and a fractional or negative given, are refused.
-    expect(issuePaths(puzzleGrid, path([[1, null]], 0.5, [1.5]))).toEqual(['constraints.0']);
+    expect(issuePaths(puzzleGrid, path([[1, null]], 0.5, [2]))).toEqual(['constraints.0']);
     expect(issuePaths(puzzleGrid, path([[0.5, null]], 1, [2]))).toEqual(['cells.0']);
     expect(issuePaths(puzzleGrid, path([[-1, null]], 1, [0]))).toEqual(['cells.0']);
-    // The palette is not checked: fractional or negative palette values are allowed, since a
-    // whole value from the same palette can still fill the blank.
-    expect(issuePaths(puzzleGrid, path([[1, null]], 1, [0.5, 1, 1.5, 2]))).toEqual([]);
-    expect(issuePaths(puzzleGrid, path([[1, null]], 1, [-1, 2]))).toEqual([]);
-    // Other number grids keep their own rules: a fractional magic-square palette is not this rule.
+    // Every tray number of a number puzzle is a whole number from 0 to 99 (#13: what the widget
+    // draws), on a path and on every other number grid.
+    expect(issuePaths(puzzleGrid, path([[1, null]], 1, [0.5, 1, 1.5, 2]))).toEqual(['palette']);
+    expect(issuePaths(puzzleGrid, path([[1, null]], 1, [-1, 2]))).toEqual(['palette']);
     expect(
       issuePaths(puzzleGrid, grid('missing-digit', [[1, null]], { palette: [1.5, 2] })),
-    ).toEqual([]);
+    ).toEqual(['palette']);
   });
 });

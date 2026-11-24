@@ -1352,6 +1352,77 @@ ui.widget.eg.word.each.nest:
   level: K
 # end equal-groups
 
+# U04 puzzle-grid widget (packages/ui/src/widgets/puzzle-grid): keys under ui.widget.pz.*
+ui.widget.pz.puzzle:
+  text: "The puzzle"
+  level: K
+ui.widget.pz.pieces:
+  text: "Pieces"
+  level: K
+ui.widget.pz.empty:
+  text: "Empty box"
+  level: K
+ui.widget.pz.clear:
+  text: "Take it out"
+  level: K
+ui.widget.pz.line:
+  text: "This line makes"
+  level: K
+ui.widget.pz.at:
+  text: "Row {r}, box {c}"
+  level: K
+ui.widget.pz.spot.top:
+  text: "Top corner"
+  level: K
+ui.widget.pz.spot.left-middle:
+  text: "Middle of the left side"
+  level: K
+ui.widget.pz.spot.right-middle:
+  text: "Middle of the right side"
+  level: K
+ui.widget.pz.spot.left:
+  text: "Left corner"
+  level: K
+ui.widget.pz.spot.bottom-middle:
+  text: "Middle of the bottom side"
+  level: K
+ui.widget.pz.spot.right:
+  text: "Right corner"
+  level: K
+ui.widget.pz.look.side.left:
+  text: "Look at the left side again"
+  level: K
+ui.widget.pz.look.side.right:
+  text: "Look at the right side again"
+  level: K
+ui.widget.pz.look.side.bottom:
+  text: "Look at the bottom side again"
+  level: K
+ui.widget.pz.look.row:
+  text: "Look at this row again"
+  level: K
+# A column is marked in a mini-KenKen only (grade 2 and up).
+ui.widget.pz.look.col:
+  text: "Look at this column again"
+  level: "2"
+ui.widget.pz.look.cage:
+  text: "Look at this group again"
+  level: K
+ui.widget.pz.look.line:
+  text: "Look at this line again"
+  level: K
+ui.widget.pz.look.step:
+  text: "Look at the two boxes again"
+  level: K
+ui.widget.pz.look.ways:
+  text: "This way is here again. Try a new one."
+  level: K
+ui.widget.pz.look.pieces:
+  text: "Count them again"
+  level: K
+ui.widget.pz.look.pairs:
+  text: "A rectangle covers two boxes side by side"
+  level: K
 # U04 balance widget (packages/ui/src/widgets/balance): keys under ui.widget.bal.*
 ui.widget.bal.scale:
   text: "The balance"
