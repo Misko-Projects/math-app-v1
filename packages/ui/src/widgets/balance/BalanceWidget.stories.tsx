@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor } from 'storybook/test';
 import { type SpyAudio, spyAudio } from '../../test-support/storyHelpers';
 import {
+  areaBox,
   enterNumber,
   expectAreaFit,
   expectCountable,
@@ -12,6 +13,7 @@ import {
   stepButton,
 } from '../../test-support/twoStepStory';
 import {
+  expectNoScroll,
   expectPointerOn,
   expectTraceOrdered,
   findWidget,
@@ -669,7 +671,10 @@ export const DemoInvite: Story = {
     await expectRing(root, add(root, 'right'));
     await waitFor(() => expect(hand()).not.toBeNull());
     await expectPointerOn(hand(), add(root, 'right'), root);
-    await expectAreaFit(canvasElement, fit(root, 'g1-up', 'balance invite 906x373'));
+    // The hand hangs under the button, inside the area: the picture made room for it.
+    await expectNoScroll(areaBox(canvasElement));
+    const area = areaBox(canvasElement).getBoundingClientRect();
+    await expect(hand().getBoundingClientRect().bottom).toBeLessThanOrEqual(area.bottom);
     // The child's step ends the invite.
     await userEvent.click(add(root, 'right'));
     await expectRing(root, null);
