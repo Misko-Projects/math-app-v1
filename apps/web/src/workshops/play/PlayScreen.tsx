@@ -36,6 +36,7 @@ import {
   WidgetHost,
 } from '@number-island/ui';
 import { lazy, type ReactNode, Suspense } from 'react';
+import { storyBeingTold } from './tellItem';
 
 // Only a representation hint shows a picture. It is drawn by the widget kit, whose code (and the
 // engine's item core under it, loaded at boot, 02 §6a) the widgets already share: it is a chunk of
@@ -149,7 +150,13 @@ export function PlayItemScreen({
         <>
           <HomeButton onPress={onLeave} />
           {item && (
-            <div className="flex min-w-0 flex-1 items-center">
+            // While a story is being told the bubble takes no touch: nothing speaks over the
+            // story (`storyBeingTold`).
+            <div
+              className="flex min-w-0 flex-1 items-center"
+              inert={storyBeingTold(phase, item)}
+              data-telling={storyBeingTold(phase, item) ? 'true' : undefined}
+            >
               {line ? (
                 <SpeechBubble say={line.say} vars={line.vars} tail="left" tone="sun" />
               ) : (

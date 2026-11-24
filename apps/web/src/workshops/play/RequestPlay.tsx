@@ -239,8 +239,11 @@ export function RequestPlay({
       setPhase('answer');
     };
     // The prompt, and a story problem's story with it: the answer time starts when the telling
-    // is over (`tellItem`).
-    tellItem(audio, item, () => !alive).then(ready, ready);
+    // is over (`tellItem`), and never for an item the child has left.
+    const gone = () => !alive || left.current;
+    tellItem(audio, item, gone).then((open) => {
+      if (open) ready();
+    }, ready);
     return () => {
       alive = false;
       playing.current += 1;

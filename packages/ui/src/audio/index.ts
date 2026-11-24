@@ -20,8 +20,6 @@ export {
   type SpokenLineRequest,
   sayLines,
   sayThrough,
-  tellLines,
-  whenQuiet,
 } from './sayLines';
 export {
   type AudioSettings,

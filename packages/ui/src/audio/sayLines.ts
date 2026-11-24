@@ -52,27 +52,12 @@ export async function sayThrough(audio: AudioManager, line: SpokenLineRequest): 
   return ended === 'cancelled' || audio.speaking ? 'cut' : 'unheard';
 }
 
-/** Resolves when nothing is being said (at once for a manager that reports nothing). */
-export function whenQuiet(audio: AudioManager): Promise<void> {
-  if (!reports(audio) || !audio.speaking) return Promise.resolve();
-  return new Promise((resolve) => {
-    const off = audio.subscribe((e) => {
-      if (e.type !== 'line-end') return;
-      // The manager moves on (to a queued line, or to silence) right after it reports the end.
-      void Promise.resolve().then(() => {
-        if (audio.speaking) return;
-        off();
-        resolve();
-      });
-    });
-  });
-}
-
 /**
  * Says `lines` in order and stops at the first one that is not said to its end, or when
  * `stopped()` says so (asked before each line and after it). `onLine(i)` is told the line being
  * said, then `null` when the reading ends. Resolves `done` only when every line was said.
- * For a reading the child may interrupt (a replay on touch).
+ * It never says a line twice and never waits for anything but its own line: whatever cuts a
+ * line (another line, the app going to the background, `stop()`) ends the reading.
  */
 export async function sayLines(
   audio: AudioManager,
@@ -93,27 +78,4 @@ export async function sayLines(
   }
   opts.onLine?.(null);
   return 'done';
-}
-
-/**
- * Tells `lines` in order, all of them: a line something else spoke over is said again once that
- * is over, so nothing of the telling is lost. Only `stopped()` ends it early. A line that cannot
- * be heard at all (narration locked, no voice) is passed over.
- * For what must be heard before a child can answer (an item's prompt and story).
- */
-export async function tellLines(
-  audio: AudioManager,
-  lines: readonly SpokenLineRequest[],
-  opts: { stopped?: () => boolean } = {},
-): Promise<void> {
-  const stopped = () => opts.stopped?.() === true;
-  for (const line of lines) {
-    for (;;) {
-      if (stopped()) return;
-      const how = await sayThrough(audio, line);
-      if (stopped()) return;
-      if (how !== 'cut') break;
-      await whenQuiet(audio);
-    }
-  }
 }
