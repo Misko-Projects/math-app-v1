@@ -21,17 +21,18 @@
 | `pnpm ai:smoke` | Live AI smoke test with real keys: 20 feedback requests + 1 vision request; prints latency p50/p95 and cost per model (07 §9). Never in CI |
 | `pnpm secrets:link` | Writes `apps/api/.dev.vars` from the user-owned secrets file (08 §6) |
 | `pnpm db:reset` / `pnpm db:seed` | Recreate the local D1 database (migrated) / add a demo family with dev-only credentials (08 §5). `pnpm dev` applies pending migrations itself |
-| `pnpm verify` | **In this order:** content:build → typecheck → lint → content:validate → test → build (what CI's `verify` job runs) |
+| `pnpm verify` | **In this order:** content:build → typecheck → lint → content:validate → test → build (what CI's `verify` and `stories` jobs run between them, §2) |
 
 ## 2. CI (GitHub Actions, `.github/workflows/ci.yml` and `.github/workflows/nightly.yml`)
 
 - Triggers: `ci.yml` runs on `pull_request`, `push` to `main`, `merge_group` and manual dispatch. The `nightly` job lives in its own `nightly.yml`, triggered only by a nightly `schedule:` (cron) and manual dispatch (`gh workflow run nightly.yml --ref <branch>`), so it never reports a check on pull requests.
 - **Required jobs** (stable check names; PRs merge only when all three pass):
-  - `verify`: checkout → pnpm setup with cache → `pnpm i --frozen-lockfile` → `pnpm verify`. This includes the component, story-play and axe tests (they run inside `pnpm test` via Vitest + Storybook's test runner integration).
-  - `e2e` (needs `verify` and `sim`): install Playwright Chromium → `pnpm e2e` → upload the report and failure traces as artifacts.
+  - `verify`: checkout → pnpm setup with cache → `pnpm i --frozen-lockfile` → the steps of `pnpm verify` one by one, with its `pnpm test` step limited to the Vitest projects that need no browser (unit, property, component and the API pool). The two browser projects run in `stories`. The job's first step fails if the `verify` or `test` script no longer matches what the two jobs run.
+  - `e2e` (needs `verify`, `stories` and `sim`): install Playwright Chromium → `pnpm e2e` → upload the report and failure traces as artifacts.
   - `bundle-size`: build, then assert the 02 §6 JS budgets (fails on regression). Time to interactive is **reported, not enforced**.
 - **Non-required jobs:**
-  - `sim`: `pnpm test:sim` (04 §8) on the content as it is, in a job of its own next to `verify`, each with a 15-minute limit (K01, 2026-11-20: with the full K–1 catalog the two no longer fit one job on a slow runner). It is not a required check by name, but `e2e` needs it. GitHub counts a skipped job as a passing required check, so `e2e` always runs and its first step fails unless `verify` and `sim` both succeeded: a failed or timed-out simulator makes the required `e2e` check fail.
+  - `stories`: the browser half of `pnpm test`, in two shards: the story-play and axe tests (`ui-stories`, via Vitest + Storybook's test runner integration) and the pier fit check (`web-fit`), in headless Chromium (#35, 2026-11-24: as one job `verify` took 11 to 14 of its 15 minutes). Like `sim` it is not a required check by name, but `e2e` needs it and fails unless every shard succeeded.
+  - `sim`: `pnpm test:sim` (04 §8) on the content as it is, in a job of its own next to `verify`, each with a 15-minute limit (K01, 2026-11-20: with the full K–1 catalog the two no longer fit one job on a slow runner). It is not a required check by name, but `e2e` needs it. GitHub counts a skipped job as a passing required check, so `e2e` always runs and its first step fails unless `verify`, `stories` and `sim` all succeeded: a failed or timed-out story shard or simulator makes the required `e2e` check fail.
   - `visual`: Storybook visual snapshots compared in the **pinned Playwright Docker image** (`mcr.microsoft.com/playwright:<pinned version>`). Baselines are generated only in that image (`pnpm visual:update` runs it in Docker locally) to avoid OS/font drift.
   - `nightly` (`nightly.yml`, schedule and manual dispatch only): `pnpm test:sim` on the full graph, property tests with `CONTENT_PROPERTY_N=500`, and a WebKit E2E smoke test.
 - No secrets in CI. Provider calls are mocked. Missing narration clips fall back to Web Speech (stubbed in tests). No model downloads (Kokoro) in CI.
