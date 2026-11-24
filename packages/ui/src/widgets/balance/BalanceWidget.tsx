@@ -113,6 +113,8 @@ const PICK_MS = 500;
 
 /** The unit block beside a number (the kit's cube drawing, named "Block"). */
 const BLOCK_SPRITE = 'cube';
+/** The demonstration hand under a control (kit: 56 px, its 8 px bob, less the fingertip). */
+const HAND_ROOM = 58;
 const BLOCK_NAME: NarrationKey = 'ui.sprite.block';
 
 const NOTE = {
@@ -226,7 +228,11 @@ export function BalanceWidget({
   // that wraps or a hint line makes the room shorter, and nothing changes places when it grows
   // back.
   const room = useSmallestRoom(useWidgetRoom(rootRef), rootRef);
-  const box = roomBox(room);
+  const whole = roomBox(room);
+  // A demonstration that invites a pan's button hangs its hand under that button, at the very
+  // bottom of the picture: while it does, the picture is planned for the room less the hand.
+  const handUnder = making && invite?.op === 'place' ? HAND_ROOM : 0;
+  const box = { w: whole.w, h: whole.h - handUnder };
   const actRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef(1);
   const button = useActionSize(actRef, zoomRef, ageMode);
@@ -488,6 +494,7 @@ export function BalanceWidget({
         <span
           key={k}
           className="ni-bal__item ni-invite-glyph"
+          data-sprite={sprite}
           data-say=""
           data-say-key={name}
           style={{ left: p.x, top: p.y, width: s, height: s }}
@@ -693,7 +700,7 @@ export function BalanceWidget({
       ready={ready}
       onStep={() => {}}
       onCheck={submit}
-      compact={box.h < COMPACT_ROOM_H}
+      compact={whole.h < COMPACT_ROOM_H}
     />
   );
 

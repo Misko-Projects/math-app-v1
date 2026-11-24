@@ -221,8 +221,8 @@ export function cardsSize(ageMode: AgeMode, n: number, dir: 'row' | 'column'): S
 type Config = WidgetConfigOf<'balance'>;
 
 /** The largest sprite cell: a few things to weigh are drawn big, countable groups smaller. */
-export const ITEM_MAX = 80;
-export const BIG_ITEM_MAX = 128;
+export const ITEM_MAX = 96;
+export const BIG_ITEM_MAX = 220;
 /** A pan with this many things at most is "a few". */
 const FEW = 3;
 

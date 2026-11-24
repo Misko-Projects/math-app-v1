@@ -71,6 +71,11 @@
   /* kit ITEM_DRAW_SCALE: the picture uses the margin its box leaves; neighbours never touch. */
   transform: scale(1.3);
 }
+/* The unit block is a small drawing in its box (about 60 %): drawn larger, so the smallest block
+   is still 22 px wide and two blocks never touch (0.6 × 1.55 < 1.16, the cells' pitch). */
+.ni-bal__item[data-sprite="cube"] > .ni-sprite {
+  transform: scale(1.55);
+}
 
 .ni-bal__tile,
 .ni-bal__op {
@@ -173,6 +178,14 @@
 .ni-bal__buttons .ni-iconbtn .ni-btn__icon {
   width: 60%;
   height: 60%;
+}
+/* The two buttons of a pan are 12 px apart, so an invite ring is drawn inside the button, just
+   within its border, and the button does not pulse: it stays the full 12 px clear of the other
+   one (06 §4). The hand under it moves. */
+.ni-bal__buttons .ni-iconbtn.ni-invite {
+  outline-width: 4px;
+  outline-offset: -7px;
+  animation: none;
 }
 /* A button that can do nothing more (a full pan, nothing added to take off): a dashed outline and
    no ledge, never colour alone. It can still be pressed, and then says why. */
