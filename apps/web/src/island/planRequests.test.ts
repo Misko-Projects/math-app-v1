@@ -28,7 +28,14 @@ import { type IslandPlan, planIslandRequests, warmupDue, withWarmup } from './pl
 
 const kid = profile(CHILD_K, 'K');
 const child = childContext(kid, defaultChildSettings('K'));
-const { graph, gameData } = fixtureContent();
+const { graph: contentGraph, gameData } = fixtureContent();
+// The planner seeds a plan from (child, now, graph.contentVersion) (planner/plan.ts), and that
+// hash picks which resident asks. The real version is a hash of all content, so any content or
+// narration edit used to change which visit a material first came round on (anything from the
+// first to the 73rd over 20 versions tried). These tests plan over the real skills, templates
+// and game data under a fixed version name, so their plans change only when the planner or what
+// it reads changes.
+const graph = { ...contentGraph, contentVersion: 'plan-requests-test' };
 
 beforeAll(() => {
   const compiled = compileContent(readContentFiles()).content;
@@ -186,6 +193,7 @@ describe('a built workshop makes its product (05 §4; #22 part 2)', () => {
     // The planner's own output: over a few visits a request asks for planks, and playing it
     // puts planks in the Storehouse. With Road Crew registered the pier's request for a new
     // child opens with a lesson; `playRight` plays no lesson, so its items are played.
+    // (With the fixed plan seed above, the first visit already asks for planks.)
     let plank: PlannedRequest | undefined;
     for (let visit = 0; visit < 12 && !plank; visit += 1) {
       env.clock.advance(60 * 60_000);
@@ -213,10 +221,10 @@ describe('every built workshop can be asked for all it makes (05 §4; #22 part 2
    * request as completed with every item right (what the runner's `finish` writes; "a played
    * request fills the Storehouse" below plays one for real) and returns what it made.
    */
-  const VISITS = 200;
+  const VISITS = 24;
   async function earn(env: ReturnType<typeof testEnv>, store: DataStore, material: string) {
-    // The plan is seeded by the content version (planner/plan.ts), so how soon a material comes
-    // round changes with any content change: `flag` has come as late as visit 77 (PR #117).
+    // One visit an hour, so a day of visits. With the fixed plan seed (see `graph` above) the
+    // slowest material, `flag`, comes on the 19th visit, whatever the content hash is.
     for (let visit = 0; visit < VISITS; visit += 1) {
       env.clock.advance(60 * 60_000);
       const request = (await plan(store)).find((r) => material in r.reward.materials);
