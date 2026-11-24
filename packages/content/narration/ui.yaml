@@ -1378,16 +1378,16 @@ ui.widget.bal.add.right:
   text: "Add one to the right side"
   level: K
 ui.widget.bal.take.left:
-  text: "Take one off the left side"
+  text: "Take one away from the left side"
   level: K
 ui.widget.bal.take.right:
-  text: "Take one off the right side"
+  text: "Take one away from the right side"
   level: K
 ui.widget.bal.note.full:
   text: "This side is full"
   level: K
 ui.widget.bal.note.none:
-  text: "Nothing to take off here"
+  text: "There are no more to take away"
   level: K
 ui.widget.bal.heavier.left:
   text: "The left side is heavier"
@@ -1414,7 +1414,7 @@ ui.widget.story.hear:
   text: "Hear the story"
   level: K
 ui.widget.story.board:
-  text: "Counters board"
+  text: "The counters"
   level: K
 ui.widget.story.counters:
   text: "Counters:"
@@ -1426,7 +1426,7 @@ ui.widget.story.take:
   text: "Take a counter away"
   level: K
 ui.widget.story.note.full:
-  text: "The board is full"
+  text: "There is no more room"
   level: K
 ui.widget.story.note.none:
   text: "No counters to take away"

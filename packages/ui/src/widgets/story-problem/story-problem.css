@@ -104,14 +104,14 @@
   /* layout.ts SIDE_GAP */
   gap: 16px;
 }
+/* The scene has no panel of its own: its things lie on the workshop's sand. */
 .ni-story__scene {
   display: flex;
   flex: none;
   flex-direction: column;
   align-items: flex-start;
   box-sizing: border-box;
-  border-radius: var(--radius-card);
-  background: var(--color-paper);
+  border-radius: 8px;
 }
 .ni-story__board {
   display: flex;

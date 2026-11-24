@@ -379,7 +379,7 @@ export const MakeEqualUndo: Story = {
     // Nothing left to take off: said, and in the status line.
     await userEvent.keyboard('{Enter}');
     await expect(said(audioOf(parameters))).toContain('ui.widget.bal.note.none');
-    await expect(status(root)).toBe('Nothing to take off here');
+    await expect(status(root)).toBe('There are no more to take away');
     // The next step clears the note.
     await userEvent.click(add(root, 'left'));
     await expect(status(root)).toBe('The left side goes down');

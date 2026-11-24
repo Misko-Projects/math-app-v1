@@ -78,18 +78,18 @@ describe('story-problem: the bounds of what the widget draws', () => {
     expect(issues({ ...base, scene: scene(3, 0) }).join()).toContain('a scene shows');
   });
 
-  it(`a scene has at most ${STORY_SCENE_TOTAL_MAX} things in all`, () => {
-    expect(issues({ ...base, scene: scene(11, 9) })).toEqual([]);
-    expect(issues({ ...base, scene: scene(11, 10) }).join()).toContain('a scene shows');
-    expect(issues({ ...base, scene: scene(21) }).join()).toContain('a scene shows');
-  });
-
-  it(`a scene takes at most ${STORY_SCENE_ROWS_MAX} rows of ten`, () => {
+  it(`a scene takes at most ${STORY_SCENE_ROWS_MAX} rows of ten (a group starts a new row)`, () => {
     expect(storySceneRows([9, 2, 3])).toBe(3);
-    expect(storySceneRows([1, 19])).toBe(3);
+    expect(storySceneRows([19, 19])).toBe(4);
     expect(storySceneRows([1, 1, 11])).toBe(4);
-    expect(issues({ ...base, scene: scene(1, 19) })).toEqual([]);
-    expect(issues({ ...base, scene: scene(1, 1, 11) }).join()).toContain('rows of ten');
+    expect(storySceneRows([11, 11, 1])).toBe(5);
+    // The compare stories of ADD.12 and ADD.21 tell two amounts of up to 19.
+    expect(issues({ ...base, scene: scene(19, 19) })).toEqual([]);
+    expect(issues({ ...base, scene: scene(1, 1, 11) })).toEqual([]);
+    expect(issues({ ...base, scene: scene(11, 11, 1) }).join()).toContain('rows of ten');
+    expect(issues({ ...base, scene: scene(20, 21) }).join()).toContain('rows of ten');
+    expect(STORY_SCENE_TOTAL_MAX).toBe(40);
+    expect(issues({ ...base, scene: scene(41) }).join()).toContain('a scene shows');
   });
 
   it('a scene is a scene of sprites, or none', () => {

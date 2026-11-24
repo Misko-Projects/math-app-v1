@@ -323,7 +323,7 @@ Both models state and enforce the domain their widgets draw. Every bound is a fi
 | | the child's units (`make-equal`) | a pan holds at most 20 with them: a `place` that would pass it changes nothing. The light pan can always take what it needs |
 | | the answer control's range (`fill-blank`) | `balanceEntryMax(config)`: 10, 20, 99 or 999, from what the pans show (additions: the larger side's sum; a subtraction: both sides together; a multiplication: the product), never from the answer |
 | story-problem | `lines` | 1 to 5 (`STORY_LINES_MAX`) |
-| | `scene` | a `scene` or `none`; at most 3 groups (`STORY_SCENE_GROUPS_MAX`) of at least 1, 20 things in all (`STORY_SCENE_TOTAL_MAX`), on at most 3 rows of ten (`STORY_SCENE_ROWS_MAX`: a group starts a new row) |
+| | `scene` | a `scene` or `none`; at most 3 groups (`STORY_SCENE_GROUPS_MAX`) of at least 1, on at most 4 rows of ten (`STORY_SCENE_ROWS_MAX`: a group starts a new row, so two groups of up to 20 or three of up to 10), 40 things at most (`STORY_SCENE_TOTAL_MAX`): every sprite at least 28 px |
 | | `blanks` | one, or the two parts of `put-together/both`; `maxDigits` 1 to 3 (`STORY_DIGITS_MAX`) |
 | | `workspace` | `none`, `counters`, `ten-frame` or `bar-model` (`STORY_WORKSPACES`); `number-line` and `base-ten` are not drawn yet |
 | | `unit` | refused: a unit beside the box is not drawn yet |

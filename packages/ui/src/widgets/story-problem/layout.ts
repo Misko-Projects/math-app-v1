@@ -27,11 +27,11 @@ export const ROW = 10;
 export const STORY_MIN_ITEM = Math.max(MIN_ITEM_PX, 28);
 /** The largest sprite cell. */
 export const ITEM_MAX = 44;
-/** Between the groups of the scene, and between the scene and the board. */
-export const GROUP_GAP = 8;
+/** Between the groups of the scene (its rows are 4 px apart), and between the scene and the board. */
+export const GROUP_GAP = 6;
 export const SIDE_GAP = 16;
-/** Round the scene and round the board's counters (their cards' padding and border). */
-export const PANEL_PAD = 10;
+/** Round the board's counters (their mat's padding). The scene has no panel of its own. */
+export const PANEL_PAD = 6;
 /** Between the board's counters and its two buttons; under a button, its ledge. */
 export const BOARD_GAP = 8;
 const BUTTON_LEDGE = 6;
@@ -49,8 +49,8 @@ export function sceneSize(groups: readonly number[], s: number): Size {
   const grids = groups.filter((n) => n > 0).map((n) => fivesGrid(n, ROW, s));
   if (grids.length === 0) return { w: 0, h: 0 };
   return {
-    w: Math.max(...grids.map((g) => g.w)) + 2 * PANEL_PAD,
-    h: grids.reduce((a, g) => a + g.h, (grids.length - 1) * GROUP_GAP) + 2 * PANEL_PAD,
+    w: Math.max(...grids.map((g) => g.w)),
+    h: grids.reduce((a, g) => a + g.h, (grids.length - 1) * GROUP_GAP),
   };
 }
 

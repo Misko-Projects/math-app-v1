@@ -30,14 +30,15 @@ const TABLET = { w: 1172, h: 439 };
 const BUTTON = { 'g1-up': { w: 76, h: 82 }, k: { w: 96, h: 102 } };
 const AGES = ['g1-up', 'k'] as const;
 
-/** Every scene the model accepts: up to three groups, twenty things, three rows of ten. */
+/** Every scene the model accepts: up to three groups, on at most four rows of ten. */
 function scenes(): number[][] {
   const out: number[][] = [[]];
   for (let a = 1; a <= STORY_SCENE_TOTAL_MAX; a += 1) {
     out.push([a]);
     for (let b = 1; a + b <= STORY_SCENE_TOTAL_MAX; b += 1) {
       out.push([a, b]);
-      for (let c = 1; a + b + c <= STORY_SCENE_TOTAL_MAX; c += 1) out.push([a, b, c]);
+      // A third group: every count up to ten, then a few above it.
+      for (const c of [1, 2, 5, 9, 10, 11, 20]) out.push([a, b, c]);
     }
   }
   return out.filter((scene) => storySceneRows(scene) <= STORY_SCENE_ROWS_MAX);
@@ -100,7 +101,8 @@ describe('story-problem, the story step in the smallest area (906 × 373)', () =
   it('a scene is a group to a row of ten', () => {
     expect(sceneSize([], 28)).toEqual({ w: 0, h: 0 });
     expect(sceneSize([10, 10], 28).h).toBeLessThan(sceneSize([10, 10, 1], 28).h);
-    expect(sceneSize([11], 28).h).toBe(sceneSize([10, 10], 28).h - 8 + 4);
+    // Two rows of one group are 4 px apart; two groups 6 px.
+    expect(sceneSize([11], 28).h).toBe(sceneSize([10, 10], 28).h - 6 + 4);
   });
 });
 

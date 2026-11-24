@@ -537,7 +537,7 @@ export function StoryProblemWidget({
         data-cue="scene"
         role="img"
         aria-label={`${t('ui.widget.picture')}: ${names}`}
-        style={{ width: size.w, height: size.h, padding: PANEL_PAD, gap: GROUP_GAP }}
+        style={{ width: size.w, height: size.h, gap: GROUP_GAP }}
       >
         {sceneGroups.map((g, gi) => {
           const grid = fivesGrid(g.count, ROW, s);
