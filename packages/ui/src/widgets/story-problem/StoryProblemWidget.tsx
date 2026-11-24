@@ -129,6 +129,8 @@ export function StoryProblemWidget({
   const sceneGroups = config.scene.kind === 'scene' ? config.scene.sprites : [];
   const maxDigits = Math.max(...config.blanks.map((b) => b.maxDigits));
   const split = answersSplit(config);
+  /** What the two parts of a split are parts of: the story's thing, or a counter. */
+  const partSprite = sceneGroups[0]?.sprite ?? COUNTER;
 
   const { state, stateRef, act, applyOp, committed } = useModelState<State>(
     () => initial(config),
@@ -569,7 +571,7 @@ export function StoryProblemWidget({
       actRef={actRef}
       step={step}
       back
-      dir={step === 'ask' && ask.ask.act === 'row' ? 'row' : 'column'}
+      dir={step === 'ask' && ask.arrangement === 'bar' ? 'row' : 'column'}
       interactive={interactive}
       ready={ready}
       onStep={steps.goTo}
@@ -650,13 +652,9 @@ export function StoryProblemWidget({
     </div>
   );
 
-  const picture = ask.ask.picture;
   const renderAsk = () => (
-    <div className="ni-ask" data-arrangement={ask.ask.arrangement}>
-      <div
-        className="ni-ask__picture ni-story__asked"
-        style={picture ? { width: picture.w, maxHeight: picture.h } : undefined}
-      >
+    <div className="ni-story__ask" data-arrangement={ask.arrangement}>
+      <div className="ni-story__asked" style={{ width: ask.question.w }}>
         <button
           type="button"
           className="ni-story__question"
@@ -679,41 +677,48 @@ export function StoryProblemWidget({
         </button>
         {ask.s > 0 ? renderCounters(ask.s, false) : null}
       </div>
-      <div className="ni-ask__answer">
-        <span
-          className="ni-story__entry"
-          data-cue="entry"
-          style={{ '--story-box-w': `${boxWidth(ageMode, maxDigits)}px` } as CSSProperties}
-        >
-          <BoxEntry
-            texts={texts}
-            active={active}
-            onActive={(i) => {
-              childStep();
-              trace('tap', `box-${i}`);
-              setActive(i);
-            }}
-            onTexts={(next) => {
-              childStep();
-              setTexts(next);
-            }}
-            labels={
-              split
-                ? [t('ui.widget.story.part.first'), t('ui.widget.story.part.second')]
-                : [t('ui.widget.answer')]
-            }
-            maxDigits={maxDigits}
-            disabled={!interactive}
-            compact
-            shape={ask.shape}
-            highlightedKey={keyHighlight ?? invitedKey}
-            invitedBox={inviteCue?.cue === 'entry' && invitedKey === null ? active : null}
-            onEnter={submit}
-            onKeyTrace={(key) => trace('tap', `key-${key}`)}
-          />
-        </span>
-        {actions}
-      </div>
+      <span
+        className="ni-story__entry"
+        data-cue="entry"
+        style={{ '--story-box-w': `${boxWidth(ageMode, maxDigits, split)}px` } as CSSProperties}
+      >
+        <BoxEntry
+          texts={texts}
+          active={active}
+          onActive={(i) => {
+            childStep();
+            trace('tap', `box-${i}`);
+            setActive(i);
+          }}
+          onTexts={(next) => {
+            childStep();
+            setTexts(next);
+          }}
+          labels={
+            split
+              ? [t('ui.widget.story.part.first'), t('ui.widget.story.part.second')]
+              : [t('ui.widget.answer')]
+          }
+          // Two parts: each box carries the thing in one of the kit's two tones (any split is
+          // right, so the order of the boxes does not matter).
+          adornments={
+            split
+              ? (['a', 'b'] as const).map((tone) => (
+                  <ObjectSprite key={tone} sprite={partSprite} tone={tone} />
+                ))
+              : undefined
+          }
+          maxDigits={maxDigits}
+          disabled={!interactive}
+          compact
+          shape={ask.shape}
+          highlightedKey={keyHighlight ?? invitedKey}
+          invitedBox={inviteCue?.cue === 'entry' && invitedKey === null ? active : null}
+          onEnter={submit}
+          onKeyTrace={(key) => trace('tap', `key-${key}`)}
+        />
+      </span>
+      <div className="ni-story__acts">{actions}</div>
     </div>
   );
 

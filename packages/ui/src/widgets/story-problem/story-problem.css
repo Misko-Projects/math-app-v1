@@ -226,15 +226,45 @@
 
 /* ---------- the answer step ---------- */
 
+/* layout.ts planStoryAsk: the question (and the counters), the boxes with the pad, the actions,
+   always in that order in the page; the arrangement only places them. */
+.ni-story__ask {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  /* kit STEP_GAP */
+  gap: 24px;
+}
+.ni-story__ask[data-arrangement="beside"] {
+  grid-template-areas: "asked entry acts";
+}
+.ni-story__ask[data-arrangement="under"] {
+  grid-template-areas:
+    "asked asked"
+    "entry acts";
+}
+.ni-story__ask[data-arrangement="bar"] {
+  grid-template-areas:
+    "asked acts"
+    "entry entry";
+}
 .ni-story__asked {
+  display: flex;
+  grid-area: asked;
   flex-direction: column;
+  align-items: center;
   /* layout.ts SIDE_GAP */
   gap: 16px;
   box-sizing: border-box;
 }
 .ni-story__entry {
   display: inline-flex;
-  flex: none;
+  grid-area: entry;
+}
+.ni-story__acts {
+  display: flex;
+  grid-area: acts;
 }
 /* The answer boxes are as wide as layout.ts planned them (boxWidth), whatever is typed. */
 .ni-story__entry .ni-boxentry__box {

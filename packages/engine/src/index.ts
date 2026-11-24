@@ -364,11 +364,13 @@ export {
   STORY_COUNTERS_MAX,
   STORY_DIGITS_MAX,
   STORY_LINES_MAX,
-  STORY_SCENE_COUNT_MAX,
   STORY_SCENE_GROUPS_MAX,
+  STORY_SCENE_ROWS_MAX,
+  STORY_SCENE_TOTAL_MAX,
   type StoryProblemState,
   storyAnswerIssues,
   storyEntryMax,
+  storySceneRows,
 } from './formats/story-problem';
 export {
   type BuildContext,

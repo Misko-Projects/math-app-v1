@@ -8,18 +8,23 @@
 //   pad (kit `BoxEntry`: beside a 3 × 4 pad, or a 6 × 2 pad where the room is short), Back and
 //   Check.
 //
-// Everything is in CSS px. Sprites are one size everywhere, from MIN_ITEM_PX up.
+// Everything is in CSS px. Sprites are one size everywhere, from STORY_MIN_ITEM up.
 
 import { STORY_COUNTERS_MAX } from '@number-island/engine';
 import { type AgeMode, MIN_TARGET_PX, TARGET_GAP_PX, TARGET_PX } from '../../tokens/tokens';
 import type { Size } from '../kit/arrange';
 import { fivesGrid, MIN_ITEM_PX } from '../kit/fives';
-import { type AskPlan, buildRoom, planAsk, STEP_GAP } from '../kit/twoStep';
+import { actionsSize, buildRoom, STEP_GAP } from '../kit/twoStep';
 
 export { fivesCell, MIN_ITEM_PX } from '../kit/fives';
 
 /** Sprites in a row (two fives). */
 export const ROW = 10;
+/**
+ * The smallest sprite cell here: the scene's things include tall, narrow drawings (a lantern
+ * takes about 62 % of its box), which are 22 px wide from this cell up.
+ */
+export const STORY_MIN_ITEM = Math.max(MIN_ITEM_PX, 28);
 /** The largest sprite cell. */
 export const ITEM_MAX = 44;
 /** Between the groups of the scene, and between the scene and the board. */
@@ -108,17 +113,20 @@ function buildAt(input: BuildInput, s: number): BuildLayout {
 export function planBuild(input: BuildInput): BuildLayout {
   const inner = buildRoom(input.room, input.button);
   for (const share of [CARD_SHARE, 0]) {
-    for (let s = ITEM_MAX; s >= MIN_ITEM_PX; s -= 2) {
+    for (let s = ITEM_MAX; s >= STORY_MIN_ITEM; s -= 2) {
       const l = buildAt(input, s);
       if (l.fits && l.card >= inner.w * share) return l;
     }
   }
-  return buildAt(input, MIN_ITEM_PX);
+  return buildAt(input, STORY_MIN_ITEM);
 }
 
-/** An answer box's width (kit box-entry.css: 40 px numerals, padding and border). */
-export const boxWidth = (ageMode: AgeMode, maxDigits: number) =>
-  Math.max(Math.ceil(MIN_TARGET_PX[ageMode] * 1.3), 46 + 24 * maxDigits);
+/**
+ * An answer box's width (kit box-entry.css: 40 px numerals, padding and border), with room for
+ * the picture that says which part it is when the story asks for two (`marked`).
+ */
+export const boxWidth = (ageMode: AgeMode, maxDigits: number, marked = false) =>
+  Math.max(Math.ceil(MIN_TARGET_PX[ageMode] * 1.3), 46 + 24 * maxDigits) + (marked ? 46 : 0);
 
 export type EntryShape = 'tall' | 'wide';
 
@@ -137,7 +145,7 @@ export function entrySize(
     h: rows * t + (rows - 1) * TARGET_GAP_PX,
   };
   const column = boxes * t + (boxes - 1) * TARGET_GAP_PX;
-  return { w: boxWidth(ageMode, maxDigits) + 16 + pad.w, h: Math.max(pad.h, column) };
+  return { w: boxWidth(ageMode, maxDigits, boxes > 1) + 16 + pad.w, h: Math.max(pad.h, column) };
 }
 
 /** The question line's box at width `w`: its text on 32 px lines, at least a full target tall. */
@@ -147,8 +155,9 @@ export function questionSize(chars: number, w: number, ageMode: AgeMode): Size {
   return { w, h: Math.max(MIN_TARGET_PX[ageMode], rows * TEXT_LINE + 2 * 12) };
 }
 
-/** The narrowest the answer step's picture is drawn. */
+/** The narrowest and the widest the question line is drawn. */
 export const PICTURE_MIN_W = 240;
+export const QUESTION_MAX_W = 560;
 
 export interface AskInput {
   room: Size;
@@ -162,50 +171,87 @@ export interface AskInput {
   counters: boolean;
 }
 
+/**
+ * How the answer step is arranged:
+ * - `beside`: the question (and the counters) left of the boxes with a 3 × 4 pad, Back and Check
+ *   in a column at the right;
+ * - `under`: the question (and the counters) over the boxes with a 6 × 2 pad, Back and Check in
+ *   a column beside the pad;
+ * - `bar`: the question with Back and Check in one row, over the boxes with a 6 × 2 pad (the
+ *   shortest: kindergarten sizes in the smallest area).
+ */
+export type AskArrangement = 'beside' | 'under' | 'bar';
+
 export interface StoryAskPlan {
-  ask: AskPlan;
+  arrangement: AskArrangement;
   shape: EntryShape;
+  /** The question's box. */
+  question: Size;
   /** The counters' sprite size beside the answer (0: they are not shown). */
   s: number;
   fits: boolean;
 }
 
 /**
- * The answer step: the boxes and the pad at full size, the question in what is left, and the
- * counters under the question where they fit too. The 3 × 4 pad comes first; the 6 × 2 pad is
- * for a room too short for it.
+ * The answer step: the boxes, the pad and the two actions at full size, the question in what is
+ * left, and the counters under the question where they fit too. The first arrangement that
+ * shows the counters wins, else the first that fits (`beside`, `under`, `bar`).
  */
 export function planStoryAsk(input: AskInput): StoryAskPlan {
   const { room, button, ageMode } = input;
-  const withCounters = (box: Size) => {
-    const q = questionSize(input.questionChars, box.w, ageMode);
-    const c = countersSize(MIN_ITEM_PX);
-    return box.w >= c.w && box.h >= q.h + SIDE_GAP + c.h;
+  const column = actionsSize(button, 2, 'column');
+  const row = actionsSize(button, 2, 'row');
+  const tall = entrySize('tall', ageMode, input.boxes, input.maxDigits);
+  const wide = entrySize('wide', ageMode, input.boxes, input.maxDigits);
+  const counters = countersSize(STORY_MIN_ITEM);
+  const question = (w: number) => questionSize(input.questionChars, w, ageMode);
+  /** A question of width `w` in `h` px of height: 0 no fit, 1 it fits, 2 with the counters. */
+  const picture = (w: number, h: number): 0 | 1 | 2 => {
+    if (w < PICTURE_MIN_W || question(w).h > h) return 0;
+    const both = input.counters && w >= counters.w && question(w).h + SIDE_GAP + counters.h <= h;
+    return both ? 2 : 1;
   };
-  const score = (box: Size | null) => {
-    if (!box || box.w < PICTURE_MIN_W) return 0;
-    if (questionSize(input.questionChars, box.w, ageMode).h > box.h) return 0;
-    return input.counters && withCounters(box) ? 2 : 1;
-  };
-  let best: { ask: AskPlan; shape: EntryShape; score: number } | null = null;
-  for (const shape of ['tall', 'wide'] as const) {
-    const ask = planAsk({
-      ageMode,
-      max: 0,
-      control: entrySize(shape, ageMode, input.boxes, input.maxDigits),
-      button,
-      actions: 2,
-      room,
-      pictureScore: score,
-    });
-    const sc = ask.fits ? score(ask.picture) : 0;
-    if (!best || sc > best.score) best = { ask, shape, score: sc };
-  }
-  const chosen = best as { ask: AskPlan; shape: EntryShape; score: number };
+  const besideW = room.w - tall.w - column.w - 2 * STEP_GAP;
+  const underW = Math.min(room.w, wide.w + STEP_GAP + column.w);
+  const barW = wide.w - STEP_GAP - row.w;
+  const candidates: { arrangement: AskArrangement; shape: EntryShape; w: number; score: number }[] =
+    [
+      {
+        arrangement: 'beside',
+        shape: 'tall',
+        w: Math.min(besideW, QUESTION_MAX_W),
+        score: Math.max(tall.h, column.h) <= room.h ? picture(besideW, room.h) : 0,
+      },
+      {
+        arrangement: 'under',
+        shape: 'wide',
+        w: underW,
+        score:
+          wide.w + STEP_GAP + column.w <= room.w
+            ? picture(underW, room.h - Math.max(wide.h, column.h) - STEP_GAP)
+            : 0,
+      },
+      {
+        arrangement: 'bar',
+        shape: 'wide',
+        w: barW,
+        score:
+          wide.w <= room.w &&
+          barW >= PICTURE_MIN_W &&
+          Math.max(question(barW).h, row.h) + STEP_GAP + wide.h <= room.h
+            ? 1
+            : 0,
+      },
+    ];
+  const best =
+    candidates.find((c) => c.score === 2) ??
+    candidates.find((c) => c.score === 1) ??
+    (candidates[2] as (typeof candidates)[number]);
   return {
-    ask: chosen.ask,
-    shape: chosen.shape,
-    s: chosen.score === 2 ? MIN_ITEM_PX : 0,
-    fits: chosen.score > 0,
+    arrangement: best.arrangement,
+    shape: best.shape,
+    question: question(Math.max(PICTURE_MIN_W, best.w)),
+    s: best.score === 2 ? STORY_MIN_ITEM : 0,
+    fits: best.score > 0,
   };
 }

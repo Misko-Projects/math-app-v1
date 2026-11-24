@@ -76,10 +76,16 @@ export const answersSplit = (c: Config): boolean => c.situation === 'put-togethe
 
 /** A story is told in 1 to this many lines (the last one asks the question). */
 export const STORY_LINES_MAX = 5;
-/** The scene shows at most this many groups of told things, */
+/** The scene shows at most this many groups of told things, each of at least one, */
 export const STORY_SCENE_GROUPS_MAX = 3;
-/** each of 1 to this many. */
-export const STORY_SCENE_COUNT_MAX = 20;
+/** at most this many things in all, */
+export const STORY_SCENE_TOTAL_MAX = 20;
+/** on at most this many rows of ten (a group starts a new row). */
+export const STORY_SCENE_ROWS_MAX = 3;
+
+/** The rows of ten a scene's groups take. */
+export const storySceneRows = (counts: readonly number[]): number =>
+  counts.reduce((rows, n) => rows + Math.ceil(n / 10), 0);
 /** An answer box takes 1 to this many digits. */
 export const STORY_DIGITS_MAX = 3;
 /** The counters the workspace holds in all (two ten-frames). */
@@ -167,12 +173,14 @@ const configSchema = storyProblemConfigSchema.superRefine((c, ctx) => {
     const counts = c.scene.sprites.map((g) => g.count);
     if (
       counts.length > STORY_SCENE_GROUPS_MAX ||
-      counts.some((n) => !whole(n, 1, STORY_SCENE_COUNT_MAX))
+      counts.some((n) => !whole(n, 1, STORY_SCENE_TOTAL_MAX)) ||
+      counts.reduce((a, b) => a + b, 0) > STORY_SCENE_TOTAL_MAX ||
+      storySceneRows(counts) > STORY_SCENE_ROWS_MAX
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['scene'],
-        message: `a scene shows at most ${STORY_SCENE_GROUPS_MAX} groups of 1 to ${STORY_SCENE_COUNT_MAX}`,
+        message: `a scene shows at most ${STORY_SCENE_GROUPS_MAX} groups, ${STORY_SCENE_TOTAL_MAX} things in all, on ${STORY_SCENE_ROWS_MAX} rows of ten`,
       });
     }
   } else if (c.scene.kind !== 'none') {
