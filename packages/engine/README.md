@@ -307,6 +307,37 @@ Both models state and enforce the domain their widgets draw. Every bound is a fi
 - **Rows are not columns.** `drag-rect {rows, cols}` keeps them apart in the state and the response; only an `array.dims` target without `orientationMatters` accepts the turned array. An empty board has neither (`drag-rect` with a zero side empties it).
 - **Every op a child can do has an undo.** array-build: `drag-rect` with a smaller rectangle, down to the empty board; `split-at` moves the line to any other gap, and `split-at {remove: true}` takes it out again. area-tiles: `place-tile {r, c, remove: true}` takes a tile back from where it lies (also after `fill-row`); `draw-split` on a drawn line erases it.
 
+### Balance and story problems (U04 #13: balance, story-problem)
+
+Both models state and enforce the domain their widgets draw. Every bound is a fixed number, the same in every widget area and age mode; the widgets' layout tests (`packages/ui/src/widgets/balance/layout.test.ts`, `story-problem/layout.test.ts`) fit every config of the domain in the smallest area (906 × 373) at Grade 1 and kindergarten sizes, with one exception that is named there: a `fill-blank` box whose range is typed (above 20) at kindergarten sizes, where the kit's number pad is taller than that area (no shipped kindergarten template asks for one). A config outside the domain is refused by the model's schema (V-rule 3, every generated item).
+
+| Format | Input | Bound |
+|---|---|---|
+| balance | a number `n` | whole, 0 to 999 (`BALANCE_N_MAX`): three digits on a tile, numerals never under 32 px |
+| | the values on a side | at most 2 (`BALANCE_VALUES_MAX`), joined by an operation |
+| | objects on a pan | each group at least 1, at most 20 in all (`BALANCE_PAN_OBJECTS_MAX`): every sprite at least 26 px |
+| | `objectWeights` | whole, 1 to 99 (`BALANCE_WEIGHT_MAX`) |
+| | a `letter` | one character |
+| | `fill-blank` | exactly one box |
+| | `make-equal` pans | numbers, or one kind of object weighing 1 each (the child's units are the pan's own kind); each pan worth a whole 0 to 20 (`BALANCE_PAN_MAX`) |
+| | the child's units (`make-equal`) | a pan holds at most 20 with them: a `place` that would pass it changes nothing. The light pan can always take what it needs |
+| | the answer control's range (`fill-blank`) | `balanceEntryMax(config)`: 10, 20, 99 or 999, from what the pans show (additions: the larger side's sum; a subtraction: both sides together; a multiplication: the product), never from the answer |
+| story-problem | `lines` | 1 to 5 (`STORY_LINES_MAX`) |
+| | `scene` | a `scene` or `none`; at most 3 groups (`STORY_SCENE_GROUPS_MAX`) of at least 1, 20 things in all (`STORY_SCENE_TOTAL_MAX`), on at most 3 rows of ten (`STORY_SCENE_ROWS_MAX`: a group starts a new row) |
+| | `blanks` | one, or the two parts of `put-together/both`; `maxDigits` 1 to 3 (`STORY_DIGITS_MAX`) |
+| | `workspace` | `none`, `counters`, `ten-frame` or `bar-model` (`STORY_WORKSPACES`); `number-line` and `base-ten` are not drawn yet |
+| | `unit` | refused: a unit beside the box is not drawn yet |
+| | the counters board | at most 20 counters in all (`STORY_COUNTERS_MAX`): an `act-out` that would pass it changes nothing |
+| | `draw-bar {parts}` | 1 to 3 parts (`STORY_BAR_PARTS_MAX`), each whole and at least 1; anything else changes nothing |
+| | `highlight-line {index}` | a line of the story; anything else clears the highlight |
+| | the answer box's range | `storyEntryMax(config)`: what `maxDigits` digits can hold |
+
+- **One source for the answer** (`FormatModel.answerIssues`, content-check property 3.answer). balance `judge`: `true` exactly when the two sides weigh the same; `which-heavier`: the heavier pan by the hidden weights, or `same`; `fill-blank`: a whole number in the answer control's range that makes the sides equal; `make-equal`: `balance.equal` with what the two pans weigh. story-problem: one box answers a whole number its digits can hold; `put-together/both` answers `bond.split` with a whole its boxes can hold.
+- **Every op a child can do has an undo.** balance `make-equal`: `place {side, term, remove: true}` takes one unit the child added off the pan again, down to none (never the item's own objects). story-problem: the board's take-one is `act-out` with the count less one, on the group put on last. Choices are changed by picking another card; a typed digit by the pad's own key.
+- **The beam** (balance): the widget shows the comparison when `showTilt` is set or once a demonstration played `tilt` or `level` (both let the beam show how the pans really are); otherwise it rests on props, so a level beam is never read as "the same".
+- **Child input beyond the 03 §5.5 list** (not authored demo ops; `FORMAT_SUPPORT` is unchanged): balance `place {…, remove: true}`.
+
+
 ### Pattern and puzzle formats (K01: pattern.repeat, pattern.grow, puzzle.grid; pattern-extend's model is U05's, see "Patterns and data models"; puzzle-grid's is U04's, see below)
 
 - **pattern-extend** `extend` and `fill` answer state `pattern.tokens { expected }`: the response is `{ tokens }`, the tokens placed in the blanks (the `null` entries of `sequence`) in reading order, each the same unit as expected (`{ sprite, color? }`, `{ n }` or `{ tiles }`, every field equal). `fill` hides the tokens ending one before the last, after at least one whole core. `core` answers `select.exactSet { values }`: the indices of the first repeat of the core (the prompt asks to mark it from the start). `rule` answers `number`, the step. `palette` holds the units a repeating pattern uses (A, B, C order) and is empty for number patterns, which are typed. Solutions use `place-token {index, token}` per blank, or `highlight {index}` and `bracket-core {from, to}`, after a first line that places nothing. The property test's near misses take away the last token or swap one for its neighbour.

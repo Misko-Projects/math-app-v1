@@ -47,13 +47,25 @@ describe('the pier fit allowlist', () => {
   it('lets a template through only at the viewports its entry names', () => {
     const big = graph.templates['PV.09.t1'];
     const pad = Object.values(graph.templates).find((t) => t.format === 'number-pad');
-    const balance = Object.values(graph.templates).find((t) => t.format === 'balance');
-    if (!big || !pad || !balance) throw new Error('the content lacks the templates this test uses');
+    const puzzle = Object.values(graph.templates).find((t) => t.format === 'puzzle-grid');
+    if (!big || !pad || !puzzle) throw new Error('the content lacks the templates this test uses');
     expect(fitAllowance(big, '960x600')?.kind).toBe('misfit');
     expect(fitAllowance(big, '1280x800')).toBeNull();
     for (const viewport of FIT_VIEWPORTS) {
       expect(fitAllowance(pad, viewport)).toBeNull();
-      expect(fitAllowance(balance, viewport)).toEqual({ kind: 'no-widget' });
+      expect(fitAllowance(puzzle, viewport)).toEqual({ kind: 'no-widget' });
+    }
+  });
+
+  it('every balance and story-problem template must fit at both viewports (#13)', () => {
+    const templates = Object.values(graph.templates).filter(
+      (t) => t.format === 'balance' || t.format === 'story-problem',
+    );
+    expect(templates).toHaveLength(13);
+    for (const template of templates) {
+      for (const viewport of FIT_VIEWPORTS) {
+        expect(fitAllowance(template, viewport), `${template.id} at ${viewport}`).toBeNull();
+      }
     }
   });
 
