@@ -2,7 +2,7 @@
 // prompt's narration). Framework-free.
 
 import type { AudioManager, PresentedItem } from '@number-island/shared';
-import { type SpokenLineRequest, sayLines } from '@number-island/ui';
+import { type SpokenLineRequest, sayThrough, tellLines, whenQuiet } from '@number-island/ui';
 
 /**
  * The lines told when an item opens: its prompt and, for a story problem, the story itself (the
@@ -17,14 +17,24 @@ export function openingLines(item: Pick<PresentedItem, 'prompt' | 'widget'>): Sp
 }
 
 /**
- * Tells the item's opening lines in order and resolves when the telling is over: every line
- * said, or one cut off by something else speaking (the child tapped the bubble), or `stopped()`
- * (the item is gone). The caller starts the answer time then, never before.
+ * Tells the item's opening lines and resolves when the telling is over, or at `stopped()` (the
+ * item is gone). The caller starts the answer time then, never before.
+ *
+ * The prompt is said once: when the child taps the bubble while it plays, the bubble's own
+ * replay takes its place. A story's lines are all told: a line something else speaks over is
+ * said again when that is over, so no part of the story is lost and the answer time never runs
+ * while the story is still being told.
  */
 export async function tellItem(
   audio: AudioManager,
   item: Pick<PresentedItem, 'prompt' | 'widget'>,
   stopped: () => boolean,
 ): Promise<void> {
-  await sayLines(audio, openingLines(item), { stopped });
+  const [prompt, ...story] = openingLines(item);
+  if (!prompt) return;
+  const how = await sayThrough(audio, prompt);
+  if (story.length === 0 || stopped()) return;
+  // The bubble's replay of the prompt is heard out before the story begins.
+  if (how === 'cut') await whenQuiet(audio);
+  await tellLines(audio, story, { stopped });
 }
