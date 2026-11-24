@@ -164,7 +164,7 @@ export function ClockSetWidget({
       const cur = stateRef.current.t;
       if (item === 'hand-minute') {
         // The long hand to the tapped minute, the shorter way round (12 carries the hour).
-        const to = (p.deg / 6) % 60;
+        const to = snapTime(p.deg / 6, config.precision) % 60;
         setTime(cur + shortest(cur % 60, to, 60));
       } else {
         // The short hand to the tapped point: 2 face minutes a degree; the long hand follows.

@@ -216,6 +216,63 @@ export const TapToPlace: Story = {
 };
 
 /**
+ * From 12:00, taps the 6 with the long hand in hand, `off`° to its left, to its right and (0) dead
+ * on: each is 12:30. From there the 12, to either side by as much: each is 1:00.
+ */
+async function tapsHalfAnHourOn(root: HTMLElement, offsets: readonly number[]) {
+  for (const off of offsets) {
+    for (const side of off === 0 ? [1] : [1, -1]) {
+      await expectGeared(root, 12, 0);
+      await userEvent.click(handBtn(root, 'minute'));
+      await tapFace(root, 180 + side * off);
+      await expectGeared(root, 12, 30);
+      await userEvent.click(handBtn(root, 'minute'));
+      await tapFace(root, (360 + side * off) % 360);
+      await expectGeared(root, 1, 0);
+      // Back to 12:00 for the next tap: the short hand to the 12 (the long hand follows).
+      await userEvent.click(handBtn(root, 'hour'));
+      await tapFace(root, 0, 50);
+    }
+  }
+}
+
+/**
+ * Half an hour goes forward, wherever on the number the finger lands. From 12:00 a tap on the 6 is
+ * 12:30 whether it lands a little left of the middle of the 6, a little right of it or dead on,
+ * never 11:30; from 12:30 a tap on the 12, on either side, is 1:00. (The tap is read as the minute
+ * the hand snaps to before the way round is chosen: two taps on one number never part ways.)
+ */
+export const TapHalfAnHourGoesForward: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    // Minutes snap to 5 (what every shipped clock-set template uses): 12° is two minutes.
+    await tapsHalfAnHourOn(root, [12, 1, 0]);
+    // A quarter hour: from 12:15 the 9 is half an hour on, a little past it too (12:45, not 11:45).
+    await userEvent.click(handBtn(root, 'minute'));
+    await tapFace(root, 90);
+    await expectGeared(root, 12, 15);
+    await userEvent.click(handBtn(root, 'minute'));
+    await tapFace(root, 272);
+    await expectGeared(root, 12, 45);
+  },
+};
+
+/** The same to the minute (1° is a sixth of a minute) and where only half hours are made. */
+export const TapHalfAnHourGoesForwardToTheMinute: Story = {
+  args: { config: { ...eightThirty, precision: 1 } },
+  play: async ({ canvasElement }) => {
+    await tapsHalfAnHourOn(await findWidget(canvasElement, ROOT), [2, 1, 0]);
+  },
+};
+
+export const TapHalfAnHourGoesForwardHalfHours: Story = {
+  args: { config: { ...eightThirty, precision: 30 } },
+  play: async ({ canvasElement }) => {
+    await tapsHalfAnHourOn(await findWidget(canvasElement, ROOT), [40, 1, 0]);
+  },
+};
+
+/**
  * Drag: turn the long hand round from 12 to 3 (12:15), then on round past 12 to 1 (1:05: the short
  * hand moved on an hour by itself). Turn the short hand a quarter turn by touch: three hours on,
  * the long hand wound round with it (4:05). At every stop the hands agree.
