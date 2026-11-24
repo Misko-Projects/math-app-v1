@@ -1,0 +1,245 @@
+/* story-problem (U04, #13), in two steps (kit twoStep). Story: the card of lines, the scene and
+   the counters board in a column, Next. Answer: the question, the counters as built, the answer
+   boxes with the pad, Back and Check. Sizes come from layout.ts; this file draws. */
+
+.ni-story {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  /* Safe centring in the host; the root's width is the room, never its content's (kit room.ts). */
+  margin: auto;
+  contain: inline-size;
+}
+.ni-story__build {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* kit STEP_GAP */
+  gap: 24px;
+}
+
+/* ---------- the story ---------- */
+
+.ni-story__card,
+.ni-story__question {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 12px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 12px 16px;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-card);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-story__card {
+  min-height: var(--target-min);
+}
+.ni-story__question {
+  width: 100%;
+  min-height: var(--target-min);
+  align-items: center;
+}
+.ni-story__card:focus-visible,
+.ni-story__question:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+/* No input (a demonstration, feedback): the story stays as readable as ever. */
+.ni-story__card:disabled,
+.ni-story__question:disabled {
+  cursor: default;
+  color: var(--color-ink);
+}
+.ni-story__speaker {
+  display: block;
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+.ni-story__lines {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.ni-story__line {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 32px;
+}
+/* The line being read, or the one a demonstration points at: a sunshine band with an ink bar at
+   its start and heavier words (never colour alone). */
+.ni-story__line[data-marked="true"] {
+  background: var(--color-sunshine-light);
+  box-shadow: inset 5px 0 0 var(--color-ink);
+  font-weight: 700;
+}
+
+/* ---------- the scene and the counters board ---------- */
+
+.ni-story__side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  /* layout.ts SIDE_GAP */
+  gap: 16px;
+}
+.ni-story__scene {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  box-sizing: border-box;
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+}
+.ni-story__board {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  /* layout.ts BOARD_GAP */
+  gap: 8px;
+}
+.ni-story__counters {
+  flex: none;
+  box-sizing: border-box;
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+}
+.ni-story__grid {
+  position: relative;
+  display: block;
+  flex: none;
+}
+.ni-story__item {
+  position: absolute;
+  display: block;
+}
+.ni-story__item > .ni-sprite {
+  position: relative;
+  display: block;
+  pointer-events: none;
+  /* kit ITEM_DRAW_SCALE: the picture uses the margin its box leaves; neighbours never touch. */
+  transform: scale(1.3);
+}
+/* Every place a counter can take: a faint dot on the mat ... */
+.ni-story__place {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+.ni-story__place::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--color-ink-soft);
+  opacity: 0.45;
+}
+/* ... or a ten-frame's cell: ink lines, the cells of a frame joined, the two frames apart. */
+.ni-story__counters[data-frames="true"] .ni-story__place {
+  border: 2px solid var(--color-ink);
+  margin: -1px;
+  background: var(--color-cloud);
+}
+.ni-story__counters[data-frames="true"] .ni-story__place::after {
+  content: none;
+}
+.ni-story__buttons {
+  display: flex;
+  justify-content: center;
+  gap: var(--target-gap);
+}
+.ni-story__buttons > span {
+  display: inline-flex;
+}
+.ni-story__buttons .ni-iconbtn .ni-btn__icon {
+  width: 60%;
+  height: 60%;
+}
+/* The two buttons are 12 px apart, so an invite ring is drawn inside the button and the button
+   does not pulse: it stays the full 12 px clear of the other one (06 §4). */
+.ni-story__buttons .ni-iconbtn.ni-invite {
+  outline-width: 4px;
+  outline-offset: -7px;
+  animation: none;
+}
+/* A button that can do nothing more (a full board, no counter to take): a dashed outline and no
+   ledge, never colour alone. It can still be pressed, and then says why. */
+.ni-story__buttons .ni-iconbtn[data-limit="true"]:not(:disabled) {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+/* A bar a demonstration draws: its parts in proportion, each with its number (32 px). */
+.ni-story__bar {
+  display: flex;
+  flex: none;
+  width: 100%;
+  height: 64px;
+  box-sizing: border-box;
+  border: 3px solid var(--color-ink);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-cloud);
+}
+.ni-story__part {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-ink);
+}
+.ni-story__part + .ni-story__part {
+  border-left: 3px solid var(--color-ink);
+}
+
+/* ---------- the answer step ---------- */
+
+.ni-story__asked {
+  flex-direction: column;
+  /* layout.ts SIDE_GAP */
+  gap: 16px;
+  box-sizing: border-box;
+}
+.ni-story__entry {
+  display: inline-flex;
+  flex: none;
+}
+/* The answer boxes are as wide as layout.ts planned them (boxWidth), whatever is typed. */
+.ni-story__entry .ni-boxentry__box {
+  width: var(--story-box-w);
+  min-width: 0;
+  padding-right: 0;
+  padding-left: 0;
+}

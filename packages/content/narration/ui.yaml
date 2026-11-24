@@ -1409,6 +1409,36 @@ ui.widget.bal.beam.level:
   level: K
 # end balance
 
+# U04 story-problem widget (packages/ui/src/widgets/story-problem): keys under ui.widget.story.*
+ui.widget.story.hear:
+  text: "Hear the story"
+  level: K
+ui.widget.story.board:
+  text: "Counters board"
+  level: K
+ui.widget.story.counters:
+  text: "Counters:"
+  level: K
+ui.widget.story.add:
+  text: "Add a counter"
+  level: K
+ui.widget.story.take:
+  text: "Take a counter away"
+  level: K
+ui.widget.story.note.full:
+  text: "The board is full"
+  level: K
+ui.widget.story.note.none:
+  text: "No counters to take away"
+  level: K
+ui.widget.story.part.first:
+  text: "First part"
+  level: K
+ui.widget.story.part.second:
+  text: "Second part"
+  level: K
+# end story-problem
+
 # U04 equal-share widget (packages/ui/src/widgets/equal-share): keys under ui.widget.es.*
 ui.widget.es.kind.pebbling:
   text: "Pebbling"
