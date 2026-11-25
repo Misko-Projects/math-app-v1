@@ -2,6 +2,7 @@ import {
   type BaseTenBuildState,
   buildShowsDisks,
   canonicalPieces,
+  DISK_COLUMN_MAX,
   formatModel,
   PIECE_VALUE,
   type PieceKind,
@@ -457,6 +458,10 @@ export function BaseTenBuildWidget({
    */
   const hasRoom = (prev: State, next: State) => {
     if (next.mat === prev.mat || !planInput.current) return true;
+    // A column of disks holds two tens (DISK_COLUMN_MAX): no move adds past that.
+    if (disks && KINDS.some((k) => next.mat[k] > prev.mat[k] && next.mat[k] > DISK_COLUMN_MAX)) {
+      return false;
+    }
     return roomForMove(
       planInput.current,
       { kinds: columnKinds(config, prev.mat), counts: prev.mat },

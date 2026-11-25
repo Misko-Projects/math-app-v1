@@ -64,12 +64,13 @@ misconceptions:
       - params: { n: 34 }
         response: { kind: number, value: 8 }
         match: false
-      # The 4 in 345 built with 4 ones (PV.24); 4 tens is right, and not a match.
+      # The 4 in 345 put in as 4 ones beside the 3 hundreds and 5 ones on the mat (PV.24); 4 tens
+      # is right, and not a match.
       - params: { n: 345, mode: digit-value, place: 1 }
-        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 0, ones: 4 } }
+        response: { kind: state, value: { thousands: 0, hundreds: 3, tens: 0, ones: 9 } }
         match: true
       - params: { n: 345, mode: digit-value, place: 1 }
-        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 4, ones: 0 } }
+        response: { kind: state, value: { thousands: 0, hundreds: 3, tens: 4, ones: 5 } }
         match: false
 
   # No predict (03 §7.1): the written-as-spoken number (407 for 47) is never a possible option of a

@@ -856,7 +856,8 @@ templates:
 
   # ---------- PV.24 what a digit is worth (K02) ----------
   # The digits of n are all different, so "the 4 in 345" names one digit.
-  # Build what the hundreds or the tens digit is worth: the 4 in 345 is 4 tens.
+  # The mat starts with the other digits' pieces (3 hundreds and 5 ones); the child puts in what
+  # the hundreds or the tens digit is worth: the 4 in 345 is 4 tens. No goal card names 40.
   - id: PV.24.t1
     skillId: PV.24
     format: base-ten-build

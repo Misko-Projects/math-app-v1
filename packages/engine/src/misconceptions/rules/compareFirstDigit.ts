@@ -2,7 +2,8 @@
 // many digits they have, so 89 is greater than 102 because 8 is greater than 1. It applies when
 // the compared numbers have different digit counts:
 // - compare (compare.numbers, `a` against `b`): r takes the shorter number as the greater one
-//   (the other side for more and fewer, the mirrored sign for symbol);
+//   (the other side for more and fewer, the mirrored sign for symbol), when the numerals read
+//   digit by digit say so too (89 against 102, not 19 against 102);
 // - order: r is the cards in the order of their numerals read digit by digit (102, 89, 95 for
 //   smallest first), when that differs from the right order.
 // Numbers of one length cannot discriminate: predict is null.
@@ -29,6 +30,10 @@ function predict(item: GeneratedItem): ResponseValue | null {
     const y = item.params.b;
     if (typeof x !== 'number' || typeof y !== 'number') return null;
     if (digitCount(x) === digitCount(y)) return null;
+    // Read digit by digit, the shorter number must come out greater (89 against 102); where the
+    // digits agree with the numbers (19 against 102), a wrong answer does not show this slip.
+    const [shorter, longer] = digitCount(x) < digitCount(y) ? [x, y] : [y, x];
+    if (!(String(shorter) > String(longer))) return null;
     const id = OTHER[a.id];
     return id ? { kind: 'choice', id } : null;
   }

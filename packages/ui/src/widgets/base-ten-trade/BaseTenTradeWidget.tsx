@@ -2,6 +2,7 @@ import {
   type BaseTenTradeState,
   COLUMNS,
   type Column,
+  DISK_COLUMN_MAX,
   type FormatModel,
   formatModel,
   htoValue,
@@ -984,7 +985,14 @@ function TradeMat({
       el.style.width = `${g.rect.w}px`;
       el.style.height = `${g.rect.h}px`;
       const lying = g.kind === 'tens' && g.rect.w > g.rect.h;
-      const unitPx = g.kind === 'hundreds' ? g.rect.w / 10 : lying ? g.rect.h : g.rect.w;
+      // A disk's unit is its own width, whatever its place (its label is sized from it).
+      const unitPx = disks
+        ? g.rect.w
+        : g.kind === 'hundreds'
+          ? g.rect.w / 10
+          : lying
+            ? g.rect.h
+            : g.rect.w;
       el.style.setProperty('--u', `${unitPx}px`);
       if (lying) el.dataset.lying = 'true';
       if (g.origin) el.style.transformOrigin = g.origin;
@@ -1672,7 +1680,14 @@ function TradeMat({
       <div key={`strip-${larger}`} className="ni-btt__strip">
         {(
           [
-            { from: larger, to: smaller, dir: 'split' as const, enabled: state.mat[larger] >= 1 },
+            {
+              from: larger,
+              to: smaller,
+              dir: 'split' as const,
+              // A column of disks holds two tens (DISK_COLUMN_MAX): no split past that.
+              enabled:
+                state.mat[larger] >= 1 && (!disks || state.mat[smaller] + 10 <= DISK_COLUMN_MAX),
+            },
             { from: smaller, to: larger, dir: 'group' as const, enabled: state.mat[smaller] >= 10 },
           ] as const
         ).map((b) => {

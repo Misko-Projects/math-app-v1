@@ -22,9 +22,12 @@
 //                place k for the term at place k (14 = 10 + ?) → number-pad, numeral-pick,
 //                expanded-form `to-standard` / `fill`, hundred-chart (find 30 + 4)
 //   digit-value  the value of the digit at `place` (−1: the leading digit) → number-pad,
-//                numeral-pick, expanded-form `digit-value`, or base-ten-build `build` of that
-//                value (K02, PV.24: build what the 4 in 345 is worth, baseten.value `{ value: 40 }`;
-//                every kind of n is on offer, so 4 ones is the face-value slip)
+//                numeral-pick, expanded-form `digit-value`, or base-ten-build (K02, PV.24): the
+//                mat starts with the pieces of n's other digits and the child puts in what the
+//                asked digit is worth (3 hundreds and 5 ones for the 4 in 345; baseten.value
+//                `{ value: 345 }`). A build that starts with pieces shows no goal card, so
+//                nothing on screen says 40; every kind of n is on offer, so 4 ones is the
+//                face-value slip
 //
 // `wholeIs: flat` (decimals) reads every count in hundredths (flat 100, rod 10, unit 1); it is
 // drawn only as base-ten pieces. Feature values depend on the params (and the template's format)
@@ -545,6 +548,14 @@ export const pvNumber: GeneratorDef = {
     // place: the asked term or digit, which must exist and not be 0.
     if (mode === 'expanded' || mode === 'digit-value') {
       if (place < -1 || place >= nd) return false;
+      // On the mat the other digits' pieces start there: one of them must not be zero.
+      if (
+        mode === 'digit-value' &&
+        t.format === 'base-ten-build' &&
+        digitsOf(n).every((x, k) => x === 0 || k === askedPlace(p))
+      ) {
+        return false;
+      }
       const k = askedPlace(p);
       if (k >= 0 && (mode === 'digit-value' ? digitsOf(n)[k] : counts[k]) === 0) return false;
       if (mode === 'digit-value' && nonCanonical) return false;
@@ -690,19 +701,27 @@ export const pvNumber: GeneratorDef = {
             answer: { kind: 'number', value: n },
           });
         } else if (mode === 'digit-value') {
-          // Build what the asked digit is worth: every kind of n is on offer.
+          // The other digits' pieces are on the mat; the child puts in what the asked digit is
+          // worth. Starting with pieces, the widget draws no goal card (the answer is not shown).
+          const rest = piecesFrom(digits.map((x, k) => (k === place ? 0 : x)));
           p = {
             params,
             vars,
             math,
             widget: {
               format: 'base-ten-build',
-              target: asked,
+              target: n,
               mode: 'build',
               pieces: offer,
               wholeIs,
+              prebuilt: {
+                ...(rest.thousands > 0 ? { thousands: rest.thousands } : {}),
+                hundreds: rest.hundreds,
+                tens: rest.tens,
+                ones: rest.ones,
+              },
             },
-            answer: { kind: 'state', checker: 'baseten.value', target: { value: asked } },
+            answer: { kind: 'state', checker: 'baseten.value', target: { value: n } },
           };
         } else return unsupported();
         break;
@@ -909,8 +928,8 @@ export const pvNumber: GeneratorDef = {
     const value = typeof target.value === 'number' && w.format !== 'base-ten-build' ? n : null;
     switch (w.format) {
       case 'base-ten-build': {
-        // build: the canonical mat, which the solution's trade ends on (digit-value: the mat of
-        // what the digit is worth, the widget's target).
+        // build: the canonical mat, which the solution's trade ends on (digit-value: the whole
+        // number, the other digits' pieces being there from the start).
         const counts =
           w.mode === 'build-exact'
             ? [w.exact?.ones ?? 0, w.exact?.tens ?? 0, w.exact?.hundreds ?? 0]

@@ -1899,3 +1899,28 @@ describe('graph.json (03 §9.1)', () => {
     ]);
   });
 });
+
+// PR #121 review, round 1: three lines said something false for items their templates generate.
+describe('place value to 1000: lines that hold for every item (K02)', () => {
+  const text = (key: string) => compileContent(FIXTURE).content?.narration[key]?.text ?? '';
+
+  it('ten more across a hundred changes two digits: no line says only one changes', () => {
+    // 199 + 10 = 209 (PV.07.t2, PV.07.t3).
+    for (const key of ['h.pv.one-place-changes', 'sk.PV.07.intro', 'h.pv.tens-or-hundreds']) {
+      expect(text(key), key).not.toBe('');
+      expect(text(key), key).not.toMatch(/only one (place|digit)/i);
+    }
+  });
+
+  it('the digit-count hint compares digit counts, and holds for 100 itself', () => {
+    // 99 against 100 (PV.06.t5): 100 is not more than one hundred.
+    expect(text('h.compare.more-digits')).toMatch(/three digits is greater than a number with two/);
+    expect(text('h.compare.more-digits')).not.toMatch(/more than one hundred/);
+  });
+
+  it('the written-as-spoken feedback fits a three-digit number', () => {
+    // 305 written as 3005 (PV.05, PV.14) is not a number of "two places".
+    expect(text('fb.mc.write-as-spoken')).not.toMatch(/two places|tens and ones/);
+    expect(text('fb.mc.write-as-spoken')).toMatch(/Each place gets just one number/);
+  });
+});

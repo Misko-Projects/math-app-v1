@@ -359,7 +359,7 @@ h.pv.under-ten-each:
 h.pv.rod-or-flat:
   text: "Ten is one rod. One hundred is one flat."
 h.pv.one-place-changes:
-  text: "Only one place changes. Which place is it?"
+  text: "Which place do you count on: the tens or the hundreds?"
 h.pv.one-jump:
   text: "Make one big jump. Then check where you land."
 h.pv.tens-or-hundreds:
@@ -375,7 +375,7 @@ h.pv.digit-counts-place:
 h.compare.hundreds:
   text: "Look at the hundreds first. Then the tens, then the ones."
 h.compare.more-digits:
-  text: "Count the digits. A number with three digits is more than one hundred."
+  text: "Count the digits. A number with three digits is greater than a number with two."
 fb.mc.zero-placeholder:
   text: "Look at each place. An empty place needs a zero to hold it."
 fb.mc.compare-first-digit:
@@ -1764,7 +1764,7 @@ fb.mc.place-swap:
 fb.mc.face-value:
   text: "Each bundle is ten, not one. Count the tens by tens."
 fb.mc.write-as-spoken:
-  text: "A number with tens and ones has two places. The ones go where the zero was."
+  text: "Each place gets just one number. Say it again: hundreds, tens, ones."
 fb.mc.perceptual-size:
   text: "Size can trick our eyes. Match them up, one and one."
 

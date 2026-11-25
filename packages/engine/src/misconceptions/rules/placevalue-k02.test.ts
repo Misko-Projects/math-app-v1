@@ -186,21 +186,23 @@ describe('placeSwap on a three-digit number (PV.15)', () => {
   });
 });
 
-describe('faceValue on a build of what a digit is worth (PV.24)', () => {
-  it('the 4 in 345 built with 4 ones', () => {
+describe('faceValue on a mat that lacks one digit (PV.24)', () => {
+  it('the 4 in 345 put in as 4 ones, beside the 3 hundreds and 5 ones already there', () => {
     const item = make(T.worth, { n: 345, place: 1 });
     expect(item.answer).toEqual({
       kind: 'state',
       checker: 'baseten.value',
-      target: { value: 40 },
+      target: { value: 345 },
     });
-    expect(faceValue.predict?.(item)).toEqual(mat(0, 0, 4));
-    const res = checkResponse(item, mat(0, 0, 4));
+    expect(faceValue.predict?.(item)).toEqual(mat(3, 0, 9));
+    const res = checkResponse(item, mat(3, 0, 9));
     expect(res.correct).toBe(false);
     expect(res.misconceptionIds).toContain('MC.face-value');
-    expect(checkResponse(item, mat(0, 4, 0)).correct).toBe(true);
-    // The 3 built with 3 tens is another slip.
-    expect(faceValue.match(make(T.worth, { n: 345, place: 2 }), mat(0, 3, 0))).toBe(false);
+    expect(checkResponse(item, mat(3, 4, 5)).correct).toBe(true);
+    // Four ones alone (the other pieces taken off) is another answer.
+    expect(faceValue.match(item, mat(0, 0, 4))).toBe(false);
+    // The 3 put in as 3 tens is another slip.
+    expect(faceValue.match(make(T.worth, { n: 345, place: 2 }), mat(0, 7, 5))).toBe(false);
   });
 });
 
@@ -242,6 +244,24 @@ describe('compareFirstDigit', () => {
     // 15, 20, 300 is the same order digit by digit, so nothing shows.
     const same = make(T.order, compared(15, 300, 'fewer', { extra: 1, x1: 20 }));
     expect(compareFirstDigit.predict?.(same)).toBeNull();
+  });
+
+  it('a shorter number whose digits read smaller does not show the slip (PR #121 review)', () => {
+    // 12 against 130: read digit by digit, 130 still comes out greater ("12" before "130"), so
+    // "12 is greater" is some other mistake. 89 against 102 is the slip.
+    const agree = make(T.compare, compared(12, 130, 'more'));
+    expect(compareFirstDigit.predict?.(agree)).toBeNull();
+    expect(compareFirstDigit.match(agree, pick('left'))).toBe(false);
+    expect(checkResponse(agree, pick('left')).misconceptionIds).not.toContain(
+      'MC.compare-first-digit',
+    );
+    // Equal first digits, the next digit decides: 12 against 102 reads greater digit by digit.
+    expect(compareFirstDigit.predict?.(make(T.compare, compared(12, 102, 'more')))).toEqual(
+      pick('left'),
+    );
+    expect(compareFirstDigit.predict?.(make(T.compare, compared(102, 89, 'more')))).toEqual(
+      pick('right'),
+    );
   });
 
   it('is about comparing and ordering, not about a number put on a line', () => {
