@@ -46,7 +46,6 @@ import {
   frameGroupGap,
   KINDS,
   larger,
-  onesGroupGap,
   type PlanInput,
   pieceGap,
   planMat,

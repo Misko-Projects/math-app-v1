@@ -181,7 +181,8 @@ templates:
     generator: pv.regroup
     params: { n: { int: [100, 900], step: 100 }, from: regrouped, to: canonical, places: 3 }
     difficulty: { base: -3.4 }
-    narration: { prompt: tp.PV.04.t1.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
+    narration:
+      { prompt: tp.PV.04.t1.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
 
   # Unbundle: one hundred becomes ten tens.
   - id: PV.04.t2
@@ -235,7 +236,8 @@ templates:
     generator: pv.regroup
     params: { n: { int: [100, 900], step: 100 }, from: regrouped, places: 3 }
     difficulty: { base: -1.0 }
-    narration: { prompt: tp.PV.04.t6.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
+    narration:
+      { prompt: tp.PV.04.t6.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
 
   # ---------- PV.05 read and write numbers to 1000 (K02) ----------
   # Read the mat (place-value disks, 03 §5.5): a proportional picture of a number to 999 would
@@ -246,7 +248,8 @@ templates:
     tier: pictorial
     representation: base-ten
     generator: pv.number
-    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: read }
+    params:
+      { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: read }
     difficulty: { base: -1.3 }
     narration: { prompt: tp.PV.05.t1.prompt, hints: [h.pv.flat-is-hundred, h.pv.count-hundreds] }
 
@@ -256,7 +259,12 @@ templates:
     tier: pictorial
     representation: expanded
     generator: pv.number
-    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: expanded }
+    params:
+      {
+        n: { int: [100, 999] },
+        zeros: { choice: [any, internal], weights: [3, 1] },
+        mode: expanded,
+      }
     difficulty: { base: -1.2 }
     narration: { prompt: tp.PV.05.t2.prompt, hints: [h.pv.hundreds-first, h.pv.zero-holds] }
 
@@ -267,7 +275,8 @@ templates:
     tier: abstract
     representation: words
     generator: pv.number
-    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: words }
+    params:
+      { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: words }
     difficulty: { base: -1.6 }
     narration: { prompt: tp.PV.05.t3.prompt, hints: [h.pv.listen-hundreds, h.pv.zero-holds] }
 
@@ -277,7 +286,12 @@ templates:
     tier: abstract
     representation: symbols
     generator: pv.number
-    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: expanded }
+    params:
+      {
+        n: { int: [100, 999] },
+        zeros: { choice: [any, internal], weights: [3, 1] },
+        mode: expanded,
+      }
     difficulty: { base: -1.2 }
     narration: { prompt: tp.PV.05.t4.prompt, hints: [h.pv.hundreds-first, h.pv.zero-holds] }
     distractors:
@@ -291,7 +305,13 @@ templates:
     tier: abstract
     representation: symbols
     generator: pv.number
-    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: expanded, unusualOrder: true }
+    params:
+      {
+        n: { int: [100, 999] },
+        zeros: { choice: [any, internal], weights: [3, 1] },
+        mode: expanded,
+        unusualOrder: true,
+      }
     difficulty: { base: -1.7 }
     narration: { prompt: tp.PV.05.t5.prompt, hints: [h.pv.find-hundreds-part, h.pv.zero-holds] }
 
@@ -337,7 +357,8 @@ templates:
     tier: pictorial
     representation: number-line
     generator: compare.numbers
-    params: { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 1, min: 0, max: 1000, ask: fewer }
+    params:
+      { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 1, min: 0, max: 1000, ask: fewer }
     difficulty: { base: -0.9, features: { closeness: 0.5 } }
     narration: { prompt: tp.PV.06.t3.prompt, hints: [h.compare.line, h.order.smallest] }
 
@@ -347,7 +368,8 @@ templates:
     tier: abstract
     representation: symbols
     generator: compare.numbers
-    params: { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 0, min: 100, max: 999, ask: symbol }
+    params:
+      { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 0, min: 100, max: 999, ask: symbol }
     difficulty: { base: -1.6 }
     # Both sides can draw the same number (420 _ 420), so the mark hint covers =.
     narration: { prompt: tp.PV.06.t4.prompt, hints: [h.compare.hundreds, h.cmp.mark-fits] }
@@ -417,7 +439,8 @@ templates:
     generator: pv.tenmore
     params: { n: { int: [110, 889] }, delta: { choice: [10, -10, 100, -100] } }
     difficulty: { base: -1.4 }
-    narration: { prompt: tp.PV.07.t3.prompt, hints: [h.pv.one-place-changes, h.pv.tens-or-hundreds] }
+    narration:
+      { prompt: tp.PV.07.t3.prompt, hints: [h.pv.one-place-changes, h.pv.tens-or-hundreds] }
 
   # ---------- PV.09 ten ones make one ten (gateway) ----------
   - id: PV.09.t1
@@ -703,7 +726,8 @@ templates:
     tier: concrete
     representation: base-ten
     generator: pv.number
-    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: build }
+    params:
+      { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: build }
     difficulty: { base: -1.2 }
     narration: { prompt: tp.PV.15.t1.prompt, hints: [h.pv.hundreds-first, h.pv.tens-then-ones] }
 
@@ -713,7 +737,8 @@ templates:
     tier: pictorial
     representation: base-ten
     generator: pv.number
-    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: read }
+    params:
+      { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: read }
     difficulty: { base: -1.0 }
     narration: { prompt: tp.PV.15.t2.prompt, hints: [h.pv.flat-is-hundred, h.pv.count-hundreds] }
 
@@ -734,7 +759,8 @@ templates:
     tier: pictorial
     representation: expanded
     generator: pv.number
-    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: build }
+    params:
+      { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: build }
     difficulty: { base: -1.2 }
     narration: { prompt: tp.PV.15.t4.prompt, hints: [h.pv.hundreds-card, h.pv.rest-cards] }
 
@@ -744,7 +770,8 @@ templates:
     tier: abstract
     representation: symbols
     generator: pv.number
-    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: write }
+    params:
+      { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: write }
     difficulty: { base: -1.6 }
     narration: { prompt: tp.PV.15.t5.prompt, hints: [h.pv.hundreds-first, h.pv.three-places] }
 
@@ -791,7 +818,8 @@ templates:
     tier: pictorial
     representation: number-line
     generator: compare.numbers
-    params: { a: { int: [100, 900] }, b: { int: [100, 900] }, extra: 1, min: 0, max: 1000, ask: fewer }
+    params:
+      { a: { int: [100, 900] }, b: { int: [100, 900] }, extra: 1, min: 0, max: 1000, ask: fewer }
     difficulty: { base: -1.5 }
     narration: { prompt: tp.PV.17.t1.prompt, hints: [h.numberline.marked, h.compare.hundreds] }
 
@@ -801,7 +829,8 @@ templates:
     tier: abstract
     representation: symbols
     generator: compare.numbers
-    params: { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 2, min: 100, max: 999, ask: fewer }
+    params:
+      { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 2, min: 100, max: 999, ask: fewer }
     difficulty: { base: -1.4, features: { closeness: 0.5 } }
     narration: { prompt: tp.PV.17.t2.prompt, hints: [h.order.smallest, h.compare.hundreds] }
 
