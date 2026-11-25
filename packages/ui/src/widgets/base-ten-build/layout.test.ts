@@ -11,6 +11,12 @@ import {
   clampInto,
   columnPlan,
   columnWidth,
+  DISK_FLOOR,
+  DISK_MAX,
+  DISK_ROWS_MIN,
+  diskCandidates,
+  diskGap,
+  diskGroupGap,
   KINDS,
   larger,
   type MatLayoutInput,
@@ -229,9 +235,12 @@ for (const wholeIs of ['unit', 'flat'] as const) {
       engineCap('ones', wholeIs),
     );
 
-    it('is above every generator (unit: 9/10/19/99; decimals, pv.number: 9/10/10/19)', () => {
-      expect(cap).toEqual(flat ? counts(9, 14, 29, 199) : counts(9, 19, 29, 199));
+    // With all four kinds in play the whole-number mat draws place-value disks (K02), at most
+    // DISK_COLUMN_MAX (20) in a column; the decimal mat keeps its proportional pieces.
+    it('is above every generator (disks: 9/10/19/19; decimals, pv.number: 9/10/10/19)', () => {
+      expect(cap).toEqual(flat ? counts(9, 14, 29, 199) : counts(9, 20, 20, 20));
     });
+    const drawn = flat ? {} : { disks: true, units: diskCandidates() };
 
     // Every age mode and label style, all four columns full at once, beside the fullest side
     // panels: four piles (plain, or with stock tags), the goal (or none: arithmetic), and
@@ -278,7 +287,7 @@ for (const wholeIs of ['unit', 'flat'] as const) {
       (SideSpec & { crowded: boolean }) | null,
     ][] = [];
     for (const [age, k, headerWidth] of labels) {
-      const base = { ...tablet(k), headerWidth };
+      const base = { ...tablet(k), headerWidth, ...drawn };
       for (const [name, p] of panels) {
         const spec: SideSpec = { ...p, k, height: SIDE_H };
         const room = (w: number) => ({ sideMin: w, sideMax: Math.max(260, w) });
@@ -295,7 +304,7 @@ for (const wholeIs of ['unit', 'flat'] as const) {
           { ...spec, crowded: need.crowded },
         ]);
       }
-      envs.push([`${age} read`, { ...tabletRead(k), headerWidth }, null]);
+      envs.push([`${age} read`, { ...tabletRead(k), headerWidth, ...drawn }, null]);
     }
     for (const [name, env, spec] of envs) {
       it(`fits 1280 × 800 without overlap (${name})`, () => {
@@ -312,9 +321,11 @@ for (const wholeIs of ['unit', 'flat'] as const) {
         }
         for (const c of l.columns) {
           const n = cap[c.kind];
-          const box = c.kind === 'ones' ? onesFrame(l.u, l.orient) : pieceBox(c.kind, l.u);
-          // Every piece (or frame of ten ones) has its own cell, and the cells tile apart.
-          const cells = c.kind === 'ones' ? Math.ceil(n / 10) : n;
+          // Disks of every kind sit in frames of ten, as the ones do.
+          const framed = c.kind === 'ones' || !flat;
+          const box = framed ? onesFrame(l.u, l.orient, !flat) : pieceBox(c.kind, l.u);
+          // Every piece (or frame of ten ones or disks) has its own cell, and the cells tile apart.
+          const cells = framed ? Math.ceil(n / 10) : n;
           expect(c.plan.cols * c.plan.rows).toBeGreaterThanOrEqual(cells);
           expect(c.plan.w).toBeGreaterThanOrEqual(c.plan.cols * box.w);
           expect(c.plan.h).toBeGreaterThanOrEqual(c.plan.rows * box.h);
@@ -746,5 +757,80 @@ describe('readSide: the answer, the pad and check in read mode (#13)', () => {
       expect(side.compact ? 64 : 76).toBeGreaterThanOrEqual(64);
       expect(side.w).toBeGreaterThan(0);
     }
+  });
+});
+
+// ---------- place-value disks (03 §5.5, K02) ----------
+
+describe('place-value disks: a mat with hundreds in play', () => {
+  // The Practice Pier's room at 960 × 600 (858 × 358 px), beside a side panel of 156 px or more.
+  const pier = (over: Partial<MatLayoutInput> = {}): Omit<MatLayoutInput, 'kinds' | 'counts'> => ({
+    ...tablet(false),
+    units: diskCandidates(),
+    disks: true,
+    width: 846,
+    height: 270,
+    ...over,
+  });
+  const HTO = KINDS.filter((k) => k !== 'thousands');
+
+  it('tries disks from DISK_MAX down, and a disk is one size whatever its kind', () => {
+    expect(diskCandidates()[0]).toBe(DISK_MAX);
+    expect(diskCandidates()).toContain(DISK_FLOOR);
+    for (const kind of HTO) {
+      // Seven of a kind: one row of five and two more, in a frame of ten.
+      const p = columnPlan(kind, 7, 40, 300, 'loose', true);
+      expect(p).toEqual(columnPlan('ones', 7, 40, 300, 'loose', true));
+      expect(p?.w).toBe(5 * 40 + 4 * diskGap(40));
+      expect(p?.h).toBe(2 * 40 + diskGap(40));
+    }
+  });
+
+  it('nineteen disks are two tens, a gap between them', () => {
+    const p = columnPlan('tens', 19, 40, 300, 'loose', true);
+    expect(p).toMatchObject({ cols: 1, rows: 2 });
+    expect(p?.h).toBe(2 * (2 * 40 + diskGap(40)) + diskGroupGap(40));
+  });
+
+  it('keeps rows of five while the disks are DISK_ROWS_MIN or more', () => {
+    // Room to spare (1280 × 800): the largest disks, in rows of five.
+    const wide = matLayout({ kinds: HTO, counts: counts(0, 9, 9, 9), ...pier({ width: 1146 }) });
+    expect(wide.fits).toBe(true);
+    expect(wide.orient).toBe('h');
+    expect(wide.u).toBe(DISK_MAX);
+    // Tighter: rows of five still, a little smaller, rather than upright fives at full size.
+    const tighter = matLayout({ kinds: HTO, counts: counts(0, 9, 9, 9), ...pier({ width: 1000 }) });
+    expect(tighter.orient).toBe('h');
+    expect(tighter.u).toBeGreaterThanOrEqual(DISK_ROWS_MIN);
+    expect(tighter.u).toBeLessThan(DISK_MAX);
+  });
+
+  it('turns the fives upright when rows of five would be smaller than that', () => {
+    // The fullest build of a shipped template (PV.16.t1: 8 hundreds, 19 tens and 9 ones) in the
+    // pier at 960 × 600, with the trade buttons between the columns.
+    const rows = matLayout({
+      kinds: HTO,
+      counts: counts(0, 8, 19, 9),
+      ...pier({ units: [DISK_ROWS_MIN] }),
+    });
+    expect(rows.orient).toBe('v');
+    const full = matLayout({ kinds: HTO, counts: counts(0, 8, 19, 9), ...pier() });
+    expect(full.overflow).toBe(false);
+    expect(full.fits).toBe(true);
+    expect(full.orient).toBe('v');
+    expect(full.u).toBeGreaterThanOrEqual(DISK_FLOOR);
+  });
+
+  it('a mat no room can hold says so (below DISK_FLOOR)', () => {
+    const l = matLayout({ kinds: HTO, counts: counts(0, 20, 20, 20), ...pier({ width: 520 }) });
+    expect(l.fits).toBe(false);
+  });
+
+  it('ten disks gather as a ten: two rows of five, touching', () => {
+    const at = Array.from({ length: 10 }, (_, j) => bundleOffset('tens', j, 40, true));
+    expect(new Set(at.map((p) => `${p.x},${p.y}`)).size).toBe(10);
+    expect(Math.max(...at.map((p) => Math.abs(p.x)))).toBe(80);
+    expect(Math.max(...at.map((p) => Math.abs(p.y)))).toBe(20);
+    expect(bundleHalf('tens', 40, true)).toEqual({ x: 100, y: 40 });
   });
 });
