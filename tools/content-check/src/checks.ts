@@ -41,6 +41,7 @@ import {
   type ParamValue,
   type Skill,
 } from '@number-island/shared';
+import { TEMPLATE_STATS_SEEDS } from './stats';
 
 export type EngineCheckId =
   | 'V04'
@@ -52,6 +53,7 @@ export type EngineCheckId =
   | 'V18'
   | 'V21'
   | 'V22'
+  | 'V24'
   | 'V25'
   | 'V27'
   | 'V28'
@@ -76,7 +78,7 @@ export interface CompiledInput {
 export interface EngineCheckOptions {
   /** Seeds per template for the V15 property test (PR CI 100, nightly 500). */
   propertyN: number;
-  /** Seeds for the V22 statistics and V25 discrimination (03 §9.2: 500). */
+  /** Seeds for the V22 statistics and V25 discrimination (default `TEMPLATE_STATS_SEEDS`). */
   statsN?: number;
   /**
    * Run V15's difficulty-targeting property (default true). It costs about 100 targeted items per
@@ -241,7 +243,7 @@ export function parameterSpace(t: ItemTemplate): number {
 }
 
 export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions): EngineCheckResult {
-  const statsN = opts.statsN ?? 500;
+  const statsN = opts.statsN ?? TEMPLATE_STATS_SEEDS;
   const out: EngineDiagnostic[] = [];
   const err = (check: EngineCheckId, file: string, path: string, message: string) =>
     out.push({ check, severity: 'error', file, path, message });

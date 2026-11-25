@@ -21,7 +21,7 @@
 // longest line, and the workshop area exactly as large as the pier's.
 
 import * as engine from '@number-island/engine';
-import type { GeneratedItem, ItemTemplate, SkillGraph, StimulusSpec } from '@number-island/shared';
+import type { GeneratedItem, ItemTemplate, StimulusSpec } from '@number-island/shared';
 import {
   type AgeMode,
   createDemoController,
@@ -89,8 +89,7 @@ beforeAll(async () => {
     templates: graph.templates,
     narration: content.narration,
     misconceptions: content.misconceptions,
-    // None, whatever `dist/` holds: see `shippedGraph`.
-    templateStats: {},
+    templateStats: graph.templateStats,
   });
   document.documentElement.style.height = '100%';
   document.body.style.height = '100%';
@@ -109,16 +108,6 @@ afterAll(() => {
   root.unmount();
   host.remove();
 });
-
-/**
- * The skill graph as a built app has it: without template stats. A seeded lesson example aims at
- * its template's median or p10 from `template-stats.json` (03 §6.1, `runner/lesson.ts`), and that
- * file is in `dist/` only between `pnpm content:validate`, which writes it, and the next
- * `pnpm content:build`, which empties `dist/`. `pnpm build` builds the content first, so no built
- * app has the file; inside `pnpm verify` the tests run while it is there. Read from `dist/` as it
- * happens to be, the check measured other lesson items in `pnpm verify` than alone (#35).
- */
-const shippedGraph = (): SkillGraph => ({ ...content.store.graph, templateStats: {} });
 
 const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
@@ -593,7 +582,7 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
   it('each example on its widget, with the lesson controls and its longest line', async () => {
     const [width, height] = viewport.split('x').map(Number) as [number, number];
     await page.viewport(width, height);
-    const graph = shippedGraph();
+    const { graph } = content.store;
     const length = (l: SpokenLine) => planLine(content.narration, l.say, l.vars)?.text.length ?? 0;
     const failing: string[] = [];
     const notShown: string[] = [];
@@ -698,45 +687,71 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
   });
 });
 
-// A guard (#35): why `CPS.06:worked:0` gave two answers. A seeded lesson example aims at the
-// template's median difficulty from `template-stats.json` (03 §6.1), and that file is written by
-// `pnpm content:validate`, not by `pnpm content:build`. Where validate has run (`pnpm verify`, the
-// single `verify` job) the example is one item; where only the build has run (a fresh clone's
-// `pnpm dev`, `pnpm build`, a CI shard) the fallback target makes it another. Same viewport, same
-// lesson step, same code: two items, one stacked and scrolling, one fitting.
-//
-// The lesson check above measures the item without stats (`shippedGraph`). When the stats become
-// a build output, the item with stats is the one children get: it then needs a layout that fits,
-// and this test and `shippedGraph` go.
-describe('a seeded lesson example with and without template stats', () => {
-  it('CPS.06 worked 1 at 960×600 is a different item, and only one of them fits', async () => {
+// A worked step says what the demo does ("This piece fits here."), so the demo must be seen to do
+// it: after each worked step's action the widget shows something it did not show before. Held for
+// the shape widgets, whose seeded examples are other shapes and outlines now that the examples aim
+// at the built template stats (#11): a demo that could not place a piece in the new outline would
+// leave the words over an unchanged picture.
+describe('a worked step of a shape lesson changes what the widget shows', () => {
+  const SHAPES = ['shape-compose', 'shape-sort'];
+
+  it('each action of each worked example, played in order', async () => {
+    await page.viewport(960, 600);
+    const { graph } = content.store;
+    const unchanged: string[] = [];
+    let actions = 0;
+    for (const skillId of [...graph.nodes].sort()) {
+      const skill = graph.skills[skillId];
+      const lesson = skill ? buildLesson(engine, graph, skill, pierPlayable) : null;
+      if (!skill || !lesson) continue;
+      for (const example of lesson.examples) {
+        if (example.phase !== 'worked' || !SHAPES.includes(example.template.format)) continue;
+        const demo = createDemoController({ strict: true });
+        showLesson(example, skill.grade === 'K' ? 'k' : 'g1-up', { say: lesson.intro }, demo);
+        const id = `${skillId} worked ${example.example + 1} (${example.template.format})`;
+        await measure(id);
+        const widget = () =>
+          document.querySelector<HTMLElement>('[data-testid="pier-stage"] .ni-widget')?.outerHTML;
+        for (const [i, step] of example.steps.entries()) {
+          if (!step.action) continue;
+          const before = widget();
+          await demo.play(step.action);
+          await frame();
+          await frame();
+          actions += 1;
+          if (widget() === before) unchanged.push(`${id} step ${i + 1}: ${step.action.op}`);
+        }
+      }
+    }
+    console.info(`shape lessons: ${actions} worked actions played`);
+    expect(actions).toBeGreaterThan(10);
+    expect(unchanged, 'worked steps whose action left the widget as it was').toEqual([]);
+  });
+});
+
+// A guard (#35, #11): `CPS.06:worked:0` once gave two answers. A seeded lesson example aims at its
+// template's median difficulty from `template-stats.json` (03 §6.1), and that file used to be in
+// `dist/` only after `pnpm content:validate`, so the example was one item inside `pnpm verify`
+// and another in every built app. The stats are now a `pnpm content:build` output the app cannot
+// start without, so there is one item, and it must fit: the whole-5 bond that once stacked and
+// scrolled at 960 × 600.
+describe('a seeded lesson example aims at the built template stats', () => {
+  it('CPS.06 worked 1 is the median item, not the fallback one, and fits at 960×600', async () => {
     await page.viewport(960, 600);
     const { graph } = content.store;
     const skill = graph.skills['CPS.06'];
     if (!skill) throw new Error('no CPS.06');
-    // The stats `pnpm content:validate` writes for the template today (100 property seeds).
-    const stats = { min: -0.6, p10: -0.45, median: -0.01, p90: 0.25, max: 0.25, distinct: 23 };
-    const seen: Record<string, { config: string; misfit: string[]; layout: string }> = {};
-    for (const [name, templateStats] of [
-      ['without stats', {}],
-      ['with stats', { 'CPS.06.t1': stats }],
-    ] as const) {
-      const lesson = buildLesson(engine, { ...graph, templateStats }, skill, pierPlayable);
-      const example = lesson?.examples[0];
-      if (!example) throw new Error('no worked example');
-      const demo = createDemoController({ strict: false, warn: () => {} });
-      showLesson(example, 'g1-up', { say: lesson.intro }, demo);
-      const misfit = await measure(`CPS.06 ${name}`);
-      const root = document.querySelector<HTMLElement>('[data-testid="pier-stage"] .ni-bondw');
-      seen[name] = {
-        config: JSON.stringify(example.item.widget),
-        misfit,
-        layout: root?.dataset.layout ?? '',
-      };
-    }
-    console.info(`CPS.06 worked 1 at 960x600: ${JSON.stringify(seen)}`);
-    expect(seen['without stats']?.config).not.toBe(seen['with stats']?.config);
-    expect(seen['without stats']?.misfit).toEqual([]);
-    expect(seen['with stats']?.misfit).not.toEqual([]);
+    expect(Object.keys(graph.templateStats).sort()).toEqual(Object.keys(graph.templates).sort());
+    const lesson = buildLesson(engine, graph, skill, pierPlayable);
+    const example = lesson?.examples[0];
+    if (!example) throw new Error('no worked example');
+    const fallback = buildLesson(engine, { ...graph, templateStats: {} }, skill, pierPlayable);
+    expect(JSON.stringify(example.item.widget)).not.toBe(
+      JSON.stringify(fallback?.examples[0]?.item.widget),
+    );
+    expect(example.item.widget).toMatchObject({ format: 'number-bond', whole: 5 });
+    const demo = createDemoController({ strict: false, warn: () => {} });
+    showLesson(example, 'g1-up', { say: lesson.intro }, demo);
+    expect(await measure('CPS.06 worked 1')).toEqual([]);
   });
 });

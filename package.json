@@ -21,7 +21,7 @@
     "test": "pnpm browsers && vitest run",
     "test:watch": "vitest",
     "test:sim": "pnpm --filter @number-island/engine test:sim",
-    "content:build": "pnpm --filter @number-island/content build",
+    "content:build": "pnpm --filter @number-island/content-check build",
     "content:validate": "pnpm --filter @number-island/content validate && pnpm --filter @number-island/content-check check",
     "content:sample": "pnpm --filter @number-island/content-check sample",
     "e2e": "pnpm browsers && playwright test -c e2e/playwright.config.ts",

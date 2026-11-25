@@ -3,7 +3,7 @@
 // fresh fake IndexedDB per test, and a deterministic clock and id generator.
 
 import { compileContent } from '@number-island/content';
-import { readContentFiles } from '@number-island/content/node';
+import { readBuiltTemplateStats, readContentFiles } from '@number-island/content/node';
 import { buildSkillGraph } from '@number-island/engine';
 import type { AnyEventEnvelope, ChildProfile } from '@number-island/shared';
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
@@ -30,6 +30,8 @@ function compileFixture(): StoreContent {
       skills: result.content.skills,
       templates: result.content.templates,
       graph: result.content.graph,
+      // The stats the build ships (03 §6.1: seeded lesson examples aim at them).
+      templateStats: JSON.parse(readBuiltTemplateStats(result.contentVersion)),
     }),
   };
 }

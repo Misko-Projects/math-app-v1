@@ -14,7 +14,7 @@ import {
   withInviteRoom,
   zoomed,
 } from '../kit';
-import { poolColumns } from './bond';
+import { partColumns, poolColumns } from './bond';
 
 /**
  * The number-bond layout (06 §1: container-relative), pure arithmetic over the widget's room;
@@ -23,6 +23,10 @@ import { poolColumns } from './bond';
  * 1. everything at once (the bond's circles as large as fit, down to a full target);
  * 2. `steps`: the bond with Next, then the answer step (the numeral answer with Back and Check,
  *    and a small static bond when it fits), when the answer doesn't fit beside the bond.
+ * 3. `fold` (concrete): where neither fits, the same two with the parts' pools folded to half the
+ *    columns. One row of five 64 px counters a part makes the bond 804 px wide, so at 960 × 600
+ *    the found ways and Check could only go below it and the area scrolled; folded, the bond is
+ *    narrow enough for them to stand beside it. Nothing is drawn smaller.
  */
 
 export const LAYOUT_GAP = 24;
@@ -60,6 +64,8 @@ export interface BondPlan {
   spread: number;
   /** Concrete: each pool's edge (padding + border) at zoom 1, one of POOL_EDGES. */
   edge: number;
+  /** Concrete: the parts' pools at half their columns (`partColumns`). */
+  fold: boolean;
   arrangement: Arrangement;
   /** The answer beside the bond (null: none, or it waits for the answer step). */
   entry: EntryLayout | null;
@@ -98,8 +104,12 @@ export const minCircle = (biggest: number, ageMode: AgeMode) =>
 export const circleFont = (c: number, biggest: number) =>
   Math.min(72, Math.round(c * (String(biggest).length >= 3 ? 0.32 : 0.5)));
 
-export function poolSize(t: number, cap: number, edge: number = POOL_EDGE): Size {
-  const cols = poolColumns(cap);
+export function poolSize(
+  t: number,
+  cap: number,
+  edge: number = POOL_EDGE,
+  cols: number = poolColumns(cap),
+): Size {
   const rows = Math.max(1, Math.ceil(cap / cols));
   const g = TARGET_GAP_PX;
   return {
@@ -126,10 +136,11 @@ export interface PoolsLayout {
  * top corners (a blank part's badge, a full-size button, stands clear above its pool). A blank
  * badge is a full target (--target-min) at least 12 px from every pool.
  */
-export function poolsBox(input: BondInput, edge: number = POOL_EDGE): PoolsLayout {
+export function poolsBox(input: BondInput, edge: number = POOL_EDGE, fold = false): PoolsLayout {
   const t = MIN_TARGET_PX[input.ageMode];
   const whole = poolSize(t, input.caps[0], edge);
-  const part = poolSize(t, Math.max(input.caps[1], input.caps[2]), edge);
+  const partCap = Math.max(input.caps[1], input.caps[2]);
+  const part = poolSize(t, partCap, edge, partColumns(partCap, fold));
   const size = (slot: 'whole' | 'part-0' | 'part-1') => (input.blank === slot ? t : BADGE);
   const gap = TARGET_GAP_PX;
   const partBlank = input.blank === 'part-0' || input.blank === 'part-1';
@@ -192,13 +203,21 @@ function circles(input: BondInput): number[] {
   return [...new Set([1.9 * t, 1.6 * t, 1.35 * t, min].map((c) => Math.max(min, Math.round(c))))];
 }
 
-const mainSize = (input: BondInput, c: number, spread: number, edge: number) =>
-  input.concrete ? poolsBox(input, edge).size : bondSize(c, spread);
+const mainSize = (input: BondInput, c: number, spread: number, edge: number, fold: boolean) =>
+  input.concrete ? poolsBox(input, edge, fold).size : bondSize(c, spread);
 
 export const miniC = (biggest: number) => (String(biggest).length >= 3 ? 100 : 64);
 
 /** The layout for `room` (Infinity height: the host grows with the widget). */
 export function planBond(input: BondInput, room: Size): BondPlan {
+  const flat = planWith(input, room, false);
+  if (flat.over === 0 || !input.concrete) return flat.plan;
+  const folded = planWith(input, room, true);
+  return folded.over < flat.over ? folded.plan : flat.plan;
+}
+
+/** The best layout with the parts' pools flat or folded, and how far it overflows `room`. */
+function planWith(input: BondInput, room: Size, fold: boolean): { plan: BondPlan; over: number } {
   const found = foundSize(input.found);
   const handRoom = withInviteRoom(room);
   const spreads: readonly number[] = input.concrete ? [BOND_W] : BOND_SPREADS;
@@ -222,6 +241,7 @@ export function planBond(input: BondInput, room: Size): BondPlan {
                   c,
                   spread,
                   edge,
+                  fold,
                   arrangement,
                   entry,
                   ask: null,
@@ -234,7 +254,7 @@ export function planBond(input: BondInput, room: Size): BondPlan {
                   sizeAt: (z) =>
                     arrangedSize(
                       arrangement,
-                      sc(mainSize(input, c, spread, edge), z),
+                      sc(mainSize(input, c, spread, edge, fold), z),
                       [sc(found, z), sc(e, z), sc(act(input.button, 1, 'row'), z)],
                       LAYOUT_GAP,
                     ),
@@ -247,7 +267,8 @@ export function planBond(input: BondInput, room: Size): BondPlan {
     }
   }
   const all = pickByFill(together(), room, handRoom);
-  if (all.over === 0 || input.askMax === null) return { ...all.item, zoom: all.zoom };
+  const together1 = { plan: { ...all.item, zoom: all.zoom }, over: all.over };
+  if (all.over === 0 || input.askMax === null) return together1;
   // 2. Steps: the bond, then the answer. The concrete bond's blank badge opens the answer step
   // itself: no Next beside it.
   const next = input.concrete && input.blank ? null : act(input.button, 1, 'row');
@@ -264,7 +285,7 @@ export function planBond(input: BondInput, room: Size): BondPlan {
               sizeAt: (z) =>
                 arrangedSize(
                   arrangement,
-                  sc(mainSize(input, c, spread, edge), z),
+                  sc(mainSize(input, c, spread, edge, fold), z),
                   [sc(found, z), sc(next, z)],
                   LAYOUT_GAP,
                 ),
@@ -309,11 +330,13 @@ export function planBond(input: BondInput, room: Size): BondPlan {
     c: build.item.c,
     spread: build.item.spread,
     edge: build.item.edge,
+    fold,
     arrangement: build.item.arrangement,
     entry: null,
     ask: ask.item,
     zoom: build.zoom,
     askZoom: ask.zoom,
   };
-  return build.over + ask.over <= all.over ? plan : { ...all.item, zoom: all.zoom };
+  const over = build.over + ask.over;
+  return over <= all.over ? { plan, over } : together1;
 }

@@ -37,6 +37,7 @@ import {
   isSlot,
   missingSlot,
   movesToSplit,
+  partColumns,
   poolColumns,
   type Slot,
   splitResponse,
@@ -618,7 +619,7 @@ export function NumberBondWidget({
   // ---------- render: the concrete bond (pools of counters) ----------
 
   const renderPools = () => {
-    const box = scalePools(poolsBox(input, plan.edge), zoom);
+    const box = scalePools(poolsBox(input, plan.edge, plan.fold), zoom);
     const centre = (slot: Slot) => box.pools[slot].x + box.pools[slot].w / 2;
     const badgeOf = (slot: Slot) => {
       const known = given(config, slot);
@@ -676,7 +677,7 @@ export function NumberBondWidget({
                   top: pool.y,
                   width: pool.w,
                   height: pool.h,
-                  '--pool-cols': poolColumns(cap),
+                  '--pool-cols': slot === 'whole' ? poolColumns(cap) : partColumns(cap, plan.fold),
                 } as CSSProperties
               }
             >

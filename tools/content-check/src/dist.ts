@@ -1,6 +1,6 @@
 // Reads the compiled content from packages/content/dist (written by `pnpm content:build`).
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileContent, formatDiagnostic } from '@number-island/content';
@@ -50,21 +50,8 @@ export function compileInMemory(): CompiledInput {
   };
 }
 
-/** Canonical JSON (sorted keys) so the file is byte-stable across runs. */
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.keys(value)
-        .sort()
-        .map((k) => [k, canonical((value as Record<string, unknown>)[k])]),
-    );
-  }
-  return value;
-}
-
-export function writeDistJson(name: string, value: unknown): string {
+/** The exact bytes of a built `dist/` file, or null when it is not there. */
+export function readDistText(name: string): string | null {
   const file = join(DIST_DIR, name);
-  writeFileSync(file, `${JSON.stringify(canonical(value))}\n`, 'utf8');
-  return file;
+  return existsSync(file) ? readFileSync(file, 'utf8') : null;
 }

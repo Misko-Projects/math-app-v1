@@ -138,9 +138,8 @@ export interface LessonFitException {
  * fixes its own numbers (03 §6.1). The check fails when a listed example fits again, or when
  * another one stops fitting. The fix belongs to the widget (#20 part 3 does not change widgets).
  *
- * The examples are the ones a built app shows: generated without `template-stats.json`, which no
- * build ships (see `shippedGraph` in the fit check). With the stats, `CPS.06:worked:0` is another
- * item (whole 5, one way found) and is 40 to 64 px too tall at 960 × 600.
+ * The examples are the ones every build shows: seeded examples aim at the template stats that
+ * `pnpm content:build` writes (03 §6.1).
  */
 export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [
   {

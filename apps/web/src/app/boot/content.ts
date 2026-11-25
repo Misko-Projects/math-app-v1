@@ -17,7 +17,11 @@ import type { StoreContent } from '@/data/projections';
 
 export const CONTENT_INDEX_URL = '/content/index.json';
 
-/** Files the app needs to start. `template-stats.json` is optional (written by content:validate). */
+/**
+ * Files the app needs to start, all written by `pnpm content:build`. `template-stats.json` is
+ * among them: a seeded lesson example aims at its template's p10 or median (03 §6.1), so an app
+ * without the file would show other examples than the content defines.
+ */
 const REQUIRED_FILES = [
   'game.json',
   'graph.json',
@@ -25,8 +29,8 @@ const REQUIRED_FILES = [
   'skills.json',
   'templates.json',
   'misconceptions.json',
+  'template-stats.json',
 ];
-const OPTIONAL_FILES = ['template-stats.json'];
 
 export interface AppContent {
   contentVersion: string;
@@ -110,10 +114,12 @@ export async function loadContent(fetchImpl: FetchLike = globalThis.fetch): Prom
       throw new ContentLoadError('invalid', `${CONTENT_INDEX_URL} does not list ${name}`);
     }
   }
-  const wanted = [...REQUIRED_FILES, ...OPTIONAL_FILES.filter((n) => index.files[n])];
   const raw = Object.fromEntries(
     await Promise.all(
-      wanted.map(async (name) => [name, await getJson(fetchImpl, index.files[name] as string)]),
+      REQUIRED_FILES.map(async (name) => [
+        name,
+        await getJson(fetchImpl, index.files[name] as string),
+      ]),
     ),
   ) as Record<string, unknown>;
 
@@ -138,12 +144,14 @@ export async function loadContent(fetchImpl: FetchLike = globalThis.fetch): Prom
     }
     return g as unknown as Parameters<typeof buildSkillGraph>[0]['graph'];
   });
-  // Optional, but when the index lists it, it must be an object of per-template stats.
+  // Every template has an entry; the entries' shape is checked with the graph below.
   const templateStats = parse('template-stats.json', () => {
-    if (!('template-stats.json' in raw)) return undefined;
     const t = raw['template-stats.json'];
     if (!t || typeof t !== 'object' || Array.isArray(t)) throw new Error('not a stats object');
-    return t as Parameters<typeof buildSkillGraph>[0]['templateStats'];
+    const stats = t as NonNullable<Parameters<typeof buildSkillGraph>[0]['templateStats']>;
+    const missing = templates.find((x) => !(x.id in stats));
+    if (missing) throw new Error(`no stats for template ${missing.id}`);
+    return stats;
   });
   // Build, then check the result against the shared schema (depth maps, gateways, template stats).
   const skillGraph = parse('the skill graph', () =>
@@ -153,7 +161,7 @@ export async function loadContent(fetchImpl: FetchLike = globalThis.fetch): Prom
         skills,
         templates,
         graph,
-        ...(templateStats !== undefined ? { templateStats } : {}),
+        templateStats,
       }),
     ),
   );

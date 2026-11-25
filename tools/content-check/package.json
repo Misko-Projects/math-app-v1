@@ -7,6 +7,7 @@
     ".": "./src/checks.ts"
   },
   "scripts": {
+    "build": "tsx src/build-cli.ts",
     "check": "tsx src/cli.ts",
     "sample": "tsx src/sample.ts"
   },
