@@ -6,14 +6,44 @@ import type { CSSProperties, ReactNode } from 'react';
  * flats and rods, unit squares and a thousands cube with a top and a side face. The size comes
  * from the `--u` (unit edge) and `--d` (cube depth) custom properties of an ancestor, or `u`.
  */
-export function PieceArt({ kind, u }: { kind: PieceKind; u?: number }) {
+export function PieceArt({ kind, u, disk }: { kind: PieceKind; u?: number; disk?: boolean }) {
   const style =
     u === undefined ? undefined : ({ '--u': `${u}px`, '--d': `${u * 3}px` } as CSSProperties);
+  if (disk) {
+    return (
+      <span
+        className="ni-btb__art ni-btb__art--disk"
+        data-kind={kind}
+        style={style}
+        aria-hidden="true"
+      >
+        {DISK_LABEL[kind]}
+      </span>
+    );
+  }
   return <span className={`ni-btb__art ni-btb__art--${kind}`} style={style} aria-hidden="true" />;
 }
 
+/**
+ * What a place-value disk says (03 §5.5, K02): its value. A mat with hundreds in play draws every
+ * piece as a disk of one size, in `--u` (the diameter), one colour per place.
+ */
+export const DISK_LABEL: Record<PieceKind, string> = {
+  thousands: '1000',
+  hundreds: '100',
+  tens: '10',
+  ones: '1',
+};
+
 /** What a tray pile shows: a few pieces of its kind (a supply picture, not a count). */
-export function PileArt({ kind }: { kind: PieceKind }) {
+export function PileArt({ kind, disk }: { kind: PieceKind; disk?: boolean }) {
+  if (disk) {
+    return (
+      <span className="ni-btb__pileart ni-btb__pileart--disk" aria-hidden="true">
+        <PieceArt kind={kind} u={44} disk />
+      </span>
+    );
+  }
   switch (kind) {
     case 'ones':
       return (

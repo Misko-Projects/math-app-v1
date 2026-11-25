@@ -271,7 +271,8 @@ export const pvRegroup: GeneratorDef = {
         };
         break;
       case 'base-ten-build': {
-        const withHundreds = asNum(params.places, 2) === 3 || n >= 100;
+        const threePlaces = asNum(params.places, 2) === 3;
+        const withHundreds = threePlaces || n >= 100;
         const exact = {
           ...(withHundreds ? { hundreds: to.hundreds } : {}),
           tens: to.tens,
@@ -286,7 +287,17 @@ export const pvRegroup: GeneratorDef = {
             format: 'base-ten-build',
             target: n,
             mode: 'build-exact',
-            pieces: { thousands: false, hundreds: withHundreds, tens: true, ones: true },
+            // K02: a three-place mat's tray offers only the kind the trades use up. A kind that
+            // never has a piece in the tray gets no pile (two piles marked "0 left" would take the
+            // room the hundreds, tens and ones columns need); it is still a column of the mat.
+            pieces: threePlaces
+              ? {
+                  thousands: false,
+                  hundreds: limits.hundreds !== 0,
+                  tens: limits.tens !== 0,
+                  ones: limits.ones !== 0,
+                }
+              : { thousands: false, hundreds: withHundreds, tens: true, ones: true },
             limits,
             exact,
             wholeIs: 'unit',

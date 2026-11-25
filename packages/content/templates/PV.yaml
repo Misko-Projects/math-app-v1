@@ -542,14 +542,15 @@ templates:
     difficulty: { base: -2.4 }
     narration: { prompt: tp.PV.12.t2.prompt, hints: [h.pv.ten-ones-bundle, h.pv.same-number] }
 
-  # The place-value chart: 3 tens 4 ones becomes 2 tens 14 ones.
+  # The place-value chart: 3 tens 4 ones becomes 2 tens 14 ones. To 69: six proportional rods, 19
+  # ones and the goal's two-digit chip are what the mat holds in the smallest room (960 × 600).
   - id: PV.12.t3
     skillId: PV.12
     format: base-ten-trade
     tier: pictorial
     representation: pv-chart
     generator: pv.regroup
-    params: { n: { int: [21, 99] }, from: canonical, to: regrouped }
+    params: { n: { int: [21, 69] }, from: canonical, to: regrouped }
     difficulty: { base: -0.9 }
     narration: { prompt: tp.PV.12.t3.prompt, hints: [h.pv.split-rod, h.pv.same-number] }
 

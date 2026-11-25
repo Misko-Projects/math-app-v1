@@ -106,16 +106,20 @@ export const MAT_MAX_FLAT: Readonly<Pieces> = { thousands: 9, hundreds: 14, tens
 
 /**
  * Whether the mat draws place-value disks (place-value.ts): hundreds are in play, that is the tray
- * offers flats or cubes, or some start on the mat. The decimal mat (`wholeIs: 'flat'`) keeps its
+ * offers flats or cubes, some start on the mat, or the item asks for some (`exact`). The decimal mat (`wholeIs: 'flat'`) keeps its
  * proportional pieces: there the flat is one whole and its size is the meaning.
  */
-export function buildShowsDisks(c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt'>): boolean {
+export function buildShowsDisks(
+  c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt' | 'exact'>,
+): boolean {
   if (c.wholeIs === 'flat') return false;
   return (
     c.pieces.hundreds ||
     c.pieces.thousands ||
     (c.prebuilt?.hundreds ?? 0) > 0 ||
-    (c.prebuilt?.thousands ?? 0) > 0
+    (c.prebuilt?.thousands ?? 0) > 0 ||
+    // Ten tens to be joined into a hundred that the tray never offers (pv.regroup).
+    (c.exact?.hundreds ?? 0) > 0
   );
 }
 
@@ -128,7 +132,9 @@ export const MAT_MAX_DISKS: Readonly<Pieces> = {
 };
 
 /** The cap for an item's mat. */
-export const matMax = (c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt'>): Readonly<Pieces> =>
+export const matMax = (
+  c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt' | 'exact'>,
+): Readonly<Pieces> =>
   c.wholeIs === 'flat' ? MAT_MAX_FLAT : buildShowsDisks(c) ? MAT_MAX_DISKS : MAT_MAX;
 
 /**
@@ -181,7 +187,7 @@ export function overfullKinds(c: Config): { kind: PieceKind; path: string[]; nee
 }
 
 /** The largest target of an item: what a mat full to its cap (matMax) is worth, in ones. */
-export const targetMax = (c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt'>): number =>
+export const targetMax = (c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt' | 'exact'>): number =>
   piecesValue(matMax(c));
 
 /**

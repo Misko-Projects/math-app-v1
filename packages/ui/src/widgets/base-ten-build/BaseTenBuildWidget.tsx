@@ -1,5 +1,6 @@
 import {
   type BaseTenBuildState,
+  buildShowsDisks,
   canonicalPieces,
   formatModel,
   PIECE_VALUE,
@@ -40,6 +41,9 @@ import {
   bundleOffset,
   clampInto,
   cubeDepth,
+  diskCandidates,
+  frameGap,
+  frameGroupGap,
   KINDS,
   larger,
   onesGroupGap,
@@ -195,6 +199,27 @@ function neededKinds(config: Config): PieceKind[] {
       if (n > 0) out.push(k);
       rest -= n * PIECE_VALUE[k];
     }
+  }
+  return out;
+}
+
+/**
+ * The most pieces of each kind an item's start and its answer put on the mat (place-value disks
+ * are sized for these, so they do not change size as the child builds): the prebuilt pieces, and
+ * the target's own pieces or, for `build-exact`, the named counts and the fewest pieces of the
+ * rest. A `read` shows its prebuilt pieces only.
+ */
+function plannedPieces(config: Config): Record<PieceKind, number> {
+  const out = { thousands: 0, hundreds: 0, tens: 0, ones: 0, ...config.prebuilt };
+  if (config.mode === 'read') return out;
+  const exact = config.mode === 'build-exact' ? (config.exact ?? {}) : {};
+  let rest = config.target;
+  for (const k of ['hundreds', 'tens', 'ones'] as const) rest -= (exact[k] ?? 0) * PIECE_VALUE[k];
+  for (const k of KINDS) {
+    const named = k === 'thousands' ? undefined : exact[k];
+    const n = named ?? Math.floor(Math.max(0, rest) / PIECE_VALUE[k]);
+    if (named === undefined) rest -= n * PIECE_VALUE[k];
+    out[k] = Math.max(out[k], n);
   }
   return out;
 }
@@ -372,6 +397,9 @@ export function BaseTenBuildWidget({
 
   const read = config.mode === 'read';
   const decimal = config.wholeIs === 'flat';
+  // Hundreds in play: every piece is a place-value disk (03 §5.5, K02).
+  const disks = buildShowsDisks(config);
+  const diskPlan = plannedPieces(config);
 
   const [state, setState] = useState<State>(() => initial(config));
   const stateRef = useRef(state);
@@ -596,7 +624,8 @@ export function BaseTenBuildWidget({
   };
   const baseSideMin = kMode ? 150 : 156;
   const matInput = {
-    units: unitCandidates(kMode),
+    units: disks ? diskCandidates() : unitCandidates(kMode),
+    disks,
     // Half a px of slack: computed widths are fractional.
     width: avail - 0.5,
     height: bodyH,
@@ -616,7 +645,15 @@ export function BaseTenBuildWidget({
     mat: matInput,
     side: read ? { fixed: padSide } : { spec: sideSpec, min: baseSideMin },
   };
-  const { layout, side } = planMat(planInput.current, kinds, state.mat);
+  // Disks keep one size through the item: the mat is planned for the fullest columns its start
+  // and its answer need (a mat the child fills further is planned again, as it is).
+  const planCounts = disks
+    ? (Object.fromEntries(KINDS.map((k) => [k, Math.max(state.mat[k], diskPlan[k])])) as Record<
+        PieceKind,
+        number
+      >)
+    : state.mat;
+  const { layout, side } = planMat(planInput.current, kinds, planCounts);
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const u = layout.u;
@@ -662,7 +699,7 @@ export function BaseTenBuildWidget({
     };
     // The bundle stays on the board (inside its wooden frame).
     const c = boardBox
-      ? clampInto(mid, bundleHalf(kind, unit), {
+      ? clampInto(mid, bundleHalf(kind, unit, disks), {
           left: boardBox.left + 12,
           top: boardBox.top + 12,
           right: boardBox.right - 12,
@@ -671,7 +708,7 @@ export function BaseTenBuildWidget({
       : mid;
     const gather = els.map((el, j) => {
       const from = centers[j] as { x: number; y: number };
-      const off = bundleOffset(kind, j, unit);
+      const off = bundleOffset(kind, j, unit, disks);
       el.style.zIndex = '3';
       return animate(
         el,
@@ -776,7 +813,7 @@ export function BaseTenBuildWidget({
     const news = pieceEls(down).slice(first, first + 10);
     const spread = news.map((n, j) => {
       const p = centerOf(n.getBoundingClientRect());
-      const off = bundleOffset(down, j, unit);
+      const off = bundleOffset(down, j, unit, disks);
       n.style.zIndex = '3';
       return animate(
         n,
@@ -1070,7 +1107,7 @@ export function BaseTenBuildWidget({
         data-last={!read && i === state.mat[kind] - 1 ? 'true' : undefined}
         {...marks}
       >
-        <PieceArt kind={kind} />
+        <PieceArt kind={kind} disk={disks} />
       </span>
     );
   };
@@ -1125,7 +1162,7 @@ export function BaseTenBuildWidget({
         }}
       >
         <span className={`ni-btb__lift ni-btb__piece--${kind}`} aria-hidden="true">
-          <PieceArt kind={kind} />
+          <PieceArt kind={kind} disk={disks} />
         </span>
       </span>
     );
@@ -1143,7 +1180,7 @@ export function BaseTenBuildWidget({
     const n = state.mat[kind];
     const plan = layout.columns.find((c) => c.kind === kind)?.plan ?? { cols: 1, rows: 1 };
     const pieces = Array.from({ length: n }, (_, i) => renderPiece(kind, i));
-    if (kind !== 'ones') {
+    if (kind !== 'ones' && !disks) {
       // Rows of pieces: rods lie side by side like a bundle of sticks, flats in a grid.
       return chunks(pieces, plan.cols).map((row, r) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
@@ -1152,7 +1189,8 @@ export function BaseTenBuildWidget({
         </span>
       ));
     }
-    // Ones sit in frames of ten (rows or columns of five), stacked top to bottom in reading order.
+    // Ones (and every kind of disk) sit in frames of ten (rows or columns of five), stacked top
+    // to bottom in reading order.
     const frames = chunks(pieces, 10).map((group, f) => (
       // biome-ignore lint/suspicious/noArrayIndexKey: frame f holds ones 10f to 10f + 9
       <span key={f} className="ni-btb__frame" data-orient={layout.orient}>
@@ -1201,10 +1239,10 @@ export function BaseTenBuildWidget({
     '--u': `${u}px`,
     '--d': `${cubeDepth(u)}px`,
     '--rod-hit': `${rodHit(u)}px`,
-    '--gap-ones': `${pieceGap('ones', u)}px`,
+    '--gap-ones': `${frameGap(u, disks)}px`,
     '--gap-tens': `${pieceGap('tens', u)}px`,
     '--gap-big': `${pieceGap('hundreds', u)}px`,
-    '--gap-frames': `${onesGroupGap(u)}px`,
+    '--gap-frames': `${frameGroupGap(u, disks)}px`,
     '--frame': `${FRAME}px`,
     '--inset': `${INSET}px`,
     '--body-pad': `${BODY_PAD}px`,
@@ -1278,6 +1316,7 @@ export function BaseTenBuildWidget({
         ref={rootRef}
         className="ni-btb"
         data-mode="read"
+        data-pieces={disks ? 'disks' : undefined}
         data-tier={tier}
         data-disabled={disabled ? 'true' : undefined}
         style={rootStyle}
@@ -1387,7 +1426,11 @@ export function BaseTenBuildWidget({
           ×
         </span>
         <span className="ni-btb__exactart" data-kind={k}>
-          <PieceArt kind={k} u={compact ? (k === 'ones' ? 22 : 5) : k === 'ones' ? 26 : 6.5} />
+          {disks ? (
+            <PieceArt kind={k} u={compact ? 26 : 30} disk />
+          ) : (
+            <PieceArt kind={k} u={compact ? (k === 'ones' ? 22 : 5) : k === 'ones' ? 26 : 6.5} />
+          )}
         </span>
       </button>
     );
@@ -1450,7 +1493,7 @@ export function BaseTenBuildWidget({
           >
             <span className="ni-btb__slot ni-btb__pileslot">
               <span className="ni-btb__pile" data-kind={k} data-m={`tile-${k}`}>
-                <PileArt kind={k} />
+                <PileArt kind={k} disk={disks} />
                 {Number.isFinite(supply)
                   ? stockTag(n, supply <= 0, t('ui.widget.btb.left', { n }))
                   : null}
@@ -1470,6 +1513,7 @@ export function BaseTenBuildWidget({
       ref={rootRef}
       className="ni-btb"
       data-mode={config.mode}
+      data-pieces={disks ? 'disks' : undefined}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
       style={rootStyle}
@@ -1535,7 +1579,7 @@ export function BaseTenBuildWidget({
                     data-kind={k}
                     data-empty={off ? 'true' : undefined}
                   >
-                    <PileArt kind={k} />
+                    <PileArt kind={k} disk={disks} />
                     {limited ? stockTag(n, empty, left) : null}
                   </span>
                 </span>
