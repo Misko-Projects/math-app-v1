@@ -21,7 +21,7 @@
 // longest line, and the workshop area exactly as large as the pier's.
 
 import * as engine from '@number-island/engine';
-import type { GeneratedItem, ItemTemplate, StimulusSpec } from '@number-island/shared';
+import type { GeneratedItem, ItemTemplate, SkillGraph, StimulusSpec } from '@number-island/shared';
 import {
   type AgeMode,
   createDemoController,
@@ -89,7 +89,8 @@ beforeAll(async () => {
     templates: graph.templates,
     narration: content.narration,
     misconceptions: content.misconceptions,
-    templateStats: graph.templateStats,
+    // None, whatever `dist/` holds: see `shippedGraph`.
+    templateStats: {},
   });
   document.documentElement.style.height = '100%';
   document.body.style.height = '100%';
@@ -108,6 +109,16 @@ afterAll(() => {
   root.unmount();
   host.remove();
 });
+
+/**
+ * The skill graph as a built app has it: without template stats. A seeded lesson example aims at
+ * its template's median or p10 from `template-stats.json` (03 §6.1, `runner/lesson.ts`), and that
+ * file is in `dist/` only between `pnpm content:validate`, which writes it, and the next
+ * `pnpm content:build`, which empties `dist/`. `pnpm build` builds the content first, so no built
+ * app has the file; inside `pnpm verify` the tests run while it is there. Read from `dist/` as it
+ * happens to be, the check measured other lesson items in `pnpm verify` than alone (#35).
+ */
+const shippedGraph = (): SkillGraph => ({ ...content.store.graph, templateStats: {} });
 
 const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
@@ -582,7 +593,7 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
   it('each example on its widget, with the lesson controls and its longest line', async () => {
     const [width, height] = viewport.split('x').map(Number) as [number, number];
     await page.viewport(width, height);
-    const { graph } = content.store;
+    const graph = shippedGraph();
     const length = (l: SpokenLine) => planLine(content.narration, l.say, l.vars)?.text.length ?? 0;
     const failing: string[] = [];
     const notShown: string[] = [];
@@ -687,12 +698,16 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
   });
 });
 
-// Diagnosis (#35): why `CPS.06:worked:0` gave two answers. A seeded lesson example aims at the
+// A guard (#35): why `CPS.06:worked:0` gave two answers. A seeded lesson example aims at the
 // template's median difficulty from `template-stats.json` (03 §6.1), and that file is written by
 // `pnpm content:validate`, not by `pnpm content:build`. Where validate has run (`pnpm verify`, the
 // single `verify` job) the example is one item; where only the build has run (a fresh clone's
 // `pnpm dev`, `pnpm build`, a CI shard) the fallback target makes it another. Same viewport, same
 // lesson step, same code: two items, one stacked and scrolling, one fitting.
+//
+// The lesson check above measures the item without stats (`shippedGraph`). When the stats become
+// a build output, the item with stats is the one children get: it then needs a layout that fits,
+// and this test and `shippedGraph` go.
 describe('a seeded lesson example with and without template stats', () => {
   it('CPS.06 worked 1 at 960×600 is a different item, and only one of them fits', async () => {
     await page.viewport(960, 600);

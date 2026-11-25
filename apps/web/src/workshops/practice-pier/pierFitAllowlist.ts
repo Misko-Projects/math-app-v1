@@ -137,6 +137,10 @@ export interface LessonFitException {
  * Lesson examples that do not fit the area though their template's first seed does: a lesson
  * fixes its own numbers (03 §6.1). The check fails when a listed example fits again, or when
  * another one stops fitting. The fix belongs to the widget (#20 part 3 does not change widgets).
+ *
+ * The examples are the ones a built app shows: generated without `template-stats.json`, which no
+ * build ships (see `shippedGraph` in the fit check). With the stats, `CPS.06:worked:0` is another
+ * item (whole 5, one way found) and is 40 to 64 px too tall at 960 × 600.
  */
 export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [
   {
@@ -144,12 +148,6 @@ export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [
     at: SMALL,
     reason:
       'tap-count, K, eight scattered objects to count by tapping: the scatter of 80 px targets is 451 px tall and the area has 366 at 960 × 600, so the area scrolls (it fits at 1280 × 800). The same limit as the CNT.03.t1 seeds listed above; fix: a wider, shorter scatter for tappable sets in short areas.',
-  },
-  {
-    example: 'CPS.06:worked:0',
-    at: SMALL,
-    reason:
-      'number-bond, new-way with ways already found (whole 5): the bond is 212 px tall and the row of found ways 186 px, stacked to 422 px in a 358 px area at 960 × 600, so the area scrolls (it fits at 1280 × 800); fix: the found ways beside the bond in short areas.',
   },
   {
     example: 'CPS.06:faded:0',
