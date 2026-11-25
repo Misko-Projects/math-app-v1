@@ -46,9 +46,10 @@ const messages = (format: 'base-ten-build' | 'base-ten-trade' | 'expanded-form',
 };
 
 describe('base-ten-build: supported domain', () => {
-  // With flats or cubes in play the mat draws place-value disks (K02): MAT_MAX_DISKS. A mat of
-  // tens and ones keeps its proportional pieces: MAT_MAX.
+  // A mat to 999 with hundreds in play draws place-value disks (K02): MAT_MAX_DISKS. A mat of
+  // tens and ones, and one with thousands, keep their proportional pieces: MAT_MAX.
   const ALL = { thousands: true, hundreds: true, tens: true, ones: true };
+  const HTO = { thousands: false, hundreds: true, tens: true, ones: true };
   const TENS_ONES = { thousands: false, hundreds: false, tens: true, ones: true };
   const build = (over: Partial<Build>): Build => ({
     format: 'base-ten-build',
@@ -61,23 +62,38 @@ describe('base-ten-build: supported domain', () => {
   const read = (prebuilt: NonNullable<Build['prebuilt']>, target: number): Build =>
     build({ mode: 'read', target, prebuilt });
 
-  it('hundreds in play draw disks; tens and ones, and the decimal mat, keep their pieces', () => {
-    expect(buildShowsDisks(build({}))).toBe(true);
-    expect(buildShowsDisks(build({ pieces: { ...TENS_ONES, thousands: true } }))).toBe(true);
+  it('hundreds in play draw disks; thousands, tens and ones, and decimals keep their pieces', () => {
+    expect(buildShowsDisks(build({ pieces: HTO }))).toBe(true);
     expect(buildShowsDisks(build({ pieces: TENS_ONES }))).toBe(false);
     // Ten rods worth 100 with no flat to make (bond.parts): still rods.
     expect(buildShowsDisks(build({ pieces: TENS_ONES, target: 100 }))).toBe(false);
+    // A flat on the mat at the start, or asked for (ten tens joined, pv.regroup).
     expect(
       buildShowsDisks(
         build({ pieces: TENS_ONES, mode: 'read', target: 120, prebuilt: hto0(1, 2, 0) }),
       ),
     ).toBe(true);
-    expect(buildShowsDisks(build({ wholeIs: 'flat' }))).toBe(false);
-    expect(matMax(build({}))).toBe(MAT_MAX_DISKS);
+    expect(
+      buildShowsDisks(
+        build({
+          pieces: TENS_ONES,
+          mode: 'build-exact',
+          target: 100,
+          exact: hto0(1, 0, 0),
+          prebuilt: hto0(0, 10, 0),
+        }),
+      ),
+    ).toBe(true);
+    // A four-digit mat and the decimal mat keep the proportional pieces.
+    expect(buildShowsDisks(build({}))).toBe(false);
+    expect(buildShowsDisks(read({ thousands: 1, ...hto0(2, 0, 0) }, 1200))).toBe(false);
+    expect(buildShowsDisks(build({ pieces: HTO, wholeIs: 'flat' }))).toBe(false);
+    expect(matMax(build({ pieces: HTO }))).toBe(MAT_MAX_DISKS);
+    expect(matMax(build({}))).toBe(MAT_MAX);
     expect(matMax(build({ pieces: TENS_ONES }))).toBe(MAT_MAX);
     expect(matMax(build({ wholeIs: 'flat' }))).toBe(MAT_MAX_FLAT);
     expect(MAT_MAX_DISKS).toEqual({
-      thousands: 9,
+      thousands: 0,
       hundreds: DISK_COLUMN_MAX,
       tens: DISK_COLUMN_MAX,
       ones: DISK_COLUMN_MAX,
@@ -91,14 +107,26 @@ describe('base-ten-build: supported domain', () => {
     ]);
   });
 
-  it('any target is at most a full mat: of disks, of tens and ones, and the decimal one', () => {
-    expect(targetMax(build({}))).toBe(11_220);
-    expect(targetMax(build({ pieces: TENS_ONES }))).toBe(11_389);
+  it('a mat of disks builds numbers to 999', () => {
+    expect(messages('base-ten-build', build({ pieces: HTO, target: 999 }))).toEqual([]);
+    expect(messages('base-ten-build', build({ pieces: HTO, target: 1000 }))).toEqual([
+      'target: the mat would need 1 thousands; it fits at most 0',
+    ]);
+  });
+
+  it('any target is at most a full mat: of disks, of proportional pieces, the decimal one', () => {
+    expect(targetMax(build({ pieces: HTO }))).toBe(2220);
+    expect(targetMax(build({}))).toBe(11_389);
     expect(targetMax(build({ wholeIs: 'flat' }))).toBe(10_889);
-    const full = { ...MAT_MAX_DISKS };
-    expect(messages('base-ten-build', read(full, 11_220))).toEqual([]);
-    expect(messages('base-ten-build', read(full, 11_221))).toEqual([
-      'target: target is at most 11220 (a full mat); got 11221',
+    const disks = (target: number) => ({ ...read({ ...MAT_MAX_DISKS }, target), pieces: HTO });
+    expect(messages('base-ten-build', disks(2220))).toEqual([]);
+    expect(messages('base-ten-build', disks(2221))).toEqual([
+      'target: target is at most 2220 (a full mat); got 2221',
+    ]);
+    const full = { ...MAT_MAX };
+    expect(messages('base-ten-build', read(full, 11_389))).toEqual([]);
+    expect(messages('base-ten-build', read(full, 11_390))).toEqual([
+      'target: target is at most 11389 (a full mat); got 11390',
     ]);
     expect(
       messages('base-ten-build', { ...read({ ...MAT_MAX_FLAT }, 10_890), wholeIs: 'flat' }),
@@ -113,7 +141,8 @@ describe('base-ten-build: supported domain', () => {
   });
 
   const MATS = [
-    ['disks', ALL, MAT_MAX_DISKS],
+    ['disks', HTO, MAT_MAX_DISKS],
+    ['thousands, hundreds, tens and ones', ALL, MAT_MAX],
     ['tens and ones', TENS_ONES, MAT_MAX],
   ] as const;
 

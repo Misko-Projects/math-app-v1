@@ -16,6 +16,7 @@ type Config = WidgetConfigOf<'base-ten-build'>;
 
 const ALL = { thousands: true, hundreds: true, tens: true, ones: true };
 const TENS_ONES = { thousands: false, hundreds: false, tens: true, ones: true };
+const HTO = { thousands: false, hundreds: true, tens: true, ones: true };
 
 const read = (prebuilt: Config['prebuilt'], target: number): Config => ({
   format: 'base-ten-build',
@@ -48,30 +49,30 @@ describe('base-ten-build: MAT_MAX', () => {
     expect(valid({ ...read({ hundreds: 0, tens: 0, ones: 99 }, 99), pieces: TENS_ONES })).toBe(
       true,
     );
-    // With hundreds in play the mat draws disks (K02), still above every generator: 9 hundreds
-    // (10 mid-trade), 19 tens and 19 ones.
+    // With hundreds in play (and no thousands) the mat draws disks (K02), still above every
+    // generator: 9 hundreds (10 mid-trade), 19 tens and 19 ones.
     expect(MAT_MAX_DISKS.hundreds).toBeGreaterThanOrEqual(10);
     expect(MAT_MAX_DISKS.tens).toBeGreaterThanOrEqual(19);
     expect(MAT_MAX_DISKS.ones).toBeGreaterThanOrEqual(19);
-    expect(valid(read({ thousands: 0, hundreds: 8, tens: 19, ones: 9 }, 999))).toBe(true);
+    expect(valid({ ...read({ hundreds: 8, tens: 19, ones: 9 }, 999), pieces: HTO })).toBe(true);
   });
 
   it('accepts each kind up to its cap and no further', () => {
     const value = { thousands: 1000, hundreds: 100, tens: 10, ones: 1 } as const;
-    // A mat with hundreds in play (the tray offers them) draws disks.
+    // With thousands in play (or only tens and ones) the mat keeps its proportional pieces.
     for (const k of ['thousands', 'hundreds', 'tens', 'ones'] as const) {
       const at = (n: number) => read({ hundreds: 0, tens: 0, ones: 0, [k]: n }, n * value[k]);
-      expect(valid(at(MAT_MAX_DISKS[k])), `${k} disks at the cap`).toBe(true);
-      expect(valid(at(MAT_MAX_DISKS[k] + 1)), `${k} disks past the cap`).toBe(false);
-    }
-    // A mat of tens and ones keeps its proportional pieces.
-    for (const k of ['tens', 'ones'] as const) {
-      const at = (n: number) => ({
-        ...read({ hundreds: 0, tens: 0, ones: 0, [k]: n }, n * value[k]),
-        pieces: TENS_ONES,
-      });
       expect(valid(at(MAT_MAX[k])), `${k} at the cap`).toBe(true);
       expect(valid(at(MAT_MAX[k] + 1)), `${k} past the cap`).toBe(false);
+    }
+    // A mat to 999 with hundreds in play draws disks: at most DISK_COLUMN_MAX in a column.
+    for (const k of ['hundreds', 'tens', 'ones'] as const) {
+      const at = (n: number) => ({
+        ...read({ hundreds: 0, tens: 0, ones: 0, [k]: n }, n * value[k]),
+        pieces: HTO,
+      });
+      expect(valid(at(MAT_MAX_DISKS[k])), `${k} disks at the cap`).toBe(true);
+      expect(valid(at(MAT_MAX_DISKS[k] + 1)), `${k} disks past the cap`).toBe(false);
     }
   });
 
@@ -150,15 +151,8 @@ describe('base-ten-build: MAT_MAX', () => {
     expect(
       valid({ ...decimalWorst, prebuilt: { thousands: 9, hundreds: 14, tens: 29, ones: 199 } }),
     ).toBe(true);
-    // The same mat in ones (flat = 100) is a mat of disks (K02), with their cap.
-    expect(valid({ ...decimalWorst, wholeIs: 'unit' })).toBe(false);
-    expect(
-      valid({
-        ...decimalWorst,
-        wholeIs: 'unit',
-        prebuilt: { thousands: 9, hundreds: 20, tens: 20, ones: 20 },
-      }),
-    ).toBe(true);
+    // The same mat in ones (flat = 100) keeps the wider cap.
+    expect(valid({ ...decimalWorst, wholeIs: 'unit' })).toBe(true);
     // Each decimal cap, and one past it.
     const value = { thousands: 1000, hundreds: 100, tens: 10, ones: 1 } as const;
     for (const k of ['thousands', 'hundreds', 'tens', 'ones'] as const) {

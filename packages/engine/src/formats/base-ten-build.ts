@@ -106,26 +106,27 @@ export const MAT_MAX_FLAT: Readonly<Pieces> = { thousands: 9, hundreds: 14, tens
 
 /**
  * Whether the mat draws place-value disks (place-value.ts): hundreds are in play, that is the tray
- * offers flats or cubes, some start on the mat, or the item asks for some (`exact`). The decimal mat (`wholeIs: 'flat'`) keeps its
- * proportional pieces: there the flat is one whole and its size is the meaning.
+ * offers flats, some start on the mat, or the item asks for some (`exact`). Two mats keep their
+ * proportional pieces: the decimal mat (`wholeIs: 'flat'`), where the flat is one whole and its
+ * size is the meaning, and a mat with thousands (a four-digit number, no shipped template: the
+ * rule is about numbers to 999, and the cube's column is the four-digit slice's to decide).
  */
 export function buildShowsDisks(
   c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt' | 'exact'>,
 ): boolean {
   if (c.wholeIs === 'flat') return false;
+  if (c.pieces.thousands || (c.prebuilt?.thousands ?? 0) > 0) return false;
   return (
     c.pieces.hundreds ||
-    c.pieces.thousands ||
     (c.prebuilt?.hundreds ?? 0) > 0 ||
-    (c.prebuilt?.thousands ?? 0) > 0 ||
     // Ten tens to be joined into a hundred that the tray never offers (pv.regroup).
     (c.exact?.hundreds ?? 0) > 0
   );
 }
 
-/** A mat of disks: at most DISK_COLUMN_MAX in a column (and nine thousands, as on any mat). */
+/** A mat of disks: at most DISK_COLUMN_MAX in a column, and no thousands (they keep the cubes). */
 export const MAT_MAX_DISKS: Readonly<Pieces> = {
-  thousands: 9,
+  thousands: 0,
   hundreds: DISK_COLUMN_MAX,
   tens: DISK_COLUMN_MAX,
   ones: DISK_COLUMN_MAX,

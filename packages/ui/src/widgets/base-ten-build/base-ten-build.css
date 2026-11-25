@@ -751,6 +751,15 @@
   background-color: var(--color-shallows);
   font-size: calc(var(--u) * 0.5);
 }
+.ni-btb__art--disk[data-kind="ones"]::after {
+  content: "1";
+}
+.ni-btb__art--disk[data-kind="tens"]::after {
+  content: "10";
+}
+.ni-btb__art--disk[data-kind="hundreds"]::after {
+  content: "100";
+}
 .ni-btb__art--disk[data-kind="tens"] {
   border-color: var(--color-sunshine-deep);
   background-color: var(--color-sunshine-light);
@@ -759,11 +768,6 @@
 .ni-btb__art--disk[data-kind="hundreds"] {
   border-color: var(--color-coral-deep);
   background-color: color-mix(in srgb, var(--color-coral) 42%, white);
-}
-.ni-btb__art--disk[data-kind="thousands"] {
-  border-color: var(--color-leaf-deep);
-  background-color: var(--color-leaf-light);
-  font-size: calc(var(--u) * 0.32);
 }
 .ni-btb__piece[data-counted="true"] .ni-btb__art--disk {
   /* The ring says "counted"; the disk keeps its place's colour. */

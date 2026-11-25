@@ -27,6 +27,7 @@ import {
   itemUnit,
   lyingRods,
   MAT_BORDER,
+  type MatCaps,
   type MatState,
   measurePlan,
   naturalLayout,

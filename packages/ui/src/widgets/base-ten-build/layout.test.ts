@@ -235,12 +235,11 @@ for (const wholeIs of ['unit', 'flat'] as const) {
       engineCap('ones', wholeIs),
     );
 
-    // With all four kinds in play the whole-number mat draws place-value disks (K02), at most
-    // DISK_COLUMN_MAX (20) in a column; the decimal mat keeps its proportional pieces.
-    it('is above every generator (disks: 9/10/19/19; decimals, pv.number: 9/10/10/19)', () => {
-      expect(cap).toEqual(flat ? counts(9, 14, 29, 199) : counts(9, 20, 20, 20));
+    // (All four kinds in play: proportional pieces. A mat to 999 with hundreds in play draws
+    // place-value disks, K02: the tests at the end of this file.)
+    it('is above every generator (unit: 9/10/19/99; decimals, pv.number: 9/10/10/19)', () => {
+      expect(cap).toEqual(flat ? counts(9, 14, 29, 199) : counts(9, 19, 29, 199));
     });
-    const drawn = flat ? {} : { disks: true, units: diskCandidates() };
 
     // Every age mode and label style, all four columns full at once, beside the fullest side
     // panels: four piles (plain, or with stock tags), the goal (or none: arithmetic), and
@@ -287,7 +286,7 @@ for (const wholeIs of ['unit', 'flat'] as const) {
       (SideSpec & { crowded: boolean }) | null,
     ][] = [];
     for (const [age, k, headerWidth] of labels) {
-      const base = { ...tablet(k), headerWidth, ...drawn };
+      const base = { ...tablet(k), headerWidth };
       for (const [name, p] of panels) {
         const spec: SideSpec = { ...p, k, height: SIDE_H };
         const room = (w: number) => ({ sideMin: w, sideMax: Math.max(260, w) });
@@ -304,7 +303,7 @@ for (const wholeIs of ['unit', 'flat'] as const) {
           { ...spec, crowded: need.crowded },
         ]);
       }
-      envs.push([`${age} read`, { ...tabletRead(k), headerWidth, ...drawn }, null]);
+      envs.push([`${age} read`, { ...tabletRead(k), headerWidth }, null]);
     }
     for (const [name, env, spec] of envs) {
       it(`fits 1280 × 800 without overlap (${name})`, () => {
@@ -321,11 +320,9 @@ for (const wholeIs of ['unit', 'flat'] as const) {
         }
         for (const c of l.columns) {
           const n = cap[c.kind];
-          // Disks of every kind sit in frames of ten, as the ones do.
-          const framed = c.kind === 'ones' || !flat;
-          const box = framed ? onesFrame(l.u, l.orient, !flat) : pieceBox(c.kind, l.u);
-          // Every piece (or frame of ten ones or disks) has its own cell, and the cells tile apart.
-          const cells = framed ? Math.ceil(n / 10) : n;
+          const box = c.kind === 'ones' ? onesFrame(l.u, l.orient) : pieceBox(c.kind, l.u);
+          // Every piece (or frame of ten ones) has its own cell, and the cells tile apart.
+          const cells = c.kind === 'ones' ? Math.ceil(n / 10) : n;
           expect(c.plan.cols * c.plan.rows).toBeGreaterThanOrEqual(cells);
           expect(c.plan.w).toBeGreaterThanOrEqual(c.plan.cols * box.w);
           expect(c.plan.h).toBeGreaterThanOrEqual(c.plan.rows * box.h);
@@ -819,6 +816,18 @@ describe('place-value disks: a mat with hundreds in play', () => {
     expect(full.fits).toBe(true);
     expect(full.orient).toBe('v');
     expect(full.u).toBeGreaterThanOrEqual(DISK_FLOOR);
+  });
+
+  it('the fullest mat of disks the engine allows fits 1280 × 800, in rows of five', () => {
+    const l = matLayout({
+      kinds: HTO,
+      counts: counts(0, 20, 20, 20),
+      ...pier({ width: 1146, height: 596 }),
+    });
+    expect(l.overflow).toBe(false);
+    expect(l.fits).toBe(true);
+    expect(l.orient).toBe('h');
+    for (const c of l.columns) expect(c.plan.h).toBeLessThanOrEqual(596);
   });
 
   it('a mat no room can hold says so (below DISK_FLOOR)', () => {

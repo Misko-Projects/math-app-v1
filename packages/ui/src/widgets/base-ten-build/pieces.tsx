@@ -9,31 +9,20 @@ import type { CSSProperties, ReactNode } from 'react';
 export function PieceArt({ kind, u, disk }: { kind: PieceKind; u?: number; disk?: boolean }) {
   const style =
     u === undefined ? undefined : ({ '--u': `${u}px`, '--d': `${u * 3}px` } as CSSProperties);
-  if (disk) {
+  if (disk && kind !== 'thousands') {
+    // The disk's value (100, 10, 1) is drawn by the stylesheet, as the pieces' grids are: a
+    // picture inside a control, not text that its accessible name would have to repeat.
     return (
       <span
         className="ni-btb__art ni-btb__art--disk"
         data-kind={kind}
         style={style}
         aria-hidden="true"
-      >
-        {DISK_LABEL[kind]}
-      </span>
+      />
     );
   }
   return <span className={`ni-btb__art ni-btb__art--${kind}`} style={style} aria-hidden="true" />;
 }
-
-/**
- * What a place-value disk says (03 §5.5, K02): its value. A mat with hundreds in play draws every
- * piece as a disk of one size, in `--u` (the diameter), one colour per place.
- */
-export const DISK_LABEL: Record<PieceKind, string> = {
-  thousands: '1000',
-  hundreds: '100',
-  tens: '10',
-  ones: '1',
-};
 
 /** What a tray pile shows: a few pieces of its kind (a supply picture, not a count). */
 export function PileArt({ kind, disk }: { kind: PieceKind; disk?: boolean }) {
