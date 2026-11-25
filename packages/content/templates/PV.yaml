@@ -215,7 +215,19 @@ templates:
     difficulty: { base: -1.6 }
     narration: { prompt: tp.PV.04.t4.prompt, hints: [h.pv.flat-is-hundred, h.pv.count-by-hundreds] }
 
+  # A picture with real proportions: ten rods side by side are as big as one flat. (On the mats a
+  # number with hundreds is drawn as place-value disks, 03 §5.5; here the sizes carry the meaning.)
   - id: PV.04.t5
+    skillId: PV.04
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: pv.regroup
+    params: { n: { int: [100, 900], step: 100 }, from: regrouped, places: 3 }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.04.t5.prompt, hints: [h.pv.flat-is-hundred, h.pv.ten-tens-hundred] }
+
+  - id: PV.04.t6
     skillId: PV.04
     format: number-pad
     tier: abstract
@@ -223,12 +235,14 @@ templates:
     generator: pv.regroup
     params: { n: { int: [100, 900], step: 100 }, from: regrouped, places: 3 }
     difficulty: { base: -1.0 }
-    narration: { prompt: tp.PV.04.t5.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
+    narration: { prompt: tp.PV.04.t6.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
 
   # ---------- PV.05 read and write numbers to 1000 (K02) ----------
+  # Read the mat (place-value disks, 03 §5.5): a proportional picture of a number to 999 would
+  # draw rods and cubes too small to count.
   - id: PV.05.t1
     skillId: PV.05
-    format: number-pad
+    format: base-ten-build
     tier: pictorial
     representation: base-ten
     generator: pv.number
@@ -282,6 +296,8 @@ templates:
     narration: { prompt: tp.PV.05.t5.prompt, hints: [h.pv.find-hundreds-part, h.pv.zero-holds] }
 
   # ---------- PV.06 compare three-digit numbers (K02) ----------
+  # Whole hundreds as flats: a picture of proportional pieces is countable only while the flats
+  # are what is counted (rods and cubes of a number to 999 would be a few pixels wide).
   - id: PV.06.t1
     skillId: PV.06
     format: compare
@@ -289,14 +305,14 @@ templates:
     representation: base-ten
     generator: compare.numbers
     params:
-      a: { int: [100, 999] }
-      b: { int: [100, 999] }
+      a: { int: [100, 900], step: 100 }
+      b: { int: [100, 900], step: 100 }
       extra: 0
       min: 100
-      max: 999
+      max: 900
       ask: { choice: [more, fewer], weights: [3, 1] }
     difficulty: { base: -1.2 }
-    narration: { prompt: tp.PV.06.t1.prompt, hints: [h.compare.hundreds, h.compare.same-hundreds] }
+    narration: { prompt: tp.PV.06.t1.prompt, hints: [h.pv.flat-is-hundred, h.pv.count-by-hundreds] }
 
   - id: PV.06.t2
     skillId: PV.06
@@ -645,9 +661,10 @@ templates:
     difficulty: { base: -1.0 }
     narration: { prompt: tp.PV.14.t2.prompt, hints: [h.pv.ten-tens-hundred, h.pv.zero-means-none] }
 
+  # Read the mat: a column with no disks is the zero.
   - id: PV.14.t3
     skillId: PV.14
-    format: number-pad
+    format: base-ten-build
     tier: pictorial
     representation: base-ten
     generator: pv.number

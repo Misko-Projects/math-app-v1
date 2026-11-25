@@ -80,23 +80,36 @@ lessons:
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [PV.13.t3] }
 
-  # PV.04 (gateway): ten bundles of ten are tied into one hundred. The second faded example goes
-  # the other way on the mat: one hundred is split into ten tens. Both solutions have two steps,
-  # so the child does the last one each time. The test-out pool is the compiler's (03 §6.5).
+  # PV.04 (gateway). First a picture with real proportions (PV.04.t5): one flat beside ten rods,
+  # which are as big as it. The mats draw a number with hundreds as place-value disks (03 §5.5),
+  # so the sizes are anchored here once. Then ten tens are joined into one hundred on the mat.
+  # The second faded example goes the other way: one hundred is split into ten tens. Both
+  # solutions have two steps, so the child does the last one each time. The test-out pool is the
+  # compiler's (03 §6.5).
   - skillId: PV.04
     mode: authored
     templateId: PV.04.t1
     worked:
-      - params: { n: 100, from: regrouped, to: canonical, places: 3 }
+      - templateId: PV.04.t5
+        params: { n: 200, from: regrouped, places: 3 }
         steps:
           - actor: demo
             say: ls.PV.04.w1.s1
-            action: { op: count-by, args: { kind: tens } }
+            action: { op: show-stimulus }
           - actor: demo
             say: ls.PV.04.w1.s2
+            vars: { n: 200 }
+            action: { op: type, args: { blank: x, value: 200 } }
+      - params: { n: 100, from: regrouped, to: canonical, places: 3 }
+        steps:
+          - actor: demo
+            say: ls.PV.04.w2.s1
+            action: { op: count-by, args: { kind: tens } }
+          - actor: demo
+            say: ls.PV.04.w2.s2
             action: { op: fuse, args: { kind: tens } }
           - actor: demo
-            say: ls.PV.04.w1.s3
+            say: ls.PV.04.w2.s3
             action: { op: count-by, args: { kind: hundreds } }
     faded:
       - templateId: PV.04.t1

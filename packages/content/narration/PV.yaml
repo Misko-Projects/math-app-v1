@@ -142,10 +142,12 @@ tp.PV.04.t3.prompt:
 tp.PV.04.t4.prompt:
   text: "How many? Count by hundreds."
 tp.PV.04.t5.prompt:
+  text: "How many? Ten tens are as big as one hundred."
+tp.PV.04.t6.prompt:
   text: "Hundreds: {fromHundreds}, tens: {fromTens}. How many is that?"
 
 tp.PV.05.t1.prompt:
-  text: "Write the number the blocks show."
+  text: "Write the number. Count the hundreds, then the tens, then the ones."
 tp.PV.05.t2.prompt:
   text: "Put the parts together. What number is it?"
 tp.PV.05.t3.prompt:
@@ -233,14 +235,21 @@ tp.PV.24.t4.prompt:
 tp.PV.24.t5.prompt:
   text: "Look at {n}. What is the {d} worth?"
 
-# PV.04 (gateway): ten bundles of ten become one hundred.
+# PV.04 (gateway): a picture first (ten rods are as big as one flat), then ten tens are joined
+# into one hundred on the mat.
 ls.PV.04.w1.s1:
-  text: "Here are ten tens. Count them by tens."
+  text: "Look: ten tens side by side are as big as one hundred."
   voice: pip
 ls.PV.04.w1.s2:
+  text: "One hundred and ten tens. That is {n}!"
+  voice: pip
+ls.PV.04.w2.s1:
+  text: "Here are ten tens. Count them by tens."
+  voice: pip
+ls.PV.04.w2.s2:
   text: "Ten tens make one hundred. Put them together!"
   voice: pip
-ls.PV.04.w1.s3:
+ls.PV.04.w2.s3:
   text: "One hundred! It is the same as ten tens."
   voice: pip
   style: excited

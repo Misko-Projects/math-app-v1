@@ -96,11 +96,12 @@ misconceptions:
       - params: { n: 14 }
         response: { kind: number, value: 104 }
         match: false
-      # 300 + 5 written as 3005 (PV.14), and as 35, which is the missing zero and not this.
-      - params: { n: 305, mode: expanded }
+      # 3 hundreds and 5 ones read off the mat and written as 3005 (PV.05), and as 35, which is
+      # the missing zero and not this.
+      - params: { n: 305, mode: read }
         response: { kind: number, value: 3005 }
         match: true
-      - params: { n: 305, mode: expanded }
+      - params: { n: 305, mode: read }
         response: { kind: number, value: 35 }
         match: false
 
@@ -116,10 +117,10 @@ misconceptions:
       Write the number in a chart with hundreds, tens and ones columns: a column with nothing in it
       still gets a zero.
     examples:
-      - params: { n: 305, mode: expanded }
+      - params: { n: 305, mode: read }
         response: { kind: number, value: 35 }
         match: true
-      - params: { n: 305, mode: expanded }
+      - params: { n: 305, mode: read }
         response: { kind: number, value: 350 }
         match: false
       # 305 built with 3 tens and 5 ones.
@@ -127,7 +128,7 @@ misconceptions:
         response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 3, ones: 5 } }
         match: true
       # A zero at the end is not inside the number: 340 as 34 is another slip.
-      - params: { n: 340, mode: expanded }
+      - params: { n: 340, mode: read }
         response: { kind: number, value: 34 }
         match: false
 
