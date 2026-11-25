@@ -9,13 +9,8 @@
 // overwritten; it only moves the starting level of untried skills. Two devices may both write
 // one for the same grade: the fold applies the same posterior twice, which changes nothing.
 
-import {
-  compareEvents,
-  foldLearnerState,
-  gradePriorPlacement,
-  isEvent,
-  sameId,
-} from '@number-island/engine';
+import type * as EngineModule from '@number-island/engine';
+import { compareEvents, foldLearnerState, isEvent, sameId } from '@number-island/engine/shell';
 import type { ChildContext, SkillGraph } from '@number-island/shared';
 import type { DataStore } from './store';
 
@@ -25,12 +20,37 @@ export const GRADE_PRIOR_PREFIX = 'grade-prior:';
 export const gradePriorId = (child: Pick<ChildContext, 'grade' | 'advanced'>): string =>
   `${GRADE_PRIOR_PREFIX}${child.grade}${child.advanced ? '+' : ''}`;
 
+type PlacementStore = Pick<DataStore, 'db' | 'append' | 'skillStates'>;
+
+// A check in progress per store and child: the island's plan effect can run twice at once (a
+// re-render, React's development double run), and both would find no placement and write one.
+const pending = new WeakMap<PlacementStore, Map<string, Promise<boolean>>>();
+
 /**
  * Writes the child's grade-prior placement unless the latest one (in fold order) is already for
- * the child's current grade. Returns whether it wrote one.
+ * the child's current grade. Returns whether it wrote one; a call while one for the same child
+ * and grade is in progress returns that call's answer. The placement runner is passed in,
+ * because the shell's initial JS holds only `@number-island/engine/shell` (02 §6a).
  */
-export async function ensureGradePlacement(
-  store: Pick<DataStore, 'db' | 'append' | 'skillStates'>,
+export function ensureGradePlacement(
+  engine: Pick<typeof EngineModule, 'gradePriorPlacement'>,
+  store: PlacementStore,
+  graph: SkillGraph,
+  child: ChildContext,
+): Promise<boolean> {
+  const byChild = pending.get(store) ?? new Map<string, Promise<boolean>>();
+  pending.set(store, byChild);
+  const key = `${child.childId.toLowerCase()}|${gradePriorId(child)}`;
+  const running = byChild.get(key);
+  if (running) return running;
+  const run = writeIfMissing(engine, store, graph, child).finally(() => byChild.delete(key));
+  byChild.set(key, run);
+  return run;
+}
+
+async function writeIfMissing(
+  engine: Pick<typeof EngineModule, 'gradePriorPlacement'>,
+  store: PlacementStore,
   graph: SkillGraph,
   child: ChildContext,
 ): Promise<boolean> {
@@ -50,7 +70,7 @@ export async function ensureGradePlacement(
     foldLearnerState([], graph, { childId: child.childId, isK: child.isK });
   await store.append(
     'placement.completed',
-    gradePriorPlacement({ graph, child, state, placementId: id }),
+    engine.gradePriorPlacement({ graph, child, state, placementId: id }),
     { childId: child.childId },
   );
   return true;

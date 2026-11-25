@@ -53,7 +53,7 @@ const DAY = 86_400_000;
 /** The skills of each request the island offers the new child `after` ms after placement. */
 async function firstRequests(p: ChildProfile, after = 0): Promise<string[][]> {
   const store = await open(p);
-  await ensureGradePlacement(store, graph, ctx(p));
+  await ensureGradePlacement(engine, store, graph, ctx(p));
   const state = await store.skillStates(p.id);
   if (!state) throw new Error('no learner state');
   const { requests } = planIslandRequests(engine, {
@@ -75,8 +75,13 @@ describe('the grade-prior placement', () => {
   it('is written once per child and grade, with the engine prior of the profile', async () => {
     const p = kid('2', true);
     const store = await open(p);
-    expect(await ensureGradePlacement(store, graph, ctx(p))).toBe(true);
-    expect(await ensureGradePlacement(store, graph, ctx(p))).toBe(false);
+    // Two plan runs at once (a re-render) share one check: one event.
+    const both = await Promise.all([
+      ensureGradePlacement(engine, store, graph, ctx(p)),
+      ensureGradePlacement(engine, store, graph, ctx(p)),
+    ]);
+    expect(both).toEqual([true, true]);
+    expect(await ensureGradePlacement(engine, store, graph, ctx(p))).toBe(false);
     const [e, ...rest] = await placements(store);
     expect(rest).toEqual([]);
     const state = engine.foldLearnerState([], graph, { childId: p.id, isK: false });
@@ -92,9 +97,9 @@ describe('the grade-prior placement', () => {
     const env = testEnv();
     const a = await open(p, 'a', env);
     const b = await open(p, 'b', env);
-    await ensureGradePlacement(a, graph, ctx(p));
+    await ensureGradePlacement(engine, a, graph, ctx(p));
     env.clock.advance(60_000);
-    await ensureGradePlacement(b, graph, ctx(p));
+    await ensureGradePlacement(engine, b, graph, ctx(p));
     const one = await a.skillStates(p.id);
     await a.ingest(await b.events(), { source: 'server' });
     await b.ingest(await a.events(), { source: 'server' });
@@ -102,13 +107,13 @@ describe('the grade-prior placement', () => {
     expect(await a.skillStates(p.id)).toEqual(one);
     expect(await b.skillStates(p.id)).toEqual(one);
     // Neither writes another: the latest is already for grade 1.
-    expect(await ensureGradePlacement(a, graph, ctx(p))).toBe(false);
+    expect(await ensureGradePlacement(engine, a, graph, ctx(p))).toBe(false);
   });
 
   it('a changed grade gives untried skills a new start and keeps the evidence of tried ones', async () => {
     const k = kid('K');
     const store = await open(k);
-    await ensureGradePlacement(store, graph, ctx(k));
+    await ensureGradePlacement(engine, store, graph, ctx(k));
     const tried = 'CNT.01';
     const tpl = graph.templates[graph.skills[tried]?.templates[0] as string];
     if (!tpl) throw new Error('no template');
@@ -135,7 +140,7 @@ describe('the grade-prior placement', () => {
     const before = await store.skillStates(k.id);
     const g2 = kid('2');
     await store.putProfile(g2);
-    expect(await ensureGradePlacement(store, graph, ctx(g2))).toBe(true);
+    expect(await ensureGradePlacement(engine, store, graph, ctx(g2))).toBe(true);
     const after = await store.skillStates(k.id);
     const latest = (await placements(store)).at(-1);
     expect(latest?.payload).toMatchObject({ placementId: gradePriorId(g2), items: 0 });
@@ -147,7 +152,7 @@ describe('the grade-prior placement', () => {
     expect(before?.skills[g1]?.assumed ?? false).toBe(false);
     expect(after?.skills[g1]?.assumed).toBe(true);
     // Back to K: a new placement again, the tried skill still untouched.
-    expect(await ensureGradePlacement(store, graph, ctx(k))).toBe(true);
+    expect(await ensureGradePlacement(engine, store, graph, ctx(k))).toBe(true);
     expect((await store.skillStates(k.id))?.skills[tried]).toEqual(before?.skills[tried]);
   });
 });

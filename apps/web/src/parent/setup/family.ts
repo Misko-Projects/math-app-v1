@@ -169,9 +169,10 @@ export async function saveChildren(
     value: withSettingDefaults({ kind: 'family', timezone: currentTimezone() }),
   });
   // Each child starts at the level of their grade (04 §5).
+  const engine = await import('@number-island/engine');
   for (const p of saved) {
     const ctx = childContext(p, await services.store.childSettings(p.id));
-    await ensureGradePlacement(services.store, services.content.store.graph, ctx);
+    await ensureGradePlacement(engine, services.store, services.content.store.graph, ctx);
   }
   void services.sync.syncNow();
   return saved;

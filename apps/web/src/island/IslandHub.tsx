@@ -286,7 +286,7 @@ export function IslandHub({
       const engine = await import('@number-island/engine');
       const ctx = childContext(child, await store.childSettings(child.id));
       // The starting level from the profile's grade, written before the first plan (04 §5).
-      await ensureGradePlacement(store, graph, ctx);
+      await ensureGradePlacement(engine, store, graph, ctx);
       const state = await store.skillStates(child.id);
       if (!state) throw new Error(`Island: no learner state for ${child.id}`);
       const remediation = remediationQueue.peek(child.id);
