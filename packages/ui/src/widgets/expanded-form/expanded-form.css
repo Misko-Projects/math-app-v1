@@ -456,6 +456,31 @@
 .ni-efw__row--build[data-stacked="true"] .ni-efw__glyphs {
   display: none;
 }
+/*
+ * A room too short for two rows of picture cards (five or six cards of a three-digit number at
+ * 960 × 600): the tray's cards are numerals only. The mat's cards follow, so a card looks the
+ * same in both places.
+ */
+.ni-efw[data-cards="plain"] .ni-efw__glyphs {
+  display: none;
+}
+.ni-efw[data-cards="plain"] .ni-efw__card {
+  /* As tall as its numeral needs, a tap target at least. */
+  min-height: var(--target-min);
+}
+.ni-efw[data-cards="plain"] .ni-efw__card[data-ones-cue="true"] {
+  min-width: calc(var(--target-min) + 8px);
+}
+/*
+ * Two rows of cards need the room's whole height: the rows stand a target gap apart (each card
+ * keeps its 7 px ledge under it), and the room kept under the tray for Pip's pointer is trimmed.
+ */
+.ni-efw[data-cards="plain"] {
+  padding-bottom: 16px;
+}
+.ni-efw[data-cards="plain"] .ni-efw__row--tray {
+  row-gap: var(--target-gap);
+}
 
 /* ---------- expressions and blanks ---------- */
 

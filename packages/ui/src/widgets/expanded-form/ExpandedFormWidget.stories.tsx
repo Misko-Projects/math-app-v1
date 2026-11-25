@@ -1872,3 +1872,57 @@ export const PierResizeWaitsForDrag: Story = {
     await expectFitsRoom(canvasElement, root, 'g1-up', '.ni-btn.ni-tone-sun');
   },
 };
+
+// ---------- three-digit numbers (K02): five or six cards ----------
+
+/** PV.15.t4 as generated (n = 345): the three cards of 345 and its three near misses. */
+const pierBuild345: Config = {
+  format: 'expanded-form',
+  target: 345,
+  mode: 'build',
+  cards: [30, 300, 5, 4, 40, 50],
+  unusualOrder: false,
+};
+const pierSixCards = (room: PierRoom, plain: boolean): Story => ({
+  args: { config: pierBuild345, tier: 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom(room),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsRoom(canvasElement, root, 'g1-up', '.ni-btn.ni-tone-sun');
+    await expect(root.dataset.cards).toBe(plain ? 'plain' : undefined);
+    await expect(trayCards(root)).toHaveLength(6);
+    for (const card of trayCards(root)) await expectTargetSize(card, 'g1-up');
+    const pictures = [...root.querySelectorAll<HTMLElement>('.ni-efw__glyphs')];
+    await expect(pictures.length).toBeGreaterThan(0);
+    for (const p of pictures) {
+      await expect(getComputedStyle(p).display).toBe(plain ? 'none' : 'flex');
+    }
+  },
+});
+
+/**
+ * 960 × 600, six cards: two rows of them fit under the mat because the cards show their numerals
+ * only. Same task: place 300, 40 and 5, check, one response.
+ */
+export const PierSmallSixCards: Story = {
+  ...pierSixCards('small', true),
+  tags: ['!visual'],
+  play: async (ctx) => {
+    await pierSixCards('small', true).play?.(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    for (const v of [300, 40, 5]) await tapPlace(root, v);
+    await expectFitsRoom(ctx.canvasElement, root, 'g1-up', '.ni-btn.ni-tone-sun');
+    await userEvent.click(checkButton(root));
+    await expect(ctx.args.onResponse).toHaveBeenCalledWith({
+      kind: 'numbers',
+      values: [300, 40, 5],
+    });
+  },
+};
+/** 1280 × 800: the same six cards keep their pictures. */
+export const PierTabletSixCards: Story = {
+  ...pierSixCards('tablet', false),
+  tags: ['!visual'],
+};
