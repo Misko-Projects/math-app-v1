@@ -687,6 +687,48 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
   });
 });
 
+// A worked step says what the demo does ("This piece fits here."), so the demo must be seen to do
+// it: after each worked step's action the widget shows something it did not show before. Held for
+// the shape widgets, whose seeded examples are other shapes and outlines now that the examples aim
+// at the built template stats (#11): a demo that could not place a piece in the new outline would
+// leave the words over an unchanged picture.
+describe('a worked step of a shape lesson changes what the widget shows', () => {
+  const SHAPES = ['shape-compose', 'shape-sort'];
+
+  it('each action of each worked example, played in order', async () => {
+    await page.viewport(960, 600);
+    const { graph } = content.store;
+    const unchanged: string[] = [];
+    let actions = 0;
+    for (const skillId of [...graph.nodes].sort()) {
+      const skill = graph.skills[skillId];
+      const lesson = skill ? buildLesson(engine, graph, skill, pierPlayable) : null;
+      if (!skill || !lesson) continue;
+      for (const example of lesson.examples) {
+        if (example.phase !== 'worked' || !SHAPES.includes(example.template.format)) continue;
+        const demo = createDemoController({ strict: true });
+        showLesson(example, skill.grade === 'K' ? 'k' : 'g1-up', { say: lesson.intro }, demo);
+        const id = `${skillId} worked ${example.example + 1} (${example.template.format})`;
+        await measure(id);
+        const widget = () =>
+          document.querySelector<HTMLElement>('[data-testid="pier-stage"] .ni-widget')?.outerHTML;
+        for (const [i, step] of example.steps.entries()) {
+          if (!step.action) continue;
+          const before = widget();
+          await demo.play(step.action);
+          await frame();
+          await frame();
+          actions += 1;
+          if (widget() === before) unchanged.push(`${id} step ${i + 1}: ${step.action.op}`);
+        }
+      }
+    }
+    console.info(`shape lessons: ${actions} worked actions played`);
+    expect(actions).toBeGreaterThan(10);
+    expect(unchanged, 'worked steps whose action left the widget as it was').toEqual([]);
+  });
+});
+
 // A guard (#35, #11): `CPS.06:worked:0` once gave two answers. A seeded lesson example aims at its
 // template's median difficulty from `template-stats.json` (03 §6.1), and that file used to be in
 // `dist/` only after `pnpm content:validate`, so the example was one item inside `pnpm verify`
