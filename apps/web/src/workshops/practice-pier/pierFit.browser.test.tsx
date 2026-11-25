@@ -686,3 +686,42 @@ describe.each(FIT_VIEWPORTS)('every lesson fits the pier at %s', (viewport: FitV
     expect(fitsAgain, 'listed lesson examples that fit: remove them from the list').toEqual([]);
   });
 });
+
+// Diagnosis (#35): why `CPS.06:worked:0` gave two answers. A seeded lesson example aims at the
+// template's median difficulty from `template-stats.json` (03 §6.1), and that file is written by
+// `pnpm content:validate`, not by `pnpm content:build`. Where validate has run (`pnpm verify`, the
+// single `verify` job) the example is one item; where only the build has run (a fresh clone's
+// `pnpm dev`, `pnpm build`, a CI shard) the fallback target makes it another. Same viewport, same
+// lesson step, same code: two items, one stacked and scrolling, one fitting.
+describe('a seeded lesson example with and without template stats', () => {
+  it('CPS.06 worked 1 at 960×600 is a different item, and only one of them fits', async () => {
+    await page.viewport(960, 600);
+    const { graph } = content.store;
+    const skill = graph.skills['CPS.06'];
+    if (!skill) throw new Error('no CPS.06');
+    // The stats `pnpm content:validate` writes for the template today (100 property seeds).
+    const stats = { min: -0.6, p10: -0.45, median: -0.01, p90: 0.25, max: 0.25, distinct: 23 };
+    const seen: Record<string, { config: string; misfit: string[]; layout: string }> = {};
+    for (const [name, templateStats] of [
+      ['without stats', {}],
+      ['with stats', { 'CPS.06.t1': stats }],
+    ] as const) {
+      const lesson = buildLesson(engine, { ...graph, templateStats }, skill, pierPlayable);
+      const example = lesson?.examples[0];
+      if (!example) throw new Error('no worked example');
+      const demo = createDemoController({ strict: false, warn: () => {} });
+      showLesson(example, 'g1-up', { say: lesson.intro }, demo);
+      const misfit = await measure(`CPS.06 ${name}`);
+      const root = document.querySelector<HTMLElement>('[data-testid="pier-stage"] .ni-bondw');
+      seen[name] = {
+        config: JSON.stringify(example.item.widget),
+        misfit,
+        layout: root?.dataset.layout ?? '',
+      };
+    }
+    console.info(`CPS.06 worked 1 at 960x600: ${JSON.stringify(seen)}`);
+    expect(seen['without stats']?.config).not.toBe(seen['with stats']?.config);
+    expect(seen['without stats']?.misfit).toEqual([]);
+    expect(seen['with stats']?.misfit).not.toEqual([]);
+  });
+});
