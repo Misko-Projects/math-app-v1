@@ -270,6 +270,7 @@ test('a request opens from the island and Home leaves it without ending the sess
     .poll(types)
     .toEqual([
       'session.started',
+      'placement.completed',
       'request.accepted',
       'request.completed',
       'request.accepted',

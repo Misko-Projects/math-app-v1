@@ -1122,6 +1122,21 @@ describe('gradePriorPlacement', () => {
     expect(once.skills['CNT.01']).toMatchObject({ assumed: true, practicedAt: T0 });
   });
 
+  it('a copy written offline after a failed verification does not undo the demotion', () => {
+    const out = priorOf(g1, emptyState(MIXED, false));
+    const DAY = 86_400_000;
+    const failed = attempt('CNT.02', 1, { correct: false, context: 'review' });
+    const log = [
+      envelope(1, 'placement.completed', out, T0),
+      envelope(2, 'attempt', failed, T0 + 2.1 * DAY),
+    ];
+    const demoted = fold(log);
+    expect(demoted.skills['CNT.02']?.assumed).toBe(false);
+    // Device B, offline since before the review, writes its own copy of the same prior later.
+    const merged = fold([...log, envelope(3, 'placement.completed', out, T0 + 2.2 * DAY)]);
+    expect(merged.skills).toEqual(demoted.skills);
+  });
+
   it('after a changed grade, moves only the skills without attempts', () => {
     const log = [
       envelope(1, 'placement.completed', priorOf(g1, emptyState(MIXED, false), 'gp-1'), T0),
