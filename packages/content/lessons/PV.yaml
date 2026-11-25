@@ -1,4 +1,5 @@
-# Authored lessons (03 §4.5, §6) for the PV gateways. Other PV skills get an auto lesson (03 §6.4).
+# Authored lessons (03 §4.5, §6) for the PV gateways (K01: PV.01, PV.09; K02: PV.04, PV.12, PV.15).
+# Other PV skills get an auto lesson (03 §6.4); PV.13 and PV.24 only pin their test-out pool.
 strand: PV
 lessons:
   # PV.01 (gateway): 34 is 3 bundles of ten and 4 single sticks. The faded examples move to the
@@ -78,3 +79,109 @@ lessons:
       - { seed: 2881576429, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [PV.13.t3] }
+
+  # PV.04 (gateway): ten bundles of ten are tied into one hundred. The second faded example goes
+  # the other way on the mat: one hundred is split into ten tens. Both solutions have two steps,
+  # so the child does the last one each time. The test-out pool is the compiler's (03 §6.5).
+  - skillId: PV.04
+    mode: authored
+    templateId: PV.04.t1
+    worked:
+      - params: { n: 100, from: regrouped, to: canonical, places: 3 }
+        steps:
+          - actor: demo
+            say: ls.PV.04.w1.s1
+            action: { op: count-by, args: { kind: tens } }
+          - actor: demo
+            say: ls.PV.04.w1.s2
+            action: { op: fuse, args: { kind: tens } }
+          - actor: demo
+            say: ls.PV.04.w1.s3
+            action: { op: count-by, args: { kind: hundreds } }
+    faded:
+      - templateId: PV.04.t1
+        params: { n: 300, from: regrouped, to: canonical, places: 3 }
+        childSteps: 1
+      - templateId: PV.04.t2
+        params: { n: 200, from: canonical, to: regrouped, places: 3 }
+        childSteps: 1
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.PV.04.outro
+
+  # PV.12 (gateway): 34 on the place-value chart, then one ten split into ten ones: 2 tens 14
+  # ones, the same number. The second faded example bundles the ones back (base-ten pieces).
+  - skillId: PV.12
+    mode: authored
+    templateId: PV.12.t3
+    worked:
+      - params: { n: 34, from: canonical, to: regrouped }
+        steps:
+          - actor: demo
+            say: ls.PV.12.w1.s1
+            vars: { n: 34, t: 3, o: 4 }
+          - actor: demo
+            say: ls.PV.12.w1.s2
+            action: { op: trade, args: { from: tens, to: ones } }
+          - actor: demo
+            say: ls.PV.12.w1.s3
+            vars: { n: 34, t: 2, o: 14 }
+    faded:
+      - templateId: PV.12.t3
+        params: { n: 52, from: canonical, to: regrouped }
+        childSteps: 1
+      - templateId: PV.12.t2
+        params: { n: 43, from: regrouped, to: canonical }
+        childSteps: 1
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.PV.12.outro
+
+  # PV.15 (gateway): 243 is 2 hundreds, 4 tens and 3 ones. The faded examples move to the
+  # place-value cards, a second representation (03 §6.4).
+  - skillId: PV.15
+    mode: authored
+    templateId: PV.15.t1
+    worked:
+      - params: { n: 243, mode: build }
+        steps:
+          - actor: demo
+            say: ls.PV.15.w1.s1
+            vars: { n: 243, h: 2 }
+            action: { op: add-piece, args: { kind: hundreds, count: 2 } }
+          - actor: demo
+            say: ls.PV.15.w1.s2
+            vars: { t: 4 }
+            action: { op: add-piece, args: { kind: tens, count: 4 } }
+          - actor: demo
+            say: ls.PV.15.w1.s3
+            vars: { o: 3 }
+            action: { op: add-piece, args: { kind: ones, count: 3 } }
+          - actor: demo
+            say: ls.PV.15.w1.s4
+            vars: { n: 243 }
+            action: { op: count-by, args: { kind: hundreds } }
+    faded:
+      - templateId: PV.15.t4
+        params: { n: 352, mode: build }
+        childSteps: 1
+      - templateId: PV.15.t4
+        params: { n: 467, mode: build }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.PV.15.outro
+
+  # PV.24 only pins the test-out pool (03 §6.5) to its abstract constructed-answer template, as
+  # PV.13 does: the auto pool would add the pick (PV.24.t5). The examples are exactly what the
+  # auto lesson plays: the same seeds (fnv1a32 of the skill id) and targets.
+  - skillId: PV.24
+    mode: authored
+    templateId: PV.24.t1
+    worked:
+      - { seed: 2730430761, target: easy }
+    faded:
+      - { seed: 2730430762, target: typical, childSteps: 1 }
+      - { seed: 2730430763, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [PV.24.t4] }

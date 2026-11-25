@@ -1,4 +1,6 @@
-# PV templates (03 §4.3), K01: the grade-1 place-value rows. Base-ten pieces follow the U04 models
+# PV templates (03 §4.3). K01: the grade-1 place-value rows; K02 slice 1a: the grade-2 rows to
+# 1000 (PV.04–PV.07, PV.12, PV.14–PV.17, PV.24). The place-value chart (pv-chart) is the
+# base-ten-trade mat with its columns, as in PV.01.t4. Base-ten pieces follow the U04 models
 # (engine README, "Conventions the U04 formats fix"): a build answers with the mat, checked by
 # baseten.value (any pieces worth the number) or baseten.exact.
 strand: PV
@@ -169,6 +171,238 @@ templates:
     difficulty: { base: -0.3 }
     narration: { prompt: tp.PV.03.t3.prompt, hints: [h.pv.ones-stay, h.pv.tens-change] }
 
+  # ---------- PV.04 a hundred is ten tens (gateway, K02) ----------
+  # Ten bundles of ten are tied into one hundred: n is 100–900, shown with one hundred as ten tens.
+  - id: PV.04.t1
+    skillId: PV.04
+    format: base-ten-build
+    tier: concrete
+    representation: bundles
+    generator: pv.regroup
+    params: { n: { int: [100, 900], step: 100 }, from: regrouped, to: canonical, places: 3 }
+    difficulty: { base: -3.4 }
+    narration: { prompt: tp.PV.04.t1.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
+
+  # Unbundle: one hundred becomes ten tens.
+  - id: PV.04.t2
+    skillId: PV.04
+    format: base-ten-trade
+    tier: pictorial
+    representation: base-ten
+    generator: pv.regroup
+    params: { n: { int: [100, 900], step: 100 }, from: canonical, to: regrouped, places: 3 }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.04.t2.prompt, hints: [h.pv.split-flat, h.pv.same-number] }
+
+  # Count by tens down the chart to the last box: ten rows of ten are one hundred.
+  - id: PV.04.t3
+    skillId: PV.04
+    format: hundred-chart
+    tier: pictorial
+    generator: pv.tenmore
+    params: { n: { int: [10, 80], step: 10 }, delta: 10, moves: { int: [2, 9] } }
+    constraints: ["n + 10 * moves == 100"]
+    difficulty: { base: -3.0 }
+    narration: { prompt: tp.PV.04.t3.prompt, hints: [h.pv.chart-row, h.pv.ten-rows] }
+
+  - id: PV.04.t4
+    skillId: PV.04
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [100, 900], step: 100 }, mode: read }
+    difficulty: { base: -1.6 }
+    narration: { prompt: tp.PV.04.t4.prompt, hints: [h.pv.flat-is-hundred, h.pv.count-by-hundreds] }
+
+  - id: PV.04.t5
+    skillId: PV.04
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.regroup
+    params: { n: { int: [100, 900], step: 100 }, from: regrouped, places: 3 }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.04.t5.prompt, hints: [h.pv.ten-tens-hundred, h.pv.count-by-hundreds] }
+
+  # ---------- PV.05 read and write numbers to 1000 (K02) ----------
+  - id: PV.05.t1
+    skillId: PV.05
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: read }
+    difficulty: { base: -1.3 }
+    narration: { prompt: tp.PV.05.t1.prompt, hints: [h.pv.flat-is-hundred, h.pv.count-hundreds] }
+
+  - id: PV.05.t2
+    skillId: PV.05
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: expanded }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.05.t2.prompt, hints: [h.pv.hundreds-first, h.pv.zero-holds] }
+
+  # Hear the number name, enter the numeral.
+  - id: PV.05.t3
+    skillId: PV.05
+    format: expanded-form
+    tier: abstract
+    representation: words
+    generator: pv.number
+    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: words }
+    difficulty: { base: -1.6 }
+    narration: { prompt: tp.PV.05.t3.prompt, hints: [h.pv.listen-hundreds, h.pv.zero-holds] }
+
+  - id: PV.05.t4
+    skillId: PV.05
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: expanded }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.05.t4.prompt, hints: [h.pv.hundreds-first, h.pv.zero-holds] }
+    distractors:
+      - { rule: MC.zero-placeholder }
+      - { rule: MC.place-swap }
+
+  # The parts are given smallest first: 5 + 300 + 40.
+  - id: PV.05.t5
+    skillId: PV.05
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [100, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: expanded, unusualOrder: true }
+    difficulty: { base: -1.7 }
+    narration: { prompt: tp.PV.05.t5.prompt, hints: [h.pv.find-hundreds-part, h.pv.zero-holds] }
+
+  # ---------- PV.06 compare three-digit numbers (K02) ----------
+  - id: PV.06.t1
+    skillId: PV.06
+    format: compare
+    tier: pictorial
+    representation: base-ten
+    generator: compare.numbers
+    params:
+      a: { int: [100, 999] }
+      b: { int: [100, 999] }
+      extra: 0
+      min: 100
+      max: 999
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.06.t1.prompt, hints: [h.compare.hundreds, h.compare.same-hundreds] }
+
+  - id: PV.06.t2
+    skillId: PV.06
+    format: compare
+    tier: pictorial
+    representation: number-line
+    generator: compare.numbers
+    params:
+      a: { int: [100, 999] }
+      b: { int: [100, 999] }
+      extra: 0
+      min: 0
+      max: 1000
+      ask: { choice: [more, fewer], weights: [1, 1] }
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.PV.06.t2.prompt, hints: [h.compare.line, h.compare.hundreds] }
+
+  # Constructed practice (V27): three numbers, each marked on a 0–1000 line.
+  - id: PV.06.t3
+    skillId: PV.06
+    format: order
+    tier: pictorial
+    representation: number-line
+    generator: compare.numbers
+    params: { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 1, min: 0, max: 1000, ask: fewer }
+    difficulty: { base: -0.9, features: { closeness: 0.5 } }
+    narration: { prompt: tp.PV.06.t3.prompt, hints: [h.compare.line, h.order.smallest] }
+
+  - id: PV.06.t4
+    skillId: PV.06
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params: { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 0, min: 100, max: 999, ask: symbol }
+    difficulty: { base: -1.6 }
+    # Both sides can draw the same number (420 _ 420), so the mark hint covers =.
+    narration: { prompt: tp.PV.06.t4.prompt, hints: [h.compare.hundreds, h.cmp.mark-fits] }
+
+  # Two digits against three (89 and 102): the numbers around one hundred, where
+  # MC.compare-first-digit shows.
+  - id: PV.06.t5
+    skillId: PV.06
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      a: { int: [60, 140] }
+      b: { int: [60, 140] }
+      extra: 0
+      min: 60
+      max: 140
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -0.9 }
+    narration: { prompt: tp.PV.06.t5.prompt, hints: [h.compare.more-digits, h.compare.hundreds] }
+
+  - id: PV.06.t6
+    skillId: PV.06
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [100, 999] },
+        b: { int: [100, 999] },
+        extra: { int: [1, 2] },
+        min: 100,
+        max: 999,
+        ask: fewer,
+      }
+    difficulty: { base: -1.1, features: { closeness: 0.5 } }
+    narration: { prompt: tp.PV.06.t6.prompt, hints: [h.order.smallest, h.compare.hundreds] }
+
+  # ---------- PV.07 add or subtract 10 or 100 in your head (K02) ----------
+  - id: PV.07.t1
+    skillId: PV.07
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: pv.tenmore
+    params: { n: { int: [110, 889] }, delta: { choice: [10, -10, 100, -100] } }
+    difficulty: { base: -1.9 }
+    narration: { prompt: tp.PV.07.t1.prompt, hints: [h.pv.rod-or-flat, h.pv.one-place-changes] }
+
+  - id: PV.07.t2
+    skillId: PV.07
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: pv.tenmore
+    params: { n: { int: [110, 889] }, delta: { choice: [10, -10, 100, -100] } }
+    difficulty: { base: -2.3 }
+    narration: { prompt: tp.PV.07.t2.prompt, hints: [h.pv.one-jump, h.pv.one-place-changes] }
+
+  - id: PV.07.t3
+    skillId: PV.07
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.tenmore
+    params: { n: { int: [110, 889] }, delta: { choice: [10, -10, 100, -100] } }
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.PV.07.t3.prompt, hints: [h.pv.one-place-changes, h.pv.tens-or-hundreds] }
+
   # ---------- PV.09 ten ones make one ten (gateway) ----------
   - id: PV.09.t1
     skillId: PV.09
@@ -284,6 +518,63 @@ templates:
     difficulty: { base: -1.1 }
     narration: { prompt: tp.PV.11.t3.prompt, hints: [h.subitize.full-ten, h.pv.ten-and-more] }
 
+  # ---------- PV.12 one number, many ways (gateway, K02) ----------
+  # 34 shown with exactly 2 tens and 14 ones.
+  - id: PV.12.t1
+    skillId: PV.12
+    format: base-ten-build
+    tier: concrete
+    representation: bundles
+    generator: pv.number
+    params: { n: { int: [21, 99] }, mode: exact, nonCanonical: true }
+    constraints: ["n % 10 > 0"]
+    difficulty: { base: -1.9 }
+    narration: { prompt: tp.PV.12.t1.prompt, hints: [h.pv.one-ten-fewer, h.pv.ten-more-ones] }
+
+  # 2 tens and 14 ones are bundled back into 3 tens and 4 ones.
+  - id: PV.12.t2
+    skillId: PV.12
+    format: base-ten-build
+    tier: pictorial
+    representation: base-ten
+    generator: pv.regroup
+    params: { n: { int: [21, 99] }, from: regrouped, to: canonical }
+    difficulty: { base: -2.4 }
+    narration: { prompt: tp.PV.12.t2.prompt, hints: [h.pv.ten-ones-bundle, h.pv.same-number] }
+
+  # The place-value chart: 3 tens 4 ones becomes 2 tens 14 ones.
+  - id: PV.12.t3
+    skillId: PV.12
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: pv.regroup
+    params: { n: { int: [21, 99] }, from: canonical, to: regrouped }
+    difficulty: { base: -0.9 }
+    narration: { prompt: tp.PV.12.t3.prompt, hints: [h.pv.split-rod, h.pv.same-number] }
+
+  # 20 + 14 = ?
+  - id: PV.12.t4
+    skillId: PV.12
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [21, 99] }, mode: expanded, nonCanonical: true }
+    constraints: ["n % 10 > 0"]
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.PV.12.t4.prompt, hints: [h.pv.ten-of-the-ones, h.pv.count-tens-ones] }
+
+  - id: PV.12.t5
+    skillId: PV.12
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.regroup
+    params: { n: { int: [21, 99] }, from: regrouped }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.12.t5.prompt, hints: [h.pv.ten-of-the-ones, h.pv.count-tens-ones] }
+
   # ---------- PV.13 expanded form and words ----------
   # Teens are in range so MC.teen-reversal can discriminate (03 §7.1, V25).
   - id: PV.13.t1
@@ -329,3 +620,248 @@ templates:
     params: { n: { int: [12, 54] }, mode: words, digitMax: 5 }
     difficulty: { base: -1.25 }
     narration: { prompt: tp.PV.13.t4.prompt, hints: [h.pv.listen-tens, h.pv.tens-first-digit] }
+
+  # ---------- PV.14 three-digit numbers with zeros (K02) ----------
+  - id: PV.14.t1
+    skillId: PV.14
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [101, 990] }, zeros: some, mode: build }
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.PV.14.t1.prompt, hints: [h.pv.hundreds-first, h.pv.zero-means-none] }
+
+  # The place-value chart: ten tens become a hundred, and the tens place is empty (305).
+  - id: PV.14.t2
+    skillId: PV.14
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: pv.regroup
+    params: { n: { int: [101, 909] }, from: regrouped, to: canonical, places: 3 }
+    constraints: ["(n // 10) % 10 == 0"]
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.14.t2.prompt, hints: [h.pv.ten-tens-hundred, h.pv.zero-means-none] }
+
+  - id: PV.14.t3
+    skillId: PV.14
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [101, 990] }, zeros: some, mode: read }
+    difficulty: { base: -1.6 }
+    narration: { prompt: tp.PV.14.t3.prompt, hints: [h.pv.flat-is-hundred, h.pv.zero-holds] }
+
+  # The hundreds, tens and ones are named; the number without its zero (35 for 305) is offered.
+  - id: PV.14.t4
+    skillId: PV.14
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [101, 909] }, zeros: internal, mode: write }
+    difficulty: { base: -1.9 }
+    narration: { prompt: tp.PV.14.t4.prompt, hints: [h.pv.zero-holds, h.pv.three-places] }
+    distractors:
+      - { rule: MC.zero-placeholder }
+
+  # 300 + 5 = ?
+  - id: PV.14.t5
+    skillId: PV.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [101, 990] }, zeros: some, mode: expanded }
+    difficulty: { base: -1.8 }
+    narration: { prompt: tp.PV.14.t5.prompt, hints: [h.pv.zero-holds, h.pv.three-places] }
+
+  # ---------- PV.15 three-digit numbers are hundreds, tens and ones (gateway, K02) ----------
+  - id: PV.15.t1
+    skillId: PV.15
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: build }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.15.t1.prompt, hints: [h.pv.hundreds-first, h.pv.tens-then-ones] }
+
+  - id: PV.15.t2
+    skillId: PV.15
+    format: base-ten-build
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: read }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.15.t2.prompt, hints: [h.pv.flat-is-hundred, h.pv.count-hundreds] }
+
+  # The place-value chart: a place with ten or more is traded up, so each place holds 0–9.
+  - id: PV.15.t3
+    skillId: PV.15
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: pv.regroup
+    params: { n: { int: [110, 999] }, from: regrouped, to: canonical, places: 3 }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.15.t3.prompt, hints: [h.pv.ten-make-next, h.pv.under-ten-each] }
+
+  - id: PV.15.t4
+    skillId: PV.15
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: build }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.15.t4.prompt, hints: [h.pv.hundreds-card, h.pv.rest-cards] }
+
+  - id: PV.15.t5
+    skillId: PV.15
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [101, 999] }, zeros: { choice: [any, internal], weights: [3, 1] }, mode: write }
+    difficulty: { base: -1.6 }
+    narration: { prompt: tp.PV.15.t5.prompt, hints: [h.pv.hundreds-first, h.pv.three-places] }
+
+  # ---------- PV.16 regroup three-digit numbers (K02) ----------
+  # 1 hundred 15 tens 3 ones: ten of the tens are joined into a hundred (253).
+  - id: PV.16.t1
+    skillId: PV.16
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: pv.regroup
+    params: { n: { int: [100, 999] }, from: tens, to: canonical, places: 3 }
+    difficulty: { base: -2.8 }
+    narration: { prompt: tp.PV.16.t1.prompt, hints: [h.pv.ten-tens-hundred, h.pv.same-number] }
+
+  # The place-value chart: one hundred of 253 becomes ten tens (1 hundred 15 tens 3 ones).
+  - id: PV.16.t2
+    skillId: PV.16
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: pv.regroup
+    params: { n: { int: [100, 999] }, from: canonical, to: tens, places: 3 }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.16.t2.prompt, hints: [h.pv.split-flat, h.pv.same-number] }
+
+  # One ten of 253 becomes ten ones (2 hundreds 4 tens 13 ones).
+  - id: PV.16.t3
+    skillId: PV.16
+    format: base-ten-trade
+    tier: pictorial
+    representation: base-ten
+    generator: pv.regroup
+    params: { n: { int: [110, 999] }, from: canonical, to: regrouped, places: 3 }
+    constraints: ["(n // 10) % 10 > 0"]
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.16.t3.prompt, hints: [h.pv.split-rod, h.pv.same-number] }
+
+  # ---------- PV.17 order three-digit numbers (K02) ----------
+  # Place a number between two marked numbers on a 0–1000 line.
+  - id: PV.17.t1
+    skillId: PV.17
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: compare.numbers
+    params: { a: { int: [100, 900] }, b: { int: [100, 900] }, extra: 1, min: 0, max: 1000, ask: fewer }
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.PV.17.t1.prompt, hints: [h.numberline.marked, h.compare.hundreds] }
+
+  - id: PV.17.t2
+    skillId: PV.17
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params: { a: { int: [100, 999] }, b: { int: [100, 999] }, extra: 2, min: 100, max: 999, ask: fewer }
+    difficulty: { base: -1.4, features: { closeness: 0.5 } }
+    narration: { prompt: tp.PV.17.t2.prompt, hints: [h.order.smallest, h.compare.hundreds] }
+
+  # Greatest first, around one hundred: two digits beside three (95, 102, 89), where
+  # MC.compare-first-digit shows.
+  - id: PV.17.t3
+    skillId: PV.17
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [60, 160] },
+        b: { int: [60, 160] },
+        extra: { int: [1, 2] },
+        min: 60,
+        max: 160,
+        ask: more,
+      }
+    difficulty: { base: -1.6, features: { closeness: 0.5 } }
+    narration: { prompt: tp.PV.17.t3.prompt, hints: [h.order.greatest, h.compare.more-digits] }
+
+  # ---------- PV.24 what a digit is worth (K02) ----------
+  # The digits of n are all different, so "the 4 in 345" names one digit.
+  # Build what the hundreds or the tens digit is worth: the 4 in 345 is 4 tens.
+  - id: PV.24.t1
+    skillId: PV.24
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [123, 987] }, zeros: none, mode: digit-value, place: { int: [1, 2] } }
+    constraints: ["h != t", "t != o", "h != o"]
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.24.t1.prompt, hints: [h.pv.digit-place, h.pv.digit-counts-place] }
+
+  # The place-value chart: one ten of the tens place is worth ten ones.
+  - id: PV.24.t2
+    skillId: PV.24
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: pv.regroup
+    params: { n: { int: [110, 999] }, from: canonical, to: regrouped, places: 3 }
+    constraints: ["(n // 10) % 10 > 0"]
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.24.t2.prompt, hints: [h.pv.split-rod, h.pv.same-number] }
+
+  # 345 = 300 + ? + 5
+  - id: PV.24.t3
+    skillId: PV.24
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [111, 999] }, zeros: none, mode: expanded, place: { int: [1, 2] } }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.24.t3.prompt, hints: [h.pv.digit-place, h.pv.digit-counts-place] }
+
+  # The widget marks the digit, so repeated digits are fine here.
+  - id: PV.24.t4
+    skillId: PV.24
+    format: expanded-form
+    tier: abstract
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [111, 999] }, zeros: none, mode: digit-value, place: { int: [0, 2] } }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.24.t4.prompt, hints: [h.pv.digit-place, h.pv.digit-counts-place] }
+
+  - id: PV.24.t5
+    skillId: PV.24
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [123, 987] }, zeros: none, mode: digit-value, place: { int: [1, 2] } }
+    constraints: ["h != t", "t != o", "h != o"]
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.24.t5.prompt, hints: [h.pv.digit-place, h.pv.digit-counts-place] }

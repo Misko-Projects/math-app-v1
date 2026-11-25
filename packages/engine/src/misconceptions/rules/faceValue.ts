@@ -3,7 +3,8 @@
 // counting every base-ten piece as one, so 3 tens 4 ones is 7: a typed or picked number equal to
 // the digit sum of n, a base-ten build of only ones whose count is that sum (34 built with 7 ones),
 // or place-value cards that are the bare digits (3 and 4 for 34). Items that ask for a part of n
-// (an expanded-form term) cannot discriminate.
+// (an expanded-form term) cannot discriminate. K02 (PV.24): a base-ten build of what a digit is
+// worth made of that many ones (the 4 in 345 built with 4 ones).
 
 import type { GeneratedItem, ResponseValue } from '@number-island/shared';
 import { matPieces } from '../../check/state/baseten.value';
@@ -73,8 +74,8 @@ export const faceValue: MisconceptionRule = {
         return { kind: 'numbers', values: want };
       }
       case 'state':
-        // Every piece a one: 34 built with 7 ones.
-        if (w.format !== 'base-ten-build' || slip.kind !== 'sum') return null;
+        // Every piece a one: 34 built with 7 ones, or the 4 in 345 built with 4 ones.
+        if (w.format !== 'base-ten-build') return null;
         return {
           kind: 'state',
           value: { thousands: 0, hundreds: 0, tens: 0, ones: slip.value },
@@ -96,7 +97,7 @@ export const faceValue: MisconceptionRule = {
       );
     }
     if (r.kind === 'state') {
-      if (w.format !== 'base-ten-build' || slip.kind !== 'sum') return false;
+      if (w.format !== 'base-ten-build') return false;
       const mat = matPieces(r.value);
       return (
         mat !== undefined &&

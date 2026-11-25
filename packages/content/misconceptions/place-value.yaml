@@ -1,14 +1,14 @@
-# Place-value misconceptions (03 §7.2). Skills list the catalog skills authored so far: PV.15 joins
-# MC.place-swap and MC.face-value, PV.24 joins MC.face-value, and PV.05, PV.14 and PV.20 join
-# MC.write-as-spoken (with remediation PV.15) when those K02 skills land. MC.zero-placeholder,
-# MC.compare-first-digit and the rounding entries have no K01 skill whose items can show them.
+# Place-value misconceptions (03 §7.2). Skills list the catalog skills authored so far. K02 slice
+# 1a (#17) added the grade-2 skills to 1000 and the entries MC.zero-placeholder and
+# MC.compare-first-digit. Still to join: PV.20 (MC.write-as-spoken), MDA.18 (MC.zero-placeholder),
+# CMP.10 (MC.compare-first-digit) and the rounding entries, with their skills.
 area: place-value
 misconceptions:
   - id: MC.place-swap
     name: Swaps the tens and the ones (34 written as 43)
     detect: { kind: answer, rule: placeSwap }
     appliesTo: { generators: [pv.number] }
-    skills: [PV.01, PV.13]
+    skills: [PV.01, PV.13, PV.15]
     remediation: [PV.01]
     feedback: fb.mc.place-swap
     # Below MC.teen-reversal: 41 written as 14 is both, and the teen word is the cause.
@@ -27,6 +27,13 @@ misconceptions:
       - params: { n: 34 }
         response: { kind: number, value: 43 }
         match: true
+      # 345 built as 3 hundreds 5 tens 4 ones (PV.15): the hundreds stay, the tens and ones swap.
+      - params: { n: 345, mode: build }
+        response: { kind: state, value: { thousands: 0, hundreds: 3, tens: 5, ones: 4 } }
+        match: true
+      - params: { n: 345, mode: build }
+        response: { kind: state, value: { thousands: 0, hundreds: 5, tens: 4, ones: 3 } }
+        match: false
       # 30 swapped would start with 0: nothing to tell apart.
       - params: { n: 30 }
         response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 0, ones: 3 } }
@@ -36,7 +43,7 @@ misconceptions:
     name: Counts each digit as ones (3 tens 4 ones as 7)
     detect: { kind: answer, rule: faceValue }
     appliesTo: { generators: [pv.number] }
-    skills: [PV.01]
+    skills: [PV.01, PV.15, PV.24]
     remediation: [PV.09, PV.01]
     feedback: fb.mc.face-value
     priority: 50
@@ -57,6 +64,13 @@ misconceptions:
       - params: { n: 34 }
         response: { kind: number, value: 8 }
         match: false
+      # The 4 in 345 built with 4 ones (PV.24); 4 tens is right, and not a match.
+      - params: { n: 345, mode: digit-value, place: 1 }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 0, ones: 4 } }
+        match: true
+      - params: { n: 345, mode: digit-value, place: 1 }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 4, ones: 0 } }
+        match: false
 
   # No predict (03 §7.1): the written-as-spoken number (407 for 47) is never a possible option of a
   # two-digit pick, so the rule only tags typed answers.
@@ -64,8 +78,8 @@ misconceptions:
     name: Writes the number the way it sounds (forty-seven as 407)
     detect: { kind: answer, rule: writeAsSpoken }
     appliesTo: { generators: [pv.number] }
-    skills: [PV.13]
-    remediation: [PV.13]
+    skills: [PV.05, PV.13, PV.14]
+    remediation: [PV.15, PV.13]
     feedback: fb.mc.write-as-spoken
     priority: 50
     parentTip: >-
@@ -81,4 +95,71 @@ misconceptions:
         match: false
       - params: { n: 14 }
         response: { kind: number, value: 104 }
+        match: false
+      # 300 + 5 written as 3005 (PV.14), and as 35, which is the missing zero and not this.
+      - params: { n: 305, mode: expanded }
+        response: { kind: number, value: 3005 }
+        match: true
+      - params: { n: 305, mode: expanded }
+        response: { kind: number, value: 35 }
+        match: false
+
+  - id: MC.zero-placeholder
+    name: Leaves out the zero that holds a place (305 written as 35)
+    detect: { kind: answer, rule: zeroPlaceholder }
+    appliesTo: { generators: [pv.number] }
+    skills: [PV.05, PV.14, PV.15]
+    remediation: [PV.14]
+    feedback: fb.mc.zero-placeholder
+    priority: 50
+    parentTip: >-
+      Write the number in a chart with hundreds, tens and ones columns: a column with nothing in it
+      still gets a zero.
+    examples:
+      - params: { n: 305, mode: expanded }
+        response: { kind: number, value: 35 }
+        match: true
+      - params: { n: 305, mode: expanded }
+        response: { kind: number, value: 350 }
+        match: false
+      # 305 built with 3 tens and 5 ones.
+      - params: { n: 305, mode: build }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 3, ones: 5 } }
+        match: true
+      # A zero at the end is not inside the number: 340 as 34 is another slip.
+      - params: { n: 340, mode: expanded }
+        response: { kind: number, value: 34 }
+        match: false
+
+  - id: MC.compare-first-digit
+    name: Compares by the first digit, not by how many digits (89 greater than 102)
+    detect: { kind: answer, rule: compareFirstDigit }
+    appliesTo: { generators: [compare.numbers] }
+    # PV.02 (03 §7.2) compares two-digit numbers only, so no item of it can show the slip: it
+    # joins when a template of it mixes digit counts.
+    skills: [PV.06, PV.17]
+    remediation: [PV.15, PV.06]
+    feedback: fb.mc.compare-first-digit
+    # Above MC.symbol-reversed: 89 > 102 is both, and the digit count is the cause.
+    priority: 55
+    parentTip: >-
+      Before comparing, count the digits together: a number with three digits is always greater
+      than a number with two.
+    examples:
+      - params: { a: 89, b: 102, extra: 0, min: 60, max: 140, ask: more }
+        response: { kind: choice, id: left }
+        match: true
+      - params: { a: 89, b: 102, extra: 0, min: 60, max: 140, ask: more }
+        response: { kind: choice, id: same }
+        match: false
+      # Both have three digits: nothing to tell apart.
+      - params: { a: 189, b: 202, extra: 0, min: 60, max: 240, ask: more }
+        response: { kind: choice, id: left }
+        match: false
+      # Smallest first: 102, 89, 95 is the order of the first digits.
+      - params: { a: 89, b: 102, extra: 1, x1: 95, min: 60, max: 140, ask: fewer }
+        response: { kind: numbers, values: [102, 89, 95] }
+        match: true
+      - params: { a: 89, b: 102, extra: 1, x1: 95, min: 60, max: 140, ask: fewer }
+        response: { kind: numbers, values: [95, 89, 102] }
         match: false

@@ -17,6 +17,8 @@ function predict(item: GeneratedItem): ResponseValue | null {
 export const symbolReversed: MisconceptionRule = {
   id: 'symbolReversed',
   kind: 'answer',
+  // K02 (PV.06): the slip is about the sign, so only the items that ask for it are its items.
+  applies: (item) => item.widget.format === 'compare' && item.widget.ask === 'symbol',
   predict,
   match(item, r) {
     const p = predict(item);

@@ -6,8 +6,10 @@ roots: [CNT.01, SUB.01, GEO.01, GEO.05, MEA.15, TIM.08, ALG.01]
 coverageGrades: [K, 1]
 # plannedIds: catalog ids (03 §3) not authored yet; V03 accepts a gap there. K01 authors every K–1
 # row, so the gaps left are grade 2–3 rows between authored ids, for K02: ADD.14, ADD.22, ALG.03,
-# CMP.10–12, CNT.11, CNT.12, CNT.17, CPS.10, DAT.03–08, FRA.02–06, MDA.03–07, MUL.01–11, PV.04–08,
-# PV.12, TIM.02, TIM.03, TIM.05–07 and the GEO and MEA rows. K02 clears them.
+# CMP.10–12, CNT.11, CNT.12, CNT.17, CPS.10, DAT.03–08, FRA.02–06, MDA.03–07, MUL.01–11, PV.08,
+# TIM.02, TIM.03, TIM.05–07 and the GEO and MEA rows. K02 clears them. K02 slice 1a authored the
+# grade-2 place-value rows (PV.04–PV.07, PV.12, PV.14–PV.17, PV.24), which leaves PV.08 and
+# PV.18–PV.23 (rounding, grade 3, and the stretch rows) as gaps below PV.24.
 plannedIds:
   [
     ADD.14,
@@ -65,12 +67,13 @@ plannedIds:
     MUL.09,
     MUL.10,
     MUL.11,
-    PV.04,
-    PV.05,
-    PV.06,
-    PV.07,
     PV.08,
-    PV.12,
+    PV.18,
+    PV.19,
+    PV.20,
+    PV.21,
+    PV.22,
+    PV.23,
     TIM.02,
     TIM.03,
     TIM.05,
