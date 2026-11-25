@@ -7,7 +7,7 @@ import { contentAssets } from './content-assets';
 
 // The pier fit check (#12): every template in the Practice Pier's workshop area, in Chromium, at
 // the two supported landscape viewports. Part of `pnpm test`; it needs `pnpm content:build`
-// (the content plugin builds the content when `packages/content/dist` is missing).
+// (the content plugin builds the content when `packages/content/dist` is missing or incomplete).
 export default defineProject({
   plugins: [react(), tailwindcss(), contentAssets()],
   resolve: {

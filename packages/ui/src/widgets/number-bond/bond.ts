@@ -72,6 +72,15 @@ export function poolColumns(cap: number): number {
 }
 
 /**
+ * Columns for a part's pool: `poolColumns`, or half as many where the plan folds the parts' pools
+ * (plan.ts: twice the rows, so the bond is narrow enough to stand beside its other parts).
+ */
+export function partColumns(cap: number, fold: boolean): number {
+  const cols = poolColumns(cap);
+  return fold ? Math.max(1, Math.ceil(cols / 2)) : cols;
+}
+
+/**
  * The largest number the answer control offers: the whole (0 … whole); for an asked whole, 10 or
  * 20 (a tray that doesn't give the answer away), and above 20 every number of the whole's digits
  * (99 for 25: the pad, as many digits as the real whole).
