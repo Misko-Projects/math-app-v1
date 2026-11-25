@@ -1,7 +1,9 @@
 // pv.regroup (03 §5.6): one number, two ways to show it. `n` shown `from` one decomposition is
 // traded `to` another: canonical (34 = 3 tens 4 ones), regrouped (one unit of the lowest non-zero
 // place above the ones broken into ten: 2 tens 14 ones; 305 = 2 hundreds 10 tens 5 ones) or ones
-// (all ones: 34 ones, n ≤ 99). `places` (2 or 3) is how many places the mat shows.
+// (all ones: 34 ones, n ≤ 99). K02 (PV.16) adds tens: one hundred broken into ten tens whatever
+// the tens digit (253 = 1 hundred 15 tens 3 ones), which `regrouped` only does when n has no tens.
+// `places` (2 or 3) is how many places the mat shows.
 //
 // Formats:
 //   base-ten-trade  `regroup-to`: the mat starts at `from` and must show exactly `to`
@@ -35,7 +37,7 @@ import {
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 import { placeCounts } from './number';
 
-export const DECOMPOSITIONS = ['canonical', 'regrouped', 'ones'] as const;
+export const DECOMPOSITIONS = ['canonical', 'regrouped', 'ones', 'tens'] as const;
 export type Decomposition = (typeof DECOMPOSITIONS)[number];
 
 const BASE_TEN_REPS = new Set(['base-ten', 'bundles']);
@@ -52,11 +54,21 @@ const asDecomposition = (v: unknown, fallback: Decomposition): Decomposition =>
 
 /**
  * The hundreds, tens and ones of n shown one way, or null when n cannot be shown that way (no
- * place above the ones to break for `regrouped`, more than 99 ones for `ones`, n ≥ 1000).
+ * place above the ones to break for `regrouped`, more than 99 ones for `ones`, no hundred to break
+ * for `tens`, n ≥ 1000).
  */
 export function decompose(n: number, how: Decomposition): Hto | null {
   if (!Number.isInteger(n) || n < 10 || n > 999) return null;
   if (how === 'ones') return n <= 99 ? { hundreds: 0, tens: 0, ones: n } : null;
+  if (how === 'tens') {
+    // One hundred as ten tens: 10–19 tens beside the hundreds left (the mat's widest tens column).
+    if (n < 100) return null;
+    return {
+      hundreds: Math.floor(n / 100) - 1,
+      tens: (Math.floor(n / 10) % 10) + 10,
+      ones: n % 10,
+    };
+  }
   const c = placeCounts(n, how === 'regrouped');
   const out = { hundreds: c[2] ?? 0, tens: c[1] ?? 0, ones: c[0] ?? 0 };
   if (how === 'regrouped' && out.ones < 10 && out.tens < 10) return null;
@@ -123,9 +135,11 @@ export function regroupFeatures(p: ParamValues, format: string): Record<string, 
   const { from, to } = endsOf(p, format);
   // Size (n < 100): tens and ones past five are counted, not seen at a glance (as pv.number).
   const n = asNum(p.n);
+  // K02: each place of a number to 999, as pv.number counts them.
   const size = {
-    'tens.over5': n < 100 ? Math.max(0, (Math.floor(n / 10) % 10) - 5) / 4 : 0,
-    'ones.over5': n < 100 ? Math.max(0, (n % 10) - 5) / 4 : 0,
+    'hundreds.over5': Math.max(0, Math.floor(n / 100) - 5) / 4,
+    'tens.over5': Math.max(0, (Math.floor(n / 10) % 10) - 5) / 4,
+    'ones.over5': Math.max(0, (n % 10) - 5) / 4,
   };
   if (!from || !to) return { regroups: 0, acrossPlaces: 0, ...size };
   const trades = tradesBetween(from, to);
@@ -147,7 +161,7 @@ export const pvRegroup: GeneratorDef = {
       type: 'string',
       values: [...DECOMPOSITIONS],
       default: { kind: 'const', value: 'ones' },
-      doc: 'how n is shown first: canonical (3 tens 4 ones), regrouped (2 tens 14 ones) or ones (34 ones, n ≤ 99)',
+      doc: 'how n is shown first: canonical (3 tens 4 ones), regrouped (2 tens 14 ones), ones (34 ones, n ≤ 99) or tens (one hundred as ten tens: 253 as 1 hundred 15 tens 3 ones)',
     },
     to: {
       type: 'string',
@@ -172,13 +186,17 @@ export const pvRegroup: GeneratorDef = {
       doc: 'single trades between the two decompositions (number-pad, make-set: to canonical)',
     },
     acrossPlaces: { weight: 0.6, doc: 'trades at both the hundreds and the tens' },
+    'hundreds.over5': {
+      weight: 0.4,
+      doc: 'max(0, hundreds − 5) / 4 (hundreds past five are counted)',
+    },
     'tens.over5': {
       weight: 0.4,
-      doc: 'n < 100: max(0, tens − 5) / 4 (tens past five are counted)',
+      doc: 'max(0, tens − 5) / 4 (tens past five are counted)',
     },
     'ones.over5': {
       weight: 0.4,
-      doc: 'n < 100: max(0, ones − 5) / 4 (ones past five are counted)',
+      doc: 'max(0, ones − 5) / 4 (ones past five are counted)',
     },
   },
   narration: [
@@ -253,7 +271,8 @@ export const pvRegroup: GeneratorDef = {
         };
         break;
       case 'base-ten-build': {
-        const withHundreds = asNum(params.places, 2) === 3 || n >= 100;
+        const threePlaces = asNum(params.places, 2) === 3;
+        const withHundreds = threePlaces || n >= 100;
         const exact = {
           ...(withHundreds ? { hundreds: to.hundreds } : {}),
           tens: to.tens,
@@ -268,7 +287,17 @@ export const pvRegroup: GeneratorDef = {
             format: 'base-ten-build',
             target: n,
             mode: 'build-exact',
-            pieces: { thousands: false, hundreds: withHundreds, tens: true, ones: true },
+            // K02: a three-place mat's tray offers only the kind the trades use up. A kind that
+            // never has a piece in the tray gets no pile (two piles marked "0 left" would take the
+            // room the hundreds, tens and ones columns need); it is still a column of the mat.
+            pieces: threePlaces
+              ? {
+                  thousands: false,
+                  hundreds: limits.hundreds !== 0,
+                  tens: limits.tens !== 0,
+                  ones: limits.ones !== 0,
+                }
+              : { thousands: false, hundreds: withHundreds, tens: true, ones: true },
             limits,
             exact,
             wholeIs: 'unit',

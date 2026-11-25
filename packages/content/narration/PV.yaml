@@ -110,3 +110,182 @@ ls.PV.09.w1.s3:
 ls.PV.09.outro:
   text: "Ten ones make one ten. Bundles are fast to count!"
   voice: pip
+
+# ---------- K02 slice 1a: grade-2 place value to 1000 ----------
+sk.PV.04.intro:
+  text: "Ten tens make one hundred. Let's count by hundreds!"
+sk.PV.05.intro:
+  text: "We can read and write numbers all the way to one thousand."
+sk.PV.06.intro:
+  text: "Which number is greater? Look at the hundreds first."
+sk.PV.07.intro:
+  text: "Ten more or less, one hundred more or less: think of the tens or the hundreds."
+sk.PV.12.intro:
+  text: "We can show one number in more than one way."
+sk.PV.14.intro:
+  text: "A zero holds a place when that place is empty."
+sk.PV.15.intro:
+  text: "Big numbers have hundreds, tens and ones."
+sk.PV.16.intro:
+  text: "We can trade a hundred for ten tens. The number is the same."
+sk.PV.17.intro:
+  text: "Let's put big numbers in order."
+sk.PV.24.intro:
+  text: "The place of a digit tells what it is worth."
+
+tp.PV.04.t1.prompt:
+  text: "Ten tens make one hundred. Put ten tens together."
+tp.PV.04.t2.prompt:
+  text: "Split one hundred into ten tens. The number is the same."
+tp.PV.04.t3.prompt:
+  text: "Start at {n}. Count on {moves} tens. Tap where you land."
+tp.PV.04.t4.prompt:
+  text: "How many? Count by hundreds."
+tp.PV.04.t5.prompt:
+  text: "How many? Ten tens are as big as one hundred."
+tp.PV.04.t6.prompt:
+  text: "Hundreds: {fromHundreds}, tens: {fromTens}. How many is that?"
+
+tp.PV.05.t1.prompt:
+  text: "Write the number. Count the hundreds, then the tens, then the ones."
+tp.PV.05.t2.prompt:
+  text: "Put the parts together. What number is it?"
+tp.PV.05.t3.prompt:
+  text: "Listen to the number. Then tap it in."
+tp.PV.05.t4.prompt:
+  text: "Which number do the parts make?"
+tp.PV.05.t5.prompt:
+  text: "The parts are mixed up. What number do they make?"
+
+tp.PV.06.t1.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.PV.06.t2.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.PV.06.t3.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.PV.06.t4.prompt:
+  text: "Tap what goes in the box."
+tp.PV.06.t5.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.PV.06.t6.prompt:
+  text: "Put the numbers in order, smallest first."
+
+tp.PV.07.t1.prompt:
+  text: "Here is {n}. Make it {by} {dir|word}."
+tp.PV.07.t2.prompt:
+  text: "Start at {n}. Jump to {by} {dir|word}. Where do you land?"
+tp.PV.07.t3.prompt:
+  text: "What is {by} {dir|word} than {n}?"
+
+tp.PV.12.t1.prompt:
+  text: "Show {n} a new way. Use {tens} tens and {ones} ones."
+tp.PV.12.t2.prompt:
+  text: "Here are {fromTens} tens and {fromOnes} ones. Make a ten from ten ones."
+tp.PV.12.t3.prompt:
+  text: "Show {n} a new way. Split one ten into ten ones."
+tp.PV.12.t4.prompt:
+  text: "Put the parts together. What number is it?"
+tp.PV.12.t5.prompt:
+  text: "Tens: {fromTens}, ones: {fromOnes}. How many is that?"
+
+tp.PV.14.t1.prompt:
+  text: "Build {n}. Look for the place with zero."
+tp.PV.14.t2.prompt:
+  text: "Make one hundred from ten tens. Then look at the tens place."
+tp.PV.14.t3.prompt:
+  text: "Write the number. An empty place gets a zero."
+tp.PV.14.t4.prompt:
+  text: "Hundreds: {h}, tens: {t}, ones: {o}. Which number is that?"
+tp.PV.14.t5.prompt:
+  text: "Put the parts together. What number is it?"
+
+tp.PV.15.t1.prompt:
+  text: "Build {n} with hundreds, tens and ones."
+tp.PV.15.t2.prompt:
+  text: "How many? Count the hundreds, then the tens, then the ones."
+tp.PV.15.t3.prompt:
+  text: "One place has ten or more. Trade ten for one of the next place."
+tp.PV.15.t4.prompt:
+  text: "Make {n} with the cards: hundreds, tens and ones."
+tp.PV.15.t5.prompt:
+  text: "Hundreds: {h}, tens: {t}, ones: {o}. What number is that?"
+
+tp.PV.16.t1.prompt:
+  text: "Here is {n}. Put ten tens together to make one hundred."
+tp.PV.16.t2.prompt:
+  text: "Show {n} a new way. Split one hundred into ten tens."
+tp.PV.16.t3.prompt:
+  text: "Show {n} a new way. Split one ten into ten ones."
+
+tp.PV.17.t1.prompt:
+  text: "Put {a} on the line. Look at the numbers you see."
+tp.PV.17.t2.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.PV.17.t3.prompt:
+  text: "Put the numbers in order, greatest first."
+
+tp.PV.24.t1.prompt:
+  text: "This will be {n}. Put in what the {d} is worth."
+tp.PV.24.t2.prompt:
+  text: "One ten is worth ten ones. Split one ten on the chart."
+tp.PV.24.t3.prompt:
+  text: "What part is missing? Fill it in."
+tp.PV.24.t4.prompt:
+  text: "One digit has a ring. What is it worth?"
+tp.PV.24.t5.prompt:
+  text: "Look at {n}. What is the {d} worth?"
+
+# PV.04 (gateway): a picture first (ten rods are as big as one flat), then ten tens are joined
+# into one hundred on the mat.
+ls.PV.04.w1.s1:
+  text: "Look: ten tens side by side are as big as one hundred."
+  voice: pip
+ls.PV.04.w1.s2:
+  text: "One hundred and ten tens. That is {n}!"
+  voice: pip
+ls.PV.04.w2.s1:
+  text: "Here are ten tens. Count them by tens."
+  voice: pip
+ls.PV.04.w2.s2:
+  text: "Ten tens make one hundred. Put them together!"
+  voice: pip
+ls.PV.04.w2.s3:
+  text: "One hundred! It is the same as ten tens."
+  voice: pip
+  style: excited
+ls.PV.04.outro:
+  text: "Ten tens make one hundred. Now you can count by hundreds!"
+  voice: pip
+
+# PV.12 (gateway): 34 is 3 tens 4 ones, and also 2 tens 14 ones.
+ls.PV.12.w1.s1:
+  text: "Here is {n}: {t} tens and {o} ones."
+  voice: pip
+ls.PV.12.w1.s2:
+  text: "Split one ten. It is ten ones."
+  voice: pip
+ls.PV.12.w1.s3:
+  text: "Now there are {t} tens and {o} ones. It is the same {n}!"
+  voice: pip
+  style: excited
+ls.PV.12.outro:
+  text: "One number, many ways. A ten is always ten ones!"
+  voice: pip
+
+# PV.15 (gateway): build 243 with flats, rods and small blocks.
+ls.PV.15.w1.s1:
+  text: "{n} has {h} hundreds. Put in {h} flats."
+  voice: pip
+ls.PV.15.w1.s2:
+  text: "It has {t} tens. Put in {t} rods."
+  voice: pip
+ls.PV.15.w1.s3:
+  text: "It has {o} ones. Put in {o} small blocks."
+  voice: pip
+ls.PV.15.w1.s4:
+  text: "Hundreds, then tens, then ones. That is {n}!"
+  voice: pip
+  style: excited
+ls.PV.15.outro:
+  text: "Hundreds first, then tens, then ones. Now you can build numbers to one thousand!"
+  voice: pip

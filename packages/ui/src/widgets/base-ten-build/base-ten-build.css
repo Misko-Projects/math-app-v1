@@ -409,6 +409,18 @@
 .ni-btb__measure > * {
   flex: none;
 }
+/*
+ * The parts wrap, and the usual goal and chips lie in a row: with three chips (hundreds in play)
+ * a column of them is taller than a short room, and a copy must stay inside the widget's box.
+ */
+.ni-btb__side.ni-btb__measure {
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+.ni-btb__measure > .ni-btb__ask:not([data-cols]) {
+  flex-flow: row wrap;
+  max-width: 100%;
+}
 .ni-btb__ask {
   display: flex;
   flex-direction: column;
@@ -704,4 +716,60 @@
 }
 .ni-btb__side--pad[data-beside="true"] > :not(.ni-pad) {
   grid-column: 2;
+}
+
+/* ---------- place-value disks (03 §5.5, K02): a mat with hundreds in play ---------- */
+
+/*
+ * Every piece is a disk of one size (--u is its diameter), labelled with its value, one colour
+ * per place. The ones keep the colour every drawn piece has; the label and the column's header
+ * say the place, so colour is never the only cue.
+ */
+.ni-btb[data-pieces="disks"] .ni-btb__piece,
+.ni-btb[data-pieces="disks"] .ni-btb__lift {
+  width: var(--u);
+  height: var(--u);
+  border-radius: 50%;
+}
+.ni-btb__art--disk {
+  --bw: clamp(2px, calc(var(--u) * 0.07), 3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--u);
+  height: var(--u);
+  border-radius: 50%;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 0.4);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.ni-btb__art--disk[data-kind="ones"] {
+  background-color: var(--color-shallows);
+  font-size: calc(var(--u) * 0.5);
+}
+.ni-btb__art--disk[data-kind="ones"]::after {
+  content: "1";
+}
+.ni-btb__art--disk[data-kind="tens"]::after {
+  content: "10";
+}
+.ni-btb__art--disk[data-kind="hundreds"]::after {
+  content: "100";
+}
+.ni-btb__art--disk[data-kind="tens"] {
+  border-color: var(--color-sunshine-deep);
+  background-color: var(--color-sunshine-light);
+  font-size: calc(var(--u) * 0.46);
+}
+.ni-btb__art--disk[data-kind="hundreds"] {
+  border-color: var(--color-coral-deep);
+  background-color: color-mix(in srgb, var(--color-coral) 42%, white);
+}
+.ni-btb__piece[data-counted="true"] .ni-btb__art--disk {
+  /* The ring says "counted"; the disk keeps its place's colour. */
+  background-color: revert-layer;
 }

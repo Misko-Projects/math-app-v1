@@ -21,6 +21,34 @@ export const UNIT_K = 28;
 export const U_FLOOR = 18;
 export const U_MIN = 6;
 
+/**
+ * Place-value disks (03 §5.5, K02; the engine's buildShowsDisks): with hundreds in play every piece
+ * is a disk of one size, labelled with its value, and `u` is the disk's diameter. Disks are drawn
+ * as large as the room allows, up to DISK_MAX; DISK_FLOOR is the smallest a shipped item may need
+ * (its label is then 10 px), and DISK_MIN only keeps a mat far past any item on screen.
+ */
+export const DISK_MAX = 48;
+/** Rows of five are kept while the disks are at least this large (matLayout). */
+export const DISK_ROWS_MIN = 40;
+export const DISK_FLOOR = 26;
+export const DISK_MIN = 14;
+
+/** Disk sizes to try, largest first. */
+export function diskCandidates(): number[] {
+  const out: number[] = [];
+  for (let u = DISK_MAX; u >= DISK_MIN; u--) out.push(u);
+  return out;
+}
+
+/** Between two disks in a row of five, and between two tens of disks (px). */
+export const diskGap = (u: number) => Math.max(3, Math.round(u * 0.1));
+export const diskGroupGap = (u: number) => Math.max(8, Math.round(u * 0.3));
+
+/** The gap inside a frame of ten and between frames: of unit cubes, or of disks. */
+export const frameGap = (u: number, disks = false) => (disks ? diskGap(u) : pieceGap('ones', u));
+export const frameGroupGap = (u: number, disks = false) =>
+  disks ? diskGroupGap(u) : onesGroupGap(u);
+
 /** Unit sizes to try, largest first. */
 export function unitCandidates(k: boolean): number[] {
   const top = k ? UNIT_K : UNIT_G1;
@@ -71,8 +99,12 @@ export function pieceBox(kind: PieceKind, u: number): { w: number; h: number } {
 /** Ten ones as a frame: two rows of five (`h`) or, when the mat is crowded, two columns (`v`). */
 export type Orient = 'h' | 'v';
 
-export function onesFrame(u: number, orient: Orient = 'h'): { w: number; h: number } {
-  const g = pieceGap('ones', u);
+export function onesFrame(
+  u: number,
+  orient: Orient = 'h',
+  disks = false,
+): { w: number; h: number } {
+  const g = frameGap(u, disks);
   const long = 5 * u + 4 * g;
   const short = 2 * u + g;
   return orient === 'h' ? { w: long, h: short } : { w: short, h: long };
@@ -107,6 +139,8 @@ export function columnPlan(
   u: number,
   height: number,
   pack: Pack = 'loose',
+  /** Place-value disks: every kind sits in frames of ten, as the ones do. */
+  disks = false,
 ): ColumnPlan | null {
   const compact = pack !== 'loose';
   const grid = (
@@ -122,9 +156,9 @@ export function columnPlan(
     w: cols * cellW + (cols - 1) * gapX,
     h: rows * cellH + (rows - 1) * gapY,
   });
-  if (kind === 'ones') {
-    const f = onesFrame(u, compact ? 'v' : 'h');
-    const G = onesGroupGap(u);
+  if (kind === 'ones' || disks) {
+    const f = onesFrame(u, compact ? 'v' : 'h', disks);
+    const G = frameGroupGap(u, disks);
     if (f.h > height) return null;
     const frames = Math.max(1, Math.ceil(n / 10));
     const rows = Math.min(frames, Math.floor((height + G) / (f.h + G)));
@@ -153,8 +187,9 @@ export function columnWidth(
   u: number,
   height: number,
   pack: Pack = 'loose',
+  disks = false,
 ): number | null {
-  return columnPlan(kind, n, u, height, pack)?.w ?? null;
+  return columnPlan(kind, n, u, height, pack, disks)?.w ?? null;
 }
 
 export interface MatColumn {
@@ -173,7 +208,7 @@ export interface MatLayout {
   matWidth: number;
   /** The side panel's width (px). */
   sideWidth: number;
-  /** False only if the pieces needed a unit below U_FLOOR. */
+  /** False only if the pieces needed a unit below U_FLOOR (disks: a disk below DISK_FLOOR). */
   fits: boolean;
   /**
    * True when the mat is wider than the room beside the side panel even at the smallest unit,
@@ -205,6 +240,8 @@ export interface MatLayoutInput {
   sideMax: number;
   /** Width a column's header needs (px). */
   headerWidth: (kind: PieceKind) => number;
+  /** Place-value disks: `units` are disk sizes, and every column lays its pieces in frames. */
+  disks?: boolean;
 }
 
 /** The largest unit at which every column fits beside the side panel, and the plans that follow. */
@@ -213,7 +250,7 @@ export function matLayout(input: MatLayoutInput): MatLayout {
   const attempt = (u: number, pack: Pack) => {
     const columns: MatColumn[] = [];
     for (const kind of kinds) {
-      const plan = columnPlan(kind, counts[kind], u, height, pack);
+      const plan = columnPlan(kind, counts[kind], u, height, pack, input.disks);
       if (plan === null) return null;
       columns.push({
         kind,
@@ -233,7 +270,7 @@ export function matLayout(input: MatLayoutInput): MatLayout {
     columns,
     matWidth,
     sideWidth: Math.max(sideMin, Math.min(sideMax, width - matWidth - gap)),
-    fits: u >= U_FLOOR,
+    fits: u >= (input.disks ? DISK_FLOOR : U_FLOOR),
     overflow: false,
   });
   const units = input.units.length > 0 ? input.units : [U_MIN];
@@ -241,6 +278,15 @@ export function matLayout(input: MatLayoutInput): MatLayout {
     const a = attempt(u, pack);
     return a && a.matWidth + gap + sideMin <= width ? finish(u, pack, a.columns, a.matWidth) : null;
   };
+  // Disks sit in rows of five wherever those fit at DISK_ROWS_MIN or more; a mat too narrow for
+  // that turns its fives upright (compact) if the disks are then larger.
+  if (input.disks) {
+    for (const u of units) {
+      if (u < DISK_ROWS_MIN) break;
+      const l = fitting(u, 'loose');
+      if (l) return l;
+    }
+  }
   // Every authored item fits loose or compact; `dense` only when nothing else fits at any unit.
   for (const u of units) {
     for (const pack of ['loose', 'compact'] as const) {
@@ -660,7 +706,9 @@ export function roomForMove(
 }
 
 /** Half the width and height of the bundle ten pieces of `kind` gather into (px). */
-export function bundleHalf(kind: PieceKind, u: number): { x: number; y: number } {
+export function bundleHalf(kind: PieceKind, u: number, disks = false): { x: number; y: number } {
+  // Ten disks gather as one ten: two rows of five, touching.
+  if (disks) return { x: u * 2.5, y: u };
   switch (kind) {
     case 'ones':
       return { x: u / 2, y: u * 5 };
@@ -692,7 +740,13 @@ export function clampInto(
  * start from), relative to the bundle's centre: ten units line up as a rod, ten rods sit side by
  * side as a flat, ten flats stack into a cube. Returns the centre offset of part `j` (0–9).
  */
-export function bundleOffset(kind: PieceKind, j: number, u: number): { x: number; y: number } {
+export function bundleOffset(
+  kind: PieceKind,
+  j: number,
+  u: number,
+  disks = false,
+): { x: number; y: number } {
+  if (disks) return { x: ((j % 5) - 2) * u, y: (Math.floor(j / 5) - 0.5) * u };
   switch (kind) {
     case 'ones':
       return { x: 0, y: (j - 4.5) * u };

@@ -1,5 +1,6 @@
-# PV: Place value, catalog rows from 03 §3.8 (K01: the grade-1 rows). The grade-2 to grade-4 rows
-# are K02; PV.04–PV.08 and PV.12 sit between authored ids, so they are graph.yaml plannedIds.
+# PV: Place value, catalog rows from 03 §3.8. K01 authored the grade-1 rows; K02 slice 1a the ten
+# grade-2 rows to 1000 (PV.04–PV.07, PV.12, PV.14–PV.17, PV.24). PV.08 and PV.18–PV.23 (rounding,
+# grade 3, and the stretch rows) are still graph.yaml plannedIds.
 strand: PV
 skills:
   - id: PV.01
@@ -29,6 +30,44 @@ skills:
     gateway: false
     representations: [base-ten, hundred-chart, symbols]
 
+  - id: PV.04
+    name: "A hundred is ten tens; count hundreds"
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.NBT.A.1a, 2.NBT.A.1b] }
+    prerequisites: [PV.01, CNT.09]
+    gateway: true
+    representations: [bundles, base-ten, hundred-chart, symbols]
+
+  - id: PV.05
+    name: Read and write numbers to 1000 as numerals, names and expanded form
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.A.3] }
+    prerequisites: [PV.15]
+    gateway: false
+    representations: [base-ten, expanded, words, symbols]
+
+  - id: PV.06
+    name: Compare three-digit numbers
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.A.4] }
+    prerequisites: [PV.05, PV.02]
+    encompasses: { PV.02: 0.6, PV.05: 0.5 }
+    gateway: false
+    representations: [base-ten, number-line, symbols]
+
+  - id: PV.07
+    name: Add or subtract 10 or 100 in your head (100–900)
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.8] }
+    prerequisites: [PV.03, PV.05]
+    encompasses: { PV.03: 1.0 }
+    gateway: false
+    representations: [base-ten, open-number-line, symbols]
+
   - id: PV.09
     name: "Ten ones make one ten: bundle and unbundle"
     kind: concept
@@ -56,6 +95,15 @@ skills:
     gateway: false
     representations: [bundles, double-ten-frame, base-ten]
 
+  - id: PV.12
+    name: "One number, many ways: 34 is 3 tens 4 ones or 2 tens 14 ones"
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.NBT.B.5] }
+    prerequisites: [PV.01]
+    gateway: true
+    representations: [bundles, base-ten, pv-chart, expanded, symbols]
+
   - id: PV.13
     name: Two-digit numbers in expanded form and words (40 + 7)
     kind: procedure
@@ -64,3 +112,48 @@ skills:
     prerequisites: [PV.01]
     gateway: false
     representations: [expanded, words, symbols]
+
+  - id: PV.14
+    name: Three-digit numbers with zeros (305, 450)
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.NBT.A.1] }
+    prerequisites: [PV.15]
+    gateway: false
+    representations: [base-ten, pv-chart, symbols]
+
+  - id: PV.15
+    name: Three-digit numbers are hundreds, tens and ones
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.NBT.A.1] }
+    prerequisites: [PV.04]
+    gateway: true
+    representations: [base-ten, pv-chart, expanded, symbols]
+
+  - id: PV.16
+    name: Regroup three-digit numbers (253 = 25 tens 3 ones)
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.NBT.B.7] }
+    prerequisites: [PV.12, PV.15]
+    gateway: false
+    representations: [base-ten, pv-chart]
+
+  - id: PV.17
+    name: Order three-digit numbers
+    kind: procedure
+    grade: 2
+    standards: { ccss: [], supports: [2.NBT.A.4] }
+    prerequisites: [PV.06]
+    gateway: false
+    representations: [number-line, symbols]
+
+  - id: PV.24
+    name: What a digit is worth (the 4 in 345 means 40)
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.NBT.A.1] }
+    prerequisites: [PV.15]
+    gateway: false
+    representations: [base-ten, pv-chart, expanded, symbols]

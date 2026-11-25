@@ -171,10 +171,20 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'PV.01',
       'PV.02',
       'PV.03',
+      'PV.04',
+      'PV.05',
+      'PV.06',
+      'PV.07',
       'PV.09',
       'PV.10',
       'PV.11',
+      'PV.12',
       'PV.13',
+      'PV.14',
+      'PV.15',
+      'PV.16',
+      'PV.17',
+      'PV.24',
       'SUB.01',
       'SUB.02',
       'SUB.03',
@@ -190,6 +200,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
+      'MC.compare-first-digit',
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
@@ -214,6 +225,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.unit-gaps',
       'MC.write-as-spoken',
       'MC.wrong-operation',
+      'MC.zero-placeholder',
     ]);
   });
 
@@ -1803,10 +1815,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // subtraction (K01) added 15 skills, 56 templates, MC.place-swap, MC.face-value and
       // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
       // among them), 41 templates and 5 misconceptions; fractions, sharing, time, data, patterns
-      // and puzzles (K01) added 18 skills, 62 templates and six misconceptions.
-      skills: 115,
-      templates: 429,
-      misconceptions: 25,
+      // and puzzles (K01) added 18 skills, 62 templates and six misconceptions; place value to
+      // 1000 (K02 slice 1a) added 10 skills, 46 templates, MC.zero-placeholder and
+      // MC.compare-first-digit.
+      skills: 125,
+      templates: 475,
+      misconceptions: 27,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1847,7 +1861,10 @@ describe('graph.json (03 §9.1)', () => {
       'CPS.02',
       'CPS.04',
       'PV.01',
+      'PV.04',
       'PV.09',
+      'PV.12',
+      'PV.15',
       'SUB.03',
     ]);
     expect(g?.depth['CNT.01']).toBe(0);
@@ -1866,6 +1883,9 @@ describe('graph.json (03 §9.1)', () => {
       ['CNT.10', 'CNT.09', 1],
       ['MDA.01', 'ADD.06', 0.5],
       ['MDA.01', 'PV.03', 0.5],
+      ['PV.06', 'PV.02', 0.6],
+      ['PV.06', 'PV.05', 0.5],
+      ['PV.07', 'PV.03', 1],
     ]);
     expect(g?.strands.SUB).toEqual([
       'SUB.01',
@@ -1877,5 +1897,36 @@ describe('graph.json (03 §9.1)', () => {
       'SUB.07',
       'SUB.08',
     ]);
+  });
+});
+
+// PR #121 review, round 1: three lines said something false for items their templates generate.
+describe('place value to 1000: lines that hold for every item (K02)', () => {
+  const text = (key: string) => compileContent(FIXTURE).content?.narration[key]?.text ?? '';
+
+  it('ten more across a hundred changes two digits: no line says only one changes', () => {
+    // 199 + 10 = 209 (PV.07.t2, PV.07.t3).
+    for (const key of ['h.pv.one-place-changes', 'sk.PV.07.intro', 'h.pv.tens-or-hundreds']) {
+      expect(text(key), key).not.toBe('');
+      expect(text(key), key).not.toMatch(/only one (place|digit)/i);
+    }
+    // PV.07's templates draw "less" as often as "more" (PR #121 review, round 2): its hints
+    // name no direction, so a hint never sends a "10 less" item forward.
+    for (const key of ['h.pv.one-place-changes', 'h.pv.tens-or-hundreds', 'h.pv.rod-or-flat']) {
+      expect(text(key), key).not.toMatch(/count on|count back|\\badd\\b|take away/i);
+    }
+    expect(text('h.pv.one-jump')).not.toMatch(/count on|forward|\\badd\\b/i);
+  });
+
+  it('the digit-count hint compares digit counts, and holds for 100 itself', () => {
+    // 99 against 100 (PV.06.t5): 100 is not more than one hundred.
+    expect(text('h.compare.more-digits')).toMatch(/three digits is greater than a number with two/);
+    expect(text('h.compare.more-digits')).not.toMatch(/more than one hundred/);
+  });
+
+  it('the written-as-spoken feedback fits a three-digit number', () => {
+    // 305 written as 3005 (PV.05, PV.14) is not a number of "two places".
+    expect(text('fb.mc.write-as-spoken')).not.toMatch(/two places|tens and ones/);
+    expect(text('fb.mc.write-as-spoken')).toMatch(/Each place gets just one number/);
   });
 });

@@ -321,6 +321,65 @@ h.pv.listen-tens:
   text: "Listen for the tens. Then listen for the ones."
 h.pv.bundle-is-ten:
   text: "Each bundle is ten sticks. Count by tens first."
+# K02 slice 1a (#17): hints for place value to 1000.
+h.pv.ten-tens-hundred:
+  text: "Ten tens make one hundred. Put them together."
+h.pv.count-by-hundreds:
+  text: "Count by hundreds: one hundred, two hundred, and on."
+h.pv.split-flat:
+  text: "Split one hundred. It is ten tens."
+h.pv.ten-rows:
+  text: "Each row is one ten. Count the rows as you go down."
+h.pv.flat-is-hundred:
+  text: "Each big flat is one hundred. Each long rod is ten."
+h.pv.count-hundreds:
+  text: "Count by hundreds first. Then count on the tens, then the ones."
+h.pv.hundreds-first:
+  text: "Start with the hundreds. They come first in the number."
+h.pv.tens-then-ones:
+  text: "Then the tens, then the ones. Each place has its own pieces."
+h.pv.zero-holds:
+  text: "Is a place empty? Write a zero there to hold the place."
+h.pv.zero-means-none:
+  text: "Zero is none. That place has no pieces."
+h.pv.three-places:
+  text: "A number in the hundreds has three places: hundreds, tens and ones."
+h.pv.listen-hundreds:
+  text: "Listen for the hundreds first. Then listen for the tens and the ones."
+h.pv.find-hundreds-part:
+  text: "Find the part with the hundreds. It goes first."
+h.pv.hundreds-card:
+  text: "Find the card for the hundreds first."
+h.pv.rest-cards:
+  text: "Then find the cards for the tens and the ones."
+h.pv.ten-make-next:
+  text: "Ten in one place make one of the next place."
+h.pv.under-ten-each:
+  text: "Stop when each place has fewer than ten."
+h.pv.rod-or-flat:
+  text: "Ten is one rod. One hundred is one flat."
+h.pv.one-place-changes:
+  text: "Is it ten or one hundred? Is it more or less? Think of that place."
+h.pv.one-jump:
+  text: "Make one big jump. Then check where you land."
+h.pv.tens-or-hundreds:
+  text: "Ten changes the tens place. One hundred changes the hundreds place."
+h.pv.one-ten-fewer:
+  text: "Use one ten fewer. The ones make up for it."
+h.pv.ten-more-ones:
+  text: "One ten is ten ones. So you need ten more ones."
+h.pv.digit-place:
+  text: "Find the place of the digit: hundreds, tens or ones."
+h.pv.digit-counts-place:
+  text: "A digit counts the pieces of its place. In the tens place it counts tens."
+h.compare.hundreds:
+  text: "Look at the hundreds first. Then the tens, then the ones."
+h.compare.more-digits:
+  text: "Count the digits. A number with three digits is greater than a number with two."
+fb.mc.zero-placeholder:
+  text: "Look at each place. An empty place needs a zero to hold it."
+fb.mc.compare-first-digit:
+  text: "Count the places first. A number with more places is greater."
 h.compare.same-tens:
   text: "When the tens are the same, look at the ones."
 h.mda.tens-with-tens:
@@ -1705,7 +1764,7 @@ fb.mc.place-swap:
 fb.mc.face-value:
   text: "Each bundle is ten, not one. Count the tens by tens."
 fb.mc.write-as-spoken:
-  text: "A number with tens and ones has two places. The ones go where the zero was."
+  text: "Each place gets just one number. Say it again: hundreds, tens, ones."
 fb.mc.perceptual-size:
   text: "Size can trick our eyes. Match them up, one and one."
 

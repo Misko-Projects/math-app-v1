@@ -27,6 +27,7 @@ import {
   itemUnit,
   lyingRods,
   MAT_BORDER,
+  type MatCaps,
   type MatState,
   measurePlan,
   naturalLayout,
@@ -35,7 +36,7 @@ import {
   placeDigits,
   placePieces,
   placeTaken,
-  planCaps,
+  planCaps as planCapsOf,
   planMat,
   ROOT_PAD_Y,
   ROW_GAP,
@@ -49,6 +50,16 @@ import {
   U_MAX,
   U_MIN,
 } from './layout';
+
+/**
+ * These tests are about the proportional geometry (flats, rods and cubes that never overlap), so
+ * their plans leave out the disks a mat with hundreds in play is drawn with since K02 (03 §5.5):
+ * layout.disks.test.ts covers that. Tens and ones are still drawn this way.
+ */
+const planCaps = (c: Parameters<typeof planCapsOf>[0]): MatCaps => {
+  const { disks: _disks, ...caps } = planCapsOf(c);
+  return caps;
+};
 
 type Config = WidgetConfigOf<'base-ten-trade'>;
 

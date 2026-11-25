@@ -106,7 +106,7 @@ export {
   barGraphReadAnswerIssues,
   readAnswerMax,
 } from './formats/bar-graph-read';
-export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
+export { type BaseTenBuildState, buildShowsDisks, traySupply } from './formats/base-ten-build';
 export {
   type BaseTenTradeState,
   computeResult,
@@ -118,6 +118,7 @@ export {
   TRADE_REGROUP_COLUMN_MAX,
   TRADE_TAKE_COUNT_MAX,
   TRADE_VALUE_MAX,
+  tradeShowsDisks,
 } from './formats/base-ten-trade';
 // U05 (#14) picture geometry the kit draws `fraction` and `chart` stimuli from.
 export {
@@ -313,6 +314,7 @@ export {
   COLUMNS,
   type Column,
   canonicalPieces,
+  DISK_COLUMN_MAX,
   type Hto,
   PIECE_KINDS,
   PIECE_VALUE,

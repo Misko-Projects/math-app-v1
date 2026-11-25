@@ -71,8 +71,10 @@ export function breakGhosts(
   source: Box,
   dests: readonly Box[],
   ms = TRADE_MS,
+  /** Place-value disks: ten whole disks fan out of the one that leaves (a disk is not cut up). */
+  disks = false,
 ): Ghost[] {
-  const parts = slices(source);
+  const parts = disks ? Array.from({ length: 10 }, () => source) : slices(source);
   const vertical = source.h > source.w * 1.5;
   const stagger = Math.round(ms * 0.025);
   const ghosts: Ghost[] = [
@@ -91,7 +93,7 @@ export function breakGhosts(
   ];
   dests.slice(0, 10).forEach((dest, j) => {
     const part = parts[j] as Box;
-    const spread = (j - 4.5) * 2.2;
+    const spread = (j - 4.5) * (disks ? source.w * 0.3 : 2.2);
     const parted: Box = vertical
       ? { ...part, x: part.x + 6, y: part.y + spread }
       : { ...part, x: part.x + spread, y: part.y - 6 };
@@ -140,9 +142,17 @@ export function bundleGhosts(
   dest: Box,
   bounds: Box,
   ms = TRADE_MS,
+  /** Place-value disks: the ten slide onto one spot, whole, and one disk leaves it. */
+  disks = false,
 ): Ghost[] {
-  const gather = gatherBox(sources, to, bounds);
-  const slots = slices(gather);
+  const first = sources[0] ?? dest;
+  const gather = disks
+    ? gatherBox([...sources], 'tens', { ...bounds, h: bounds.h + first.h * 9 })
+    : gatherBox(sources, to, bounds);
+  const spot: Box = disks
+    ? { x: gather.x, y: gather.y + (gather.h - first.h) / 2, w: first.w, h: first.h }
+    : gather;
+  const slots = disks ? Array.from({ length: 10 }, () => spot) : slices(gather);
   const stagger = Math.round(ms * 0.02);
   const ghosts: Ghost[] = sources.slice(0, 10).map((src, j) => {
     const slot = slots[j] as Box;
@@ -164,9 +174,9 @@ export function bundleGhosts(
     kind: to,
     rect: dest,
     keyframes: [
-      { transform: transformFrom(gather, dest), opacity: 0, offset: 0 },
-      { transform: transformFrom(gather, dest), opacity: 0, offset: 0.46 },
-      { transform: transformFrom(gather, dest), opacity: 1, offset: 0.56 },
+      { transform: transformFrom(spot, dest), opacity: 0, offset: 0 },
+      { transform: transformFrom(spot, dest), opacity: 0, offset: 0.46 },
+      { transform: transformFrom(spot, dest), opacity: 1, offset: 0.56 },
       { transform: IDENTITY, opacity: 1, offset: 1 },
     ],
     delay: 0,

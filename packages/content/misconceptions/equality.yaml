@@ -46,7 +46,7 @@ misconceptions:
     name: Writes the less-than and greater-than signs the wrong way round
     detect: { kind: answer, rule: symbolReversed }
     appliesTo: { generators: [compare.numbers] }
-    skills: [CMP.08]
+    skills: [CMP.08, PV.06]
     remediation: [CMP.08]
     feedback: fb.mc.symbol-reversed
     parentTip: >-

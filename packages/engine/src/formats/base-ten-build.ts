@@ -12,6 +12,7 @@
 import { baseTenBuildConfigSchema, type WidgetConfigOf } from '@number-island/shared';
 import {
   canonicalPieces,
+  DISK_COLUMN_MAX,
   emptyPieces,
   hasInternalZero,
   largerKind,
@@ -103,9 +104,39 @@ export const MAT_MAX: Readonly<Pieces> = { thousands: 9, hundreds: 19, tens: 29,
  */
 export const MAT_MAX_FLAT: Readonly<Pieces> = { thousands: 9, hundreds: 14, tens: 29, ones: 199 };
 
+/**
+ * Whether the mat draws place-value disks (place-value.ts): hundreds are in play, that is the tray
+ * offers flats, some start on the mat, or the item asks for some (`exact`). Two mats keep their
+ * proportional pieces: the decimal mat (`wholeIs: 'flat'`), where the flat is one whole and its
+ * size is the meaning, and a mat with thousands (a four-digit number, no shipped template: the
+ * rule is about numbers to 999, and the cube's column is the four-digit slice's to decide).
+ */
+export function buildShowsDisks(
+  c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt' | 'exact'>,
+): boolean {
+  if (c.wholeIs === 'flat') return false;
+  if (c.pieces.thousands || (c.prebuilt?.thousands ?? 0) > 0) return false;
+  return (
+    c.pieces.hundreds ||
+    (c.prebuilt?.hundreds ?? 0) > 0 ||
+    // Ten tens to be joined into a hundred that the tray never offers (pv.regroup).
+    (c.exact?.hundreds ?? 0) > 0
+  );
+}
+
+/** A mat of disks: at most DISK_COLUMN_MAX in a column, and no thousands (they keep the cubes). */
+export const MAT_MAX_DISKS: Readonly<Pieces> = {
+  thousands: 0,
+  hundreds: DISK_COLUMN_MAX,
+  tens: DISK_COLUMN_MAX,
+  ones: DISK_COLUMN_MAX,
+};
+
 /** The cap for an item's mat. */
-export const matMax = (c: Pick<Config, 'wholeIs'>): Readonly<Pieces> =>
-  c.wholeIs === 'flat' ? MAT_MAX_FLAT : MAT_MAX;
+export const matMax = (
+  c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt' | 'exact'>,
+): Readonly<Pieces> =>
+  c.wholeIs === 'flat' ? MAT_MAX_FLAT : buildShowsDisks(c) ? MAT_MAX_DISKS : MAT_MAX;
 
 /**
  * The pieces of `value` taking as many of each `kinds` piece as fit, largest first (what a mat
@@ -157,7 +188,8 @@ export function overfullKinds(c: Config): { kind: PieceKind; path: string[]; nee
 }
 
 /** The largest target of an item: what a mat full to its cap (matMax) is worth, in ones. */
-export const targetMax = (c: Pick<Config, 'wholeIs'>): number => piecesValue(matMax(c));
+export const targetMax = (c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt' | 'exact'>): number =>
+  piecesValue(matMax(c));
 
 /**
  * The supported domain (PR #74): every number of a config has a bound, whatever the mode reads.

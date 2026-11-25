@@ -120,6 +120,8 @@ centimeter
 centimeters
 cents
 chair
+change
+changes
 chart
 check
 chest
@@ -895,6 +897,7 @@ work
 worked
 works
 workshop
+worth
 would
 wow
 write

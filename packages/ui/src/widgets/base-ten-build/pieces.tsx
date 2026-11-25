@@ -6,14 +6,33 @@ import type { CSSProperties, ReactNode } from 'react';
  * flats and rods, unit squares and a thousands cube with a top and a side face. The size comes
  * from the `--u` (unit edge) and `--d` (cube depth) custom properties of an ancestor, or `u`.
  */
-export function PieceArt({ kind, u }: { kind: PieceKind; u?: number }) {
+export function PieceArt({ kind, u, disk }: { kind: PieceKind; u?: number; disk?: boolean }) {
   const style =
     u === undefined ? undefined : ({ '--u': `${u}px`, '--d': `${u * 3}px` } as CSSProperties);
+  if (disk && kind !== 'thousands') {
+    // The disk's value (100, 10, 1) is drawn by the stylesheet, as the pieces' grids are: a
+    // picture inside a control, not text that its accessible name would have to repeat.
+    return (
+      <span
+        className="ni-btb__art ni-btb__art--disk"
+        data-kind={kind}
+        style={style}
+        aria-hidden="true"
+      />
+    );
+  }
   return <span className={`ni-btb__art ni-btb__art--${kind}`} style={style} aria-hidden="true" />;
 }
 
 /** What a tray pile shows: a few pieces of its kind (a supply picture, not a count). */
-export function PileArt({ kind }: { kind: PieceKind }) {
+export function PileArt({ kind, disk }: { kind: PieceKind; disk?: boolean }) {
+  if (disk) {
+    return (
+      <span className="ni-btb__pileart ni-btb__pileart--disk" aria-hidden="true">
+        <PieceArt kind={kind} u={44} disk />
+      </span>
+    );
+  }
   switch (kind) {
     case 'ones':
       return (

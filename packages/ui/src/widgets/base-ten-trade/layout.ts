@@ -2,7 +2,7 @@
 // each column plans room for, how big one unit is drawn so the whole widget fills (and fits) its
 // area, and where each piece sits in its column. Pieces never overlap: every one stays separately
 // countable, so when more must fit, the unit shrinks. DOM-free, so it is unit-tested.
-import { type Column, type Hto, htoValue } from '@number-island/engine';
+import { type Column, type Hto, htoValue, tradeShowsDisks } from '@number-island/engine';
 import type { WidgetConfigOf } from '@number-island/shared';
 
 type Config = WidgetConfigOf<'base-ten-trade'>;
@@ -25,6 +25,23 @@ export interface Box {
 export const U_MAX = 20;
 export const U_FLOOR = 18;
 export const U_MIN = 8;
+
+/**
+ * Place-value disks (03 §5.5, K02; the engine's tradeShowsDisks): with hundreds in play every piece
+ * is a disk of one size, labelled with its value, in rows of five, and the unit `u` is the disk's
+ * diameter. Disks are drawn as large as the room allows, up to DISK_MAX; DISK_FLOOR is the
+ * smallest a shipped item may need, and DISK_MIN only keeps a mat past any item on screen. The
+ * functions below take `disks` where a piece's shape matters.
+ */
+export const DISK_MAX = 48;
+export const DISK_FLOOR = 26;
+export const DISK_MIN = 14;
+
+/** The unit's range for a mat: `max` when it fits, `floor` the least an item should need. */
+export const unitRange = (disks = false) =>
+  disks
+    ? { max: DISK_MAX, floor: DISK_FLOOR, min: DISK_MIN }
+    : { max: U_MAX, floor: U_FLOOR, min: U_MIN };
 
 /** Fixed sizes (px) that the stylesheet mirrors through the inline custom properties. */
 export const GAP = 12; // --target-gap: between hit targets (06 §4)
@@ -143,6 +160,11 @@ export interface SideLayout {
   problemInSide?: true;
   /** With the problem in the side: the pad is 4 × 3 (three rows) and "check" beside the card. */
   padWide?: true;
+  /**
+   * A regroup of place-value disks: "check" stands at the end of the problem row and there is no
+   * side panel, so the mat has the widget's whole width (three columns of five disks need it).
+   */
+  checkInRow?: true;
 }
 
 /**
@@ -173,9 +195,26 @@ export function sideLayout(o: {
    * 4 × 3 and "check" stands beside the card.
    */
   inSide?: { w: number; h: number };
+  /** No side panel: "check" at the end of the problem row (a regroup of disks, no pad). */
+  checkInRow?: boolean;
 }): SideLayout {
   const sz = ageSizes(o.age);
   const limit = (o.budget ?? BUDGET) - 2 * ROOT_PAD_Y;
+  if (o.checkInRow) {
+    // The goal chips' card; "check" (a target and its shadow) is no taller.
+    const cardH = 92;
+    return {
+      wideWork: false,
+      workInSide: false,
+      checkBeside: false,
+      showProblemRow: true,
+      problemH: cardH,
+      cardH,
+      spaceH: limit - (cardH + ROW_GAP),
+      sideH: 0,
+      checkInRow: true,
+    };
+  }
   const workH = WORK_H + (o.age === 'k' ? 16 : 0);
   // The pad's keys and "check" are target-sized (base-ten-trade.css: .ni-btt__side); each pad
   // row is the target plus the key's 4 px shadow margin (kit.css .ni-pad__key).
@@ -247,6 +286,7 @@ export const widePadWidth = (age: AgeMode) => 4 * ageSizes(age).target + 3 * 12;
 
 /** The side panel's width for a layout, from its parts' widths. */
 export function sideWidth(s: SideLayout, parts: SideParts, age: AgeMode = 'g1-up'): number {
+  if (s.checkInRow) return 0;
   if (s.problemInSide) {
     const problem = parts.problem?.w ?? 0;
     const check = parts.checkIcon ?? parts.check;
@@ -282,6 +322,10 @@ export function chooseSide(
   },
 ): { side: SideLayout; width: number } {
   const { contentW, parts, base, path, arrange, ...args } = o;
+  if (args.checkInRow) {
+    // No side panel and no gap beside the mat: the whole content width.
+    return { side: sideLayout(args), width: contentW };
+  }
   const widthFor = (s: SideLayout) => contentW - GAP - sideWidth(s, parts, args.age);
   const fit = (s: SideLayout) =>
     itemFit({ age: args.age, width: widthFor(s), height: s.spaceH, base, path });
@@ -345,8 +389,8 @@ export function colInsets(
 const TRAY_EDGE = GUTTER + TRAY_BORDER - MAT_BORDER;
 
 /** A waiting group's holder width: a target at least (it is dragged), and its pieces padded. */
-export const holderWidth = (kind: Column, n: number, u: number, age: AgeMode) =>
-  Math.max(ageSizes(age).target, contentW(kind, n, u, 10) + 2 * GROUP_PAD);
+export const holderWidth = (kind: Column, n: number, u: number, age: AgeMode, disks = false) =>
+  Math.max(ageSizes(age).target, contentW(kind, n, u, 10, disks) + 2 * GROUP_PAD);
 
 /**
  * The margins that keep a waiting group's holder (`holderW` px) TRAY_EDGE clear of the tray's
@@ -373,20 +417,22 @@ export function colMinWidth(age: AgeMode, index: number, count: number): number 
 
 // ---------- pieces ----------
 
-export const pieceSize = (kind: Column, u: number): { w: number; h: number } =>
-  kind === 'hundreds'
-    ? { w: u * 10, h: u * 10 }
-    : kind === 'tens'
-      ? { w: u, h: u * 10 }
-      : { w: u, h: u };
+export const pieceSize = (kind: Column, u: number, disks = false): { w: number; h: number } =>
+  disks
+    ? { w: u, h: u }
+    : kind === 'hundreds'
+      ? { w: u * 10, h: u * 10 }
+      : kind === 'tens'
+        ? { w: u, h: u * 10 }
+        : { w: u, h: u };
 
 /** Spacing between pieces at unit edge `u`, px. */
-export function spacing(u: number) {
+export function spacing(u: number, disks = false) {
   return {
-    /** Between ones in a row of five. */
-    unit: Math.max(2, Math.round(u * 0.22)),
-    /** Extra space between blocks of ten ones (two rows of five). */
-    ten: Math.max(4, Math.round(u * 0.6)),
+    /** Between ones (or disks) in a row of five. */
+    unit: disks ? Math.max(3, Math.round(u * 0.1)) : Math.max(2, Math.round(u * 0.22)),
+    /** Extra space between blocks of ten ones or disks (two rows of five). */
+    ten: disks ? Math.max(6, Math.round(u * 0.25)) : Math.max(4, Math.round(u * 0.6)),
     /** Between rods. */
     rod: Math.max(2, Math.round(u * 0.35)),
     /** Extra space after every five rods. */
@@ -405,13 +451,20 @@ export const ONES_PER_ROW = 5;
  * Where `n` pieces of `kind` sit, from (0, 0): ones five a row (two rows a ten), rods and flats
  * `perRow` a row. Pieces never overlap. Reading order: piece `i` is the i-th box.
  */
-export function naturalLayout(kind: Column, n: number, u: number, perRow = 10): Box[] {
-  const s = spacing(u);
-  const { w, h } = pieceSize(kind, u);
+export function naturalLayout(
+  kind: Column,
+  n: number,
+  u: number,
+  perRow = 10,
+  /** Place-value disks: every kind sits as the ones do, five a row. */
+  disks = false,
+): Box[] {
+  const s = spacing(u, disks);
+  const { w, h } = pieceSize(kind, u, disks);
   const per = Math.max(1, perRow);
   const out: Box[] = [];
   for (let i = 0; i < n; i++) {
-    if (kind === 'ones') {
+    if (kind === 'ones' || disks) {
       const col = i % ONES_PER_ROW;
       const row = Math.floor(i / ONES_PER_ROW);
       out.push({
@@ -450,10 +503,10 @@ export function extent(boxes: readonly Box[]): { w: number; h: number } {
 }
 
 /** How many pieces of `kind` fit across `width` px in one row. */
-export function piecesAcross(kind: Column, width: number, u: number): number {
+export function piecesAcross(kind: Column, width: number, u: number, disks = false): number {
   let n = 1;
   while (n < 40) {
-    if (extent(naturalLayout(kind, n + 1, u, n + 1)).w > width) break;
+    if (extent(naturalLayout(kind, n + 1, u, n + 1, disks)).w > width) break;
     n++;
   }
   return n;
@@ -472,13 +525,16 @@ export function placePieces(
   box: { w: number; h: number },
   capacity = n,
   perRow = 10,
+  disks = false,
 ): Box[] {
   if (n <= 0) return [];
   const per =
-    kind === 'ones' ? ONES_PER_ROW : Math.max(1, Math.min(perRow, piecesAcross(kind, box.w, u)));
-  const boxes = naturalLayout(kind, n, u, per);
-  const planned = extent(naturalLayout(kind, Math.max(n, capacity), u, per));
-  const { w: pw, h: ph } = pieceSize(kind, u);
+    kind === 'ones' || disks
+      ? ONES_PER_ROW
+      : Math.max(1, Math.min(perRow, piecesAcross(kind, box.w, u)));
+  const boxes = naturalLayout(kind, n, u, per, disks);
+  const planned = extent(naturalLayout(kind, Math.max(n, capacity), u, per, disks));
+  const { w: pw, h: ph } = pieceSize(kind, u, disks);
   const ext = extent(boxes);
   const fx = ext.w > box.w && ext.w > pw ? Math.max(0, (box.w - pw) / (ext.w - pw)) : 1;
   const fy = ext.h > box.h && ext.h > ph ? Math.max(0, (box.h - ph) / (ext.h - ph)) : 1;
@@ -540,13 +596,27 @@ export interface NestArrangement {
  * `minSlot` (the age's tap target) each kind stands centred in a slot at least that wide, the
  * slots at least 12 px apart: a slot is the kind's put-back control (nestSlots).
  */
-function nestGroups(t: Hto, u: number, flatsPerRow: number, rodsPerStack: number, minSlot = 0) {
-  const gap = minSlot > 0 ? Math.max(12, u * 2) : Math.max(10, u * 2);
-  const raw: Record<Column, Box[]> = {
-    hundreds: naturalLayout('hundreds', t.hundreds, u, flatsPerRow),
-    tens: rodStacks(t.tens, u, rodsPerStack),
-    ones: naturalLayout('ones', t.ones, u),
-  };
+function nestGroups(
+  t: Hto,
+  u: number,
+  flatsPerRow: number,
+  rodsPerStack: number,
+  minSlot = 0,
+  disks = false,
+) {
+  const gap = disks ? Math.max(12, u) : minSlot > 0 ? Math.max(12, u * 2) : Math.max(10, u * 2);
+  // Disks of every kind sit in their rows of five, as on the mat.
+  const raw: Record<Column, Box[]> = disks
+    ? {
+        hundreds: naturalLayout('hundreds', t.hundreds, u, 10, true),
+        tens: naturalLayout('tens', t.tens, u, 10, true),
+        ones: naturalLayout('ones', t.ones, u, 10, true),
+      }
+    : {
+        hundreds: naturalLayout('hundreds', t.hundreds, u, flatsPerRow),
+        tens: rodStacks(t.tens, u, rodsPerStack),
+        ones: naturalLayout('ones', t.ones, u),
+      };
   const groups: Record<Column, Box[]> = { hundreds: [], tens: [], ones: [] };
   const slots: Partial<Record<Column, { x: number; w: number }>> = {};
   let x = 0;
@@ -577,11 +647,12 @@ export function arrangeTaken(
   u: number,
   innerW: number,
   minSlot = 0,
+  disks = false,
 ): NestArrangement | null {
   let best: NestArrangement | null = null;
-  for (const f of wrapOptions(t.hundreds)) {
-    for (const r of wrapOptions(t.tens)) {
-      const a = nestGroups(t, u, f, r, minSlot);
+  for (const f of disks ? [1] : wrapOptions(t.hundreds)) {
+    for (const r of disks ? [1] : wrapOptions(t.tens)) {
+      const a = nestGroups(t, u, f, r, minSlot, disks);
       if (a.w > innerW) continue;
       if (!best || a.h < best.h || (a.h === best.h && a.w < best.w)) best = a;
     }
@@ -600,8 +671,10 @@ export function placeTaken(
   ub: number,
   box: { w: number; h: number },
   minSlot = 0,
+  disks = false,
 ): Record<Column, Box[]> {
-  const a = arrangeTaken(taken, ub, box.w, minSlot) ?? nestGroups(taken, ub, 1, 1, minSlot);
+  const a =
+    arrangeTaken(taken, ub, box.w, minSlot, disks) ?? nestGroups(taken, ub, 1, 1, minSlot, disks);
   const ox = Math.max(0, (box.w - a.w) / 2);
   const out: Record<Column, Box[]> = { hundreds: [], tens: [], ones: [] };
   for (const c of KINDS) {
@@ -623,8 +696,10 @@ export function nestSlots(
   ub: number,
   box: { w: number; h: number },
   minSlot: number,
+  disks = false,
 ): Partial<Record<Column, Box>> {
-  const a = arrangeTaken(taken, ub, box.w, minSlot) ?? nestGroups(taken, ub, 1, 1, minSlot);
+  const a =
+    arrangeTaken(taken, ub, box.w, minSlot, disks) ?? nestGroups(taken, ub, 1, 1, minSlot, disks);
   const ox = Math.max(0, (box.w - a.w) / 2);
   const out: Partial<Record<Column, Box>> = {};
   for (const c of KINDS) {
@@ -690,6 +765,8 @@ export interface MatCaps {
   tray: Hto | null;
   /** `-`: the pieces the child takes away. */
   taken: Hto | null;
+  /** Hundreds are in play: every piece is a place-value disk (the plan's unit is its diameter). */
+  disks?: true;
   /**
    * Room for exactly these pieces (the mat as it is now), not a stable plan for the whole item:
    * a column with none of its pieces gets only its header's width.
@@ -735,6 +812,7 @@ export function planCaps(c: Config): MatCaps {
     mat,
     tray: op?.op === '+' ? { ...op.operand } : null,
     taken: op?.op === '-' ? { ...op.operand } : null,
+    ...(tradeShowsDisks(c) ? { disks: true as const } : {}),
   };
 }
 
@@ -819,12 +897,12 @@ interface OnePlanInput extends Omit<PlanInput, 'caps'> {
   caps: MatCaps;
 }
 
-function contentH(kind: Column, n: number, u: number, perRow: number): number {
-  return extent(naturalLayout(kind, n, u, perRow)).h;
+function contentH(kind: Column, n: number, u: number, perRow: number, disks = false): number {
+  return extent(naturalLayout(kind, n, u, perRow, disks)).h;
 }
 
-function contentW(kind: Column, n: number, u: number, perRow: number): number {
-  return extent(naturalLayout(kind, n, u, perRow)).w;
+function contentW(kind: Column, n: number, u: number, perRow: number, disks = false): number {
+  return extent(naturalLayout(kind, n, u, perRow, disks)).w;
 }
 
 const perRowFor = (kind: Column, rodsPerRow: number, flatsPerRow: number) =>
@@ -838,6 +916,7 @@ export function measurePlan(
   flatsPerRow = 10,
 ): MatPlan {
   const { caps, age } = input;
+  const disks = caps.disks === true;
   const sz = ageSizes(age);
   const cols = caps.columns;
   const tray = caps.tray;
@@ -850,16 +929,18 @@ export function measurePlan(
   cols.forEach((c, i) => {
     const per = perRowFor(c, rodsPerRow, flatsPerRow);
     // The ones column always has room for a full row of five (nine ones), never squeezed.
-    const across = c === 'ones' ? Math.max(ONES_PER_ROW, planned(c)) : Math.min(planned(c), per);
+    // (Every column of disks likewise: disks sit five a row.)
+    const across =
+      c === 'ones' || disks ? Math.max(ONES_PER_ROW, planned(c)) : Math.min(planned(c), per);
     const need = Math.max(
-      contentW(c, across, u, per),
-      tray ? contentW(c, tray[c], u, 10) + 2 * GROUP_PAD : 0,
+      contentW(c, across, u, per, disks),
+      tray ? contentW(c, tray[c], u, 10, disks) + 2 * GROUP_PAD : 0,
     );
     // A waiting group's holder (target-wide at least) keeps TRAY_EDGE clear of the tray's border
     // in an outer cell (holderMargins).
     const outer = i === 0 || i === cols.length - 1;
     const holder =
-      tray && tray[c] > 0 ? holderWidth(c, tray[c], u, age) + (outer ? TRAY_EDGE : 0) : 0;
+      tray && tray[c] > 0 ? holderWidth(c, tray[c], u, age, disks) + (outer ? TRAY_EDGE : 0) : 0;
     // The column's own control (its drop target, tap pad or grab item) is at least a target
     // wide inside its insets (colInsets): GAP only beside a trade strip.
     colW[c] = Math.ceil(
@@ -872,12 +953,15 @@ export function measurePlan(
   const stripNeed = 2 * sz.tradeH + GAP + 2 * 8 - sz.header;
   const piecesH = Math.max(
     0,
-    ...cols.map((c) => contentH(c, planned(c), u, perRowFor(c, rodsPerRow, flatsPerRow))),
+    ...cols.map((c) => contentH(c, planned(c), u, perRowFor(c, rodsPerRow, flatsPerRow), disks)),
   );
   const bodyH = Math.ceil(Math.max(stripNeed, piecesH + 2 * COL_PAD));
   const trayH = tray
     ? Math.ceil(
-        Math.max(sz.target, ...cols.map((c) => contentH(c, tray[c], u, 10) + 2 * GROUP_PAD)) +
+        Math.max(
+          sz.target,
+          ...cols.map((c) => contentH(c, tray[c], u, 10, disks) + 2 * GROUP_PAD),
+        ) +
           2 * TRAY_PAD,
       )
     : 0;
@@ -886,7 +970,7 @@ export function measurePlan(
   if (caps.taken) {
     // The nest is as wide as the mat, which stretches to the full width; its inner width doesn't
     // depend on its height. The pieces wrap into rows (placeTaken's arrangement) to fit across.
-    const arranged = arrangeTaken(caps.taken, u, nestInner(input.width, 0).w, sz.target);
+    const arranged = arrangeTaken(caps.taken, u, nestInner(input.width, 0).w, sz.target, disks);
     nestFits = arranged !== null;
     // At least a target tall (the nest is where pieces are dropped).
     nestH = Math.max(sz.target + 2 * GAP, nestHeightFor(arranged?.h ?? 0));
@@ -1014,14 +1098,15 @@ export function itemFit(
   input: Omit<PlanInput, 'caps'> & { base: MatCaps; path: readonly MatState[] },
 ): { unit: number; fits: boolean } {
   const { base, path, ...rest } = input;
-  for (let u = U_MAX; u >= U_MIN; u--) {
+  const range = unitRange(base.disks);
+  for (let u = range.max; u >= range.min; u--) {
     if (firstFit({ ...rest, caps: base }, u)) return { unit: u, fits: true };
     const all = path.every((s) =>
       firstFit({ ...rest, caps: stateCaps(base, s.mat, s.pending, s.taken) }, u),
     );
     if (all) return { unit: u, fits: true };
   }
-  return { unit: U_MIN, fits: false };
+  return { unit: range.min, fits: false };
 }
 
 /** How uneven the columns are once stretched: the widest minus the narrowest, px. */
@@ -1039,7 +1124,8 @@ export function spread(plan: MatPlan): number {
  */
 export function planMat(input: PlanInput & { unit?: number }): MatPlan {
   const options = Array.isArray(input.caps) ? input.caps : [input.caps as MatCaps];
-  for (let u = input.unit ?? U_MAX; u >= U_MIN; u--) {
+  const range = unitRange(options[0]?.disks);
+  for (let u = input.unit ?? range.max; u >= range.min; u--) {
     let best: MatPlan | null = null;
     for (const caps of options) {
       for (const r of rowOptions(caps.mat.tens, [20, 10, 5])) {
@@ -1054,7 +1140,7 @@ export function planMat(input: PlanInput & { unit?: number }): MatPlan {
     if (best) return best;
   }
   const last = options[options.length - 1] as MatCaps;
-  return stretch(measurePlan({ ...input, caps: last }, U_MIN, 5, 1), input.width, input.height);
+  return stretch(measurePlan({ ...input, caps: last }, range.min, 5, 1), input.width, input.height);
 }
 
 /**

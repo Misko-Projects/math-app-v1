@@ -27,7 +27,7 @@ import {
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
 import { WidgetHost, type WidgetHostProps } from '../WidgetHost';
-import { CARD_PAD, GUTTER, NEST_CURVE, NEST_RIM, U_MIN } from './layout';
+import { CARD_PAD, DISK_FLOOR, DISK_MAX, GUTTER, NEST_CURVE, NEST_RIM, U_MIN } from './layout';
 
 /**
  * `base-ten-trade` (03 §5.5): a hundreds | tens | ones mat. Split a piece into ten of the next
@@ -1264,47 +1264,27 @@ export const SubtractAcrossZeroStart: Story = {
 };
 
 /**
- * Pins the 3-flat subtraction start, an accepted exception (orchestrator decision
- * workflow_75b3aae9b27242c5b668ce48e7b0952b): with three 20 px flats and the inline pad, the
- * geometric minimum is a wide hundreds column (2 × 2 flats) beside narrower tens and ones, about
- * 436 / 124 / 140 px at 1280 × 800. The columns balance once a hundred is split. This keeps that
- * layout from drifting unnoticed.
+ * The 3-hundreds subtraction start. With proportional pieces this was an accepted exception (three
+ * 20 px flats 2 × 2 made the hundreds column far wider than the others, orchestrator decision
+ * workflow_75b3aae9b27242c5b668ce48e7b0952b). Since K02 a mat with hundreds in play draws
+ * place-value disks (03 §5.5): three hundreds are three disks in a row, the size of the ones, and
+ * the exception is gone. This keeps that from drifting unnoticed.
  */
 async function expectAcceptedStartLayout(root: HTMLElement) {
-  // The three flats sit 2 × 2: two columns of flats, two rows.
-  const flats = [...root.querySelectorAll('[data-col="hundreds"] [data-piece]')].map((p) =>
+  await expect(root).toHaveAttribute('data-pieces', 'disks');
+  const hundreds = [...root.querySelectorAll('[data-col="hundreds"] [data-piece]')].map((p) =>
     p.getBoundingClientRect(),
   );
-  await expect(flats).toHaveLength(3);
-  await expect(new Set(flats.map((r) => Math.round(r.left))).size).toBe(2);
-  await expect(new Set(flats.map((r) => Math.round(r.top))).size).toBe(2);
-  // The unit is 20 px: a ones piece is 20 px, a flat 200.
+  await expect(hundreds).toHaveLength(3);
+  // One row of three.
+  await expect(new Set(hundreds.map((r) => Math.round(r.left))).size).toBe(3);
+  await expect(new Set(hundreds.map((r) => Math.round(r.top))).size).toBe(1);
+  // One size for every place: a hundred is as big as a one, and at least the disks' floor.
   const one = q(root, '[data-col="ones"] [data-piece]').getBoundingClientRect();
-  await expect(Math.round(one.width)).toBe(U);
-  for (const r of flats) await expect(Math.round(r.width)).toBe(U * 10);
-  const width = (c: string) => q(root, `[data-col="${c}"]`).getBoundingClientRect().width;
-  const [h, t, o] = [width('hundreds'), width('tens'), width('ones')];
-  // The hundreds column is the widest.
-  await expect(h).toBeGreaterThan(t);
-  await expect(h).toBeGreaterThan(o);
-  // Tens and ones each hold their content (pieces, or the header's icon and word) with GUTTER
-  // clear on both sides.
-  for (const c of ['tens', 'ones']) {
-    const col = q(root, `[data-col="${c}"]`);
-    const parts = [
-      ...col.querySelectorAll('[data-piece], .ni-btt__head .ni-btt__icon, .ni-btt__headword'),
-    ].map((e) => e.getBoundingClientRect());
-    const content = Math.max(...parts.map((r) => r.right)) - Math.min(...parts.map((r) => r.left));
-    await expect(width(c), `${c} holds its content`).toBeGreaterThanOrEqual(content + 2 * GUTTER);
-  }
-  // Within ±10 % of the accepted 436 / 124 / 140.
-  for (const [w, accepted] of [
-    [h, 436],
-    [t, 124],
-    [o, 140],
-  ] as const) {
-    await expect(w).toBeGreaterThanOrEqual(accepted * 0.9);
-    await expect(w).toBeLessThanOrEqual(accepted * 1.1);
+  await expect(Math.round(one.width)).toBeGreaterThanOrEqual(DISK_FLOOR);
+  for (const r of hundreds) {
+    await expect(Math.round(r.width)).toBe(Math.round(one.width));
+    await expect(Math.round(r.height)).toBe(Math.round(one.width));
   }
 }
 
@@ -1446,10 +1426,11 @@ async function playTakeAll(
 ) {
   const config = args.config as Config;
   const root = await findWidget(canvasElement, ROOT);
-  // Heavy items step the item's one unit down; flats stay at least 80 px (an 8 px unit).
+  // Hundreds in play: every piece is a place-value disk (K02), never under the disks' floor.
+  await expect(root).toHaveAttribute('data-pieces', 'disks');
   await expectFits(canvasElement, root, U_MIN);
   const flatW = (sel: string) => q(root, sel).getBoundingClientRect().width;
-  await expect(flatW('[data-col="hundreds"] [data-piece]')).toBeGreaterThanOrEqual(U_MIN * 10);
+  await expect(flatW('[data-col="hundreds"] [data-piece]')).toBeGreaterThanOrEqual(DISK_FLOOR);
   let onMat = 0;
   for (const c of ['ones', 'tens', 'hundreds'] as const) {
     // The flats' size on the mat, read once the layout has settled on the item's one scale (the
@@ -2190,5 +2171,160 @@ export const PierResizeKeepsFocusOnCheck: Story = {
     await expect(check()).toHaveFocus();
     await userEvent.keyboard(' ');
     await waitFor(() => expect(args.onResponse).toHaveBeenCalledTimes(1));
+  },
+};
+
+// ---------- place-value disks (03 §5.5, K02): a mat with hundreds in play ----------
+
+/** PV.16.t2 as generated (n = 253): one hundred of 253 becomes ten tens. */
+const disksSplit: Config = {
+  format: 'base-ten-trade',
+  start: { hundreds: 2, tens: 5, ones: 3 },
+  goal: 'regroup-to',
+  regroupTarget: { hundreds: 1, tens: 15, ones: 3 },
+  showAlgorithm: false,
+  thenAsk: false,
+};
+/** The fullest mat a shipped template generates (PV.16.t2, n = 999): 8 hundreds, 19 tens, 9 ones. */
+const disksFullest: Config = {
+  ...disksSplit,
+  start: { hundreds: 9, tens: 9, ones: 9 },
+  regroupTarget: { hundreds: 8, tens: 19, ones: 9 },
+};
+
+const diskBoxes = (root: Element, c: string) =>
+  [...root.querySelectorAll(`.ni-btt__mat [data-piece^="${c}-"]`)].map((p) =>
+    p.getBoundingClientRect(),
+  );
+
+/**
+ * Every piece on the mat is a disk of one size, round, with its value on it (drawn by the
+ * stylesheet), three colours for the three places; five in a row.
+ */
+async function expectTradeDisks(root: HTMLElement, min: number) {
+  await expect(root).toHaveAttribute('data-pieces', 'disks');
+  const sizes = new Set<number>();
+  const colours = new Set<string>();
+  const labels = { hundreds: '"100"', tens: '"10"', ones: '"1"' } as const;
+  for (const c of ['hundreds', 'tens', 'ones'] as const) {
+    const pieces = [...root.querySelectorAll<HTMLElement>(`.ni-btt__mat [data-piece^="${c}-"]`)];
+    for (const p of pieces) {
+      const r = p.getBoundingClientRect();
+      await expect(Math.round(r.width)).toBe(Math.round(r.height));
+      sizes.add(Math.round(r.width));
+    }
+    const first = pieces[0];
+    if (!first) continue;
+    await expect(getComputedStyle(first, '::after').content).toBe(labels[c]);
+    await expect(getComputedStyle(first).borderRadius).toBe('50%');
+    await expect(Number.parseFloat(getComputedStyle(first).fontSize)).toBeGreaterThanOrEqual(10);
+    colours.add(getComputedStyle(first).backgroundColor);
+    // Five a row: the sixth disk starts the second row, under the first.
+    const boxes = pieces.map((p) => p.getBoundingClientRect());
+    if (boxes.length > 5) {
+      await expect(Math.round(boxes[5]?.left ?? 0)).toBe(Math.round(boxes[0]?.left ?? -1));
+      await expect(Math.round(boxes[4]?.top ?? 0)).toBe(Math.round(boxes[0]?.top ?? -1));
+    }
+  }
+  await expect(sizes.size, 'one size for every place').toBe(1);
+  await expect([...sizes][0]).toBeGreaterThanOrEqual(min);
+  await expect(colours.size).toBe(
+    (['hundreds', 'tens', 'ones'] as const).filter((c) => diskBoxes(root, c).length > 0).length,
+  );
+}
+
+/**
+ * One hundred is split into ten tens, grouped back (a trade can be undone), and split for good:
+ * one disk leaves the hundreds and ten arrive in the tens. A regroup of disks has no side panel:
+ * "check" ends the goal's row, and the mat is as wide as the widget.
+ */
+export const DisksSplitAHundred: Story = {
+  args: { config: disksSplit, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await expectTradeDisks(root, 40);
+    await expect(root.querySelector('.ni-btt__problemrow .ni-btt__checkwrap')).not.toBeNull();
+    await expect(root.querySelector('.ni-btt__side')).not.toBeVisible();
+    const size = diskBoxes(root, 'tens')[0]?.width;
+    await expect(canvas.getByRole('button', { name: 'Check' })).toBeDisabled();
+    await userEvent.click(trade(root, 'hundreds', 'tens'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 1, tens: 15, ones: 3 });
+    await userEvent.click(trade(root, 'tens', 'hundreds'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 2, tens: 5, ones: 3 });
+    await userEvent.click(trade(root, 'hundreds', 'tens'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 1, tens: 15, ones: 3 });
+    // The same disks at the same size after the trades: fifteen tens in three rows of five.
+    await expectTradeDisks(root, 40);
+    await expect(diskBoxes(root, 'tens')[0]?.width).toBe(size);
+    await expect(new Set(diskBoxes(root, 'tens').map((r) => Math.round(r.top))).size).toBe(3);
+    await expectFits(canvasElement, root);
+    await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { hundreds: 1, tens: 15, ones: 3 },
+    });
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:trade-hundreds-tens',
+      'tap:trade-tens-hundreds',
+      'tap:trade-hundreds-tens',
+    ]);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+const pierDisks = (config: Config, room: PierRoom, min: number): Story => ({
+  args: { config, tier: 'pictorial' },
+  // A fit check in a pier-sized room, not a look to keep a baseline of.
+  tags: ['!visual'],
+  render: inRoom(room),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+    await expect(root).toHaveAttribute('data-arrange', 'usual');
+    await expectTradeDisks(root, min);
+  },
+});
+
+/**
+ * 960 × 600, the fullest mat a shipped template generates (PV.16.t2, 999): 9 hundreds, 9 tens and
+ * 9 ones, then 8 hundreds, 19 tens and 9 ones. Disks of 34 px or more, the same before and after
+ * the trade, every control a target, nothing outside the room.
+ */
+export const PierSmallDisksFullest: Story = {
+  ...pierDisks(disksFullest, 'small', 34),
+  tags: ['!visual'],
+  play: async (ctx) => {
+    await pierDisks(disksFullest, 'small', 34).play?.(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    const size = unitOf(root);
+    await userEvent.click(trade(root, 'hundreds', 'tens'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 8, tens: 19, ones: 9 });
+    await expectFitsRoom(ctx.canvasElement, root, 'g1-up', PIER_ACTIONS);
+    await expectTradeDisks(root, 34);
+    await expect(unitOf(root)).toBe(size);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(ctx.args.onResponse).toHaveBeenCalledTimes(1);
+  },
+};
+/** 1280 × 800: the same mat at the disks' full size. */
+export const PierTabletDisksFullest: Story = {
+  ...pierDisks(disksFullest, 'tablet', DISK_MAX),
+  tags: ['!visual'],
+};
+/** A two-digit regroup keeps its proportional rods and cubes (no K–1 item changes). */
+export const TwoDigitMatsKeepTheirBlocks: Story = {
+  args: { config: pierRegroup99, tier: 'pictorial' },
+  tags: ['!visual'],
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).not.toHaveAttribute('data-pieces');
+    const rod = diskBoxes(root, 'tens')[0] as DOMRect;
+    await expect(Math.round(rod.height)).toBe(Math.round(rod.width) * 10);
+    await expect(DISK_FLOOR).toBeGreaterThan(Math.round(rod.width));
   },
 };

@@ -816,3 +816,67 @@ button.ni-btt__box:focus-visible {
     justify-content: center;
   }
 }
+
+/* ---------- place-value disks (03 §5.5, K02): a mat with hundreds in play ---------- */
+
+/*
+ * Every piece is a disk of one size (--u is its diameter), labelled with its value, one colour
+ * per place, in both tiers. The ones keep the colour every drawn piece has; the label and the
+ * column's header say the place, so colour is never the only cue.
+ */
+.ni-btt[data-pieces="disks"] .ni-btt__piece {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-width: clamp(2px, calc(var(--u) * 0.07), 3px);
+  border-radius: 50%;
+  background-image: none;
+  box-shadow: 0 2px 0 rgb(23 96 110 / 0.25);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 0.4);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.ni-btt[data-pieces="disks"] .ni-btt__piece--ones {
+  border-color: var(--color-sea-dark);
+  background-color: var(--color-shallows);
+  font-size: calc(var(--u) * 0.5);
+}
+.ni-btt[data-pieces="disks"] .ni-btt__piece--ones::after {
+  content: "1";
+}
+.ni-btt[data-pieces="disks"] .ni-btt__piece--tens {
+  border-color: var(--color-sunshine-deep);
+  background-color: var(--color-sunshine-light);
+  font-size: calc(var(--u) * 0.46);
+}
+.ni-btt[data-pieces="disks"] .ni-btt__piece--tens::after {
+  content: "10";
+}
+.ni-btt[data-pieces="disks"] .ni-btt__piece--hundreds {
+  border-color: var(--color-coral-deep);
+  background-color: color-mix(in srgb, var(--color-coral) 42%, white);
+}
+.ni-btt[data-pieces="disks"] .ni-btt__piece--hundreds::after {
+  content: "100";
+}
+/*
+ * A regroup of disks has no side panel: the mat is as wide as the widget, and "check" stands at
+ * the end of the problem row. The goal stays centred while there is room beside it.
+ */
+.ni-btt[data-side="none"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ni-btt[data-side="none"] > .ni-btt__side {
+  display: none;
+}
+.ni-btt__problemrow[data-check="true"] {
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
+}
+.ni-btt__rowcheck {
+  display: flex;
+  justify-content: flex-end;
+}

@@ -254,6 +254,17 @@ export function ExpandedFormWidget({
     setColumnH(el.offsetHeight);
   }, [columnH, planRoom]);
   const wide = columnH !== null && planRoom !== null && columnH > planRoom.height + 0.5;
+  // Still taller than the room with the number beside the mat (K02: a three-digit number has five
+  // or six cards, two rows of them in the smallest room): the tray's cards show their numerals
+  // only, without the small pictures under them, so both rows fit. Measured once, as `wide` is.
+  const [wideH, setWideH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!wide || wideH !== null || !planRoom || !el) return;
+    // The content's height, also where a host holds the widget to its room.
+    setWideH(Math.max(el.offsetHeight, el.scrollHeight));
+  }, [wide, wideH, planRoom]);
+  const plainCards = wide && wideH !== null && planRoom !== null && wideH > planRoom.height + 0.5;
 
   const mode = config.mode;
   const cards = config.cards ?? [];
@@ -1147,6 +1158,7 @@ export function ExpandedFormWidget({
       data-pad={padLayout}
       data-check={padCheck}
       data-arr={mode === 'build' && wide ? 'wide' : undefined}
+      data-cards={mode === 'build' && plainCards ? 'plain' : undefined}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
       style={handRootStyle}

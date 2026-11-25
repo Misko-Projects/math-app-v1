@@ -359,6 +359,105 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
   });
 });
 
+// K02 (#17, PR #121). The first render is not the fullest a mat gets: a child trades. For the
+// fullest item each place-value template of disks generates (n = 999), every state the child can
+// reach by trading is measured too, up to the cap of a column of disks (20), where the widget
+// offers no further split.
+const count = (sel: string) => document.querySelectorAll(sel).length;
+const tradeMat = () =>
+  (['hundreds', 'tens', 'ones'] as const).map((c) => count(`.ni-btt__mat [data-piece^="${c}-"]`));
+const buildMat = () =>
+  (['hundreds', 'tens', 'ones'] as const).map((c) =>
+    count(`.ni-btb__col[data-col="${c}"] .ni-btb__piece`),
+  );
+const button = (sel: string) => document.querySelector<HTMLButtonElement>(sel);
+
+describe.each(FIT_VIEWPORTS)(
+  'the fullest mats a child can reach fit the pier at %s (#17)',
+  (viewport: FitViewport) => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    /** The first item of `templateId` whose number is 999. */
+    const fullest = (templateId: string): GeneratedItem => {
+      const template = content.store.graph.templates[templateId] as ItemTemplate;
+      for (let seed = 1; seed < 5000; seed += 1) {
+        const item = engine.generateItem(template, seed);
+        if (item.params.n === 999) return item;
+      }
+      throw new Error(`${templateId}: no item of 999 in 5000 seeds`);
+    };
+    const shot = async (id: string, state: string) => {
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-${state}-${viewport}.png` });
+    };
+
+    it('base-ten-trade (PV.16.t2): 999 split to 8 hundreds 19 tens 9 ones, then to 18 tens 19 ones', async () => {
+      await page.viewport(width, height);
+      show(fullest('PV.16.t2'), 'g1-up');
+      expect(await measure('PV.16.t2')).toEqual([]);
+      expect(tradeMat()).toEqual([9, 9, 9]);
+      const size = () =>
+        document.querySelector('.ni-btt__mat [data-piece^="ones-"]')?.getBoundingClientRect().width;
+      const before = size();
+      button('[data-trade="trade-hundreds-tens"]')?.click();
+      expect(await measure('PV.16.t2')).toEqual([]);
+      expect(tradeMat()).toEqual([8, 19, 9]);
+      await shot('PV.16.t2', 'goal-reached');
+      // A second hundred would make 29 tens: no further split is offered.
+      expect(button('[data-trade="trade-hundreds-tens"]')?.disabled).toBe(true);
+      button('[data-trade="trade-tens-ones"]')?.click();
+      expect(await measure('PV.16.t2')).toEqual([]);
+      expect(tradeMat()).toEqual([8, 18, 19]);
+      await shot('PV.16.t2', 'at-the-caps');
+      // Both receiving columns are at their cap: neither split is offered, both groups are.
+      expect(button('[data-trade="trade-hundreds-tens"]')?.disabled).toBe(true);
+      expect(button('[data-trade="trade-tens-ones"]')?.disabled).toBe(true);
+      expect(button('[data-trade="trade-ones-tens"]')?.disabled).toBe(false);
+      // The disks keep one size through the trades, never under the floor.
+      expect(size()).toBe(before);
+      expect(before).toBeGreaterThanOrEqual(26);
+    });
+
+    it('base-ten-build (PV.16.t1): 8 hundreds 19 tens 9 ones, the ten tens joined, and split again', async () => {
+      await page.viewport(width, height);
+      show(fullest('PV.16.t1'), 'g1-up');
+      expect(await measure('PV.16.t1')).toEqual([]);
+      expect(buildMat()).toEqual([8, 19, 9]);
+      expect(document.querySelector('[data-fits="false"]')).toBeNull();
+      // At the cap already: a hundred cannot be split into ten more tens, nor a ten into ones
+      // beside nine (19 is within the cap, so that split is offered).
+      expect(button('[data-trade="split-hundreds"]')?.disabled).toBe(true);
+      button('[data-trade="fuse-tens"]')?.click();
+      expect(await measure('PV.16.t1')).toEqual([]);
+      expect(buildMat()).toEqual([9, 9, 9]);
+      await shot('PV.16.t1', 'goal-reached');
+      button('[data-trade="split-tens"]')?.click();
+      expect(await measure('PV.16.t1')).toEqual([]);
+      expect(buildMat()).toEqual([9, 8, 19]);
+      expect(button('[data-trade="split-tens"]')?.disabled).toBe(true);
+      expect(document.querySelector('[data-fits="false"]')).toBeNull();
+    });
+
+    it('PV.24.t1 shows no goal card: the mat that lacks one digit does not name what it is worth', async () => {
+      await page.viewport(width, height);
+      const template = content.store.graph.templates['PV.24.t1'] as ItemTemplate;
+      for (const seed of [1, 2, 3]) {
+        const item = engine.generateItem(template, seed);
+        show(item, 'g1-up');
+        expect(await measure('PV.24.t1')).toEqual([]);
+        expect(document.querySelector('[data-testid="pier-stage"] .ni-btb__goal')).toBeNull();
+        const n = Number(item.params.n);
+        const place = Number(item.params.place);
+        const worth = (Math.floor(n / 10 ** place) % 10) * 10 ** place;
+        const stage = document.querySelector('[data-testid="pier-stage"]') as HTMLElement;
+        const names = [...stage.querySelectorAll('[aria-label]')].map((e) =>
+          e.getAttribute('aria-label'),
+        );
+        expect(`${stage.textContent} ${names.join(' ')}`).not.toMatch(new RegExp(`\\b${worth}\\b`));
+      }
+    });
+  },
+);
+
 describe.each(FIT_VIEWPORTS)('Road Crew fits its formats at %s (#27)', (viewport: FitViewport) => {
   /** More stones than a request makes (one per item). */
   const STONES = 12;

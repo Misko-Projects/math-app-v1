@@ -22,7 +22,12 @@
 //                place k for the term at place k (14 = 10 + ?) → number-pad, numeral-pick,
 //                expanded-form `to-standard` / `fill`, hundred-chart (find 30 + 4)
 //   digit-value  the value of the digit at `place` (−1: the leading digit) → number-pad,
-//                numeral-pick, expanded-form `digit-value`
+//                numeral-pick, expanded-form `digit-value`, or base-ten-build (K02, PV.24): the
+//                mat starts with the pieces of n's other digits and the child puts in what the
+//                asked digit is worth (3 hundreds and 5 ones for the 4 in 345; baseten.value
+//                `{ value: 345 }`). A build that starts with pieces shows no goal card, so
+//                nothing on screen says 40; every kind of n is on offer, so 4 ones is the
+//                face-value slip
 //
 // `wholeIs: flat` (decimals) reads every count in hundredths (flat 100, rod 10, unit 1); it is
 // drawn only as base-ten pieces. Feature values depend on the params (and the template's format)
@@ -263,8 +268,10 @@ export function pvFeatures(p: ParamValues, format: string): Record<string, numbe
     nonCanonical: nonCanonical ? 1 : 0,
     // expanded-form has its own words feature (mode.words), so words counts once.
     words: mode === 'words' && format !== 'expanded-form' ? 1 : 0,
-    'ones.over5': n < 100 ? Math.max(0, o - 5) / 4 : 0,
-    'tens.over5': n < 100 ? Math.max(0, (Math.floor(n / 10) % 10) - 5) / 4 : 0,
+    // K02: each place of a number to 999 (the hundreds too), not only a two-digit number's.
+    'ones.over5': n < 1000 ? Math.max(0, o - 5) / 4 : 0,
+    'tens.over5': n < 1000 ? Math.max(0, (Math.floor(n / 10) % 10) - 5) / 4 : 0,
+    'hundreds.over5': n < 1000 ? Math.max(0, Math.floor(n / 100) - 5) / 4 : 0,
     unusualOrder: p.unusualOrder === true && mode === 'expanded' ? 1 : 0,
     decimal: asStr(p.wholeIs, 'unit') === 'flat' ? 1 : 0,
   };
@@ -453,11 +460,15 @@ export const pvNumber: GeneratorDef = {
     words: { weight: 0.4, doc: 'number names (mode words; expanded-form uses mode.words)' },
     'ones.over5': {
       weight: 0.4,
-      doc: 'n < 100: max(0, ones − 5) / 4 (ones past five are counted, not seen at a glance)',
+      doc: 'n < 1000: max(0, ones − 5) / 4 (ones past five are counted, not seen at a glance)',
     },
     'tens.over5': {
       weight: 0.4,
-      doc: 'n < 100: max(0, tens − 5) / 4 (tens past five are counted, not seen at a glance)',
+      doc: 'n < 1000: max(0, tens − 5) / 4 (tens past five are counted, not seen at a glance)',
+    },
+    'hundreds.over5': {
+      weight: 0.4,
+      doc: 'n < 1000: max(0, hundreds − 5) / 4 (hundreds past five are counted, not seen at a glance)',
     },
     unusualOrder: { weight: 0.5, doc: 'expanded terms smallest place first' },
     decimal: { weight: 0.5, doc: 'wholeIs flat: decimals on base-ten pieces' },
@@ -537,6 +548,14 @@ export const pvNumber: GeneratorDef = {
     // place: the asked term or digit, which must exist and not be 0.
     if (mode === 'expanded' || mode === 'digit-value') {
       if (place < -1 || place >= nd) return false;
+      // On the mat the other digits' pieces start there: one of them must not be zero.
+      if (
+        mode === 'digit-value' &&
+        t.format === 'base-ten-build' &&
+        digitsOf(n).every((x, k) => x === 0 || k === askedPlace(p))
+      ) {
+        return false;
+      }
       const k = askedPlace(p);
       if (k >= 0 && (mode === 'digit-value' ? digitsOf(n)[k] : counts[k]) === 0) return false;
       if (mode === 'digit-value' && nonCanonical) return false;
@@ -681,6 +700,29 @@ export const pvNumber: GeneratorDef = {
             },
             answer: { kind: 'number', value: n },
           });
+        } else if (mode === 'digit-value') {
+          // The other digits' pieces are on the mat; the child puts in what the asked digit is
+          // worth. Starting with pieces, the widget draws no goal card (the answer is not shown).
+          const rest = piecesFrom(digits.map((x, k) => (k === place ? 0 : x)));
+          p = {
+            params,
+            vars,
+            math,
+            widget: {
+              format: 'base-ten-build',
+              target: n,
+              mode: 'build',
+              pieces: offer,
+              wholeIs,
+              prebuilt: {
+                ...(rest.thousands > 0 ? { thousands: rest.thousands } : {}),
+                hundreds: rest.hundreds,
+                tens: rest.tens,
+                ones: rest.ones,
+              },
+            },
+            answer: { kind: 'state', checker: 'baseten.value', target: { value: n } },
+          };
         } else return unsupported();
         break;
       }
@@ -886,11 +928,12 @@ export const pvNumber: GeneratorDef = {
     const value = typeof target.value === 'number' && w.format !== 'base-ten-build' ? n : null;
     switch (w.format) {
       case 'base-ten-build': {
-        // build: the canonical mat, which the solution's trade ends on.
+        // build: the canonical mat, which the solution's trade ends on (digit-value: the whole
+        // number, the other digits' pieces being there from the start).
         const counts =
           w.mode === 'build-exact'
             ? [w.exact?.ones ?? 0, w.exact?.tens ?? 0, w.exact?.hundreds ?? 0]
-            : digitsOf(n);
+            : digitsOf(w.target);
         // The mat, every kind (U04's base-ten-build response).
         const pc = piecesFrom(counts);
         return {
@@ -930,9 +973,14 @@ export const pvNumber: GeneratorDef = {
         : out.answer.kind === 'choice'
           ? (optionNumber(out.answer.id) ?? n)
           : n;
+    const digit = digitsOf(n)[place] ?? 0;
     const final = (action: LessonStep['action']) =>
       mode === 'digit-value'
-        ? say('gen.pv.number.worth', { d: digitsOf(n)[place] ?? 0, v: answer }, action)
+        ? say(
+            'gen.pv.number.worth',
+            { d: digit, v: out.answer.kind === 'state' ? digit * 10 ** place : answer },
+            action,
+          )
         : say('gen.pv.number.is', { v: answer }, action);
     /** One step per non-zero kind of piece, largest first (the counts, not the number). */
     const pieceSteps = (op: 'add-piece' | 'count-by'): LessonStep[] => {
@@ -991,6 +1039,18 @@ export const pvNumber: GeneratorDef = {
       case 'base-ten-build':
         if (w.mode === 'read') {
           return [...pieceSteps('count-by'), final({ op: 'answer', args: { value: n } })];
+        }
+        if (mode === 'digit-value') {
+          // The digit's place names its pieces: the 4 in 345 is 4 tens.
+          const kind = BASE_TEN_KINDS[place] ?? 'ones';
+          return [
+            say(
+              `gen.pv.number.place-${PLACES[place] ?? 'ones'}`,
+              {},
+              { op: 'add-piece', args: { kind, count: digit } },
+            ),
+            final({ op: 'count-by', args: { kind } }),
+          ];
         }
         if (w.mode === 'build' && nonCanonical) {
           const trade = forcedTrade(n);

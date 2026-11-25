@@ -1844,13 +1844,12 @@ function checkNarration(
     for (const n of ctx.value.nouns) for (const w of n.split('-')) island.add(w);
   for (const r of c.game?.residents ?? [])
     for (const w of r.name.toLowerCase().split(/[\s-]+/)) island.add(w);
+  // The grade 2 list adds to the K–1 list (03 §8.5): a grade 2 line may use the words of both.
   const known = (w: string, band: string) => {
-    const list = band === 'K' || band === '1' ? c.wordlistK1 : c.wordlist2;
+    const has = (x: string) =>
+      c.wordlistK1.has(x) || island.has(x) || (band !== 'K' && band !== '1' && c.wordlist2.has(x));
     const variants = [w, w.replace(/'s$/, ''), w.replace(/s$/, ''), w.replace(/es$/, '')];
-    return (
-      variants.some((x) => list.has(x) || island.has(x)) ||
-      w.split('-').every((p) => list.has(p) || island.has(p))
-    );
+    return variants.some(has) || w.split('-').every(has);
   };
 
   const out: NarrationJson = {};

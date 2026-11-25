@@ -737,3 +737,79 @@ describe('pv.number sampling and helpers', () => {
     expect(expandedTerms(placeCounts(34, true)).map((x) => x.value)).toEqual([20, 14]);
   });
 });
+
+// K02 (#17): three-digit numbers.
+describe('pv.number to 999 (K02)', () => {
+  it('base-ten-build digit-value: the other digits are on the mat, the child adds the digit (PV.24)', () => {
+    const t = tpl('base-ten-build', 'concrete', 'base-ten');
+    initContent({ templates: [t], narration: {}, misconceptions: [] });
+    const item = generateItemFromParams(t, { n: 345, mode: 'digit-value', place: 1 });
+    // The target is the whole number and the mat starts with pieces: the widget draws no goal
+    // card for such a build, so nothing on screen says 40 (PR #121 review, round 1).
+    expect(item.widget).toMatchObject({
+      format: 'base-ten-build',
+      target: 345,
+      mode: 'build',
+      pieces: { thousands: false, hundreds: true, tens: true, ones: true },
+      prebuilt: { hundreds: 3, tens: 0, ones: 5 },
+    });
+    expect(JSON.stringify(item.widget)).not.toContain('40');
+    expect(item.answer).toEqual({
+      kind: 'state',
+      checker: 'baseten.value',
+      target: { value: 345 },
+    });
+    expect(itemExampleCorrect(item)).toEqual({
+      kind: 'state',
+      value: { thousands: 0, hundreds: 3, tens: 4, ones: 5 },
+    });
+    const steps = itemSolution(item);
+    expect(steps.map((x) => x.say)).toEqual(['gen.pv.number.place-tens', 'gen.pv.number.worth']);
+    expect(steps[0]?.action).toEqual({ op: 'add-piece', args: { kind: 'tens', count: 4 } });
+    expect(steps[1]?.vars).toEqual({ d: 4, v: 40 });
+    const replayed = replaySteps(item, steps);
+    expect(replayed).not.toBeNull();
+    expect(checkResponse(item, replayed as NonNullable<typeof replayed>).correct).toBe(true);
+    const mat = (hundreds: number, tens: number, ones: number) => ({
+      kind: 'state' as const,
+      value: { thousands: 0, hundreds, tens, ones },
+    });
+    // 4 ones beside the 3 hundreds and 5 ones is the face-value slip; the untouched mat is not it.
+    expect(checkResponse(item, mat(3, 0, 9)).correct).toBe(false);
+    expect(checkResponse(item, mat(3, 0, 5)).correct).toBe(false);
+  });
+
+  it('the hundreds digit is put in as flats; a number that is only that digit is not asked', () => {
+    const t = tpl('base-ten-build', 'concrete', 'base-ten');
+    initContent({ templates: [t], narration: {}, misconceptions: [] });
+    const item = generateItemFromParams(t, { n: 345, mode: 'digit-value', place: 2 });
+    expect(item.widget).toMatchObject({ target: 345, prebuilt: { hundreds: 0, tens: 4, ones: 5 } });
+    expect(itemSolution(item)[0]).toMatchObject({
+      say: 'gen.pv.number.place-hundreds',
+      action: { op: 'add-piece', args: { kind: 'hundreds', count: 3 } },
+    });
+    // 300 would start with an empty mat, which shows a goal card: not generated.
+    expect(pvNumber.accepts?.({ n: 300, mode: 'digit-value', place: 2 }, t)).toBe(false);
+    expect(pvNumber.accepts?.({ n: 345, mode: 'digit-value', place: 2 }, t)).toBe(true);
+  });
+
+  it('each place past five adds to the size features, to 999', () => {
+    expect(pvFeatures({ n: 789, mode: 'build' }, 'base-ten-build')).toMatchObject({
+      digits: 2,
+      'hundreds.over5': 0.5,
+      'tens.over5': 0.75,
+      'ones.over5': 1,
+    });
+    expect(pvFeatures({ n: 345, mode: 'build' }, 'base-ten-build')).toMatchObject({
+      'hundreds.over5': 0,
+      'tens.over5': 0,
+      'ones.over5': 0,
+    });
+    // A two-digit number is scored as before.
+    expect(pvFeatures({ n: 78, mode: 'build' }, 'base-ten-build')).toMatchObject({
+      'hundreds.over5': 0,
+      'tens.over5': 0.5,
+      'ones.over5': 0.75,
+    });
+  });
+});

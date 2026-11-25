@@ -109,6 +109,19 @@ const MIN_REACHED = 8;
  */
 const MIN_REACHED_SESSIONS = 100;
 const MIN_MASTERED_CASES = 10;
+/** K02 slice 1a (#17): the grade-2 place-value skills to 1000 (03 §3.8). */
+const PV_TO_1000 = [
+  'PV.04',
+  'PV.05',
+  'PV.06',
+  'PV.07',
+  'PV.12',
+  'PV.14',
+  'PV.15',
+  'PV.16',
+  'PV.17',
+  'PV.24',
+] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -574,6 +587,41 @@ describe('session simulation (04 §8)', () => {
       });
     });
   }
+
+  // K02 slice 1a (#17). The default G2 children know about 100 of the skills and learn about five
+  // more in 60 sessions, spread over every strand, so few of them finish one strand's grade. This
+  // learner is a second-grader who has the grade-2 content (hidden known-rate 1 up to grade 2):
+  // the run shows that the planner reaches each of the ten skills behind its prerequisites and
+  // that its templates give the evidence the mastery rule needs (04 §3), the gateways' included:
+  // some child meets it and masters it within the 60 sessions (as measured: each skill is
+  // mastered by 2 to 6 of the 6 children). Mastery wants spaced evidence and the planner works
+  // every strand, so a child need not finish all ten in that time; the deepest (PV.16, PV.17,
+  // PV.24) come last.
+  it(
+    'grade-2 learners reach each of the ten place-value skills to 1000, and each is mastered',
+    () => {
+      const ready = learnerProfile('G2 (has grade 2)', '2', {
+        ...PROFILES.G2,
+        known: { ...PROFILES.G2.known, wellBelow: 1, below: 1, at: 1 },
+      });
+      const r = simulateProfile(graph, ready, SENSITIVITY_CHILDREN);
+      const count = (s: string, field: 'masteredAt' | 'practicedAt') =>
+        r.runs.filter((x) => (x.sim.state.skills[s]?.[field] ?? null) !== null).length;
+      const attempted = (s: string) =>
+        r.runs.filter((x) => (x.sim.state.skills[s]?.n ?? 0) > 0).length;
+      console.log(
+        `session sim ${ready.name}: ${SENSITIVITY_CHILDREN} children × ${SESSIONS} sessions; ` +
+          `children who met / practised / mastered each skill: ${PV_TO_1000.map(
+            (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
+          ).join(', ')}`,
+      );
+      for (const s of PV_TO_1000) {
+        expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
+        expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
+      }
+    },
+    SIM_TIMEOUT,
+  );
 
   it(
     'reports the sensitivity runs; the stationary learners meet the reachable-items band',

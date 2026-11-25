@@ -5,6 +5,7 @@ import type { GeneratedItem, MisconceptionSpec } from '@number-island/shared';
 import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
 import { biggerUnitMore } from './rules/biggerUnitMore';
+import { compareFirstDigit } from './rules/compareFirstDigit';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
@@ -29,6 +30,7 @@ import { unequalShare } from './rules/unequalShare';
 import { unitGaps } from './rules/unitGaps';
 import { writeAsSpoken } from './rules/writeAsSpoken';
 import { wrongOperation } from './rules/wrongOperation';
+import { zeroPlaceholder } from './rules/zeroPlaceholder';
 
 /** Found by `pnpm bundle-size` to prove this module is not in the initial JS (02 §6a, #95). */
 export const RULES_CHUNK_MARK = 'number-island:item-core/misconception-rules';
@@ -60,6 +62,9 @@ const RULES: Record<string, MisconceptionRule> = {
   startUnknownReversed: startUnknownReversed,
   keywordMoreMeansAdd: keywordMoreMeansAdd,
   symbolReversed: symbolReversed,
+  // K02 (#17): place value to 1000
+  zeroPlaceholder: zeroPlaceholder,
+  compareFirstDigit: compareFirstDigit,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

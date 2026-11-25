@@ -2,6 +2,7 @@ import {
   type BaseTenTradeState,
   COLUMNS,
   type Column,
+  DISK_COLUMN_MAX,
   type FormatModel,
   formatModel,
   htoValue,
@@ -77,7 +78,7 @@ import {
   SIDE_GAP,
   stateCaps,
   stripWidth,
-  U_FLOOR,
+  unitRange,
 } from './layout';
 import './base-ten-trade.css';
 
@@ -759,6 +760,11 @@ function TradeMat({
   }, []);
 
   const baseCaps = useMemo(() => planCaps(config), [config]);
+  // Hundreds in play: every piece is a place-value disk (03 §5.5, K02).
+  const disks = baseCaps.disks === true;
+  // A regroup of disks has no side panel: "check" ends the problem row and the mat is as wide as
+  // the widget, so three columns of five disks are as large as they can be.
+  const checkInRow = disks && config.goal === 'regroup-to' && !showWork && !config.thenAsk;
   // Once everything is added the tray goes, and the mat grows into its room.
   const trayEmpty = !COLUMNS.some((c) => state.pending[c] > 0);
   // What the layout makes room for, most stable first: the whole item's plan (grown for anything
@@ -793,6 +799,7 @@ function TradeMat({
   const { side } = useMemo(() => {
     const measured = planRoom !== null && box.main > 0;
     const chosen = chooseSide({
+      checkInRow,
       age,
       goal: config.goal,
       showWork,
@@ -801,8 +808,9 @@ function TradeMat({
       places,
       budget: arranged.current ? budget : budgetIn(planRoom),
       arrange: arranged.current === 'tall' ? 'usual' : (arranged.current ?? undefined),
-      // The mat's area and the side panel together, with the grid gap between them.
-      contentW: box.main > 0 ? box.main + GAP + box.side : 0,
+      // The mat's area and the side panel together, with the grid gap between them (without a
+      // side panel, the mat's area alone).
+      contentW: box.main <= 0 ? 0 : checkInRow ? box.main : box.main + GAP + box.side,
       parts: {
         ...box,
         problem: box.problemW > 0 ? { w: box.problemW, h: box.problemH } : undefined,
@@ -820,11 +828,14 @@ function TradeMat({
       path,
     });
     const fitsRoom =
-      fit.fits && fit.unit >= U_FLOOR && chosen.side.sideH <= budgetIn(planRoom) - 2 * ROOT_PAD_Y;
+      fit.fits &&
+      fit.unit >= unitRange(baseCaps.disks).floor &&
+      chosen.side.sideH <= budgetIn(planRoom) - 2 * ROOT_PAD_Y;
     arranged.current = !fitsRoom ? 'tall' : chosen.side.problemInSide ? 'in-side' : 'usual';
     arrangedFor.current = planRoom;
     if (fitsRoom) return chosen;
     return chooseSide({
+      checkInRow,
       age,
       goal: config.goal,
       showWork,
@@ -832,12 +843,24 @@ function TradeMat({
       answerInWork,
       places,
       arrange: 'usual',
-      contentW: box.main + GAP + box.side,
+      contentW: checkInRow ? box.main : box.main + GAP + box.side,
       parts: box,
       base: baseCaps,
       path,
     });
-  }, [age, config, showWork, answerInWork, places, box, baseCaps, path, budget, planRoom]);
+  }, [
+    age,
+    config,
+    showWork,
+    answerInWork,
+    places,
+    box,
+    baseCaps,
+    path,
+    budget,
+    planRoom,
+    checkInRow,
+  ]);
   const { problemInSide, padWide } = side;
   // A change of arrangement moves the pad and "check" to another place in the side panel, which
   // mounts them anew. Whichever of them had the keyboard focus keeps it: noted here, before the
@@ -892,10 +915,11 @@ function TradeMat({
         { w: plan.colW[c] - 2 * COL_PAD, h: room - oy },
         caps.mat[c],
         c === 'hundreds' ? plan.flatsPerRow : plan.rodsPerRow,
+        disks,
       ).map((b) => ({ ...b, y: b.y + oy }));
     }
     return out;
-  }, [columns, state.mat, u, plan, caps]);
+  }, [columns, state.mat, u, plan, caps, disks]);
 
   // ---------- animation (03 §5.5: transform and opacity only; instant with reduced motion) ----------
 
@@ -961,7 +985,14 @@ function TradeMat({
       el.style.width = `${g.rect.w}px`;
       el.style.height = `${g.rect.h}px`;
       const lying = g.kind === 'tens' && g.rect.w > g.rect.h;
-      const unitPx = g.kind === 'hundreds' ? g.rect.w / 10 : lying ? g.rect.h : g.rect.w;
+      // A disk's unit is its own width, whatever its place (its label is sized from it).
+      const unitPx = disks
+        ? g.rect.w
+        : g.kind === 'hundreds'
+          ? g.rect.w / 10
+          : lying
+            ? g.rect.h
+            : g.rect.w;
       el.style.setProperty('--u', `${unitPx}px`);
       if (lying) el.dataset.lying = 'true';
       if (g.origin) el.style.transformOrigin = g.origin;
@@ -1061,8 +1092,8 @@ function TradeMat({
       arrivingIds,
       (src, dests) =>
         isBreak
-          ? breakGhosts(from, to, src[0] as Box, dests)
-          : bundleGhosts(from, to, src, dests[0] as Box, rootBounds()),
+          ? breakGhosts(from, to, src[0] as Box, dests, undefined, disks)
+          : bundleGhosts(from, to, src, dests[0] as Box, rootBounds(), undefined, disks),
       [`col-${from}`, `col-${to}`],
     );
   };
@@ -1649,7 +1680,14 @@ function TradeMat({
       <div key={`strip-${larger}`} className="ni-btt__strip">
         {(
           [
-            { from: larger, to: smaller, dir: 'split' as const, enabled: state.mat[larger] >= 1 },
+            {
+              from: larger,
+              to: smaller,
+              dir: 'split' as const,
+              // A column of disks holds two tens (DISK_COLUMN_MAX): no split past that.
+              enabled:
+                state.mat[larger] >= 1 && (!disks || state.mat[smaller] + 10 <= DISK_COLUMN_MAX),
+            },
             { from: smaller, to: larger, dir: 'group' as const, enabled: state.mat[smaller] >= 10 },
           ] as const
         ).map((b) => {
@@ -1693,9 +1731,9 @@ function TradeMat({
         </span>
         {columns.map((c, i) => {
           const n = state.pending[c];
-          const boxes = naturalLayout(c, n, u, 10);
+          const boxes = naturalLayout(c, n, u, 10, disks);
           const ext = extent(boxes);
-          const w = holderWidth(c, n, u, age);
+          const w = holderWidth(c, n, u, age, disks);
           const h = Math.max(sizes.target, ext.h + 2 * GROUP_PAD);
           // In a narrow outer cell the holder keeps clear of the tray's border (layout.ts).
           const m = holderMargins(i, columns.length, plan.colW[c], w);
@@ -1758,8 +1796,8 @@ function TradeMat({
     ? (() => {
         const p = dnd.targetProps('take', { label: t('ui.widget.btt.nest') });
         const inner = nestInner(plan.matW, plan.nestH);
-        const taken = placeTaken(state.taken, u, inner, sizes.target);
-        const slots = nestSlots(state.taken, u, inner, sizes.target);
+        const taken = placeTaken(state.taken, u, inner, sizes.target, disks);
+        const slots = nestSlots(state.taken, u, inner, sizes.target, disks);
         return (
           <div
             className="ni-btt__nest"
@@ -1838,11 +1876,13 @@ function TradeMat({
     <div
       ref={rootRef}
       className="ni-btt"
+      data-pieces={disks ? 'disks' : undefined}
       data-tier={pictorial ? 'pictorial' : 'concrete'}
       data-disabled={disabled ? 'true' : undefined}
       data-goal={config.goal}
       data-op={op?.op}
       data-arrange={arranged.current ?? undefined}
+      data-side={checkInRow ? 'none' : undefined}
       style={handRootStyle}
     >
       <div ref={mainRef} className="ni-btt__main">
@@ -1855,10 +1895,14 @@ function TradeMat({
             {work}
           </div>
         ) : showProblemRow ? (
-          <div className="ni-btt__problemrow" style={{ height: problemH }}>
+          <div
+            className="ni-btt__problemrow"
+            data-check={checkInRow ? 'true' : undefined}
+            style={{ height: problemH }}
+          >
             <span />
             {problem}
-            <span />
+            {checkInRow ? <span className="ni-btt__rowcheck">{check}</span> : <span />}
           </div>
         ) : null}
         <fieldset
@@ -1886,9 +1930,10 @@ function TradeMat({
         ref={sideRef}
         className="ni-btt__side"
         data-problem={problemInSide ? 'true' : undefined}
+        hidden={checkInRow}
         style={{ paddingTop: sideTop, gap: SIDE_GAP }}
       >
-        {workInSide ? work : null}
+        {checkInRow ? null : workInSide ? work : null}
         {problemInSide && padWide ? (
           // A short room: the problem and "check" side by side, the 4 × 3 pad under them.
           <>
@@ -1911,7 +1956,7 @@ function TradeMat({
             {padKeys}
             {check}
           </div>
-        ) : (
+        ) : checkInRow ? null : (
           <>
             {config.thenAsk ? padKeys : null}
             {/* "check" right by the pad (06 §4), or at the mat's foot without one. */}
