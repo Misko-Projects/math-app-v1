@@ -3,7 +3,14 @@
 // validate every generated item with the same schema. One test per bound.
 import type { WidgetConfigOf } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
-import { MAT_MAX, MAT_MAX_FLAT, targetMax } from './base-ten-build';
+import {
+  buildShowsDisks,
+  MAT_MAX,
+  MAT_MAX_DISKS,
+  MAT_MAX_FLAT,
+  matMax,
+  targetMax,
+} from './base-ten-build';
 import {
   TRADE_ADD_OPERAND_HUNDREDS_MAX,
   TRADE_ADD_START_HUNDREDS_MAX,
@@ -12,6 +19,7 @@ import {
   TRADE_REGROUP_COLUMN_MAX,
   TRADE_TAKE_COUNT_MAX,
   TRADE_VALUE_MAX,
+  tradeShowsDisks,
 } from './base-ten-trade';
 import {
   EF_BLANKS_MAX,
@@ -22,10 +30,13 @@ import {
   EF_WORD_OPTIONS_MAX,
 } from './expanded-form';
 import { formatModel } from './index';
+import { DISK_COLUMN_MAX } from './place-value';
 
 type Build = WidgetConfigOf<'base-ten-build'>;
 type Trade = WidgetConfigOf<'base-ten-trade'>;
 type Expanded = WidgetConfigOf<'expanded-form'>;
+
+const hto0 = (hundreds: number, tens: number, ones: number) => ({ hundreds, tens, ones });
 
 const messages = (format: 'base-ten-build' | 'base-ten-trade' | 'expanded-form', c: unknown) => {
   const model = formatModel(format);
@@ -35,7 +46,10 @@ const messages = (format: 'base-ten-build' | 'base-ten-trade' | 'expanded-form',
 };
 
 describe('base-ten-build: supported domain', () => {
+  // With flats or cubes in play the mat draws place-value disks (K02): MAT_MAX_DISKS. A mat of
+  // tens and ones keeps its proportional pieces: MAT_MAX.
   const ALL = { thousands: true, hundreds: true, tens: true, ones: true };
+  const TENS_ONES = { thousands: false, hundreds: false, tens: true, ones: true };
   const build = (over: Partial<Build>): Build => ({
     format: 'base-ten-build',
     target: 34,
@@ -47,6 +61,29 @@ describe('base-ten-build: supported domain', () => {
   const read = (prebuilt: NonNullable<Build['prebuilt']>, target: number): Build =>
     build({ mode: 'read', target, prebuilt });
 
+  it('hundreds in play draw disks; tens and ones, and the decimal mat, keep their pieces', () => {
+    expect(buildShowsDisks(build({}))).toBe(true);
+    expect(buildShowsDisks(build({ pieces: { ...TENS_ONES, thousands: true } }))).toBe(true);
+    expect(buildShowsDisks(build({ pieces: TENS_ONES }))).toBe(false);
+    // Ten rods worth 100 with no flat to make (bond.parts): still rods.
+    expect(buildShowsDisks(build({ pieces: TENS_ONES, target: 100 }))).toBe(false);
+    expect(
+      buildShowsDisks(
+        build({ pieces: TENS_ONES, mode: 'read', target: 120, prebuilt: hto0(1, 2, 0) }),
+      ),
+    ).toBe(true);
+    expect(buildShowsDisks(build({ wholeIs: 'flat' }))).toBe(false);
+    expect(matMax(build({}))).toBe(MAT_MAX_DISKS);
+    expect(matMax(build({ pieces: TENS_ONES }))).toBe(MAT_MAX);
+    expect(matMax(build({ wholeIs: 'flat' }))).toBe(MAT_MAX_FLAT);
+    expect(MAT_MAX_DISKS).toEqual({
+      thousands: 9,
+      hundreds: DISK_COLUMN_MAX,
+      tens: DISK_COLUMN_MAX,
+      ones: DISK_COLUMN_MAX,
+    });
+  });
+
   it('a build target is at most 9999', () => {
     expect(messages('base-ten-build', build({ target: 9999 }))).toEqual([]);
     expect(messages('base-ten-build', build({ target: 10_000 }))).toEqual([
@@ -54,13 +91,14 @@ describe('base-ten-build: supported domain', () => {
     ]);
   });
 
-  it('any target is at most a full mat, on the whole mat and the decimal one', () => {
-    expect(targetMax({ wholeIs: 'unit' })).toBe(11_389);
-    expect(targetMax({ wholeIs: 'flat' })).toBe(10_889);
-    const full = { ...MAT_MAX };
-    expect(messages('base-ten-build', read(full, 11_389))).toEqual([]);
-    expect(messages('base-ten-build', read(full, 11_390))).toEqual([
-      'target: target is at most 11389 (a full mat); got 11390',
+  it('any target is at most a full mat: of disks, of tens and ones, and the decimal one', () => {
+    expect(targetMax(build({}))).toBe(11_220);
+    expect(targetMax(build({ pieces: TENS_ONES }))).toBe(11_389);
+    expect(targetMax(build({ wholeIs: 'flat' }))).toBe(10_889);
+    const full = { ...MAT_MAX_DISKS };
+    expect(messages('base-ten-build', read(full, 11_220))).toEqual([]);
+    expect(messages('base-ten-build', read(full, 11_221))).toEqual([
+      'target: target is at most 11220 (a full mat); got 11221',
     ]);
     expect(
       messages('base-ten-build', { ...read({ ...MAT_MAX_FLAT }, 10_890), wholeIs: 'flat' }),
@@ -74,41 +112,62 @@ describe('base-ten-build: supported domain', () => {
     }
   });
 
-  it.each(['hundreds', 'tens', 'ones'] as const)('limits.%s is at most the mat cap', (k) => {
-    for (const mode of ['build', 'read'] as const) {
-      const base =
-        mode === 'read' ? read({ hundreds: 0, tens: 3, ones: 4 }, 34) : build({ target: 34 });
-      expect(messages('base-ten-build', { ...base, limits: { [k]: MAT_MAX[k] } })).toEqual([]);
-      expect(messages('base-ten-build', { ...base, limits: { [k]: MAT_MAX[k] + 1 } })).toContain(
-        `limits.${k}: limits.${k} is at most ${MAT_MAX[k]} (what the mat fits); got ${MAT_MAX[k] + 1}`,
-      );
-      expect(messages('base-ten-build', { ...base, limits: { [k]: -1 } })).not.toEqual([]);
-      expect(messages('base-ten-build', { ...base, limits: { [k]: 1.5 } })).not.toEqual([]);
-    }
-  });
+  const MATS = [
+    ['disks', ALL, MAT_MAX_DISKS],
+    ['tens and ones', TENS_ONES, MAT_MAX],
+  ] as const;
 
-  it.each(['hundreds', 'tens', 'ones'] as const)('exact.%s is at most the mat cap', (k) => {
-    // Also in a mode that never reads `exact`.
-    for (const mode of ['build', 'build-exact'] as const) {
-      const c = build({ mode, target: 34, exact: { [k]: MAT_MAX[k] + 1 } });
-      expect(messages('base-ten-build', c)).toContain(
-        `exact.${k}: exact.${k} is at most ${MAT_MAX[k]} (what the mat fits); got ${MAT_MAX[k] + 1}`,
-      );
-    }
-    expect(messages('base-ten-build', build({ exact: { [k]: MAT_MAX[k] } }))).toEqual([]);
-  });
+  describe.each(MATS)('a mat of %s', (_name, pieces, cap) => {
+    const kinds = (['hundreds', 'tens', 'ones'] as const).filter(
+      (k) => pieces.hundreds || k !== 'hundreds',
+    );
 
-  it.each(['thousands', 'hundreds', 'tens', 'ones'] as const)(
-    'prebuilt.%s is at most the mat cap',
-    (k) => {
-      const value = { thousands: 1000, hundreds: 100, tens: 10, ones: 1 } as const;
-      const at = (n: number) => read({ hundreds: 0, tens: 0, ones: 0, [k]: n }, n * value[k]);
-      expect(messages('base-ten-build', at(MAT_MAX[k]))).toEqual([]);
-      expect(messages('base-ten-build', at(MAT_MAX[k] + 1))).toEqual([
-        `prebuilt.${k}: the mat would need ${MAT_MAX[k] + 1} ${k}; it fits at most ${MAT_MAX[k]}`,
+    it.each(kinds)('limits.%s is at most the mat cap', (k) => {
+      for (const mode of ['build', 'read'] as const) {
+        const base =
+          mode === 'read'
+            ? { ...read({ hundreds: 0, tens: 3, ones: 4 }, 34), pieces }
+            : build({ target: 34, pieces });
+        expect(messages('base-ten-build', { ...base, limits: { [k]: cap[k] } })).toEqual([]);
+        expect(messages('base-ten-build', { ...base, limits: { [k]: cap[k] + 1 } })).toContain(
+          `limits.${k}: limits.${k} is at most ${cap[k]} (what the mat fits); got ${cap[k] + 1}`,
+        );
+        expect(messages('base-ten-build', { ...base, limits: { [k]: -1 } })).not.toEqual([]);
+        expect(messages('base-ten-build', { ...base, limits: { [k]: 1.5 } })).not.toEqual([]);
+      }
+    });
+
+    it.each(kinds)('exact.%s is at most the mat cap', (k) => {
+      // Also in a mode that never reads `exact`.
+      for (const mode of ['build', 'build-exact'] as const) {
+        const c = build({ mode, target: 34, pieces, exact: { [k]: cap[k] + 1 } });
+        expect(messages('base-ten-build', c)).toContain(
+          `exact.${k}: exact.${k} is at most ${cap[k]} (what the mat fits); got ${cap[k] + 1}`,
+        );
+      }
+      expect(messages('base-ten-build', build({ pieces, exact: { [k]: cap[k] } }))).toEqual([]);
+    });
+
+    it.each(kinds)('prebuilt.%s is at most the mat cap', (k) => {
+      const value = { hundreds: 100, tens: 10, ones: 1 } as const;
+      const at = (n: number) => ({
+        ...read({ hundreds: 0, tens: 0, ones: 0, [k]: n }, n * value[k]),
+        pieces,
+      });
+      expect(messages('base-ten-build', at(cap[k]))).toEqual([]);
+      expect(messages('base-ten-build', at(cap[k] + 1))).toEqual([
+        `prebuilt.${k}: the mat would need ${cap[k] + 1} ${k}; it fits at most ${cap[k]}`,
       ]);
-    },
-  );
+    });
+  });
+
+  it('prebuilt thousands are at most nine', () => {
+    const at = (n: number) => read({ thousands: n, hundreds: 0, tens: 0, ones: 0 }, n * 1000);
+    expect(messages('base-ten-build', at(9))).toEqual([]);
+    expect(messages('base-ten-build', at(10))).toEqual([
+      'prebuilt.thousands: the mat would need 10 thousands; it fits at most 9',
+    ]);
+  });
 });
 
 describe('base-ten-trade: supported domain', () => {
@@ -262,6 +321,53 @@ describe('base-ten-trade: supported domain', () => {
     expect(messages('base-ten-trade', regroup(hto(0, 1.5, 0), hto(0, 1.5, 0)))).not.toEqual([]);
     expect(messages('base-ten-trade', regroup(hto(0, -1, 20), hto(0, 1, 0)))).not.toEqual([]);
     expect(messages('base-ten-trade', regroup(hto(0, 1e9, 0), hto(1e8, 0, 0)))).not.toEqual([]);
+  });
+
+  it('hundreds in play draw disks: a flat at the start, asked for, in the tray, or reachable', () => {
+    const regroup = (start: Trade['start'], regroupTarget: Trade['start']): Trade => ({
+      format: 'base-ten-trade',
+      start,
+      goal: 'regroup-to',
+      regroupTarget,
+      showAlgorithm: false,
+      thenAsk: false,
+    });
+    expect(tradeShowsDisks(regroup(hto0(0, 3, 4), hto0(0, 2, 14)))).toBe(false);
+    expect(tradeShowsDisks(regroup(hto0(0, 0, 99), hto0(0, 9, 9)))).toBe(false);
+    expect(tradeShowsDisks(regroup(hto0(2, 5, 3), hto0(1, 15, 3)))).toBe(true);
+    // Ten tens are worth a hundred: the flat they make is in play before it is made.
+    expect(tradeShowsDisks(regroup(hto0(0, 10, 0), hto0(1, 0, 0)))).toBe(true);
+    const add = (start: Trade['start'], operand: Trade['start']): Trade => ({
+      ...regroup(start, start),
+      goal: 'compute',
+      regroupTarget: undefined,
+      operation: { op: '+', operand },
+      thenAsk: true,
+    });
+    expect(tradeShowsDisks(add(hto0(0, 3, 7), hto0(0, 2, 5)))).toBe(false);
+    expect(tradeShowsDisks(add(hto0(0, 5, 7), hto0(0, 6, 8)))).toBe(true);
+    expect(tradeShowsDisks(add(hto0(1, 3, 7), hto0(0, 2, 5)))).toBe(true);
+  });
+
+  it('a mat of disks never needs more than DISK_COLUMN_MAX in a column', () => {
+    // The fullest columns the caps allow: a regroup, an addition that carries twice, and a
+    // take-away that borrows twice.
+    expect(Math.max(...Object.values(TRADE_REGROUP_COLUMN_MAX))).toBeLessThanOrEqual(
+      DISK_COLUMN_MAX,
+    );
+    const addPeak = {
+      hundreds: TRADE_ADD_START_HUNDREDS_MAX + TRADE_ADD_OPERAND_HUNDREDS_MAX + 1,
+      tens: 2 * TRADE_COLUMN_MAX + 1,
+      ones: 2 * TRADE_COLUMN_MAX,
+    };
+    const takePeak = {
+      hundreds: TRADE_COLUMN_MAX,
+      tens: TRADE_COLUMN_MAX + 10,
+      ones: TRADE_COLUMN_MAX + 10,
+    };
+    for (const peak of [addPeak, takePeak]) {
+      expect(Math.max(...Object.values(peak))).toBeLessThanOrEqual(DISK_COLUMN_MAX);
+    }
   });
 });
 

@@ -12,6 +12,7 @@
 import { baseTenBuildConfigSchema, type WidgetConfigOf } from '@number-island/shared';
 import {
   canonicalPieces,
+  DISK_COLUMN_MAX,
   emptyPieces,
   hasInternalZero,
   largerKind,
@@ -103,9 +104,32 @@ export const MAT_MAX: Readonly<Pieces> = { thousands: 9, hundreds: 19, tens: 29,
  */
 export const MAT_MAX_FLAT: Readonly<Pieces> = { thousands: 9, hundreds: 14, tens: 29, ones: 199 };
 
+/**
+ * Whether the mat draws place-value disks (place-value.ts): hundreds are in play, that is the tray
+ * offers flats or cubes, or some start on the mat. The decimal mat (`wholeIs: 'flat'`) keeps its
+ * proportional pieces: there the flat is one whole and its size is the meaning.
+ */
+export function buildShowsDisks(c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt'>): boolean {
+  if (c.wholeIs === 'flat') return false;
+  return (
+    c.pieces.hundreds ||
+    c.pieces.thousands ||
+    (c.prebuilt?.hundreds ?? 0) > 0 ||
+    (c.prebuilt?.thousands ?? 0) > 0
+  );
+}
+
+/** A mat of disks: at most DISK_COLUMN_MAX in a column (and nine thousands, as on any mat). */
+export const MAT_MAX_DISKS: Readonly<Pieces> = {
+  thousands: 9,
+  hundreds: DISK_COLUMN_MAX,
+  tens: DISK_COLUMN_MAX,
+  ones: DISK_COLUMN_MAX,
+};
+
 /** The cap for an item's mat. */
-export const matMax = (c: Pick<Config, 'wholeIs'>): Readonly<Pieces> =>
-  c.wholeIs === 'flat' ? MAT_MAX_FLAT : MAT_MAX;
+export const matMax = (c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt'>): Readonly<Pieces> =>
+  c.wholeIs === 'flat' ? MAT_MAX_FLAT : buildShowsDisks(c) ? MAT_MAX_DISKS : MAT_MAX;
 
 /**
  * The pieces of `value` taking as many of each `kinds` piece as fit, largest first (what a mat
@@ -157,7 +181,8 @@ export function overfullKinds(c: Config): { kind: PieceKind; path: string[]; nee
 }
 
 /** The largest target of an item: what a mat full to its cap (matMax) is worth, in ones. */
-export const targetMax = (c: Pick<Config, 'wholeIs'>): number => piecesValue(matMax(c));
+export const targetMax = (c: Pick<Config, 'wholeIs' | 'pieces' | 'prebuilt'>): number =>
+  piecesValue(matMax(c));
 
 /**
  * The supported domain (PR #74): every number of a config has a bound, whatever the mode reads.

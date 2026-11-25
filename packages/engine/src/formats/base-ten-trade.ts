@@ -82,6 +82,22 @@ export function borrowsAcrossZero(c: Config): boolean {
  *   a two-digit number as all ones (up to 99 ones, with nothing in the other columns).
  */
 export const TRADE_VALUE_MAX = 999;
+/**
+ * Whether the mat draws place-value disks (place-value.ts): hundreds are in play, that is a flat
+ * is on the mat or in the tray at the start, is asked for, or can be made (the pieces are worth
+ * 100 or more). The caps below keep every column of such a mat within DISK_COLUMN_MAX on the way
+ * to the answer (at most 19 tens or ones, and 11 hundreds when an addition carries).
+ */
+export function tradeShowsDisks(c: Config): boolean {
+  const op = c.goal === 'compute' ? c.operation : undefined;
+  const total = htoValue(c.start) + (op?.op === '+' ? htoValue(op.operand) : 0);
+  return (
+    total >= 100 ||
+    c.start.hundreds > 0 ||
+    (c.regroupTarget?.hundreds ?? 0) > 0 ||
+    (op?.operand.hundreds ?? 0) > 0
+  );
+}
 export const TRADE_COLUMN_MAX = 9;
 export const TRADE_REGROUP_COLUMN_MAX: Readonly<Hto> = { hundreds: 9, tens: 19, ones: 19 };
 /** A regroup-to mat that holds only ones (pv.regroup's `ones` decomposition). */

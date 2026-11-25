@@ -313,6 +313,7 @@ export {
   COLUMNS,
   type Column,
   canonicalPieces,
+  DISK_COLUMN_MAX,
   type Hto,
   PIECE_KINDS,
   PIECE_VALUE,

@@ -19,6 +19,15 @@ export const PIECE_VALUE: Record<PieceKind, number> = {
 export type Pieces = Record<PieceKind, number>;
 export type Hto = Record<Column, number>;
 
+/**
+ * Place-value disks (03 §5.5 base-ten-build and base-ten-trade, K02): a mat with hundreds in play
+ * draws every piece as a disk of one size, labelled with its value (100, 10, 1), in rows of five.
+ * Proportional flats, rods and cubes cannot stay countable in the workshop area once a flat is
+ * among them, and a three-digit item looks the same every time. A column of disks holds at most
+ * this many: two tens, each two rows of five.
+ */
+export const DISK_COLUMN_MAX = 20;
+
 const ALIASES: Record<string, PieceKind> = {
   thousands: 'thousands',
   thousand: 'thousands',
