@@ -374,8 +374,6 @@ h.pv.digit-counts-place:
   text: "A digit counts the pieces of its place. In the tens place it counts tens."
 h.compare.hundreds:
   text: "Look at the hundreds first. Then the tens, then the ones."
-h.compare.same-hundreds:
-  text: "When the hundreds are the same, look at the tens."
 h.compare.more-digits:
   text: "Count the digits. A number with three digits is more than one hundred."
 fb.mc.zero-placeholder:

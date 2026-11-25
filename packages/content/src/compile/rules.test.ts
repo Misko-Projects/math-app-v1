@@ -1816,10 +1816,10 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
       // among them), 41 templates and 5 misconceptions; fractions, sharing, time, data, patterns
       // and puzzles (K01) added 18 skills, 62 templates and six misconceptions; place value to
-      // 1000 (K02 slice 1a) added 10 skills, 45 templates, MC.zero-placeholder and
+      // 1000 (K02 slice 1a) added 10 skills, 46 templates, MC.zero-placeholder and
       // MC.compare-first-digit.
       skills: 125,
-      templates: 474,
+      templates: 475,
       misconceptions: 27,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
