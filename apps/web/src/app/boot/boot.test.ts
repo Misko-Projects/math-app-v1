@@ -264,35 +264,46 @@ describe('boot: damaged skill graph', () => {
   });
 
   it.each([
-    ['a bad entry', '{"CNT.01.t1": {"min": "low"}}'],
-    ['null', 'null'],
-    ['false', 'false'],
-    ['an array', '[]'],
-  ])('reports template statistics holding %s as damaged content', async (_name, body) => {
+    [
+      'a bad entry',
+      (stats: Record<string, unknown>) => ({ ...stats, 'CNT.01.t1': { min: 'low' } }),
+    ],
+    ['null', () => null],
+    ['false', () => false],
+    ['an array', () => []],
+    [
+      'no entry for a template',
+      (stats: Record<string, unknown>) => {
+        const { 'CNT.01.t1': _dropped, ...rest } = stats;
+        return rest;
+      },
+    ],
+  ])('reports template statistics holding %s as damaged content', async (_name, damage) => {
     const device = testDevice();
-    const index = JSON.parse(device.net.assets['/content/index.json'] as string) as {
-      files: Record<string, string>;
-    };
-    index.files['template-stats.json'] = '/content/template-stats.json';
-    device.net.assets['/content/index.json'] = JSON.stringify(index);
-    device.net.assets['/content/template-stats.json'] = body;
+    const built = JSON.parse(device.net.assets['/content/template-stats.json'] as string);
+    device.net.assets['/content/template-stats.json'] = JSON.stringify(damage(built));
     const err = await device.boot().catch((e: unknown) => e);
     expect((err as BootError).code).toBe('content_invalid');
   });
 
-  it('boots with valid template statistics, and without the file', async () => {
+  it('does not start without template statistics', async () => {
+    // A seeded lesson example aims at them (03 §6.1): without the file the app would show other
+    // examples than the content defines, so it is damaged content, not an optional extra.
     const device = testDevice();
     const index = JSON.parse(device.net.assets['/content/index.json'] as string) as {
       files: Record<string, string>;
     };
-    index.files['template-stats.json'] = '/content/template-stats.json';
+    delete index.files['template-stats.json'];
     device.net.assets['/content/index.json'] = JSON.stringify(index);
-    device.net.assets['/content/template-stats.json'] = JSON.stringify({
-      'CNT.01.t1': { min: 1, p10: 2, median: 3, p90: 4, max: 5, distinct: 6 },
-    });
+    const err = await device.boot().catch((e: unknown) => e);
+    expect((err as BootError).code).toBe('content_invalid');
+  });
+
+  it('boots with the built template statistics, one entry per template', async () => {
+    const device = testDevice();
     const app = await track(device.boot());
-    expect(app.content.store.graph.templateStats['CNT.01.t1']?.median).toBe(3);
-    // (Every other test boots from an index that omits the file.)
+    const { templates, templateStats } = app.content.store.graph;
+    expect(Object.keys(templateStats).sort()).toEqual(Object.keys(templates).sort());
   });
 });
 

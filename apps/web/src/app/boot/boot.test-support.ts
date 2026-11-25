@@ -2,7 +2,7 @@
 // app's `/content/*` assets, a scripted `/api/sync`, and a fresh fake IndexedDB per test.
 
 import { compileContent } from '@number-island/content';
-import { readContentFiles } from '@number-island/content/node';
+import { readBuiltTemplateStats, readContentFiles } from '@number-island/content/node';
 import { type SyncRequest, type SyncResponse, syncRequestSchema } from '@number-island/shared';
 import { createAudioManager } from '@number-island/ui';
 import Dexie from 'dexie';
@@ -13,12 +13,21 @@ import { type BootOptions, bootApp } from './boot';
 
 let compiled: { contentVersion: string; outputs: Record<string, string> } | null = null;
 
-/** `pnpm content:build`'s outputs, compiled in memory once. */
+/**
+ * `pnpm content:build`'s outputs: the sources compiled in memory once, with the built
+ * `template-stats.json` (it needs `pnpm content:build` to have run on these sources).
+ */
 export function compiledContent(): { contentVersion: string; outputs: Record<string, string> } {
   if (compiled) return compiled;
   const result = compileContent(readContentFiles());
   if (!result.outputs || !result.contentVersion) throw new Error('the content does not compile');
-  compiled = { contentVersion: result.contentVersion, outputs: { ...result.outputs } };
+  compiled = {
+    contentVersion: result.contentVersion,
+    outputs: {
+      ...result.outputs,
+      'template-stats.json': readBuiltTemplateStats(result.contentVersion),
+    },
+  };
   return compiled;
 }
 

@@ -1,7 +1,7 @@
 // Serves the compiled content (`packages/content/dist/*.json`) as static assets (02 §6: content
 // JSON is fetched at startup, never bundled into JS).
 //
-// - `pnpm dev`: builds the content once when `dist/` is missing (a fresh clone), serves the files
+// - `pnpm dev`: builds the content once when `dist/` is missing or incomplete (a fresh clone), serves the files
 //   under `/content/`, and rebuilds plus reloads the page when a content source changes.
 // - `vite build`: emits each file content-hashed (`content/<name>.<hash>.json`) plus
 //   `content/index.json`, which maps file names to their hashed URLs. The service worker precaches
@@ -50,9 +50,12 @@ export function readContentVersion(dist: string = CONTENT_DIST): string {
   return manifest.contentVersion;
 }
 
-/** `pnpm content:build`, synchronously (used when `dist/` is missing). */
+/** `pnpm content:build`: the compiled files and `template-stats.json`, written together. */
+const CONTENT_BUILD = ['run', 'content:build'];
+
+/** `pnpm content:build`, synchronously (used when `dist/` is missing or incomplete). */
 function buildContentSync(): void {
-  const res = spawnSync('pnpm', ['--filter', '@number-island/content', 'build'], {
+  const res = spawnSync('pnpm', CONTENT_BUILD, {
     cwd: REPO_ROOT,
     stdio: 'inherit',
   });
@@ -62,7 +65,11 @@ function buildContentSync(): void {
 }
 
 function ensureContentBuilt(): void {
-  if (!existsSync(join(CONTENT_DIST, 'manifest.json'))) buildContentSync();
+  // Both files: a `dist/` left by an older checkout has a manifest and no stats.
+  const built = ['manifest.json', 'template-stats.json'].every((n) =>
+    existsSync(join(CONTENT_DIST, n)),
+  );
+  if (!built) buildContentSync();
 }
 
 const hash8 = (source: string): string =>
@@ -125,7 +132,7 @@ export function contentAssets(): Plugin {
           return;
         }
         running = true;
-        const child = spawn('pnpm', ['--filter', '@number-island/content', 'build'], {
+        const child = spawn('pnpm', CONTENT_BUILD, {
           cwd: REPO_ROOT,
           stdio: 'inherit',
         });

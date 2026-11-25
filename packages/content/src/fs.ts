@@ -72,4 +72,29 @@ export function readDist(dir: string = DIST_DIR): Record<string, string> | null 
   return Object.fromEntries(names.map((n) => [n, readFileSync(join(dir, n), 'utf8')]));
 }
 
+/**
+ * The exact bytes of the built `dist/template-stats.json` (written by `pnpm content:build`), for
+ * tests that compile the sources in memory and need the stats the build ships with them. Throws
+ * when `dist/` is missing or was built from other sources than `contentVersion` names: stats of
+ * another build would give other lesson examples (03 §6.1).
+ */
+export function readBuiltTemplateStats(contentVersion: string, dir: string = DIST_DIR): string {
+  const advice = `run \`pnpm content:build\` (${dir})`;
+  let manifest: { contentVersion?: unknown };
+  let stats: string;
+  try {
+    manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
+    stats = readFileSync(join(dir, 'template-stats.json'), 'utf8');
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    throw new Error(`the content is not built: ${advice}`);
+  }
+  if (manifest.contentVersion !== contentVersion) {
+    throw new Error(
+      `the built content is ${String(manifest.contentVersion)}, the sources are ${contentVersion}: ${advice}`,
+    );
+  }
+  return stats;
+}
+
 export type { ContentFiles };

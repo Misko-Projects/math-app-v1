@@ -82,12 +82,9 @@ export default defineConfig({
   // The production topology with its own fresh D1 database per run (apps/api/scripts/db-e2e.mjs):
   // golden journey 1 creates the family, which `POST /setup` allows only once (08 §2). A server
   // already on :8787 (e.g. `pnpm preview:full` with dev data) is never reused; stop it first.
-  //
-  // The content is built first, as `pnpm build` does: the web build ships `packages/content/dist`
-  // as it finds it, and after `pnpm content:validate` that folder also holds
-  // `template-stats.json`, which changes the seeded lesson examples (03 §6.1) and which no
-  // `pnpm build` ships (#35).
   webServer: {
+    // The content is built first, as `pnpm build` does: the web build ships `packages/content/dist`
+    // as it finds it, and a `dist/` older than the sources would be served as it is.
     command: 'pnpm content:build && pnpm preview:e2e',
     cwd: '..',
     url: `${baseURL}/api/health`,
