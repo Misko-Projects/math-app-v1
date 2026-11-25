@@ -109,6 +109,14 @@ describe('createFamily (Setup Wizard)', () => {
     const family = await app.store.familySettings();
     expect(family['ai.feedback']).toBe(false);
     expect(family.timezone).toBeTruthy();
+    // Each child starts at their grade's level: one grade-prior placement each (04 §5).
+    const placed = (await app.store.events())
+      .filter((e) => e.type === 'placement.completed')
+      .map((e) => [e.childId, (e.payload as { placementId: string }).placementId]);
+    expect(placed).toEqual([
+      [KID_A, 'grade-prior:K'],
+      [KID_B, 'grade-prior:2+'],
+    ]);
 
     // The profiles reach the server with the next sync.
     await app.sync.syncNow();

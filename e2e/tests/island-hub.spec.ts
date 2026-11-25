@@ -91,7 +91,7 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
   // The demo shows the worked example, then the last step of the next one is the child's.
   await until(page, /turn/);
   await answerNext();
-  expect(await types(page)).toEqual(['session.started', 'request.accepted']);
+  expect(await types(page)).toEqual(['session.started', 'placement.completed', 'request.accepted']);
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   // The first item: answered right, it makes one of what the resident asked for.
   await until(page, /answer/);
@@ -102,6 +102,7 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
   await expect(page.getByTestId('child-home')).toBeVisible();
   expect(await types(page)).toEqual([
     'session.started',
+    'placement.completed',
     'request.accepted',
     'attempt',
     'material.produced',

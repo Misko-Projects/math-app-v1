@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { createEloFireModel } from '../learner/elo-fire';
 import { foldLearnerState } from '../learner/fold';
 import { buildSkillGraph } from '../learner/graph';
-import { syntheticGraph, T0 } from '../learner/synthetic.test-support';
+import { attempt, syntheticGraph, T0 } from '../learner/synthetic.test-support';
 import { type EngineParams, PARAMS } from '../params';
 import { createRng } from '../rng';
 import {
@@ -28,6 +28,7 @@ import {
   bktPosterior,
   completePlacement,
   gradePrior,
+  gradePriorPlacement,
   nextProbe,
   type PlacementAnswer,
   type PlacementRun,
@@ -1085,5 +1086,73 @@ describe('determinism and persistence', () => {
       strand: 'CNT',
     });
     expect(mini.onTrack).toEqual(out.assumed.filter((s) => s.startsWith('CNT.')));
+  });
+});
+
+// ---------- the zero-probe placement (the grade prior, written before any probe) ----------
+
+describe('gradePriorPlacement', () => {
+  const g1 = child('1');
+  const fold = (events: AnyEventEnvelope[]) =>
+    foldLearnerState(events, MIXED, { childId: CHILD_ID, isK: false });
+  const priorOf = (c: ChildContext, state: LearnerState, placementId = 'gp') =>
+    gradePriorPlacement({ graph: MIXED, child: c, state, placementId });
+
+  it('is the runner before any probe: the §5 grade prior of every skill, no items', () => {
+    const state = emptyState(MIXED, false);
+    const out = priorOf(g1, state);
+    expect(out).toMatchObject({ placementId: 'gp', strand: null, items: 0, reason: 'budget' });
+    expect(out.posterior).toEqual(start(MIXED, g1, { state }).p);
+    for (const [s, p] of Object.entries(out.posterior))
+      expect(p).toBe(gradePrior(MIXED.skills[s]?.grade ?? 'K', g1));
+    // Grade 1: every K skill is assumed (0.85), grade 1 is 0.5, grade 2 is 0.25.
+    const kSkills = Object.keys(MIXED.skills).filter((s) => MIXED.skills[s]?.grade === 'K');
+    expect(out.assumed).toEqual(kSkills.sort());
+    expect(eventSchemas['placement.completed'].safeParse(out).success).toBe(true);
+  });
+
+  it('two devices writing it fold to the same state as one', () => {
+    const out = priorOf(g1, emptyState(MIXED, false));
+    const once = fold([envelope(1, 'placement.completed', out, T0)]);
+    const twice = fold([
+      envelope(1, 'placement.completed', out, T0),
+      envelope(2, 'placement.completed', out, T0 + 5_000),
+    ]);
+    expect(twice).toEqual(once);
+    expect(once.skills['CNT.01']).toMatchObject({ assumed: true, practicedAt: T0 });
+  });
+
+  it('after a changed grade, moves only the skills without attempts', () => {
+    const log = [
+      envelope(1, 'placement.completed', priorOf(g1, emptyState(MIXED, false), 'gp-1'), T0),
+      envelope(2, 'attempt', attempt('CNT.04', 1), T0 + 1_000),
+      envelope(3, 'attempt', attempt('CNT.04', 2, { correct: false }), T0 + 2_000),
+    ];
+    const before = fold(log);
+    const next = priorOf(child('2'), before, 'gp-2');
+    // The attempted skill and the skills already on the track are left out.
+    expect(next.posterior).toEqual({ 'ADD.02': 0.85, 'ADD.03': 0.5, 'CPS.02': 0.85 });
+    expect(next.assumed).toEqual(['ADD.02', 'CPS.02']);
+    const after = fold([...log, envelope(4, 'placement.completed', next, T0 + 3_000)]);
+    expect(after.skills['CNT.04']).toEqual(before.skills['CNT.04']);
+    expect(after.placement.prior?.p['CNT.04']).toBe(before.placement.prior?.p['CNT.04']);
+    expect(after.placement.prior?.p['ADD.03']).toBe(0.5);
+    expect(after.skills['ADD.02']).toMatchObject({ assumed: true, practicedAt: T0 + 3_000 });
+  });
+
+  it('a measured initial placement written later supersedes it', () => {
+    const prior = priorOf(g1, emptyState(MIXED, false));
+    const measured = {
+      ...prior,
+      placementId: 'pl',
+      items: 9,
+      reason: 'converged' as const,
+      posterior: { ...prior.posterior, 'ADD.03': 0.7 },
+    };
+    const state = fold([
+      envelope(1, 'placement.completed', prior, T0),
+      envelope(2, 'placement.completed', measured, T0 + 1_000),
+    ]);
+    expect(state.placement.prior?.p['ADD.03']).toBe(0.7);
   });
 });

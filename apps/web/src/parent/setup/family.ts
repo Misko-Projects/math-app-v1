@@ -14,6 +14,8 @@ import {
   withSettingDefaults,
 } from '@number-island/shared';
 import type { AppServices } from '@/app/boot/boot';
+import { ensureGradePlacement } from '@/data/gradePlacement';
+import { childContext } from '@/runner/childContext';
 import { ApiError, type ParentApi } from '../api';
 import type { ParentGate } from '../gate';
 
@@ -166,6 +168,11 @@ export async function saveChildren(
     key: 'family',
     value: withSettingDefaults({ kind: 'family', timezone: currentTimezone() }),
   });
+  // Each child starts at the level of their grade (04 §5).
+  for (const p of saved) {
+    const ctx = childContext(p, await services.store.childSettings(p.id));
+    await ensureGradePlacement(services.store, services.content.store.graph, ctx);
+  }
   void services.sync.syncNow();
   return saved;
 }

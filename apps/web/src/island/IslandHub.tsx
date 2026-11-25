@@ -59,6 +59,7 @@ import { recordDiagnostic } from '@/app/diagnostics';
 import { ChildAvatar } from '@/app/picker/ChildAvatar';
 import type { WindDownReason } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
+import { ensureGradePlacement } from '@/data/gradePlacement';
 import { useInventory, useIsland, useProfiles } from '@/data/hooks';
 import { HoldToOpen } from '@/parent/HoldToOpen';
 import type { GateHeldState } from '@/parent/ParentGateScreen';
@@ -283,11 +284,14 @@ export function IslandHub({
     let alive = true;
     (async () => {
       const engine = await import('@number-island/engine');
+      const ctx = childContext(child, await store.childSettings(child.id));
+      // The starting level from the profile's grade, written before the first plan (04 §5).
+      await ensureGradePlacement(store, graph, ctx);
       const state = await store.skillStates(child.id);
       if (!state) throw new Error(`Island: no learner state for ${child.id}`);
       const remediation = remediationQueue.peek(child.id);
       const planned = planIslandRequests(engine, {
-        child: childContext(child, await store.childSettings(child.id)),
+        child: ctx,
         state,
         graph,
         gameData,

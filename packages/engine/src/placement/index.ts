@@ -7,6 +7,7 @@ export {
   bktPosterior,
   completePlacement,
   gradePrior,
+  gradePriorPlacement,
   nearFrontier,
   nextProbe,
   type ProbeScore,

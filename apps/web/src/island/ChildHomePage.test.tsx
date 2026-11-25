@@ -215,8 +215,8 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
       // A resident stands under its bubble.
       expect(bubble.querySelectorAll(':scope > svg')).toHaveLength(1);
     }
-    // Nothing is written by looking.
-    expect(await types(app)).toEqual(['session.started']);
+    // Nothing is written by looking, only the child's starting level (04 §5) before the plan.
+    expect(await types(app)).toEqual(['session.started', 'placement.completed']);
   });
 
   it('the speaker beside a resident says the request and the material as one line that a new one replaces', async () => {
@@ -274,7 +274,11 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     // The Forward entry is no way back into a request the child has left: the island stays.
     await waitFor(() => expect(router.state.location.pathname).toBe(`/play/${CHILD_K}`));
     await settle();
-    expect(await types(app)).toEqual(['session.started', 'request.accepted']);
+    expect(await types(app)).toEqual([
+      'session.started',
+      'placement.completed',
+      'request.accepted',
+    ]);
     // While the request is still being written (what it made, a road stone its workshop is
     // laying), nothing can be bought: not a building, not the road's next stone.
     const disabled = (testId: string) => (screen.getByTestId(testId) as HTMLButtonElement).disabled;
@@ -283,12 +287,21 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     expect(disabled('road-next')).toBe(true);
     fireEvent.pointerUp(document.querySelector('[data-hit="next"]') as Element);
     await settle();
-    expect(await types(app)).toEqual(['session.started', 'request.accepted']);
+    expect(await types(app)).toEqual([
+      'session.started',
+      'placement.completed',
+      'request.accepted',
+    ]);
     release();
     await waitFor(async () => expect(await types(app)).toContain('request.completed'));
     await bubbles();
     await settle();
-    expect(await types(app)).toEqual(['session.started', 'request.accepted', 'request.completed']);
+    expect(await types(app)).toEqual([
+      'session.started',
+      'placement.completed',
+      'request.accepted',
+      'request.completed',
+    ]);
     expect(disabled('build-open')).toBe(false);
     expect(disabled('road-next')).toBe(false);
   });
@@ -336,7 +349,11 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     vi.useRealTimers();
     // The request was accepted on the way in, once.
     await waitFor(async () =>
-      expect(await types(app)).toEqual(['session.started', 'request.accepted']),
+      expect(await types(app)).toEqual([
+        'session.started',
+        'placement.completed',
+        'request.accepted',
+      ]),
     );
   });
 
@@ -346,7 +363,11 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     const firstId = first?.getAttribute('data-request');
     fireEvent.click(first as HTMLElement);
     await waitFor(async () =>
-      expect(await types(app)).toEqual(['session.started', 'request.accepted']),
+      expect(await types(app)).toEqual([
+        'session.started',
+        'placement.completed',
+        'request.accepted',
+      ]),
     );
     // The child leaves with the browser's back button, mid-request.
     device.clock.advance(30_000);
@@ -356,6 +377,7 @@ describe('requests on the island (05 §2, 04 §6.3)', () => {
     await waitFor(async () =>
       expect(await types(app)).toEqual([
         'session.started',
+        'placement.completed',
         'request.accepted',
         'request.completed',
       ]),
