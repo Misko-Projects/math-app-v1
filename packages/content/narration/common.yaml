@@ -359,7 +359,7 @@ h.pv.under-ten-each:
 h.pv.rod-or-flat:
   text: "Ten is one rod. One hundred is one flat."
 h.pv.one-place-changes:
-  text: "Which place do you count on: the tens or the hundreds?"
+  text: "Is it ten or one hundred? Is it more or less? Think of that place."
 h.pv.one-jump:
   text: "Make one big jump. Then check where you land."
 h.pv.tens-or-hundreds:

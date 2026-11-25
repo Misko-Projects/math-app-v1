@@ -1910,6 +1910,12 @@ describe('place value to 1000: lines that hold for every item (K02)', () => {
       expect(text(key), key).not.toBe('');
       expect(text(key), key).not.toMatch(/only one (place|digit)/i);
     }
+    // PV.07's templates draw "less" as often as "more" (PR #121 review, round 2): its hints
+    // name no direction, so a hint never sends a "10 less" item forward.
+    for (const key of ['h.pv.one-place-changes', 'h.pv.tens-or-hundreds', 'h.pv.rod-or-flat']) {
+      expect(text(key), key).not.toMatch(/count on|count back|\\badd\\b|take away/i);
+    }
+    expect(text('h.pv.one-jump')).not.toMatch(/count on|forward|\\badd\\b/i);
   });
 
   it('the digit-count hint compares digit counts, and holds for 100 itself', () => {
