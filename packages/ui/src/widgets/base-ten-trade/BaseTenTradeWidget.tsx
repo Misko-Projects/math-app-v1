@@ -1084,8 +1084,8 @@ function TradeMat({
       arrivingIds,
       (src, dests) =>
         isBreak
-          ? breakGhosts(from, to, src[0] as Box, dests)
-          : bundleGhosts(from, to, src, dests[0] as Box, rootBounds()),
+          ? breakGhosts(from, to, src[0] as Box, dests, undefined, disks)
+          : bundleGhosts(from, to, src, dests[0] as Box, rootBounds(), undefined, disks),
       [`col-${from}`, `col-${to}`],
     );
   };

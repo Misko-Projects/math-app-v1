@@ -4,6 +4,7 @@
 import type { Hto } from '@number-island/engine';
 import type { WidgetConfigOf } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { breakGhosts, bundleGhosts } from './fx';
 import {
   type Box,
   COL_PAD,
@@ -233,5 +234,34 @@ describe('adding and taking away with disks (no shipped template yet)', () => {
     expect(all).toHaveLength(21);
     expect(anyOverlap(all)).toBe(false);
     for (const b of all) expect([b.w, b.h]).toEqual([30, 30]);
+  });
+});
+
+describe('a trade of disks moves whole disks', () => {
+  const box = (x: number, y: number): Box => ({ x, y, w: 40, h: 40 });
+  const source = box(100, 100);
+  const tens = Array.from({ length: 10 }, (_, j) =>
+    box(300 + (j % 5) * 44, 100 + Math.floor(j / 5) * 44),
+  );
+  const scaled = (g: { keyframes: Keyframe[] }) =>
+    g.keyframes.some((k) => String(k.transform ?? '').includes('scale'));
+
+  it('split: ten disks leave the one that goes, none squeezed into a slice', () => {
+    const ghosts = breakGhosts('hundreds', 'tens', source, tens, 840, true);
+    expect(ghosts).toHaveLength(11);
+    expect(ghosts.some(scaled)).toBe(false);
+    // Proportional pieces are still cut into ten parts.
+    expect(breakGhosts('tens', 'ones', { x: 0, y: 0, w: 20, h: 200 }, tens).some(scaled)).toBe(
+      true,
+    );
+  });
+
+  it('group: ten disks slide onto one spot and one disk leaves it', () => {
+    const bounds = { x: 0, y: 0, w: 800, h: 400 };
+    const ghosts = bundleGhosts('tens', 'hundreds', tens, source, bounds, 840, true);
+    expect(ghosts).toHaveLength(11);
+    expect(ghosts.some(scaled)).toBe(false);
+    const spots = new Set(ghosts.slice(0, 10).map((g) => `${g.rect.x},${g.rect.y},${g.rect.w}`));
+    expect(spots.size).toBe(1);
   });
 });
