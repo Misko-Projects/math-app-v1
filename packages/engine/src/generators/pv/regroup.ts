@@ -63,7 +63,11 @@ export function decompose(n: number, how: Decomposition): Hto | null {
   if (how === 'tens') {
     // One hundred as ten tens: 10–19 tens beside the hundreds left (the mat's widest tens column).
     if (n < 100) return null;
-    return { hundreds: Math.floor(n / 100) - 1, tens: (Math.floor(n / 10) % 10) + 10, ones: n % 10 };
+    return {
+      hundreds: Math.floor(n / 100) - 1,
+      tens: (Math.floor(n / 10) % 10) + 10,
+      ones: n % 10,
+    };
   }
   const c = placeCounts(n, how === 'regrouped');
   const out = { hundreds: c[2] ?? 0, tens: c[1] ?? 0, ones: c[0] ?? 0 };

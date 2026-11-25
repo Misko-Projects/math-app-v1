@@ -15,7 +15,9 @@ const OTHER: Record<string, string> = { left: 'right', right: 'left', '<': '>', 
 
 /** The values in the order their numerals sort digit by digit ("102" before "89"). */
 export function firstDigitOrder(values: readonly number[], desc: boolean): number[] {
-  const out = [...values].sort((x, y) => (String(x) < String(y) ? -1 : String(x) > String(y) ? 1 : 0));
+  const out = [...values].sort((x, y) =>
+    String(x) < String(y) ? -1 : String(x) > String(y) ? 1 : 0,
+  );
   return desc ? out.reverse() : out;
 }
 

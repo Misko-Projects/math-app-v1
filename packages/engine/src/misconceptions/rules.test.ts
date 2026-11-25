@@ -184,6 +184,7 @@ describe('registry', () => {
   it('registers the rules by detect.rule id', () => {
     expect(registeredRuleIds().sort()).toEqual([
       'biggerUnitMore',
+      'compareFirstDigit',
       'countAllInstead',
       'countStartNumber',
       'decadeTransition',
@@ -208,6 +209,7 @@ describe('registry', () => {
       'unitGaps',
       'writeAsSpoken',
       'wrongOperation',
+      'zeroPlaceholder',
     ]);
     expect(misconceptionRule('countStartNumber')).toBe(countStartNumber);
     expect(misconceptionRule('nope')).toBeUndefined();

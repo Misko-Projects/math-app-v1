@@ -171,10 +171,20 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'PV.01',
       'PV.02',
       'PV.03',
+      'PV.04',
+      'PV.05',
+      'PV.06',
+      'PV.07',
       'PV.09',
       'PV.10',
       'PV.11',
+      'PV.12',
       'PV.13',
+      'PV.14',
+      'PV.15',
+      'PV.16',
+      'PV.17',
+      'PV.24',
       'SUB.01',
       'SUB.02',
       'SUB.03',
@@ -190,6 +200,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
+      'MC.compare-first-digit',
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
@@ -214,6 +225,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.unit-gaps',
       'MC.write-as-spoken',
       'MC.wrong-operation',
+      'MC.zero-placeholder',
     ]);
   });
 
@@ -1803,10 +1815,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // subtraction (K01) added 15 skills, 56 templates, MC.place-swap, MC.face-value and
       // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
       // among them), 41 templates and 5 misconceptions; fractions, sharing, time, data, patterns
-      // and puzzles (K01) added 18 skills, 62 templates and six misconceptions.
-      skills: 115,
-      templates: 429,
-      misconceptions: 25,
+      // and puzzles (K01) added 18 skills, 62 templates and six misconceptions; place value to
+      // 1000 (K02 slice 1a) added 10 skills, 45 templates, MC.zero-placeholder and
+      // MC.compare-first-digit.
+      skills: 125,
+      templates: 474,
+      misconceptions: 27,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1847,7 +1861,10 @@ describe('graph.json (03 §9.1)', () => {
       'CPS.02',
       'CPS.04',
       'PV.01',
+      'PV.04',
       'PV.09',
+      'PV.12',
+      'PV.15',
       'SUB.03',
     ]);
     expect(g?.depth['CNT.01']).toBe(0);
@@ -1866,6 +1883,9 @@ describe('graph.json (03 §9.1)', () => {
       ['CNT.10', 'CNT.09', 1],
       ['MDA.01', 'ADD.06', 0.5],
       ['MDA.01', 'PV.03', 0.5],
+      ['PV.06', 'PV.02', 0.6],
+      ['PV.06', 'PV.05', 0.5],
+      ['PV.07', 'PV.03', 1],
     ]);
     expect(g?.strands.SUB).toEqual([
       'SUB.01',

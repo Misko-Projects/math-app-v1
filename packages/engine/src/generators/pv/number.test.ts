@@ -737,3 +737,68 @@ describe('pv.number sampling and helpers', () => {
     expect(expandedTerms(placeCounts(34, true)).map((x) => x.value)).toEqual([20, 14]);
   });
 });
+
+// K02 (#17): three-digit numbers.
+describe('pv.number to 999 (K02)', () => {
+  it('base-ten-build digit-value: build what the digit is worth (PV.24)', () => {
+    const t = tpl('base-ten-build', 'concrete', 'base-ten');
+    initContent({ templates: [t], narration: {}, misconceptions: [] });
+    const item = generateItemFromParams(t, { n: 345, mode: 'digit-value', place: 1 });
+    expect(item.widget).toMatchObject({
+      format: 'base-ten-build',
+      target: 40,
+      mode: 'build',
+      pieces: { thousands: false, hundreds: true, tens: true, ones: true },
+    });
+    expect(item.answer).toEqual({ kind: 'state', checker: 'baseten.value', target: { value: 40 } });
+    expect(itemExampleCorrect(item)).toEqual({
+      kind: 'state',
+      value: { thousands: 0, hundreds: 0, tens: 4, ones: 0 },
+    });
+    const steps = itemSolution(item);
+    expect(steps.map((x) => x.say)).toEqual(['gen.pv.number.place-tens', 'gen.pv.number.worth']);
+    expect(steps[1]?.vars).toEqual({ d: 4, v: 40 });
+    const replayed = replaySteps(item, steps);
+    expect(replayed).not.toBeNull();
+    expect(checkResponse(item, replayed as NonNullable<typeof replayed>).correct).toBe(true);
+    // 40 ones are worth it too; 4 ones and the whole number are not.
+    const mat = (hundreds: number, tens: number, ones: number) => ({
+      kind: 'state' as const,
+      value: { thousands: 0, hundreds, tens, ones },
+    });
+    expect(checkResponse(item, mat(0, 3, 10)).correct).toBe(true);
+    expect(checkResponse(item, mat(0, 0, 4)).correct).toBe(false);
+    expect(checkResponse(item, mat(3, 4, 5)).correct).toBe(false);
+  });
+
+  it('the hundreds digit is built with flats', () => {
+    const t = tpl('base-ten-build', 'concrete', 'base-ten');
+    initContent({ templates: [t], narration: {}, misconceptions: [] });
+    const item = generateItemFromParams(t, { n: 345, mode: 'digit-value', place: 2 });
+    expect(item.answer).toMatchObject({ target: { value: 300 } });
+    expect(itemSolution(item)[0]).toMatchObject({
+      say: 'gen.pv.number.place-hundreds',
+      action: { op: 'add-piece', args: { kind: 'hundreds', count: 3 } },
+    });
+  });
+
+  it('each place past five adds to the size features, to 999', () => {
+    expect(pvFeatures({ n: 789, mode: 'build' }, 'base-ten-build')).toMatchObject({
+      digits: 2,
+      'hundreds.over5': 0.5,
+      'tens.over5': 0.75,
+      'ones.over5': 1,
+    });
+    expect(pvFeatures({ n: 345, mode: 'build' }, 'base-ten-build')).toMatchObject({
+      'hundreds.over5': 0,
+      'tens.over5': 0,
+      'ones.over5': 0,
+    });
+    // A two-digit number is scored as before.
+    expect(pvFeatures({ n: 78, mode: 'build' }, 'base-ten-build')).toMatchObject({
+      'hundreds.over5': 0,
+      'tens.over5': 0.5,
+      'ones.over5': 0.75,
+    });
+  });
+});

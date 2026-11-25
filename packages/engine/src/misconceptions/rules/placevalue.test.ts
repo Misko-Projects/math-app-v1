@@ -152,7 +152,11 @@ describe('placeSwap', () => {
     [20, null], // the swap would start with 0
     [44, null], // the same both ways
     [14, null], // a teen: MC.teen-reversal
-    [345, null],
+    [345, 354], // K02: the hundreds stay, the tens and ones swap
+    [305, 350],
+    [340, null], // no ones to swap
+    [355, null], // the same both ways
+    [1345, null],
   ])('placeSwapped(%i) = %s', (v, want) => {
     expect(placeSwapped(v)).toBe(want);
   });

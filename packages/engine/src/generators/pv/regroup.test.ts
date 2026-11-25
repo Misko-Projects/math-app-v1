@@ -343,3 +343,72 @@ describe('pv.regroup helpers and features', () => {
     }
   });
 });
+
+// K02 (#17, PV.16): one hundred of any three-digit number as ten tens.
+describe('pv.regroup: a hundred as ten tens (`tens`)', () => {
+  it('breaks one hundred whatever the tens digit, and needs a hundred to break', () => {
+    expect(decompose(253, 'tens')).toEqual(hto(1, 15, 3));
+    expect(decompose(100, 'tens')).toEqual(hto(0, 10, 0));
+    expect(decompose(999, 'tens')).toEqual(hto(8, 19, 9));
+    expect(decompose(99, 'tens')).toBeNull();
+    expect(tradesBetween(hto(2, 5, 3), hto(1, 15, 3))).toEqual([{ kind: 'hundreds', dir: 'down' }]);
+    expect(tradesBetween(hto(1, 15, 3), hto(2, 5, 3))).toEqual([{ kind: 'tens', dir: 'up' }]);
+  });
+
+  it('base-ten-trade splits the hundred; the solution replays to the answer', () => {
+    const t = tpl('base-ten-trade', 'pictorial', 'pv-chart');
+    initContent({ templates: [t], narration: {}, misconceptions: [] });
+    const item = generateItemFromParams(t, { n: 253, from: 'canonical', to: 'tens', places: 3 });
+    expect(item.widget).toMatchObject({ start: hto(2, 5, 3), regroupTarget: hto(1, 15, 3) });
+    expect(checkResponse(item, itemExampleCorrect(item)).correct).toBe(true);
+    const replayed = replaySteps(item, itemSolution(item));
+    expect(replayed).not.toBeNull();
+    expect(checkResponse(item, replayed as NonNullable<typeof replayed>).correct).toBe(true);
+    // The tens split into ones is another way to show 253, not the one asked.
+    expect(checkResponse(item, { kind: 'state', value: hto(2, 4, 13) }).correct).toBe(false);
+  });
+
+  it('base-ten-build joins ten of the tens, with only tens in the tray', () => {
+    const t = tpl('base-ten-build', 'concrete', 'base-ten');
+    initContent({ templates: [t], narration: {}, misconceptions: [] });
+    const item = generateItemFromParams(t, { n: 253, from: 'tens', to: 'canonical', places: 3 });
+    expect(item.widget).toMatchObject({
+      mode: 'build-exact',
+      prebuilt: hto(1, 15, 3),
+      exact: hto(2, 5, 3),
+      limits: { hundreds: 0, ones: 0 },
+    });
+    const replayed = replaySteps(item, itemSolution(item));
+    expect(replayed).not.toBeNull();
+    expect(checkResponse(item, replayed as NonNullable<typeof replayed>).correct).toBe(true);
+  });
+
+  it('a two-digit number has no hundred, and a build never splits', () => {
+    const trade = tpl('base-ten-trade', 'pictorial');
+    expect(pvRegroup.accepts?.({ n: 53, from: 'canonical', to: 'tens', places: 3 }, trade)).toBe(
+      false,
+    );
+    const build = tpl('base-ten-build', 'concrete', 'base-ten');
+    expect(pvRegroup.accepts?.({ n: 253, from: 'canonical', to: 'tens', places: 3 }, build)).toBe(
+      false,
+    );
+  });
+
+  it('each place of a three-digit number past five adds to the size features', () => {
+    expect(
+      regroupFeatures({ n: 789, from: 'canonical', to: 'tens', places: 3 }, 'base-ten-trade'),
+    ).toMatchObject({
+      regroups: 1,
+      'hundreds.over5': 0.5,
+      'tens.over5': 0.75,
+      'ones.over5': 1,
+    });
+    expect(
+      regroupFeatures({ n: 34, from: 'canonical', to: 'regrouped' }, 'base-ten-trade'),
+    ).toMatchObject({
+      'hundreds.over5': 0,
+      'tens.over5': 0,
+      'ones.over5': 0,
+    });
+  });
+});
