@@ -2094,7 +2094,7 @@ fb.mc.borrow-across-zero:
 h.mda.put-in-b:
   text: "Put in hundreds, tens and ones that make {b}."
 h.mda.take-b:
-  text: "Take away hundreds, tens and ones that make {b}."
+  text: "Look at the number you take away. Take away that many hundreds, tens and ones."
 h.mda.disk-values:
   text: "Each circle shows what it is worth. Look at the number on it."
 h.mda.same-places-add:
