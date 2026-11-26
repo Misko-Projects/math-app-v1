@@ -1,6 +1,6 @@
 strand: MEA
 # K01 (#11): the K–1 rows of 03 §3.14. MEA.03–06, 08–14 and 17–21 are grade 2–3 (K02, graph.yaml
-# plannedIds).
+# plannedIds). K02 slice 4b (#17) adds MEA.03 and MEA.10.
 skills:
   - id: MEA.01
     name: Compare two lengths side by side, longer and shorter
@@ -20,6 +20,15 @@ skills:
     gateway: false
     representations: [units, symbols]
 
+  - id: MEA.03
+    name: Measure with a ruler in inches and centimeters
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.A.1] }
+    prerequisites: [MEA.02, MEA.22, CMP.04]
+    gateway: false
+    representations: [units, ruler]
+
   - id: MEA.07
     name: Order three things by length, and compare two with a third
     kind: concept
@@ -28,6 +37,16 @@ skills:
     prerequisites: [MEA.01]
     gateway: false
     representations: [objects, symbols]
+
+  - id: MEA.10
+    name: How much longer? Find the difference in length
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.A.4] }
+    prerequisites: [MEA.03, MDA.11]
+    gateway: false
+    # The catalog lists bar-model too: it waits for bar-model pictures (U04).
+    representations: [ruler, symbols]
 
   # MEA.15 (GEO subagent, geo.identify set attributes)
   - id: MEA.15

@@ -281,3 +281,136 @@ templates:
     narration:
       prompt: tp.DAT.10.t3.prompt
       hints: [h.data.count-each-group, h.data.fewest-first]
+
+  # ---------- K02 slice 4b (#17): DAT.04 build picture and bar graphs (3 categories: the graph
+  # widgets draw at most 3 rows or columns; the catalog row says up to 4) ----------
+  - id: DAT.04.t1
+    skillId: DAT.04
+    format: bar-graph-build
+    tier: concrete
+    representation: tally
+    generator: data.chart
+    params:
+      kind: bar
+      data: tally
+      mode: bars
+      categories: 3
+      a: { int: [1, 8] }
+      b: { int: [1, 8] }
+      c: { int: [1, 8] }
+    difficulty: { base: -0.5 }
+    expectedLatencyMs: 30000
+    narration:
+      prompt: tp.DAT.04.t1.prompt
+      hints: [h.data.tally-five, h.data.bar-reach]
+
+  - id: DAT.04.t2
+    skillId: DAT.04
+    format: bar-graph-build
+    tier: concrete
+    representation: picture-graph
+    generator: data.chart
+    params:
+      data: objects
+      mode: pictures
+      categories: 3
+      a: { int: [1, 6] }
+      b: { int: [1, 6] }
+      c: { int: [1, 6] }
+    difficulty: { base: -0.84 }
+    expectedLatencyMs: 30000
+    narration:
+      prompt: tp.DAT.04.t2.prompt
+      hints: [h.data.find-kind, h.data.count-once, h.data.picture-each]
+
+  - id: DAT.04.t3
+    skillId: DAT.04
+    format: bar-graph-build
+    tier: pictorial
+    representation: bar-graph
+    generator: data.chart
+    params:
+      kind: bar
+      data: table
+      mode: bars
+      categories: 3
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      c: { int: [1, 10] }
+    difficulty: { base: -0.56 }
+    narration:
+      prompt: tp.DAT.04.t3.prompt
+      hints: [h.data.table-read, h.data.bar-reach]
+
+  - id: DAT.04.t4
+    skillId: DAT.04
+    format: bar-graph-read
+    tier: pictorial
+    representation: bar-graph
+    generator: data.chart
+    params:
+      kind: bar
+      question: how-many
+      categories: 3
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      c: { int: [1, 10] }
+    difficulty: { base: -0.28 }
+    narration:
+      prompt: tp.DAT.04.t4.prompt
+      hints: [h.data.find-bar, h.data.bar-top]
+
+  # ---------- K02 slice 4b (#17): DAT.05 put together, take apart, compare on a bar graph ----------
+  - id: DAT.05.t1
+    skillId: DAT.05
+    format: bar-graph-read
+    tier: pictorial
+    representation: bar-graph
+    generator: data.chart
+    params:
+      kind: bar
+      question: total
+      categories: { choice: [2, 3] }
+      a: { int: [1, 8] }
+      b: { int: [1, 8] }
+      c: { int: [1, 8] }
+    difficulty: { base: -0.76 }
+    narration:
+      prompt: tp.DAT.05.t1.prompt
+      hints: [h.data.bar-top, h.data.add-bars]
+
+  - id: DAT.05.t2
+    skillId: DAT.05
+    format: bar-graph-read
+    tier: pictorial
+    representation: bar-graph
+    generator: data.chart
+    params:
+      kind: bar
+      question: difference
+      categories: 3
+      a: { int: [2, 10] }
+      b: { int: [1, 9] }
+      c: { int: [1, 10] }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.DAT.05.t2.prompt
+      hints: [h.data.bar-top, h.data.count-up, h.data.take-smaller]
+
+  - id: DAT.05.t3
+    skillId: DAT.05
+    format: number-pad
+    tier: pictorial
+    representation: symbols
+    generator: data.chart
+    params:
+      kind: picture
+      question: difference
+      categories: { choice: [2, 3] }
+      a: { int: [3, 10] }
+      b: { int: [1, 8] }
+      c: { int: [1, 8] }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.DAT.05.t3.prompt
+      hints: [h.data.count-each-group, h.data.take-smaller]

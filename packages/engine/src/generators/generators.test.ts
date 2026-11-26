@@ -1181,6 +1181,7 @@ describe('registry', () => {
       'count.sequence',
       'count.set',
       'data.chart',
+      'data.lineplot',
       'data.sort',
       'div.share',
       'equality.eq',

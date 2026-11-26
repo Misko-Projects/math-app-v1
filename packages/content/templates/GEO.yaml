@@ -751,3 +751,158 @@ templates:
     narration:
       prompt: p.geo.fill-outline
       hints: [h.geo.outline-edges, h.geo.turn-piece]
+
+  # ---------- K02 slice 4b (#17): GEO.12 faces of solid shapes ----------
+  # Faces are flat faces: a cylinder has 2, a cone 1, a sphere none; a curved part is not a face.
+  # Finds ask for 6, 5 or 2 faces (never 1: "1 flat faces").
+  - id: GEO.12.t1
+    skillId: GEO.12
+    format: shape-sort
+    tier: concrete
+    representation: solids
+    generator: geo.identify
+    params:
+      set: solids
+      rule: faces
+      mode: find-all
+      kind: { choice: [cube, pyramid, cylinder] }
+      cards: 5
+      hits: { int: [1, 2] }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.GEO.12.t1.prompt
+      hints: [h.geo.flat-face, h.geo.curved-not-face, h.geo.hidden-faces]
+
+  - id: GEO.12.t2
+    skillId: GEO.12
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 3d
+      rule: faces
+      mode: find-all
+      kind: { choice: [cube, pyramid] }
+      cards: { int: [5, 6] }
+      hits: 1
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: tp.GEO.12.t2.prompt
+      hints: [h.geo.flat-shapes, h.geo.flat-face, h.geo.hidden-faces]
+
+  - id: GEO.12.t3
+    skillId: GEO.12
+    format: number-pad
+    tier: pictorial
+    representation: symbols
+    generator: geo.identify
+    params:
+      set: solids
+      rule: faces
+      kind: { choice: [cube, rect-prism, pyramid, cylinder, cone] }
+    difficulty: { base: -0.2 }
+    narration:
+      prompt: tp.GEO.12.t3.prompt
+      hints: [h.geo.face-not-edge, h.geo.curved-not-face, h.geo.hidden-faces]
+
+  # ---------- K02 slice 4b (#17): GEO.15 square corners ----------
+  - id: GEO.15.t1
+    skillId: GEO.15
+    format: shape-sort
+    tier: concrete
+    representation: shapes
+    generator: geo.draw
+    params:
+      sides: 0
+      rightAngles: 4
+      cards: { int: [5, 6] }
+      hits: { int: [1, 2] }
+      nonPrototypical: { bool: 0.5 }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.GEO.15.t1.prompt
+      hints: [h.geo.square-corner, h.geo.turned-corner, h.geo.every-corner]
+
+  - id: GEO.15.t2
+    skillId: GEO.15
+    format: shape-compose
+    tier: concrete
+    representation: dot-grid
+    generator: geo.draw
+    params:
+      sides: 4
+      rightAngles: 4
+      tool: dots
+      cols: 6
+      rows: 3
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.GEO.15.t2.prompt
+      hints: [h.geo.dots, h.geo.grid-corner, h.geo.every-corner]
+
+  - id: GEO.15.t3
+    skillId: GEO.15
+    format: shape-compose
+    tier: pictorial
+    representation: dot-grid
+    generator: geo.draw
+    params:
+      sides: 3
+      rightAngles: 1
+      tool: dots
+      cols: 6
+      rows: 3
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.15.t3.prompt
+      hints: [h.geo.dots, h.geo.grid-corner]
+
+  # ---------- K02 slice 4b (#17): GEO.16 draw shapes with given sides and corners ----------
+  - id: GEO.16.t1
+    skillId: GEO.16
+    format: shape-compose
+    tier: concrete
+    representation: dot-grid
+    generator: geo.draw
+    params:
+      sides: { choice: [3, 4, 5, 6] }
+      tool: dots
+      cols: 6
+      rows: 3
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.GEO.16.t1.prompt
+      hints: [h.geo.dots, h.geo.sides-corners, h.geo.count-sides]
+
+  - id: GEO.16.t2
+    skillId: GEO.16
+    format: shape-compose
+    tier: pictorial
+    representation: dot-grid
+    generator: geo.draw
+    params:
+      sides: 4
+      rightAngles: 0
+      tool: dots
+      cols: 6
+      rows: 3
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.GEO.16.t2.prompt
+      hints: [h.geo.dots, h.geo.not-square]
+
+  - id: GEO.16.t3
+    skillId: GEO.16
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.draw
+    params:
+      sides: { choice: [4, 5, 6] }
+      cards: { int: [5, 6] }
+      hits: { int: [1, 2] }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.16.t3.prompt
+      hints: [h.geo.count-sides, h.geo.count-corners]

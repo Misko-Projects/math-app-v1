@@ -18,6 +18,7 @@ import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { biggerUnitMore } from '../../misconceptions/rules/biggerUnitMore';
+import { rulerCountTicks, rulerReadEnd } from '../../misconceptions/rules/rulerReading';
 import { unitGaps } from '../../misconceptions/rules/unitGaps';
 import { registry } from '..';
 import { GenerationError } from '../types';
@@ -25,14 +26,12 @@ import { lengthCloseness, NONSTANDARD_UNIT_SIZE, objectLengths } from './length'
 import { clearlyLighter, gaugeFor, WEIGHABLES } from './massvolume';
 
 let nextId = 0;
-function tpl(
+/** A test template without an id. */
+function tplShape(
   generator: 'mea.length' | 'mea.massvolume',
   format: ItemFormat,
-  over: Partial<ItemTemplate> = {},
-): ItemTemplate {
-  nextId += 1;
+): Omit<ItemTemplate, 'id'> {
   return {
-    id: `T.${generator}.${format}.${nextId}`,
     skillId: 'X.01',
     format,
     tier: 'pictorial',
@@ -40,8 +39,16 @@ function tpl(
     params: {},
     difficulty: { base: 0, features: {} },
     narration: { prompt: 'p.x', hints: ['h.one', 'h.two', 'h.three'] },
-    ...over,
   };
+}
+
+function tpl(
+  generator: 'mea.length' | 'mea.massvolume',
+  format: ItemFormat,
+  over: Partial<ItemTemplate> = {},
+): ItemTemplate {
+  nextId += 1;
+  return { id: `T.${generator}.${format}.${nextId}`, ...tplShape(generator, format), ...over };
 }
 
 beforeEach(() => {
@@ -290,8 +297,52 @@ const MASS: Case[] = [
   },
 ];
 
+// K02 slice 4b (MEA.10): how much longer on the number pad and numeral pick. These templates have
+// fixed ids and leave the counter alone, so every other test template keeps its id (and its draws).
+const k02 = (format: ItemFormat, n: number, over: Partial<ItemTemplate>): ItemTemplate => ({
+  ...tplShape('mea.length', format),
+  id: `T.mea.length.k02.${n}`,
+  ...over,
+});
+const LENGTH_K02: Case[] = [
+  {
+    name: 'number-pad: how much longer, both on a ruler from 0 (MEA.10)',
+    t: k02('number-pad', 1, { representation: 'ruler' }),
+    params: { mode: 'difference', unit: 'in', length: 4, length2: 13 },
+    answer: { kind: 'number', value: 9 },
+    widget: {
+      stimulus: {
+        kind: 'number-line',
+        min: 0,
+        max: 14,
+        marks: [{ at: 4 }, { at: 13, arrow: true }],
+      },
+      unit: 'in',
+    },
+    lastOp: 'type',
+  },
+  {
+    name: 'number-pad: how much longer, the lengths in words only (MEA.10, symbols)',
+    t: k02('number-pad', 2, { representation: 'symbols', tier: 'abstract' }),
+    params: { mode: 'difference', unit: 'cm', length: 8, length2: 7 },
+    answer: { kind: 'number', value: 1 },
+    widget: { stimulus: { kind: 'none' }, unit: 'cm' },
+    lastOp: 'type',
+  },
+  {
+    name: 'numeral-pick: how much longer, both on a ruler from 0 (MEA.10)',
+    t: k02('numeral-pick', 3, { representation: 'ruler' }),
+    params: { mode: 'difference', unit: 'in', length: 6, length2: 11 },
+    answer: { kind: 'choice', id: 'opt-5' },
+    widget: {
+      stimulus: { kind: 'number-line', max: 12, marks: [{ at: 6 }, { at: 11, arrow: true }] },
+    },
+    lastOp: 'tap',
+  },
+];
+
 describe.each([
-  ['mea.length', LENGTH],
+  ['mea.length', [...LENGTH, ...LENGTH_K02]],
   ['mea.massvolume', MASS],
 ] as const)('%s', (generator, cases) => {
   it('covers every format the generator lists', () => {
@@ -756,5 +807,59 @@ describe('MC.bigger-unit-more (biggerUnitMore)', () => {
       same: true,
     });
     expect(biggerUnitMore.predict?.(ruler)).toBeNull();
+  });
+});
+
+describe('MC.ruler-count-ticks and MC.ruler-read-end (rulerReading, K02 MEA.03)', () => {
+  // Fixed ids: the counter of the other test templates stays as it was.
+  const t = (format: ItemFormat, n: number): ItemTemplate => ({
+    ...tplShape('mea.length', format),
+    id: `T.mea.length.ruler.${n}`,
+  });
+
+  it('from 0: counting the marks reads one step more; the end is the answer', () => {
+    const pad = generateItemFromParams(t('number-pad', 1), { mode: 'read', unit: 'in', length: 5 });
+    expect(rulerCountTicks.predict?.(pad)).toEqual({ kind: 'number', value: 6 });
+    expect(rulerCountTicks.match(pad, { kind: 'number', value: 6 })).toBe(true);
+    expect(rulerCountTicks.match(pad, { kind: 'number', value: 4 })).toBe(false);
+    expect(rulerReadEnd.predict?.(pad)).toBeNull();
+    const pick = generateItemFromParams(t('numeral-pick', 2), {
+      mode: 'read',
+      unit: 'cm',
+      length: 7,
+    });
+    expect(rulerCountTicks.predict?.(pick)).toEqual({ kind: 'choice', id: 'opt-8' });
+    const half = generateItemFromParams(t('number-pad', 3), {
+      mode: 'read',
+      unit: 'in',
+      precision: 2,
+      length: 40,
+    });
+    expect(rulerCountTicks.predict?.(half)).toEqual({ kind: 'number', value: 3 });
+  });
+
+  it('not from 0: reading the end number adds the start; counting marks does not apply', () => {
+    const ml = generateItemFromParams(t('measure-length', 4), {
+      mode: 'read',
+      unit: 'cm',
+      length: 5,
+      offset: 2,
+    });
+    expect(ml.answer).toEqual({ kind: 'number', value: 5 });
+    expect(rulerReadEnd.predict?.(ml)).toEqual({ kind: 'number', value: 7 });
+    expect(rulerReadEnd.match(ml, { kind: 'number', value: 7 })).toBe(true);
+    expect(rulerCountTicks.predict?.(ml)).toBeNull();
+  });
+
+  it('ignores items that are not ruler readings', () => {
+    const iterate = generateItemFromParams(t('number-pad', 5), {
+      mode: 'iterate',
+      unit: 'cube',
+      length: 5,
+    });
+    expect(rulerCountTicks.predict?.(iterate)).toBeNull();
+    expect(rulerReadEnd.predict?.(iterate)).toBeNull();
+    expect(rulerCountTicks.applies?.(iterate)).toBe(false);
+    expect(rulerReadEnd.applies?.(iterate)).toBe(false);
   });
 });

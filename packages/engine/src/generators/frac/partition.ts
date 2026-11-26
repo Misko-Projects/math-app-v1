@@ -2,6 +2,12 @@
 // Formats (K01): fraction-cut, fraction-pick, fraction-line. `mode`:
 // - `cut` (fraction-cut, FRA.01, FRA.02, FRA.07): cut the `shape` into `den` equal parts and
 //   shade `num` of them (0: no shading; `den`: the whole, FRA.02). Answer `fraction.cut`.
+//   With `acceptNonCongruent` (FRA.16, K02) the whole is a `grid` of `cols` × `rows` squares cut
+//   freely along its lines, and equal parts of different shapes count. Only the grids
+//   NONCONGRUENT_DEMOS lists are drawn (fourths of 4 × 4 or 8 × 2, thirds of 6 × 2): the worked
+//   solution cuts each into squares and bars of the same size, so equal shares look different.
+//   No shipped template uses it yet: FRA.16 stays planned until a pictorial grid picture exists
+//   (V27), so the grid cut is reachable only through its tests (frac.test.ts).
 // - `fair-or-not` (fraction-pick, FRA.07): one shape cut into `den` parts, equal when
 //   `equalParts`; the child answers `yes` | `no`.
 // - `pick` (fraction-pick pick-picture, FRA.01): three pictures of the same shape (halves, fourths,
@@ -27,7 +33,56 @@ import {
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
-const SHAPES = ['circle', 'rect', 'square', 'bar'] as const;
+const SHAPES = ['circle', 'rect', 'square', 'bar', 'grid'] as const;
+
+type FreeCut = { dir: 'v' | 'h'; at: number; part?: number };
+/**
+ * The grids a FRA.16 cut draws (`den`, `cols`, `rows`), each with the free cuts of its worked
+ * solution: one full cut, then each side cut a different way, so the parts are squares and bars
+ * of one size. Parts are numbered in reading order, so the part cut first keeps its number.
+ */
+export const NONCONGRUENT_DEMOS: readonly {
+  den: number;
+  cols: number;
+  rows: number;
+  cuts: FreeCut[];
+}[] = [
+  // 4 × 4 in fourths: two 4 × 1 bars below, two 2 × 2 squares above.
+  {
+    den: 4,
+    cols: 4,
+    rows: 4,
+    cuts: [
+      { dir: 'h', at: 0.5 },
+      { dir: 'h', at: 0.75, part: 1 },
+      { dir: 'v', at: 0.5, part: 0 },
+    ],
+  },
+  // 8 × 2 in fourths: two 2 × 2 squares on the left, two 4 × 1 bars on the right.
+  {
+    den: 4,
+    cols: 8,
+    rows: 2,
+    cuts: [
+      { dir: 'v', at: 0.5 },
+      { dir: 'h', at: 0.5, part: 1 },
+      { dir: 'v', at: 0.25, part: 0 },
+    ],
+  },
+  // 6 × 2 in thirds: a 2 × 2 square, then two 4 × 1 bars.
+  {
+    den: 3,
+    cols: 6,
+    rows: 2,
+    cuts: [
+      { dir: 'v', at: 1 / 3 },
+      { dir: 'h', at: 0.5, part: 1 },
+    ],
+  },
+];
+
+const demoOf = (den: number, cols: number, rows: number) =>
+  NONCONGRUENT_DEMOS.find((d) => d.den === den && d.cols === cols && d.rows === rows);
 const MODES = ['cut', 'fair-or-not', 'pick', 'partition'] as const;
 const ASKS = ['name', 'unequal'] as const;
 /** The fraction stimulus has no square; pictures of a square are drawn as a rectangle. */
@@ -69,8 +124,18 @@ export const fracPartition: GeneratorDef = {
     shape: {
       type: 'string',
       values: [...SHAPES],
-      default: { kind: 'choice', values: [...SHAPES] },
-      doc: 'circle, rect, square or bar (a strip); pictures (pick, fair-or-not) use circle, rect or bar',
+      default: { kind: 'choice', values: ['circle', 'rect', 'square', 'bar'] },
+      doc: 'circle, rect, square, bar (a strip) or grid (cut with acceptNonCongruent only); pictures (pick, fair-or-not) use circle, rect or bar',
+    },
+    cols: {
+      type: 'int',
+      default: { kind: 'const', value: 4 },
+      doc: 'grid: squares across (a NONCONGRUENT_DEMOS grid)',
+    },
+    rows: {
+      type: 'int',
+      default: { kind: 'const', value: 4 },
+      doc: 'grid: squares down (a NONCONGRUENT_DEMOS grid)',
     },
     den: { type: 'int', default: { kind: 'int', min: 2, max: 4 }, doc: 'number of equal parts' },
     num: {
@@ -140,6 +205,9 @@ export const fracPartition: GeneratorDef = {
     'gen.frac.partition.find-middle',
     'gen.frac.partition.middle-each',
     'gen.frac.partition.mark-parts',
+    'gen.frac.partition.grid-first',
+    'gen.frac.partition.grid-other-way',
+    'gen.frac.partition.grid-same-size',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
@@ -151,6 +219,9 @@ export const fracPartition: GeneratorDef = {
     // A cut may shade every part (FRA.02: four fourths make the whole); nothing else shades all.
     if (den < 2 || den > 8 || num < 0 || num > den || (num === den && mode !== 'cut')) return false;
     if (p.acceptNonCongruent === true && mode !== 'cut') return false;
+    // A grid is the FRA.16 cut, and FRA.16's cut is a grid that has a worked solution.
+    if ((shape === 'grid') !== (p.acceptNonCongruent === true)) return false;
+    if (shape === 'grid' && !demoOf(den, asNum(p.cols), asNum(p.rows))) return false;
     switch (t.format) {
       case 'fraction-cut':
         return mode === 'cut';
@@ -195,9 +266,12 @@ export const fracPartition: GeneratorDef = {
         widget: {
           format: 'fraction-cut',
           shape: shape as (typeof SHAPES)[number],
+          ...(shape === 'grid'
+            ? { gridSize: [asNum(params.cols), asNum(params.rows)] as [number, number] }
+            : {}),
           parts: den,
           ...(num > 0 ? { shade: num } : {}),
-          cutMode: 'guided',
+          cutMode: shape === 'grid' ? 'free' : 'guided',
           acceptNonCongruent,
           thenName: false,
         },
@@ -301,7 +375,18 @@ export const fracPartition: GeneratorDef = {
     if (w.format === 'fraction-cut') {
       const lines = cutLines(w.shape, den);
       let steps: LessonStep[];
-      if (w.shape === 'bar' && den === 4) {
+      const demo = w.gridSize ? demoOf(den, w.gridSize[0], w.gridSize[1]) : undefined;
+      if (demo && w.gridSize) {
+        const cells = (w.gridSize[0] * w.gridSize[1]) / den;
+        steps = demo.cuts.map((c, i) =>
+          say(
+            i === 0 ? 'gen.frac.partition.grid-first' : 'gen.frac.partition.grid-other-way',
+            {},
+            { op: 'cut', args: { ...c } },
+          ),
+        );
+        steps.push(say('gen.frac.partition.grid-same-size', { n: cells }));
+      } else if (w.shape === 'bar' && den === 4) {
         // A strip's lines run left to right, so line 1 is the middle: halve it first, then each
         // half, as the cut-middle hint says (PR #84 review round 2: the cuts went 0, 1, 2).
         steps = [

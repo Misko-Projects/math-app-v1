@@ -40,6 +40,7 @@ import { perceptualSize } from './rules/perceptualSize';
 import { placeSwap } from './rules/placeSwap';
 import { recountFromOne } from './rules/recountFromOne';
 import { roundDownAlways, roundWrongPlace } from './rules/rounding';
+import { rulerCountTicks, rulerReadEnd } from './rules/rulerReading';
 import { startUnknownReversed } from './rules/startUnknownReversed';
 import { symbolReversed } from './rules/symbolReversed';
 import { teenReversal } from './rules/teenReversal';
@@ -58,6 +59,8 @@ const RULES: Record<string, MisconceptionRule> = {
   offByOneCounting: offByOneCounting,
   unitGaps: unitGaps,
   biggerUnitMore: biggerUnitMore,
+  rulerCountTicks: rulerCountTicks,
+  rulerReadEnd: rulerReadEnd,
   recountFromOne: recountFromOne,
   decadeTransition: decadeTransition,
   teenReversal: teenReversal,

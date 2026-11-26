@@ -170,6 +170,8 @@ const SLICE_4A = [
   'MON.06',
   'MON.08',
 ] as const;
+/** Slice 4b (#17): rulers, graphs, faces and corners, grade 2. */
+const SLICE_4B = ['MEA.03', 'MEA.10', 'DAT.04', 'DAT.05', 'GEO.12', 'GEO.15', 'GEO.16'] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -682,6 +684,7 @@ describe('session simulation (04 §8)', () => {
       slice('slice 2b', SLICE_2B_G2);
       slice('slice 3a', SLICE_3A_G2);
       slice('slice 4a', SLICE_4A);
+      slice('slice 4b', SLICE_4B);
       // Fact fluency: no simulated child turns fluent (see SLICE_1B_FLUENCY), so practice only.
       slice('slice 1b fluency', SLICE_1B_FLUENCY, false);
       console.log(

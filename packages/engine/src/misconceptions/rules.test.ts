@@ -213,6 +213,8 @@ describe('registry', () => {
       'recountFromOne',
       'roundDownAlways',
       'roundWrongPlace',
+      'rulerCountTicks',
+      'rulerReadEnd',
       'skipCountSlip',
       'smallerFromLarger',
       'startUnknownReversed',

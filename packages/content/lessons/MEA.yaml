@@ -27,3 +27,16 @@ lessons:
       - { seed: 1513939522, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [MEA.22.t3] }
+
+  # K02 slice 4b (#17): MEA.03 plays the ruler from 0 (t2), not the laid tiles the auto lesson would
+  # pick (t1, the first concrete template): the skill is reading a ruler.
+  - skillId: MEA.03
+    mode: authored
+    templateId: MEA.03.t2
+    worked:
+      - { seed: 3031, target: easy }
+    faded:
+      - { seed: 3032, target: typical, childSteps: 1 }
+      - { seed: 3033, target: typical, childSteps: 1 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }

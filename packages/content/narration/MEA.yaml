@@ -52,3 +52,22 @@ tp.MEA.22.t1.prompt:
   text: "Measure it with {unit|unit:many}. Then measure it with {altUnit|unit:many}."
 tp.MEA.22.t2.prompt:
   text: "We measure one log two ways. Which do we need {ask|word} of?"
+# K02 slice 4b (#17): MEA.03 and MEA.10.
+sk.MEA.03.intro:
+  text: "A ruler starts at 0. Count the spaces to see how long!"
+sk.MEA.10.intro:
+  text: "Which one is longer, and by how much? Let's find out!"
+tp.MEA.03.t1.prompt:
+  text: "Lay one-{unit|unit:one} tiles end to end along it. How many fit?"
+tp.MEA.03.t2.prompt:
+  text: "Use the ruler. How many {unit|unit:many} long is it?"
+tp.MEA.03.t3.prompt:
+  text: "Use the ruler. How many {unit|unit:many} long is it?"
+tp.MEA.03.t4.prompt:
+  text: "Look at the ruler. How many {unit|unit:many} long is it?"
+tp.MEA.10.t1.prompt:
+  text: "One rope is {long} {unit|unit:many} long. The other is {short} {unit|unit:many} long. How much longer is the long rope?"
+tp.MEA.10.t2.prompt:
+  text: "One rope is {long} {unit|unit:many} long. The other is {short} {unit|unit:many} long. How much longer is the long rope?"
+tp.MEA.10.t3.prompt:
+  text: "One rope is {long} {unit|unit:many} long. The other is {short} {unit|unit:many} long. How much longer is the long rope?"

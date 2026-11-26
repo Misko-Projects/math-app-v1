@@ -420,3 +420,120 @@ templates:
     narration:
       prompt: tp.MEA.22.t1.prompt
       hints: [h.measure.count-each, h.measure.both-units, h.measure.bigger-fewer]
+
+  # ---------- K02 slice 4b (#17): MEA.03 measure with a ruler (inches, centimeters) ----------
+  # Laid tiles first (the units representation), then the ruler from 0, then an object that does
+  # not start at 0 (MC.ruler-read-end), then the picture of a ruler and the pad. Rulers are
+  # pictorial (a concrete ruler slides, and its hints would go stale) and end by 9, so every mark
+  # has its numeral at 960 × 600.
+  - id: MEA.03.t1
+    skillId: MEA.03
+    format: measure-length
+    tier: concrete
+    representation: units
+    generator: mea.length
+    params:
+      mode: iterate
+      unit: { choice: [in, cm] }
+      length: { int: [2, 10] }
+    difficulty: { base: 0.12 }
+    expectedLatencyMs: 20000
+    narration:
+      prompt: tp.MEA.03.t1.prompt
+      hints: [h.measure.start-at-end, h.measure.no-gaps, h.measure.count-each]
+
+  - id: MEA.03.t2
+    skillId: MEA.03
+    format: measure-length
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: read
+      unit: { choice: [in, cm] }
+      length: { int: [1, 8] }
+    difficulty: { base: 0 }
+    narration:
+      prompt: tp.MEA.03.t2.prompt
+      hints: [h.ruler.start-zero, h.ruler.count-spaces, h.ruler.end-number]
+
+  - id: MEA.03.t3
+    skillId: MEA.03
+    format: measure-length
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: read
+      unit: { choice: [in, cm] }
+      length: { int: [2, 7] }
+      offset: { int: [1, 4] }
+    constraints: ["length + offset <= 8"]
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.MEA.03.t3.prompt
+      hints: [h.ruler.not-zero, h.ruler.count-spaces, h.ruler.take-start]
+
+  - id: MEA.03.t4
+    skillId: MEA.03
+    format: number-pad
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: read
+      unit: { choice: [in, cm] }
+      length: { int: [2, 8] }
+    difficulty: { base: 0 }
+    narration:
+      prompt: tp.MEA.03.t4.prompt
+      hints: [h.ruler.start-zero, h.ruler.count-spaces, h.ruler.end-number]
+
+  # ---------- K02 slice 4b (#17): MEA.10 how much longer ----------
+  # Two lengths on a ruler from 0 (pick, then type), then the two lengths in words only (two-digit
+  # lengths: subtract within 100). compare-length how-much-longer waits: its pad overflows
+  # 1280 × 800. The bar-model representation waits for bar-model pictures (U04).
+  - id: MEA.10.t1
+    skillId: MEA.10
+    format: numeral-pick
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: difference
+      unit: { choice: [in, cm] }
+      length: { int: [3, 15] }
+    difficulty: { base: -1 }
+    narration:
+      prompt: tp.MEA.10.t1.prompt
+      hints: [h.length.diff-ruler, h.length.diff-count-on]
+
+  - id: MEA.10.t2
+    skillId: MEA.10
+    format: number-pad
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: difference
+      unit: { choice: [in, cm] }
+      length: { int: [3, 15] }
+    difficulty: { base: -1 }
+    narration:
+      prompt: tp.MEA.10.t2.prompt
+      hints: [h.length.diff-ruler, h.length.diff-count-on, h.length.diff-take-away]
+
+  - id: MEA.10.t3
+    skillId: MEA.10
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mea.length
+    params:
+      mode: difference
+      unit: { choice: [in, cm] }
+      length: { int: [12, 95] }
+    difficulty: { base: -1.24 }
+    narration:
+      prompt: tp.MEA.10.t3.prompt
+      hints: [h.length.diff-count-on, h.length.diff-take-away]

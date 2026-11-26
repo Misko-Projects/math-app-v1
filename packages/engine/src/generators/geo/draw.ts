@@ -288,6 +288,11 @@ export const geoDraw: GeneratorDef = {
       default: { kind: 'const', value: false },
       doc: 'shape-sort: add a near miss (an open figure among triangles)',
     },
+    nonPrototypical: {
+      type: 'bool',
+      default: { kind: 'const', value: false },
+      doc: 'shape-sort: turned and resized cards (GEO.15: a tilted square still has square corners)',
+    },
   },
   features: {
     'require.count': {
@@ -299,6 +304,7 @@ export const geoDraw: GeneratorDef = {
     equalSides: { weight: 0.3, doc: 'the shape needs equal sides' },
     cards: { weight: 0.1, doc: 'shape-sort format feature: card count − 4' },
     nearMiss: { weight: 0.6, doc: 'shape-sort format feature: a near-miss non-example is shown' },
+    nonPrototypical: { weight: 0.6, doc: 'shape-sort format feature: turned or resized shapes' },
   },
   narration: [
     'gen.geo.draw.start',
@@ -378,7 +384,7 @@ export const geoDraw: GeneratorDef = {
       const cards = asNum(params.cards, 5);
       const hits = asNum(params.hits, 2);
       const c = rng.fork('cards');
-      const style = { blocks: false, nonPrototypical: false };
+      const style = { blocks: false, nonPrototypical: params.nonPrototypical === true };
       const yes = CARD_KINDS.filter((k) => cardMeets(k, req));
       const no = CARD_KINDS.filter(
         (k) => !cardMeets(k, req) && yes.every((y) => distinctKinds(y, k)),
@@ -398,6 +404,7 @@ export const geoDraw: GeneratorDef = {
       const ids = cardList.filter((_, i) => order[i]?.hit).map((x) => x.id);
       math.cards = Math.max(0, cards - 4);
       math.nearMiss = order.some((x) => x.miss) ? 1 : 0;
+      math.nonPrototypical = style.nonPrototypical ? 1 : 0;
       return finish(geoDraw, ctx, {
         params,
         vars,

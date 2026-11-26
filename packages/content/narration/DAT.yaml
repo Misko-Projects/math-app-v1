@@ -38,3 +38,22 @@ tp.DAT.10.t2.prompt:
   text: "Which group has the {ask|word}?"
 tp.DAT.10.t3.prompt:
   text: "Put the groups in order. Start with the fewest."
+# K02 slice 4b (#17): DAT.04 and DAT.05.
+sk.DAT.04.intro:
+  text: "Let's make our own graphs!"
+sk.DAT.05.intro:
+  text: "A graph can answer questions. How many in all? How many more?"
+tp.DAT.04.t1.prompt:
+  text: "Make a bar graph to match the tally marks."
+tp.DAT.04.t2.prompt:
+  text: "Count each kind. Make a picture graph with one picture for each."
+tp.DAT.04.t3.prompt:
+  text: "Make a bar graph to match the table."
+tp.DAT.04.t4.prompt:
+  text: "Look at the bar graph. How many {catA|noun:many} are there?"
+tp.DAT.05.t1.prompt:
+  text: "Look at the bar graph. How many are there in all?"
+tp.DAT.05.t2.prompt:
+  text: "Look at the bar graph. How many more {catA|noun:many} than {catB|noun:many}?"
+tp.DAT.05.t3.prompt:
+  text: "How many more {catA|noun:many} than {catB|noun:many} are there?"
