@@ -10,8 +10,8 @@ import { describe, expect, it } from 'vitest';
 import { render } from '../src/content/render';
 import { formatModel } from '../src/formats';
 import { trayKey } from '../src/formats/money';
-import { waysCount, waysList } from '../src/generators/money/coins';
 import { equation } from '../src/generators/equality/model';
+import { waysCount, waysList } from '../src/generators/money/coins';
 import {
   CAGE_LAYOUTS,
   cageSolutions,
@@ -75,7 +75,7 @@ describe('ALG.06: same value without adding up', () => {
       for (const item of items(id)) {
         const p = item.params;
         const eq = equation(p);
-        const [a, b, c] = [p.a, p.b, p.c] as number[];
+        const [a, b, c] = [p.a, p.b, p.c] as [number, number, number];
         const [cp, bp] = eq.form === 'a+b=c+_' ? [a, b] : [b, a];
         const d = Math.abs(c - cp);
         expect(d).toBeGreaterThanOrEqual(1);
@@ -134,11 +134,15 @@ describe('ALG.10: growing shape patterns', () => {
       if (w.format !== 'pattern-extend') throw new Error('pattern-extend');
       expect(w.palette).toEqual([]);
       expect(w.kind).toBe('grow');
-      const shown = w.sequence.filter((x) => x !== null) as { tiles: number }[];
-      const step = shown[1]!.tiles - shown[0]!.tiles;
+      const [s0, s1, s2] = w.sequence.filter((x) => x !== null) as [
+        { tiles: number },
+        { tiles: number },
+        { tiles: number },
+      ];
+      const step = s1.tiles - s0.tiles;
       expect(step).toBeGreaterThanOrEqual(1);
-      expect(shown[2]!.tiles - shown[1]!.tiles).toBe(step);
-      const r = checkResponse(item, { kind: 'state', value: { tokens: [shown[0]] } });
+      expect(s2.tiles - s1.tiles).toBe(step);
+      const r = checkResponse(item, { kind: 'state', value: { tokens: [s0] } });
       expect(r.misconceptionIds).toEqual(['MC.grow-as-repeat']);
     }
   });
@@ -183,19 +187,23 @@ describe('PUZ.04: cage grids', () => {
       const w = item.widget;
       if (w.format !== 'puzzle-grid') throw new Error('puzzle-grid');
       const model = formatModel('puzzle-grid');
+      if (!model) throw new Error('no puzzle-grid model');
+      const fillOf = (st: unknown) => (st as { fill: unknown[][] }).fill;
       const blank = w.cells.find((x) => x.blank) as { r: number; c: number };
       let s = model.initialState(w as never);
       s = model.apply(s, { op: 'fill', args: { r: blank.r, c: blank.c, value: 2 } });
-      expect((s as { fill: unknown[][] }).fill[blank.r]?.[blank.c]).toBe(2);
+      expect(fillOf(s)[blank.r]?.[blank.c]).toBe(2);
       s = model.apply(s, { op: 'fill', args: { r: blank.r, c: blank.c, value: '' } });
-      expect((s as { fill: unknown[][] }).fill[blank.r]?.[blank.c]).toBe('');
+      expect(fillOf(s)[blank.r]?.[blank.c]).toBe('');
     }
   });
 });
 
 describe('PUZ.06: digit cards', () => {
   const perms = (xs: number[]): number[][] =>
-    xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms(xs.filter((_, j) => j !== i)).map((p) => [x, ...p]));
+    xs.length <= 1
+      ? [xs]
+      : xs.flatMap((x, i) => perms(xs.filter((_, j) => j !== i)).map((p) => [x, ...p]));
   it('the answer is the biggest (or smallest) number the cards make, and only one order makes it', () => {
     for (const id of ['PUZ.06.t1', 'PUZ.06.t2', 'PUZ.06.t3']) {
       for (const item of items(id)) {
@@ -268,7 +276,12 @@ describe('PUZ.09: ways to pay', () => {
   it('the count is the number of different sets of coins', () => {
     for (const kinds of ['dn', 'qdn']) {
       for (const cents of [10, 15, 20, 25, 30]) {
-        expect(waysCount(cents, kinds)).toBe(brute(cents, [...kinds].map((k) => VALUES[k] as number)));
+        expect(waysCount(cents, kinds)).toBe(
+          brute(
+            cents,
+            [...kinds].map((k) => VALUES[k] as number),
+          ),
+        );
       }
     }
     for (const id of ['PUZ.09.t2', 'PUZ.09.t3']) {
@@ -294,7 +307,12 @@ describe('PUZ.09: ways to pay', () => {
       const again = {
         kind: 'state' as const,
         value: {
-          coins: { quarter: Number(m[1]), dime: Number(m[2]), nickel: Number(m[3]), penny: Number(m[4]) },
+          coins: {
+            quarter: Number(m[1]),
+            dime: Number(m[2]),
+            nickel: Number(m[3]),
+            penny: Number(m[4]),
+          },
         },
       };
       const r = checkResponse(item, again);

@@ -16,6 +16,7 @@
 // A stack has at most MAX_TILES squares.
 
 import type { LessonStep, PatternToken, ResponseValue } from '@number-island/shared';
+import { MAX_TILES } from '../../formats/pattern-extend';
 import {
   asNum,
   asStr,
@@ -25,7 +26,6 @@ import {
   pickVars,
   sampleAll,
 } from '../common';
-import { MAX_TILES } from '../../formats/pattern-extend';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 const MODES = ['extend', 'rule'] as const;
@@ -291,7 +291,10 @@ export const patternGrow: GeneratorDef = {
         say('gen.pattern.grow.rule', { step }, { op: 'answer', args: { value: step } }),
       ];
     }
-    const tiles = w.format === 'pattern-extend' && w.kind === 'grow' && w.sequence[0] !== null &&
+    const tiles =
+      w.format === 'pattern-extend' &&
+      w.kind === 'grow' &&
+      w.sequence[0] !== null &&
       'tiles' in (w.sequence[0] as PatternToken);
     if (w.format === 'number-pad') {
       const n = asked[ask - 1] as number;

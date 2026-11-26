@@ -1835,3 +1835,131 @@ describe.each(FIT_VIEWPORTS)(
     });
   },
 );
+
+// #17 slice 4e: the fullest draws of the grade 2 puzzles at 960 × 600, played as a child would.
+// - PUZ.07: the clues live only in the prompt bubble. The longest three-clue draws show every word
+//   (nothing clipped, text at the reading size), the bubble is a button that says the prompt again,
+//   and it stays on screen while the child searches the chart.
+// - PUZ.04: a cage grid with every box empty fits, its cage totals are readable, a child fills a
+//   box and clears it again.
+// - PUZ.09: the record of the ways found fits its fullest draw (two ways of three and four coins).
+describe('grade 2 puzzles at their fullest (#17 slice 4e)', () => {
+  const shot = async (id: string, state: string) => {
+    if (SHOTS.includes(id)) await page.screenshot({ path: `__fit__/${id}-${state}-960x600.png` });
+  };
+  const bubbleIssues = (): string[] => {
+    const bubble = document.querySelector<HTMLElement>('.ni-bubble');
+    const words = bubble?.querySelector<HTMLElement>('.ni-bubble__text');
+    if (!bubble || !words) return ['no prompt bubble'];
+    const bad: string[] = [];
+    if (bubble.tagName !== 'BUTTON') bad.push('the bubble cannot be tapped to hear it again');
+    const font = Number.parseFloat(getComputedStyle(words).fontSize);
+    if (font < MIN_TEXT_PX) bad.push(`the clues are set in ${font} px`);
+    // Every line of the words inside the bubble, and nothing hidden by its overflow.
+    const r = bubble.getBoundingClientRect();
+    const w = words.getBoundingClientRect();
+    const hidden = bubble.scrollHeight - bubble.clientHeight;
+    if (w.bottom > r.bottom + SLACK_PX || w.top < r.top - SLACK_PX || hidden > SLACK_PX) {
+      bad.push(
+        `the clues are clipped (words ${Math.round(w.top)}–${Math.round(w.bottom)}, bubble ${Math.round(r.top)}–${Math.round(r.bottom)}, hidden ${hidden})`,
+      );
+    }
+    if (r.bottom > window.innerHeight + SLACK_PX || r.right > window.innerWidth + SLACK_PX) {
+      bad.push('the bubble runs off the screen');
+    }
+    return bad;
+  };
+
+  it.each([
+    ['PUZ.07.t2', { variant: 'clues', clues: 'near', n: 98 }],
+    ['PUZ.07.t1', { variant: 'clues', clues: 'fives', t: 9 }],
+    ['PUZ.07.t3', { variant: 'clues', clues: 'near', n: 97 }],
+  ] as const)(
+    '%s: every clue shows in the bubble and stays while the child searches',
+    async (id, params) => {
+      await page.viewport(960, 600);
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      const item = engine.generateItemFromParams(template, params);
+      show(item, ageModeOf(template));
+      expect(await measure(id)).toEqual([]);
+      expect(bubbleIssues()).toEqual([]);
+      const text = document.querySelector('.ni-bubble__text')?.textContent ?? '';
+      expect(text).toContain(item.prompt.text);
+      await shot(id, 'clues');
+      // A tap on the chart: the clues are still there to read.
+      const cell = document.querySelector<HTMLElement>('.ni-widget button');
+      if (cell) await userEvent.click(cell);
+      expect(document.querySelector('.ni-bubble__text')?.textContent ?? '').toBe(text);
+      expect(bubbleIssues()).toEqual([]);
+    },
+  );
+
+  it('PUZ.04.t2: an empty cage grid fits, its totals are readable, a box fills and clears', async () => {
+    await page.viewport(960, 600);
+    const id = 'PUZ.04.t2';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const item = engine.generateItemFromParams(template, {
+      variant: 'cage-sum',
+      square: 3,
+      layout: 3,
+      givens: 0,
+    });
+    show(item, ageModeOf(template));
+    expect(await measure(id)).toEqual([]);
+    const labels = [...document.querySelectorAll<HTMLElement>('.ni-pz__cage-label')];
+    expect(labels).toHaveLength(4);
+    for (const label of labels) {
+      expect(Number.parseFloat(getComputedStyle(label).fontSize)).toBeGreaterThanOrEqual(
+        MIN_TEXT_PX,
+      );
+    }
+    // Fill the top row and the first box of the middle row (a grid half filled), then clear one.
+    const card = (v: string) =>
+      [...document.querySelectorAll<HTMLElement>('.ni-pz__tray button')].find(
+        (b) => b.textContent?.trim() === v,
+      ) as HTMLElement;
+    const cell = (r: number, c: number) =>
+      document.querySelector<HTMLElement>(
+        `.ni-pz__cell[data-r="${r}"][data-c="${c}"]`,
+      ) as HTMLElement;
+    const fills: [number, number, string][] = [
+      [0, 0, '1'],
+      [0, 1, '2'],
+      [0, 2, '3'],
+      [1, 0, '2'],
+      [1, 1, '1'],
+    ];
+    for (const [r, c, v] of fills) {
+      await userEvent.click(cell(r, c));
+      await userEvent.click(card(v));
+    }
+    expect(document.querySelectorAll('.ni-pz__cell[data-kind="filled"]').length).toBe(5);
+    expect(await measure(id)).toEqual([]);
+    await shot(id, 'half-filled');
+    await userEvent.click(cell(1, 1));
+    await userEvent.click(document.querySelector('.ni-pz__card--clear') as HTMLElement);
+    expect(cell(1, 1).dataset.kind).toBe('empty');
+  });
+
+  it('PUZ.09.t1: the ways found fit their fullest draw', async () => {
+    await page.viewport(960, 600);
+    const id = 'PUZ.09.t1';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const item = engine.generateItemFromParams(template, {
+      mode: 'ways',
+      cents: 30,
+      kinds: 'dn',
+      found: 2,
+    });
+    show(item, ageModeOf(template));
+    expect(await measure(id)).toEqual([]);
+    const record = document.querySelector<HTMLElement>('.ni-cpay__found');
+    expect(record).not.toBeNull();
+    const stage = document.querySelector<HTMLElement>('[data-testid="pier-stage"]') as HTMLElement;
+    const r = (record as HTMLElement).getBoundingClientRect();
+    const s = stage.getBoundingClientRect();
+    expect(r.bottom).toBeLessThanOrEqual(s.bottom + SLACK_PX);
+    expect(r.right).toBeLessThanOrEqual(s.right + SLACK_PX);
+    await shot(id, 'found');
+  });
+});

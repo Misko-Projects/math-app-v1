@@ -593,7 +593,11 @@ export const moneyCoins: GeneratorDef = {
     if (w.format === 'number-pad' && asStr(out.params.mode) === 'ways') {
       return [
         say('gen.money.coins.ways-big-first', {}),
-        say('gen.money.coins.ways-count', { n: value }, { op: 'type', args: { blank: 'x', value } }),
+        say(
+          'gen.money.coins.ways-count',
+          { n: value },
+          { op: 'type', args: { blank: 'x', value } },
+        ),
       ];
     }
     if (w.format === 'number-pad') {

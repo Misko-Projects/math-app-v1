@@ -174,6 +174,8 @@ const SLICE_4A = [
 const SLICE_4B = ['MEA.03', 'MEA.10', 'DAT.04', 'DAT.05', 'GEO.12', 'GEO.15', 'GEO.16'] as const;
 /** Slice 4d (#17): story problems with the bar model, grade 2. */
 const SLICE_4D = ['MDA.06', 'MDA.19', 'MEA.04', 'MON.03'] as const;
+/** Slice 4e (#17): patterns, balances and puzzles, grade 2. */
+const SLICE_4E = ['ALG.06', 'ALG.07', 'ALG.10', 'PUZ.04', 'PUZ.06', 'PUZ.07', 'PUZ.09'] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -688,6 +690,7 @@ describe('session simulation (04 §8)', () => {
       slice('slice 4a', SLICE_4A);
       slice('slice 4b', SLICE_4B);
       slice('slice 4d', SLICE_4D);
+      slice('slice 4e', SLICE_4E);
       // Fact fluency: no simulated child turns fluent (see SLICE_1B_FLUENCY), so practice only.
       slice('slice 1b fluency', SLICE_1B_FLUENCY, false);
       console.log(

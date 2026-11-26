@@ -13,12 +13,7 @@
 //   each needed (CLUE_SETS). `fives`: it has `t` tens, it is odd, you say it counting by fives
 //   (10t + 5). `near`: it is more than n − 2, less than n + 2, and odd or even (n).
 
-import type {
-  LessonStep,
-  ParamValues,
-  ResponseValue,
-  StimulusSpec,
-} from '@number-island/shared';
+import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
 import type { Rng } from '../../rng';
 import { asNum, asStr } from '../common';
 
@@ -107,7 +102,9 @@ export const digitsOf = (p: ParamValues): number[] =>
 /** The digits in the order that makes the wanted number: biggest first for the biggest. */
 export function digitOrder(p: ParamValues): number[] {
   const ds = [...digitsOf(p)];
-  return asStr(p.want, 'biggest') === 'smallest' ? ds.sort((a, b) => a - b) : ds.sort((a, b) => b - a);
+  return asStr(p.want, 'biggest') === 'smallest'
+    ? ds.sort((a, b) => a - b)
+    : ds.sort((a, b) => b - a);
 }
 
 export const numberOf = (ds: readonly number[]): number => ds.reduce((n, d) => 10 * n + d, 0);
@@ -207,7 +204,11 @@ export function k02Build(p: ParamValues, format: string, rng: Rng): K02Build {
         : { r, c, blank: true, cage: id };
     });
     const constraints = [
-      ...[...cages].map(([id, cs]) => ({ kind: 'cage-sum' as const, cage: id, sum: cageSum(sq, cs) })),
+      ...[...cages].map(([id, cs]) => ({
+        kind: 'cage-sum' as const,
+        cage: id,
+        sum: cageSum(sq, cs),
+      })),
       { kind: 'row-unique' as const },
       { kind: 'col-unique' as const },
     ];
@@ -338,7 +339,6 @@ export function k02Solution(
   p: ParamValues,
   // biome-ignore lint/suspicious/noExplicitAny: a built widget config.
   w: any,
-  answer: number | number[] | null,
 ): LessonStep[] {
   const variant = asStr(p.variant);
   if (variant === 'cage-sum' && w.format === 'puzzle-grid') {
@@ -362,12 +362,19 @@ export function k02Solution(
   if (variant === 'digit-cards') {
     const order = digitOrder(p);
     const want = asStr(p.want, 'biggest');
-    const first = say(want === 'smallest' ? 'gen.puzzle.grid.digits-small' : 'gen.puzzle.grid.digits-big', {});
+    const first = say(
+      want === 'smallest' ? 'gen.puzzle.grid.digits-small' : 'gen.puzzle.grid.digits-big',
+      {},
+    );
     if (w.format === 'order') {
-      const ids = order.map((d) => (w.items as { id: string; value: number }[]).find((x) => x.value === d)?.id);
+      const ids = order.map(
+        (d) => (w.items as { id: string; value: number }[]).find((x) => x.value === d)?.id,
+      );
       return [
         first,
-        ...ids.map((id, slot) => say('gen.puzzle.grid.digits-next', {}, { op: 'drag', args: { id, slot } })),
+        ...ids.map((id, slot) =>
+          say('gen.puzzle.grid.digits-next', {}, { op: 'drag', args: { id, slot } }),
+        ),
       ];
     }
     const n = numberOf(order);

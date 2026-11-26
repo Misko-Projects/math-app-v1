@@ -604,10 +604,7 @@ export const puzzleGrid: GeneratorDef = {
   },
   solution(out): LessonStep[] {
     const w = out.widget;
-    if (isK02Variant(asStr(out.params.variant))) {
-      const a = out.answer;
-      return k02Solution(out.params, w, a.kind === 'number' ? a.value : null);
-    }
+    if (isK02Variant(asStr(out.params.variant))) return k02Solution(out.params, w);
     if (w.format === 'hundred-chart') {
       return [
         say('gen.puzzle.grid.piece', {}, { op: 'highlight-row', args: { n: 0 } }),

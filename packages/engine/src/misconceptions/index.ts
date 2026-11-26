@@ -26,6 +26,12 @@ import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
+import {
+  cageRepeatDigit,
+  digitOrderReversed,
+  growAsRepeat,
+  wayCountedTwice,
+} from './rules/k02Puzzles';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { minuteHandAsMinutes } from './rules/minuteHandNumber';
 import {
@@ -37,12 +43,6 @@ import {
   timesZeroKeeps,
 } from './rules/multiplication';
 import { offByOneCounting } from './rules/offByOneCounting';
-import {
-  cageRepeatDigit,
-  digitOrderReversed,
-  growAsRepeat,
-  wayCountedTwice,
-} from './rules/k02Puzzles';
 import { patternRestart } from './rules/patternRestart';
 import { perceptualSize } from './rules/perceptualSize';
 import { placeSwap } from './rules/placeSwap';
