@@ -55,7 +55,7 @@ import {
   sampleAll,
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput, ParamDecl } from '../types';
-import { STORY_CONTEXT_IDS, STORY_CONTEXTS, type StoryContext } from './contexts';
+import { MEASURE_UNITS, STORY_CONTEXT_IDS, STORY_CONTEXTS, type StoryContext } from './contexts';
 import {
   SITUATION_WEIGHT,
   STORY_SITUATIONS,
@@ -73,6 +73,10 @@ const EQUATION_SITUATIONS = new Set<StorySituation>([
   'put-together/total',
 ]);
 const WORKSPACES = ['none', 'counters', 'ten-frame', 'bar-model', 'number-line'] as const;
+/** The contexts of things to count: the default draw (measured ones are named by a template). */
+const COUNTED_CONTEXT_IDS = STORY_CONTEXT_IDS.filter((id) => !STORY_CONTEXTS[id]?.measure);
+/** The largest number a story may tell or ask (MDA.06, MEA.04, MON.03: within 100). */
+export const STORY_MAX_N = 100;
 const CONTAINER: Record<string, 'basket' | 'jar'> = {
   'beach-shells': 'basket',
   'lighthouse-lanterns': 'jar',
@@ -105,8 +109,25 @@ const PARAMS: Record<string, ParamDecl> = {
   context: {
     type: 'string',
     values: [...STORY_CONTEXT_IDS],
-    default: { kind: 'choice', values: [...STORY_CONTEXT_IDS] },
-    doc: 'the contexts.yaml story context (scene, nouns, verbs)',
+    default: { kind: 'choice', values: [...COUNTED_CONTEXT_IDS] },
+    doc: 'the contexts.yaml story context (scene, nouns, verbs); a measured one (sawmill-planks, market-stall) is named by its template',
+  },
+  unit: {
+    type: 'string',
+    values: [...new Set(Object.values(MEASURE_UNITS).flat())],
+    default: { kind: 'const', value: 'in' },
+    doc: "a measured context's unit: in, ft, cm or m (sawmill-planks), cent or dollar (market-stall)",
+  },
+  picture: {
+    type: 'string',
+    values: ['scene', 'bar-model'],
+    default: { kind: 'const', value: 'scene' },
+    doc: 'story-problem (pictorial): the told things as sprites, or the bar model (two-digit and measured stories)',
+  },
+  dollar: {
+    type: 'int',
+    default: { kind: 'const', value: 0 },
+    doc: 'market-stall take-from/result in cents: 1 tells the start as "one dollar" (a = 100)',
   },
   ask: {
     type: 'string',
@@ -191,6 +212,33 @@ function valid(p: ParamValues, t: ItemTemplate): boolean {
   if (Math.max(s.a, s.b, s.c, s.result) > maxN) return false;
   if (Math.max(s.a, s.b, s.c) > asNum(p.maxTold, 20)) return false;
   if (s.situation === 'put-together/both' ? s.result < 2 : s.result < 1) return false;
+  // #17 slice 4d bounds: numbers to 100; counters and ten-frames only within 20; the bar-model
+  // picture on a pictorial story; a measured context only on story-problem, in one of its units,
+  // with no third number; "one dollar" only as 100 cents to spend.
+  if (maxN > STORY_MAX_N || asNum(p.maxTold, 20) > STORY_MAX_N) return false;
+  // Past 20 and in measured stories, no told number equals the answer, which the child could
+  // copy from the story (a K–1 template keeps its draws and stats).
+  if ((maxN > 20 || ctx.measure) && [s.a, s.b, s.c].includes(s.result)) return false;
+  const workspace = asStr(p.workspace, 'counters');
+  const board = workspace === 'counters' || workspace === 'ten-frame';
+  if (t.format === 'story-problem' && board && maxN > 20) return false;
+  const picture = asStr(p.picture, 'scene');
+  if (picture === 'bar-model' && (t.format !== 'story-problem' || t.tier !== 'pictorial'))
+    return false;
+  if (ctx.measure) {
+    if ((t.format !== 'story-problem' && t.format !== 'number-pad') || s.c > 0) return false;
+    if (!MEASURE_UNITS[ctx.measure].includes(asStr(p.unit, 'in'))) return false;
+    // A measured story has no things to draw: its picture is the bar model.
+    if (t.tier !== 'abstract') {
+      if (t.format === 'story-problem' && picture !== 'bar-model') return false;
+      if (t.format === 'number-pad' && t.representation !== 'bar-model') return false;
+    }
+  }
+  const dollar = asNum(p.dollar, 0);
+  if (dollar !== 0) {
+    if (dollar !== 1 || ctx.measure !== 'money' || asStr(p.unit, 'in') !== 'cent') return false;
+    if (s.situation !== 'take-from/result' || s.a !== 100) return false;
+  }
   const ask = asStr(p.ask, 'answer');
   switch (t.format) {
     case 'story-problem':
@@ -241,8 +289,9 @@ function sampleStory(spec: Record<string, ParamSpec>, rng: Rng): ParamValues {
 type Line = { key: string; vars: Record<string, string | number> };
 
 /** The story lines (story-problem `lines`), in telling order; the last one asks the question. */
-export function storyLines(s: Story, context: string): Line[] {
+export function storyLines(s: Story, context: string, unit = 'in', dollar = 0): Line[] {
   const ctx = STORY_CONTEXTS[context] as StoryContext;
+  if (ctx.measure) return measuredLines(s, ctx.measure, unit, dollar);
   const who = '@resident';
   const item = nounOf(s, ctx);
   const base = { who, item, many: 2 };
@@ -321,8 +370,94 @@ export function storyLines(s: Story, context: string): Line[] {
   }
 }
 
+/**
+ * The lines of a measured story (#17 slice 4d): planks in a length unit (p.story.len.*) or prices
+ * in cents or dollars (p.story.money.*). Each amount is told with its unit, and the question names
+ * the unit, so the answer box needs none. Compare stories set a first plank against a second one,
+ * or a kite against an apple; the bigger is the first plank and the kite.
+ */
+function measuredLines(
+  s: Story,
+  measure: 'length' | 'money',
+  unit: string,
+  dollar: number,
+): Line[] {
+  const p = measure === 'length' ? 'p.story.len' : 'p.story.money';
+  const L = (k: string, vars: Record<string, string | number> = {}): Line => ({
+    key: `${p}.${k}`,
+    vars: { who: '@resident', unit, many: 2, ...vars },
+  });
+  const { a, b } = s;
+  switch (s.situation) {
+    case 'add-to/result':
+      return [L('has', { n: a }), L('add', { n: b }), L('q.now')];
+    case 'add-to/change':
+      return [L('has', { n: a }), L('add-some'), L('now', { n: b }), L('q.add')];
+    case 'add-to/start':
+      return [L('has-some'), L('add', { n: a }), L('now', { n: b }), L('q.start')];
+    case 'take-from/result':
+      return [dollar ? L('has-dollar') : L('has', { n: a }), L('take', { n: b }), L('q.left')];
+    case 'take-from/change':
+      return [L('has', { n: a }), L('take-some'), L('now-left', { n: b }), L('q.take')];
+    case 'take-from/start':
+      return [L('has-some'), L('take', { n: a }), L('now-left', { n: b }), L('q.start')];
+    case 'put-together/total':
+      return [L('first', { n: a }), L('second', { n: b }), L('q.all')];
+    case 'put-together/addend':
+      return [L('both', { n: a }), L('first', { n: b }), L('q.second')];
+    case 'put-together/both':
+      return [L('both', { n: a }), L('q.each')];
+    case 'compare/difference-more':
+      return [L('big', { n: a }), L('small', { n: b }), L('q.more')];
+    case 'compare/difference-fewer':
+      return [L('big', { n: a }), L('small', { n: b }), L('q.fewer')];
+    case 'compare/bigger-more':
+      return [L('small', { n: a }), L('big-more', { n: b }), L('q.big')];
+    case 'compare/bigger-fewer':
+      return [L('small', { n: a }), L('small-fewer', { n: b }), L('q.big')];
+    case 'compare/smaller-fewer':
+      return [L('big', { n: a }), L('small-fewer', { n: b }), L('q.small')];
+    case 'compare/smaller-more':
+      return [L('big', { n: a }), L('big-more', { n: b }), L('q.small')];
+  }
+}
+
+const MEASURED_LINE_KEYS = ['p.story.len', 'p.story.money'].flatMap((p) =>
+  [
+    'has',
+    'has-some',
+    'add',
+    'add-some',
+    'now',
+    'take',
+    'take-some',
+    'now-left',
+    'first',
+    'second',
+    'both',
+    'big',
+    'small',
+    'big-more',
+    'small-fewer',
+    'q.now',
+    'q.add',
+    'q.start',
+    'q.left',
+    'q.take',
+    'q.all',
+    'q.second',
+    'q.each',
+    'q.more',
+    'q.fewer',
+    'q.big',
+    'q.small',
+  ].map((k) => `${p}.${k}`),
+);
+
 /** Every story line key, for the generator's narration list (V16). */
 const STORY_LINE_KEYS = [
+  ...MEASURED_LINE_KEYS,
+  'p.story.money.has-dollar',
   'p.story.has',
   'p.story.has-some',
   'p.story.now-has',
@@ -344,7 +479,7 @@ const STORY_LINE_KEYS = [
   'p.story.cmp.q-fewer',
   'p.story.cmp.q-item',
   'p.story.cmp.q-other',
-  ...STORY_CONTEXT_IDS.flatMap((id) =>
+  ...COUNTED_CONTEXT_IDS.flatMap((id) =>
     ['add', 'add-some', 'take', 'take-some', 'q-add', 'q-take'].map((k) => `p.story.${id}.${k}`),
   ),
   'p.story.eq-plus',
@@ -381,6 +516,23 @@ function scene(s: Story, context: string): StimulusSpec {
     }
   })();
   return { kind: 'scene', context, sprites };
+}
+
+/**
+ * 03 §5.6 `regroups` (MDA.06): the computation makes or breaks a ten in the ones, for a template
+ * past 20 (within 20 `bridge10` says it, so K–1 templates keep 0 and their stats).
+ */
+export function regroups(s: Story, maxN: number): number {
+  if (maxN <= 20 || s.situation === 'put-together/both') return 0;
+  const told = [s.a, s.b, ...(s.c > 0 ? [s.c] : [])];
+  if (s.op === '+') {
+    // The asked number is the sum of the told ones (a + b (+ c)).
+    return told.reduce((acc, n) => acc + (n % 10), 0) >= 10 ? 1 : 0;
+  }
+  // A difference: the larger told number less the smaller.
+  const big = Math.max(s.a, s.b);
+  const small = Math.min(s.a, s.b);
+  return big % 10 < small % 10 ? 1 : 0;
 }
 
 /** The bar model of a story, with '?' for the asked number. */
@@ -511,6 +663,7 @@ export const storyAddsub: GeneratorDef = {
   features: {
     size: { weight: 0.3, doc: 'max(0, largest number − 5) / 10' },
     bridge10: { weight: 0.4, doc: 'the computation crosses ten' },
+    regroups: { weight: 0.4, doc: 'past 20: the ones make or break a ten (MDA.06)' },
     // 03 §5.5 story-problem features (K01: emitted by the generator until the format has a model).
     situation: { weight: 1.0, doc: 'story-problem: the situation weight prior (03 §5.5)' },
     inconsistentLanguage: {
@@ -552,6 +705,7 @@ export const storyAddsub: GeneratorDef = {
     const math: Record<string, number> = {
       size: Math.max(0, Math.max(...told, s.result) - 5) / 10,
       bridge10: lo < 10 && hi > 10 ? 1 : 0,
+      regroups: regroups(s, asNum(params.maxN, 20)),
     };
     // numeral-pick: the features describe the whole option grid, never which cell is the key, so
     // every key of one option set has the same difficulty and adaptive targeting (which picks the
@@ -573,6 +727,7 @@ export const storyAddsub: GeneratorDef = {
       who: '@resident',
       item,
       other: sc.other,
+      unit: asStr(params.unit, 'in'),
       a: s.a,
       b: s.b,
       c: s.c,
@@ -582,6 +737,8 @@ export const storyAddsub: GeneratorDef = {
     switch (t.format) {
       case 'story-problem': {
         const both = s.situation === 'put-together/both';
+        /** The box holds the largest possible answer: 3 digits only when 100 can be asked (a dollar story spends some of 100). */
+        const digits = asNum(params.maxN, 20) >= 100 && asNum(params.dollar, 0) === 0 ? 3 : 2;
         const workspace = asStr(params.workspace, 'counters') as (typeof WORKSPACES)[number];
         p = {
           params,
@@ -595,17 +752,22 @@ export const storyAddsub: GeneratorDef = {
           widget: {
             format: 'story-problem',
             context,
-            scene: t.tier === 'abstract' ? { kind: 'none' } : scene(s, context),
-            lines: storyLines(s, context),
+            scene:
+              t.tier === 'abstract'
+                ? { kind: 'none' }
+                : asStr(params.picture, 'scene') === 'bar-model'
+                  ? barModel(s)
+                  : scene(s, context),
+            lines: storyLines(s, context, asStr(params.unit, 'in'), asNum(params.dollar, 0)),
             situation: s.situation,
             steps: 1,
             workspace,
             blanks: both
               ? [
-                  { id: 'x', maxDigits: 2 },
-                  { id: 'y', maxDigits: 2 },
+                  { id: 'x', maxDigits: digits },
+                  { id: 'y', maxDigits: digits },
                 ]
-              : [{ id: 'x', maxDigits: 2 }],
+              : [{ id: 'x', maxDigits: digits }],
             showText: true,
           },
           answer: both
@@ -731,6 +893,24 @@ export const storyAddsub: GeneratorDef = {
           {},
           { op: 'highlight-line', args: { index: w.lines.length - 1 } },
         );
+        if (w.scene.kind === 'bar-model') {
+          // A bar-model story (#17 slice 4d): the worked bar, every part filled in, in the
+          // picture's place, then the sum or the difference; a comparison counts up.
+          const bar = w.scene;
+          const parts = bar.parts.map((v) => (typeof v === 'number' ? v : s.result));
+          const think =
+            s.family === 'compare' && s.op === '-'
+              ? say(
+                  'gen.story.addsub.count-up',
+                  { x: s.b, y: s.a },
+                  {
+                    op: 'draw-bar',
+                    args: { parts },
+                  },
+                )
+              : thinkLine(s, { op: 'draw-bar', args: { parts } });
+          return [first, think, answer];
+        }
         const act: LessonStep['action'] =
           sprite !== undefined
             ? { op: 'act-out', args: { sprite, count: s.a } }

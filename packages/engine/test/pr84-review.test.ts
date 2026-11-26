@@ -101,14 +101,10 @@ const STIMULUS_VIEW_FORMATS = new Set(['number-pad', 'numeral-pick', 'compare', 
  * The K01 part 7 compare and order templates (DAT.02.t4's bar charts, FRA.08.t1–t3's fraction
  * pictures) left this list when the kit drew `chart` and `fraction` (#98), and the six `shape`
  * templates (GEO.01.t3, GEO.06.t2, GEO.07.t2, GEO.08.t3, GEO.10.t3, GEO.11.t3) when it drew
- * `shape` (U05 part 1, #14).
+ * `shape` (U05 part 1, #14). The four bar-model number pads (ADD.09.t2, ADD.11.t3, ADD.12.t2,
+ * ADD.21.t3) left it when the kit drew `bar-model` (#17 slice 4d, their fit proven on seeds 1–9).
  */
-const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
-  'ADD.09.t2': 'bar-model',
-  'ADD.11.t3': 'bar-model',
-  'ADD.12.t2': 'bar-model',
-  'ADD.21.t3': 'bar-model',
-};
+const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {};
 
 /**
  * The sprite ids with their own drawing: the kit's `SPRITE_IDS` (the keys of the DRAWINGS registry

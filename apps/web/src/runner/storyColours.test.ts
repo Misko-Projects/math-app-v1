@@ -40,6 +40,16 @@ describe('the colours a story names and the colours its scene is drawn in', () =
       'ADD.20.t3',
       'ADD.21.t2',
       'ADD.25.t2',
+      // #17 slice 4d: grade 2 stories (bar-model scenes; no colour words).
+      'MDA.06.t1',
+      'MDA.06.t3',
+      'MDA.19.t1',
+      'MDA.19.t3',
+      'MEA.04.t1',
+      'MEA.04.t3',
+      'MON.03.t1',
+      'MON.03.t2',
+      'MON.03.t4',
     ]);
     const colouredLines = new Set<string>();
     let colouredScenes = 0;
@@ -70,7 +80,11 @@ describe('the colours a story names and the colours its scene is drawn in', () =
             expect(engine.STORY_COLOUR_LINES_OF_A_WHOLE, `${what}: "${text}"`).toContain(line.key);
           }
         }
-        if (told) {
+        if (told && config.scene.kind === 'bar-model') {
+          // A bar-model scene (#17 slice 4d) shows the told numbers on its pieces, not the things:
+          // nothing is drawn in a colour the story names.
+          expect(drawn, what).toEqual([]);
+        } else if (told) {
           // A line that tells the groups by colour: the scene has one group for each, in order.
           expect(drawn, what).toEqual(told);
           colouredScenes += 1;

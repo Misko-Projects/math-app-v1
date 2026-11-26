@@ -338,3 +338,112 @@ templates:
     narration:
       prompt: tp.MON.08.t4.prompt
       hints: [h.mon.tens-first, h.mon.least-first]
+
+  # ---------- MON.03 money story problems (K02 slice 4d) ----------
+  # Prices at the market in cents (story.addsub, market-stall), and "one dollar" spent in cents
+  # (t2, `dollar: 1`: the dollar is 100 cents). No answer needs a decimal point.
+
+  - id: MON.03.t1
+    skillId: MON.03
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          - add-to/result
+          - add-to/change
+          - add-to/start
+          - take-from/result
+          - take-from/change
+          - take-from/start
+          - put-together/total
+          - put-together/addend
+          - compare/difference-more
+          - compare/difference-fewer
+          - compare/bigger-more
+          - compare/smaller-fewer
+        weights: [2, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1]
+      context: market-stall
+      unit: cent
+      a: { int: [11, 89] }
+      b: { int: [11, 89] }
+      picture: bar-model
+      workspace: none
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -3.0 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.which-part, h.bar.find-missing, h.story.check] }
+
+  - id: MON.03.t2
+    skillId: MON.03
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation: take-from/result
+      context: market-stall
+      unit: cent
+      dollar: 1
+      a: 100
+      b: { int: [5, 95] }
+      picture: bar-model
+      workspace: none
+      maxN: 100
+      maxTold: 100
+    difficulty: { base: -3.6 }
+    narration:
+      { prompt: p.story.listen, hints: [h.money.dollar-cents, h.bar.find-missing, h.story.check] }
+
+  - id: MON.03.t3
+    skillId: MON.03
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: story.addsub
+    params:
+      situation: put-together/total
+      context: market-stall
+      unit: cent
+      a: { int: [11, 69] }
+      b: { int: [11, 69] }
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -2.5 }
+    narration: { prompt: tp.MON.03.t3.prompt, hints: [h.story.which-part, h.bar.find-missing] }
+
+  - id: MON.03.t4
+    skillId: MON.03
+    format: story-problem
+    tier: abstract
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          - add-to/result
+          - add-to/change
+          - add-to/start
+          - take-from/result
+          - take-from/change
+          - take-from/start
+          - put-together/total
+          - put-together/addend
+          - compare/difference-more
+          - compare/difference-fewer
+          - compare/bigger-more
+          - compare/smaller-fewer
+        weights: [1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1]
+      context: market-stall
+      unit: cent
+      a: { int: [11, 89] }
+      b: { int: [11, 89] }
+      workspace: none
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -3.0 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.which-part, h.bar.find-missing, h.story.check] }

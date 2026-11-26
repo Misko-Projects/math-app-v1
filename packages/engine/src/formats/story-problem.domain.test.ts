@@ -92,7 +92,7 @@ describe('story-problem: the bounds of what the widget draws', () => {
     expect(issues({ ...base, scene: scene(41) }).join()).toContain('a scene shows');
   });
 
-  it('a scene is a scene of sprites, or none', () => {
+  it('a scene is a scene of sprites, a bar model or none', () => {
     const line10: Config['scene'] = {
       kind: 'number-line',
       min: 0,
@@ -100,7 +100,41 @@ describe('story-problem: the bounds of what the widget draws', () => {
       ticksEvery: 1,
       labelsEvery: 1,
     };
-    expect(issues({ ...base, scene: line10 }).join()).toContain('the scene is a scene or none');
+    expect(issues({ ...base, scene: line10 }).join()).toContain(
+      'the scene is a scene, a bar model or none',
+    );
+  });
+
+  it('a bar-model scene (#17 slice 4d): 1–3 parts, numbers 1–999, a "?", two steps share null', () => {
+    const bar = (scene: Config['scene']) => issues({ ...base, scene });
+    expect(bar({ kind: 'bar-model', parts: [45, '?'], whole: 72 })).toEqual([]);
+    expect(
+      bar({ kind: 'bar-model', parts: [45, '?'], whole: 72, compare: { bigger: 72, smaller: 45 } }),
+    ).toEqual([]);
+    expect(
+      bar({
+        kind: 'bar-model',
+        parts: [15, null],
+        whole: 60,
+        lower: { parts: [null, 22], whole: '?' },
+      }),
+    ).toEqual([]);
+    // No "?" (the picture would give the answer), a part of 0, four parts, a lone null.
+    expect(bar({ kind: 'bar-model', parts: [45, 27], whole: 72 }).join()).toContain('bar model');
+    expect(bar({ kind: 'bar-model', parts: [0, '?'], whole: 72 }).join()).toContain('bar model');
+    expect(bar({ kind: 'bar-model', parts: [1, 2, 3, '?'], whole: 72 }).join()).toContain(
+      'bar model',
+    );
+    expect(bar({ kind: 'bar-model', parts: [null, '?'], whole: 72 }).join()).toContain('bar model');
+    // Review #134: both first-result markers in one bar leave the second bar unlinked.
+    expect(
+      bar({
+        kind: 'bar-model',
+        parts: [null, 15],
+        whole: null,
+        lower: { parts: [22, '?'], whole: 60 },
+      }).join(),
+    ).toContain('bar model');
   });
 
   it(`an answer box takes 1 to ${STORY_DIGITS_MAX} digits`, () => {

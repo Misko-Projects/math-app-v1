@@ -1,0 +1,101 @@
+/* The bar model (BarModelView, barModel.ts). Sizes are barModel.ts's constants. */
+.ni-bar {
+  position: relative;
+  flex: none;
+}
+.ni-bar__piece {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  border: 3px solid var(--color-ink);
+  margin-left: -1.5px;
+  border-radius: 6px;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+.ni-bar__piece[data-tone="0"] {
+  background: var(--color-sky-light);
+}
+.ni-bar__piece[data-tone="1"] {
+  background: var(--color-sunshine-light);
+}
+.ni-bar__piece[data-tone="2"] {
+  background: var(--color-leaf-light);
+}
+.ni-bar__piece[data-kind="unknown"] {
+  border-style: dashed;
+  background: var(--color-cloud);
+  color: var(--color-coral-deep);
+}
+.ni-bar__piece[data-kind="extra"] {
+  border-style: dashed;
+  background: var(--color-leaf-light);
+}
+.ni-bar__piece[data-kind="first"] {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-sand) 0 10px,
+    var(--color-sand-deep) 10px 14px
+  );
+}
+.ni-bar__link {
+  position: absolute;
+  box-sizing: border-box;
+  border-left: 3px dashed var(--color-sand-deep);
+  border-right: 3px dashed var(--color-sand-deep);
+  background: color-mix(in srgb, var(--color-sand) 55%, transparent);
+}
+.ni-bar__badge {
+  position: absolute;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 56px;
+  color: var(--color-ink-soft);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+}
+.ni-bar__brace {
+  position: absolute;
+  box-sizing: border-box;
+  height: 14px;
+  border: 3px solid var(--color-ink);
+}
+.ni-bar__brace[data-side="below"] {
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+.ni-bar__brace[data-side="above"] {
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+.ni-bar__whole {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 8px;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  white-space: nowrap;
+}
+.ni-bar__brace[data-side="below"] .ni-bar__whole {
+  top: 11px;
+}
+.ni-bar__brace[data-side="above"] .ni-bar__whole {
+  bottom: 11px;
+}
+.ni-bar__whole[data-kind="unknown"] {
+  color: var(--color-coral-deep);
+}

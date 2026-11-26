@@ -2,6 +2,8 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { BarModelView } from './BarModelView';
+import { describeBarModel } from './barModel';
 import { ChartView } from './ChartView';
 import { ClockView } from './ClockView';
 import { CoinsView, describeCoins } from './CoinsView';
@@ -20,9 +22,9 @@ import './kit.css';
  * Static pictures for `StimulusSpec` (03 §5.1): what many formats show above their answer control
  * (numeral-pick, number-pad, dot-flash, compare, order, …). Each kind has one renderer below, and
  * the switch is exhaustive: a kind added to `StimulusSpec` does not compile here, or in
- * `STIMULUS_KINDS` (stimulusKinds.ts), until someone decides how it is drawn. The kinds a later
- * widget issue still owes (`placeholder` in that table: bar models)
- * are listed by name and draw a neutral card (and a dev tag), so an item never breaks.
+ * `STIMULUS_KINDS` (stimulusKinds.ts), until someone decides how it is drawn. A kind a later
+ * widget issue still owes (`placeholder` in that table; none since bar models, #17 slice 4d)
+ * would draw a neutral card (and a dev tag), so an item never breaks.
  *
  * A stimulus is a picture, not an answer: its accessible name says what it is ("Look at the
  * picture"), never the quantity the child is asked for.
@@ -300,7 +302,16 @@ export function StimulusView({
         </div>
       );
     case 'bar-model':
-      return <PlaceholderCard kind={spec.kind} className={cls} label={name} />;
+      return (
+        <div className={cls} data-kind="bar-model">
+          <BarModelView
+            spec={spec}
+            maxWidth={maxWidth}
+            // The structure is the picture: a caller's label (a hint card's title) comes first, never instead.
+            label={label ? `${label}: ${describeBarModel(spec, t)}` : describeBarModel(spec, t)}
+          />
+        </div>
+      );
     default: {
       // Unreachable while the switch is exhaustive: a new kind fails to compile on the next line.
       // Data that skipped the schema still gets the card at run time, never a crash.

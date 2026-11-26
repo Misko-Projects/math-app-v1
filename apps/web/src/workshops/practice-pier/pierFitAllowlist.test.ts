@@ -81,7 +81,7 @@ describe('the pier fit allowlist', () => {
     const templates = Object.values(graph.templates).filter(
       (t) => t.format === 'balance' || t.format === 'story-problem',
     );
-    expect(templates).toHaveLength(15);
+    expect(templates).toHaveLength(24); // #17 slice 4d adds nine grade 2 story-problem templates
     for (const template of templates) {
       for (const viewport of FIT_VIEWPORTS) {
         expect(fitAllowance(template, viewport), `${template.id} at ${viewport}`).toBeNull();

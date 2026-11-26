@@ -156,6 +156,176 @@ p.story.lighthouse-lanterns.q-add:
   text: "How many {item|noun:many} did {who|name} light?"
 p.story.lighthouse-lanterns.q-take:
   text: "How many {item|noun:many} did {who|name} let go?"
+# Measured stories (#17 slice 4d, story.addsub measuredLines): planks at the sawmill in {unit}
+# (in, ft, cm, m), and prices at the market in cents or dollars. {n} is the amount told.
+p.story.len.has:
+  text: "{who|name} has a plank {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.has-some:
+  text: "{who|name} has a plank."
+  level: "2"
+p.story.len.add:
+  text: "{who|name} nails on a piece {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.add-some:
+  text: "{who|name} nails on one more piece."
+  level: "2"
+p.story.len.now:
+  text: "Now the plank is {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.take:
+  text: "{who|name} cuts off {n} {unit|unit:n}."
+  level: "2"
+p.story.len.take-some:
+  text: "{who|name} cuts a piece off."
+  level: "2"
+p.story.len.now-left:
+  text: "Now the plank is {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.first:
+  text: "One plank is {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.second:
+  text: "{who|name} puts a plank {n} {unit|unit:n} long at its end."
+  level: "2"
+p.story.len.both:
+  text: "Two planks, end to end, are {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.big:
+  text: "The first plank is {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.small:
+  text: "The second plank is {n} {unit|unit:n} long."
+  level: "2"
+p.story.len.big-more:
+  text: "The first plank is {n} {unit|unit:n} longer than the second plank."
+  level: "2"
+p.story.len.small-fewer:
+  text: "The second plank is {n} {unit|unit:n} shorter than the first plank."
+  level: "2"
+p.story.len.q.now:
+  text: "How many {unit|unit:many} long is the plank now?"
+  level: "2"
+p.story.len.q.add:
+  text: "How many {unit|unit:many} long was the new piece?"
+  level: "2"
+p.story.len.q.start:
+  text: "How many {unit|unit:many} long was the plank at the start?"
+  level: "2"
+p.story.len.q.left:
+  text: "How many {unit|unit:many} long is the plank now?"
+  level: "2"
+p.story.len.q.take:
+  text: "How many {unit|unit:many} did {who|name} cut off?"
+  level: "2"
+p.story.len.q.all:
+  text: "How many {unit|unit:many} long are the two planks together?"
+  level: "2"
+p.story.len.q.second:
+  text: "How many {unit|unit:many} long is the other plank?"
+  level: "2"
+p.story.len.q.each:
+  text: "How long could each plank be?"
+  level: "2"
+p.story.len.q.more:
+  text: "How many {unit|unit:many} longer is the first plank?"
+  level: "2"
+p.story.len.q.fewer:
+  text: "How many {unit|unit:many} shorter is the second plank?"
+  level: "2"
+p.story.len.q.big:
+  text: "How many {unit|unit:many} long is the first plank?"
+  level: "2"
+p.story.len.q.small:
+  text: "How many {unit|unit:many} long is the second plank?"
+  level: "2"
+p.story.money.has:
+  text: "{who|name} has {n} {unit|unit:n}."
+  level: "2"
+p.story.money.has-dollar:
+  text: "{who|name} has one dollar."
+  level: "2"
+p.story.money.has-some:
+  text: "{who|name} has some {unit|unit:many}."
+  level: "2"
+p.story.money.add:
+  text: "{who|name} gets {n} more {unit|unit:n} for a job."
+  level: "2"
+p.story.money.add-some:
+  text: "{who|name} gets some more for a job."
+  level: "2"
+p.story.money.now:
+  text: "Now {who|name} has {n} {unit|unit:n}."
+  level: "2"
+p.story.money.take:
+  text: "{who|name} buys an apple for {n} {unit|unit:n}."
+  level: "2"
+p.story.money.take-some:
+  text: "{who|name} buys an apple."
+  level: "2"
+p.story.money.take2:
+  text: "Then {who|name} buys a kite for {n} {unit|unit:n}."
+  level: "2"
+p.story.money.now-left:
+  text: "Now {who|name} has {n} {unit|unit:n} left."
+  level: "2"
+p.story.money.first:
+  text: "An apple costs {n} {unit|unit:n}."
+  level: "2"
+p.story.money.second:
+  text: "A kite costs {n} {unit|unit:n}."
+  level: "2"
+p.story.money.both:
+  text: "An apple and a kite cost {n} {unit|unit:n} in all."
+  level: "2"
+p.story.money.big:
+  text: "A kite costs {n} {unit|unit:n}."
+  level: "2"
+p.story.money.small:
+  text: "An apple costs {n} {unit|unit:n}."
+  level: "2"
+p.story.money.big-more:
+  text: "The kite costs {n} {unit|unit:n} more than the apple."
+  level: "2"
+p.story.money.small-fewer:
+  text: "The apple costs {n} {unit|unit:n} less than the kite."
+  level: "2"
+p.story.money.q.now:
+  text: "How many {unit|unit:many} does {who|name} have now?"
+  level: "2"
+p.story.money.q.add:
+  text: "How many {unit|unit:many} did {who|name} get for the job?"
+  level: "2"
+p.story.money.q.start:
+  text: "How many {unit|unit:many} did {who|name} have at the start?"
+  level: "2"
+p.story.money.q.left:
+  text: "How many {unit|unit:many} does {who|name} have left?"
+  level: "2"
+p.story.money.q.take:
+  text: "How many {unit|unit:many} did the apple cost?"
+  level: "2"
+p.story.money.q.all:
+  text: "How many {unit|unit:many} do the apple and the kite cost in all?"
+  level: "2"
+p.story.money.q.second:
+  text: "How many {unit|unit:many} does the kite cost?"
+  level: "2"
+p.story.money.q.each:
+  text: "What could each one cost?"
+  level: "2"
+p.story.money.q.more:
+  text: "How many more {unit|unit:many} does the kite cost?"
+  level: "2"
+p.story.money.q.fewer:
+  text: "How many fewer {unit|unit:many} does the apple cost?"
+  level: "2"
+p.story.money.q.big:
+  text: "How many {unit|unit:many} does the kite cost?"
+  level: "2"
+p.story.money.q.small:
+  text: "How many {unit|unit:many} does the apple cost?"
+  level: "2"
 # Equation options (ADD.23 numeral-pick) and the equation a number pad story finishes.
 p.story.eq-plus:
   text: "{x} + {y} = {z}"
@@ -745,6 +915,16 @@ h.story.extra-ones:
   text: "Match them up. Count the ones left over."
 h.story.count-groups:
   text: "Count each group. Then count them all."
+# K02 slice 4d (#17): grade 2 story problems.
+h.story.two-steps:
+  text: "What happens first? Find that. Then do the next step."
+  level: "2"
+h.len.same-unit:
+  text: "All the lengths use the same unit. Is the length you need a part or the whole?"
+  level: "2"
+h.money.dollar-cents:
+  text: "One dollar is the same as one hundred cents."
+  level: "2"
 
 # ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
 # Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
@@ -1364,6 +1544,18 @@ gen.addsub.three.answer:
   text: "That makes {n} in all."
 gen.story.addsub.listen:
   text: "Listen to the story again."
+gen.story.twostep.listen:
+  text: "Listen to the story again. It has two steps."
+  level: "2"
+gen.story.twostep.join:
+  text: "{x} and {y} make {n}."
+  level: "2"
+gen.story.twostep.take:
+  text: "{x} take away {y} leaves {n}."
+  level: "2"
+gen.story.twostep.answer:
+  text: "So the answer is {n}."
+  level: "2"
 gen.story.addsub.join:
   text: "Put {x} and {y} together."
 gen.story.addsub.join-three:
@@ -2245,6 +2437,10 @@ fb.mc.keyword-more-means-add:
   text: "Match them up. How many are left over?"
 fb.mc.start-unknown-reversed:
   text: "Put your number in the box. Is it true?"
+fb.mc.first-step-only:
+  text: "That is the first step. There is one more."
+fb.mc.dollar-as-one:
+  text: "A dollar is one hundred cents."
 # K02 (#17) slice 1b: skip counting, counting across a hundred, number lines to 1000, closer to
 # which, partners of 100 and rounding. No line names a number an item asks for.
 p.count.skip-to:

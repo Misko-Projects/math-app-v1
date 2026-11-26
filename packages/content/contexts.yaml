@@ -48,7 +48,7 @@ contexts:
     nouns: [coin, apple, kite]
     place: market
     verbs: { addTo: buy, takeFrom: sell }
-    situations: [money, compare, add-to, take-from]
+    situations: [money, compare, add-to, take-from, put-together]
     maxQuantity: 100
   - id: lighthouse-lanterns
     nouns: [lantern, firefly]

@@ -79,6 +79,20 @@ export interface BuildInput {
   scene: readonly number[];
   /** Whether the item has a counters board. */
   board: boolean;
+  /**
+   * A bar-model scene (#17 slice 4d) instead of sprites: its least width and its height (kit
+   * `layoutBarModel`). It takes what the card leaves, up to BAR_MAX_W.
+   */
+  bar?: { minWidth: number; h: number } | undefined;
+}
+
+/** The widest a bar-model scene is drawn beside the story. */
+export const BAR_MAX_W = 440;
+
+/** The bar model's width beside a card of at least `share` of the room (and CARD_MIN_W). */
+export function barWidth(inner: Size, bar: { minWidth: number }, share: number): number {
+  const card = Math.max(CARD_MIN_W, Math.ceil(inner.w * share));
+  return Math.max(bar.minWidth, Math.min(BAR_MAX_W, inner.w - STEP_GAP - card));
 }
 
 export interface BuildLayout {
@@ -90,9 +104,11 @@ export interface BuildLayout {
   side: Size | null;
 }
 
-function buildAt(input: BuildInput, s: number): BuildLayout {
+function buildAt(input: BuildInput, s: number, share = CARD_SHARE): BuildLayout {
   const inner = buildRoom(input.room, input.button);
-  const scene = sceneSize(input.scene, s);
+  const scene = input.bar
+    ? { w: barWidth(inner, input.bar, share), h: input.bar.h }
+    : sceneSize(input.scene, s);
   const board = input.board ? boardSize(s, input.ageMode) : { w: 0, h: 0 };
   const parts = [scene, board].filter((p) => p.h > 0);
   if (parts.length === 0) {
@@ -114,11 +130,11 @@ export function planBuild(input: BuildInput): BuildLayout {
   const inner = buildRoom(input.room, input.button);
   for (const share of [CARD_SHARE, 0]) {
     for (let s = ITEM_MAX; s >= STORY_MIN_ITEM; s -= 2) {
-      const l = buildAt(input, s);
+      const l = buildAt(input, s, share);
       if (l.fits && l.card >= inner.w * share) return l;
     }
   }
-  return buildAt(input, STORY_MIN_ITEM);
+  return buildAt(input, STORY_MIN_ITEM, 0);
 }
 
 /**

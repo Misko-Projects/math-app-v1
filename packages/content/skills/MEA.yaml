@@ -29,6 +29,17 @@ skills:
     gateway: false
     representations: [units, ruler]
 
+  # K02 slice 4d (#17): planks in inches or centimeters, with the bar model (as built: no ruler or
+  # number line; number-line-jump is a follow-up).
+  - id: MEA.04
+    name: Length story problems within 100
+    kind: problem-solving
+    grade: 2
+    standards: { ccss: [2.MD.B.5, 2.MD.B.6] }
+    prerequisites: [MEA.03, MDA.03, MDA.12]
+    gateway: false
+    representations: [story, bar-model]
+
   - id: MEA.07
     name: Order three things by length, and compare two with a third
     kind: concept

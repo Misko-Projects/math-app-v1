@@ -743,6 +743,12 @@ Contract adjustment made by K01 (#11, strategy praise, 2026-11-18):
 |---|---|---|
 | K2 | **Strategy ids and `detectStrategies`.** *New* `StrategyId` (`strategy.kebab-case`, §4.1) with `strategyIdSchema`, `STRATEGY_ID_PATTERN` and `STRATEGY_IDS` (`strategy.counted-on`, `strategy.made-ten`, `strategy.used-doubles`) in `packages/shared/src/ids.ts`. *New* engine export `detectStrategies(item, r, meta): StrategyId[]` (§5.2), pure and deterministic. It reports strategies only for correct responses, and never when the trace shows `MC.count-all-instead`. Each strategy has a `fb.praise.<name>` line in `narration/common.yaml`. `detectProcessMisconceptions` and `MisconceptionId` are unchanged and stay misconception-only. The detector definitions are in `packages/engine/src/strategies/index.ts` and 03 §5.7. | 03 §5.7 had "a process detector" report strategies, but the only process detector returns `MisconceptionId[]`. A strategy is not a misconception: it must not reach `AttemptPayload.misconceptionIds`, the 04 §6.4 remediation, or the misconception alerts. |
 
+Contract adjustment made by K02 (#17 slice 4d, grade 2 story problems, 2026-11-26):
+
+| # | Change | Why |
+|---|---|---|
+| K3 | **Two-step bar models.** The `bar-model` `StimulusSpec` (03 §5.1) gains an optional `lower: { parts; whole }`, a second bar drawn under the first, and its amounts may be `null` (only with `lower`): the first step's result, a blank piece both bars share, never told. `stimulusSpecSchema` accepts `null` in `parts` and `whole` and the `lower` object; the story-problem format accepts a `bar-model` scene (1–3 parts a bar, numbers 1–999, at least one `"?"`, a comparison or a second bar but not both, and `null` in both bars or neither). Existing specs are unchanged. | MDA.19's two-step stories show the order of their steps: what is found first feeds the second bar (story.twostep). |
+
 ## 6. Performance budgets (enforced in CI where possible)
 
 - Initial JS (app shell + island) ≤ 350 KB gzip; each workshop chunk ≤ 120 KB gzip; Pixi chunk loads only when needed. **Content JSON (`dist/*.json`) is never bundled into JS**: it is fetched as a precached static asset at startup.

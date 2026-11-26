@@ -362,12 +362,16 @@ time.hour.many:
 # ---------- money ----------
 money.cent.one:
   text: "cent"
+  level: "2"
 money.cent.many:
   text: "cents"
+  level: "2"
 money.dollar.one:
   text: "dollar"
+  level: "2"
 money.dollar.many:
   text: "dollars"
+  level: "2"
 
 # ---------- unit: measurement units (one, many) ----------
 unit.in.one:
@@ -386,6 +390,19 @@ unit.m.one:
   text: "meter"
 unit.m.many:
   text: "meters"
+# Money stories (MON.03): amounts in cents or dollars.
+unit.cent.one:
+  text: "cent"
+  level: "2"
+unit.cent.many:
+  text: "cents"
+  level: "2"
+unit.dollar.one:
+  text: "dollar"
+  level: "2"
+unit.dollar.many:
+  text: "dollars"
+  level: "2"
 unit.g.one:
   text: "gram"
 unit.g.many:

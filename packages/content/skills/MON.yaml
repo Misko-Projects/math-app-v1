@@ -49,6 +49,17 @@ skills:
     gateway: false
     representations: [coins, bills, symbols]
 
+  # K02 slice 4d (#17): prices in cents and "one dollar" as 100 cents, with the bar model (as
+  # built: no coin-pay story; a follow-up).
+  - id: MON.03
+    name: Money story problems with dollars and cents
+    kind: problem-solving
+    grade: 2
+    standards: { ccss: [2.MD.C.8] }
+    prerequisites: [MON.06, MDA.06]
+    gateway: false
+    representations: [story, bar-model]
+
   - id: MON.08
     name: Which purse has more? Compare amounts of money
     kind: concept

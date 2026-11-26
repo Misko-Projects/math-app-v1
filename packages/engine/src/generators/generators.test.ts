@@ -1211,6 +1211,7 @@ describe('registry', () => {
       'pv.round',
       'pv.tenmore',
       'story.addsub',
+      'story.twostep',
       'subitize.flash',
       'time.clock',
       'time.sequence',

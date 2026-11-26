@@ -155,7 +155,7 @@ misconceptions:
     name: Adds whenever a story says "more", even when it takes away
     detect: { kind: answer, rule: keywordMoreMeansAdd }
     appliesTo: { generators: [story.addsub] }
-    skills: [ADD.12, ADD.21]
+    skills: [ADD.12, ADD.21, MDA.06, MEA.04, MON.03]
     remediation: [ADD.21]
     feedback: fb.mc.keyword-more-means-add
     parentTip: >-
@@ -178,7 +178,7 @@ misconceptions:
     name: With the start unknown, does the operation it sees instead of undoing it
     detect: { kind: answer, rule: startUnknownReversed }
     appliesTo: { generators: [equality.eq, story.addsub, addsub.facts] }
-    skills: [ADD.11, ADD.12]
+    skills: [ADD.11, ADD.12, MDA.06, MEA.04, MON.03]
     remediation: [ADD.09, ADD.11]
     feedback: fb.mc.start-unknown-reversed
     priority: 55
@@ -201,6 +201,62 @@ misconceptions:
         params: { situation: take-from/start, context: beach-shells, a: 3, b: 5 }
         response: { kind: number, value: 2 }
         match: true
+
+  # K02 slice 4d (#17): grade 2 story problems.
+  - id: MC.first-step-only
+    name: Stops after the first step of a two-step story and gives that number
+    detect: { kind: answer, rule: firstStepOnly }
+    appliesTo: { generators: [story.twostep] }
+    skills: [MDA.19]
+    remediation: [MDA.06]
+    feedback: fb.mc.first-step-only
+    priority: 60
+    parentTip: >-
+      Ask "What happened first? And then what?" and have your child solve one part at a time.
+    examples:
+      - params: { ops: "+-", context: beach-shells, a: 50, b: 20, c: 15 }
+        response: { kind: number, value: 70 }
+        match: true
+      - params: { ops: "-+", context: beach-shells, a: 60, b: 15, c: 22 }
+        response: { kind: number, value: 45 }
+        match: true
+      - params: { ops: "+-", context: beach-shells, a: 50, b: 20, c: 15 }
+        response: { kind: number, value: 55 }
+        match: false
+
+  - id: MC.dollar-as-one
+    name: Takes "one dollar" as 1, not 100 cents
+    detect: { kind: answer, rule: dollarAsOne }
+    appliesTo: { generators: [story.addsub] }
+    skills: [MON.03]
+    remediation: [MON.06]
+    feedback: fb.mc.dollar-as-one
+    priority: 60
+    parentTip: >-
+      Trade a dollar bill for ten dimes, then count the dimes by tens up to one hundred cents.
+    examples:
+      - params:
+          situation: take-from/result
+          context: market-stall
+          unit: cent
+          dollar: 1
+          a: 100
+          b: 35
+          maxN: 100
+          maxTold: 100
+        response: { kind: number, value: 34 }
+        match: true
+      - params:
+          situation: take-from/result
+          context: market-stall
+          unit: cent
+          dollar: 1
+          a: 100
+          b: 35
+          maxN: 100
+          maxTold: 100
+        response: { kind: number, value: 65 }
+        match: false
 
   # K02 slice 2a (#17): the column bugs of two-digit addition and subtraction.
   - id: MC.forgot-to-regroup-add

@@ -36,3 +36,9 @@ tp.MON.08.t3.prompt:
   text: "Put the purses in order, from the least money to the most."
 tp.MON.08.t4.prompt:
   text: "Put the amounts in order, from the least to the most."
+sk.MON.03.intro:
+  text: "Add and take away cents to solve money stories."
+  level: "2"
+tp.MON.03.t3.prompt:
+  text: "An apple costs {a} cents. A kite costs {b} cents. How many cents is that in all?"
+  level: "2"

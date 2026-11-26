@@ -16,9 +16,11 @@ import { compareFirstDigit } from './rules/compareFirstDigit';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
+import { dollarAsOne } from './rules/dollarAsOne';
 import { equalsAddAll } from './rules/equalsAddAll';
 import { equalsMeansAnswer } from './rules/equalsMeansAnswer';
 import { faceValue } from './rules/faceValue';
+import { firstStepOnly } from './rules/firstStepOnly';
 import { forgotTheTen } from './rules/forgotTheTen';
 import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
@@ -81,6 +83,8 @@ const RULES: Record<string, MisconceptionRule> = {
   equalsAddAll: equalsAddAll,
   startUnknownReversed: startUnknownReversed,
   keywordMoreMeansAdd: keywordMoreMeansAdd,
+  firstStepOnly: firstStepOnly, // K02 (#17) slice 4d: two-step stories
+  dollarAsOne: dollarAsOne, // K02 (#17) slice 4d: money stories
   symbolReversed: symbolReversed,
   // K02 (#17): place value to 1000
   zeroPlaceholder: zeroPlaceholder,
