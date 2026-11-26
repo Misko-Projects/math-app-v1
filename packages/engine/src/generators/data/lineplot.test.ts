@@ -10,6 +10,7 @@ import { BUILD_LINE_POSITIONS_MAX, GRAPH_LINE_STACK_MAX } from '../../formats/ba
 import { BUILD_DATA_MEASUREMENTS_MAX } from '../../formats/bar-graph-build';
 import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams } from '../../items/generate';
+import { workedStepActions } from '../../items/hints';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { createRng } from '../../rng';
 import { GenerationError } from '../types';
@@ -145,6 +146,23 @@ describe('data.lineplot', () => {
       built += 1;
     }
     expect(built).toBeGreaterThan(60);
+  });
+
+  it('ends a build on its last add-x and never counts a stack aloud in a read (PR #133 review)', () => {
+    const base = { min: 4, positions: 4, precision: 1, x1: 2, x2: 0, x3: 3, x4: 1 };
+    const b = tpl('bar-graph-build', { question: 'build' });
+    const build = itemSolution(make(b, { ...base, question: 'build' }), b);
+    expect(build.at(-1)?.action?.op).toBe('add-x');
+    expect(build.slice(1).every((s) => s.action?.op === 'add-x')).toBe(true);
+    for (const question of ['how-many', 'total', 'difference'] as const) {
+      const r = tpl('bar-graph-read', { question });
+      const steps = itemSolution(make(r, { ...base, question, at: 3, at2: 1 }), r);
+      const ops = steps.map((s) => s.action?.op);
+      expect(ops).not.toContain('count-pictures');
+      expect(ops.at(-1)).toBe('answer');
+      // The worked-step rung only points: no count, no answer.
+      expect(workedStepActions(steps).every((a) => a.op === 'point-bar')).toBe(true);
+    }
   });
 
   it('draws from its defaults', () => {

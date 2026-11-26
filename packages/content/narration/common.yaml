@@ -1751,9 +1751,6 @@ gen.data.lineplot.mark:
 gen.data.lineplot.count:
   text: "Count the Xs above {at}."
   level: "2"
-gen.data.lineplot.done:
-  text: "Now there is one X for each length."
-  level: "2"
 
 # ---------- K01 sharing and fractions (MUL.12, FRA.01, FRA.07, FRA.08) ----------
 # Hints name no number from the item. Solution lines before the last never say the answer.
