@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../../content/binding';
 import { formatModel } from '../../formats';
 import { checkResponse } from '../../items/check';
-import { generateItemFromParams, itemFeatures } from '../../items/generate';
+import { generateItem, generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { roundDownAlways, roundWrongPlace } from '../../misconceptions/rules/rounding';
 import { GenerationError } from '../types';
@@ -59,6 +59,30 @@ describe('pv.round', () => {
     expect(() => generateItemFromParams(tpl('number-pad'), { n: 40, place: 10 })).toThrow(
       GenerationError,
     );
+  });
+
+  it('allowHalfway: false never draws the middle (CMP.12 "closer to which?")', () => {
+    const t = tpl('numeral-pick');
+    expect(() => generateItemFromParams(t, { n: 45, place: 10, allowHalfway: false })).toThrow(
+      GenerationError,
+    );
+    expect(() => generateItemFromParams(t, { n: 350, place: 100, allowHalfway: false })).toThrow(
+      GenerationError,
+    );
+    expect(() =>
+      generateItemFromParams(t, { n: 46, place: 10, allowHalfway: false }),
+    ).not.toThrow();
+    // Every draw of a template with tens 11–99 avoids 15, 25, …, 95.
+    const closer = {
+      ...t,
+      params: {
+        n: { kind: 'int', min: 11, max: 99 },
+        allowHalfway: { kind: 'const', value: false },
+      },
+    } as ItemTemplate;
+    for (let seed = 1; seed <= 300; seed += 1) {
+      expect(Number(generateItem(closer, seed).params.n) % 10).not.toBe(5);
+    }
   });
 
   it.each<[number, number, number[]]>([

@@ -735,8 +735,7 @@ templates:
     tier: pictorial
     representation: number-line
     generator: pv.round
-    params: { n: { int: [11, 99] }, place: 10 }
-    constraints: ["n % 10 != 5"]
+    params: { n: { int: [11, 99] }, place: 10, allowHalfway: false }
     difficulty: { base: -0.3 }
     narration: { prompt: tp.CMP.12.t3.prompt, hints: [h.closer.how-far, h.closer.middle] }
 
@@ -746,8 +745,7 @@ templates:
     tier: abstract
     representation: symbols
     generator: pv.round
-    params: { n: { int: [11, 99] }, place: 10 }
-    constraints: ["n % 10 != 5"]
+    params: { n: { int: [11, 99] }, place: 10, allowHalfway: false }
     difficulty: { base: 0.0 }
     narration: { prompt: tp.CMP.12.t3.prompt, hints: [h.closer.which-tens, h.closer.middle] }
 
@@ -757,8 +755,7 @@ templates:
     tier: abstract
     representation: symbols
     generator: pv.round
-    params: { n: { int: [101, 999] }, place: 100 }
-    constraints: ["n % 100 != 50"]
+    params: { n: { int: [101, 999] }, place: 100, allowHalfway: false }
     difficulty: { base: -1.0 }
     narration: { prompt: tp.CMP.12.t5.prompt, hints: [h.closer.which-hundreds, h.closer.middle] }
 

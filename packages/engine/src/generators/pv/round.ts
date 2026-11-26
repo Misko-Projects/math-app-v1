@@ -1,7 +1,8 @@
 // pv.round (03 §5.6): round `n` to the nearest `place` (10 or 100; PV.08, PV.18), or say which of
 // the two benchmarks around it is closer (CMP.12: the same question, asked as "closer to which?").
 // Derived: `result`. A number exactly halfway rounds up (45 → 50, 350 → 400); a multiple of
-// `place` is never drawn (it would round to itself).
+// `place` is never drawn (it would round to itself), nor, with `allowHalfway: false` (CMP.12), the
+// number exactly between the benchmarks.
 //
 // Formats:
 //   numeral-pick  `n` as a numeral; three options: the two benchmarks around n (b0 below, b1 above)
@@ -51,6 +52,11 @@ export const pvRound: GeneratorDef = {
       default: { kind: 'const', value: 10 },
       doc: 'round to the nearest 10, 100 or 1000',
     },
+    allowHalfway: {
+      type: 'bool',
+      default: { kind: 'const', value: true },
+      doc: 'false: never draw n exactly between the benchmarks (CMP.12 asks "closer to which?", which has no answer there)',
+    },
   },
   derived: ['result'],
   features: {
@@ -68,8 +74,9 @@ export const pvRound: GeneratorDef = {
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: (p) => ({ result: roundParts(p).result }),
   accepts(p) {
-    const { n, place } = roundParts(p);
+    const { n, place, mid } = roundParts(p);
     if (!PLACES.has(place) || !Number.isInteger(n)) return false;
+    if (p.allowHalfway === false && n === mid) return false;
     // A multiple of the place rounds to itself; there is nothing to decide.
     return n > 0 && n % place !== 0;
   },
