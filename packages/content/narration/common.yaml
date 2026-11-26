@@ -884,7 +884,8 @@ h.add3.can-ten:
 h.add3.two-then-one:
   text: "Add two of the numbers. Then add the last one."
 h.bar.find-missing:
-  text: "Find the box. Is it a part, is it the whole?"
+  text: "Find the box with the question mark. Is it a part or the whole?"
+  level: "2"
 h.bond.join-parts:
   text: "Put both parts together. That makes the whole."
 h.numberline.from-mark:
