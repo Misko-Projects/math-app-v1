@@ -13,7 +13,7 @@
 //                 least a hundred apart so their labels never touch
 // Feature values depend on the params only.
 
-import type { LessonStep, ResponseValue } from '@number-island/shared';
+import type { LessonStep, ParamValues, ResponseValue } from '@number-island/shared';
 import { numberOptionId } from '../../formats/numeral-pick';
 import { digitCount } from '../../formats/types';
 import {
@@ -32,7 +32,7 @@ import { roundTo } from './round-model';
 const PLACES = new Set([10, 100]);
 
 /** The numbers of an item: a, b, the place, both rounded, the exact result and the estimate. */
-export function estimateParts(p: Record<string, unknown>): {
+export function estimateParts(p: ParamValues): {
   a: number;
   b: number;
   plus: boolean;
@@ -61,7 +61,7 @@ export function estimateParts(p: Record<string, unknown>): {
 }
 
 /** The estimate with both numbers cut down to the place, or null when that is the estimate or 0. */
-export function roundedDownEstimate(p: Record<string, unknown>): number | null {
+export function roundedDownEstimate(p: ParamValues): number | null {
   const { a, b, plus, place, estimate } = estimateParts(p);
   const ta = Math.floor(a / place) * place;
   const tb = Math.floor(b / place) * place;
@@ -70,7 +70,7 @@ export function roundedDownEstimate(p: Record<string, unknown>): number | null {
 }
 
 /** The three numeral-pick values: the estimate first (see the header). */
-export function estimateOptions(p: Record<string, unknown>): number[] {
+export function estimateOptions(p: ParamValues): number[] {
   const { place, estimate } = estimateParts(p);
   const down = roundedDownEstimate(p);
   const out = [estimate];

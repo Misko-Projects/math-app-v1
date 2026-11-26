@@ -81,7 +81,7 @@ describe('borrows across a zero', () => {
       expect(Math.floor(Number(p.a) / 10) % 10).toBe(0);
       expect(p.acrossZeros).toBeGreaterThanOrEqual(1);
     }
-    expect(mdaAddSub.accepts({ a: 413, b: 127, op: '-', zeroTens: true }, t)).toBe(false);
+    expect(mdaAddSub.accepts?.({ a: 413, b: 127, op: '-', zeroTens: true }, t)).toBe(false);
   });
 });
 
@@ -93,7 +93,9 @@ describe('the column algorithm beside the trade mat', () => {
     const plain = generateItemFromParams(trade, { a: 456, b: 278, op: '+' });
     expect(plain.widget.format === 'base-ten-trade' && plain.widget.showAlgorithm).toBe(false);
     const pad = tpl('number-pad', 'abstract', 'symbols', {});
-    expect(mdaAddSub.accepts({ a: 456, b: 278, op: '+', strategy: 'algorithm' }, pad)).toBe(false);
+    expect(mdaAddSub.accepts?.({ a: 456, b: 278, op: '+', strategy: 'algorithm' }, pad)).toBe(
+      false,
+    );
   });
 });
 
@@ -157,9 +159,9 @@ describe('MDA.16: the worked solution ends with the addition check', () => {
       vars: { r: 25, b: 27, a: 52 },
     });
     expect(steps.at(-2)?.say).toBe('gen.mda.addsub.is');
-    expect(mdaAddSub.accepts({ a: 52, b: 27, op: '+', checkByAdding: true }, pad)).toBe(false);
+    expect(mdaAddSub.accepts?.({ a: 52, b: 27, op: '+', checkByAdding: true }, pad)).toBe(false);
     const line = tpl('number-line-jump', 'pictorial', 'open-number-line', {});
-    expect(mdaAddSub.accepts({ a: 52, b: 27, op: '-', checkByAdding: true }, line)).toBe(false);
+    expect(mdaAddSub.accepts?.({ a: 52, b: 27, op: '-', checkByAdding: true }, line)).toBe(false);
   });
 });
 
@@ -209,7 +211,7 @@ describe('the disk bound of three-column compute (03 §5.5 place-value disks)', 
         for (const step of steps) {
           if (!step.action) continue;
           s = model.apply(s, step.action);
-          const mat = (s as { mat: Record<string, number> }).mat;
+          const mat = (s as unknown as { mat: Record<string, number> }).mat;
           fullest = Math.max(fullest, mat.hundreds ?? 0, mat.tens ?? 0, mat.ones ?? 0);
         }
         const response = replaySteps(item, steps);

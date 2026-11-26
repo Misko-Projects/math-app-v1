@@ -11,9 +11,10 @@ import { roundDownAlways } from '../../misconceptions/rules/rounding';
 import { estimateOptions, estimateParts, pvEstimate, roundedDownEstimate } from './estimate';
 
 let nextId = 0;
-const tpl = (format: ItemFormat, tier: Tier, representation: Representation): ItemTemplate =>
-  ({
-    id: `T.est.${format}.${(nextId += 1)}`,
+const tpl = (format: ItemFormat, tier: Tier, representation: Representation): ItemTemplate => {
+  nextId += 1;
+  return {
+    id: `T.est.${format}.${nextId}`,
     skillId: 'X.01',
     format,
     tier,
@@ -27,7 +28,8 @@ const tpl = (format: ItemFormat, tier: Tier, representation: Representation): It
     },
     difficulty: { base: 0, features: {} },
     narration: { prompt: 'p.x', hints: ['h.one', 'h.two', 'h.three'] },
-  }) as ItemTemplate;
+  } as ItemTemplate;
+};
 
 beforeEach(() => {
   resetContent();
@@ -64,20 +66,20 @@ describe('pv.estimate', () => {
 
   it('rejects multiples of the place, a − b with a ≤ b or an estimate of 0', () => {
     const t = tpl('number-pad', 'abstract', 'symbols');
-    expect(pvEstimate.accepts({ a: 400, b: 230, op: '+', place: 100 }, t)).toBe(false);
-    expect(pvEstimate.accepts({ a: 230, b: 410, op: '-', place: 100 }, t)).toBe(false);
-    expect(pvEstimate.accepts({ a: 240, b: 210, op: '-', place: 100 }, t)).toBe(false);
-    expect(pvEstimate.accepts({ a: 470, b: 250, op: '+', place: 100 }, t)).toBe(true);
+    expect(pvEstimate.accepts?.({ a: 400, b: 230, op: '+', place: 100 }, t)).toBe(false);
+    expect(pvEstimate.accepts?.({ a: 230, b: 410, op: '-', place: 100 }, t)).toBe(false);
+    expect(pvEstimate.accepts?.({ a: 240, b: 210, op: '-', place: 100 }, t)).toBe(false);
+    expect(pvEstimate.accepts?.({ a: 470, b: 250, op: '+', place: 100 }, t)).toBe(true);
   });
 
   it('the line runs hundred to hundred with both numbers marked at least a hundred apart', () => {
     const t = tpl('number-pad', 'pictorial', 'number-line');
-    expect(pvEstimate.accepts({ a: 470, b: 430, op: '+', place: 100 }, t)).toBe(false);
+    expect(pvEstimate.accepts?.({ a: 470, b: 430, op: '+', place: 100 }, t)).toBe(false);
     const item = generateItemFromParams(t, { a: 470, b: 250, op: '+', place: 100 });
     const w = item.widget;
     if (w.format !== 'number-pad' || w.stimulus?.kind !== 'number-line') throw new Error('no line');
     expect([w.stimulus.min, w.stimulus.max, w.stimulus.ticksEvery]).toEqual([200, 500, 100]);
-    expect(w.stimulus.marks.map((m) => m.at)).toEqual([470, 250]);
+    expect(w.stimulus.marks?.map((m) => m.at)).toEqual([470, 250]);
   });
 
   it('MC.round-down-always reads an estimate item: both numbers cut down', () => {

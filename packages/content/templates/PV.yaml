@@ -1031,10 +1031,12 @@ templates:
     tier: abstract
     representation: symbols
     generator: pv.estimate
-    params: { a: { int: [101, 899] }, b: { int: [101, 899] }, op: { choice: ["+", "-"] }, place: 100 }
+    params:
+      { a: { int: [101, 899] }, b: { int: [101, 899] }, op: { choice: ["+", "-"] }, place: 100 }
     constraints: ["result <= 999"]
     difficulty: { base: -0.7 }
-    narration: { prompt: tp.PV.19.t2.prompt, hints: [h.est.round-each-hundred, h.est.then-add-take] }
+    narration:
+      { prompt: tp.PV.19.t2.prompt, hints: [h.est.round-each-hundred, h.est.then-add-take] }
 
   - id: PV.19.t3
     skillId: PV.19
@@ -1042,7 +1044,13 @@ templates:
     tier: abstract
     representation: symbols
     generator: pv.estimate
-    params: { a: { int: [11, 899] }, b: { int: [11, 899] }, op: { choice: ["+", "-"] }, place: { choice: [10, 100] } }
+    params:
+      {
+        a: { int: [11, 899] },
+        b: { int: [11, 899] },
+        op: { choice: ["+", "-"] },
+        place: { choice: [10, 100] },
+      }
     constraints: ["result <= 999"]
     difficulty: { base: -1.1 }
     narration: { prompt: tp.PV.19.t3.prompt, hints: [h.est.round-first, h.est.then-add-take] }
