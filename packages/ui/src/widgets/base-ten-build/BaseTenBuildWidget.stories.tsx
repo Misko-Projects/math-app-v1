@@ -2979,10 +2979,15 @@ const pierDisks = (config: Config, room: PierRoom): Story => ({
  * 960 × 600, the fullest mat a shipped build generates (PV.16.t1, 999): 8 hundreds, 19 tens and
  * 9 ones beside the goal, its chips, the tray and Check. The disks stay countable (their fives
  * stand upright here, which keeps them larger), and the trade leaves them the same size.
+ *
+ * Reduced motion: the trade happens at once. This story checks the mat after it, not the move
+ * (DisksMakeAHundred does); animated, the trade's ~0.9 s of moves met `pressTrade`'s wait for
+ * the pieces to settle, and a slow CI runner sometimes ran past it (#35).
  */
 export const PierSmallDisksFullest: Story = {
   ...pierDisks(disksFuseFullest, 'small'),
   tags: ['!visual'],
+  globals: { motion: 'reduced' },
   play: async (ctx) => {
     await pierDisks(disksFuseFullest, 'small').play?.(ctx);
     const root = await findWidget(ctx.canvasElement, ROOT);
