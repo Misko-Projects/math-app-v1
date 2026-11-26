@@ -2049,6 +2049,8 @@ Notation: `v` is the correct answer, `r` the response, digits of `a` are `a₀` 
 | `MC.borrow-across-zero` | 403 − 127 → 376: the zero becomes 9, but the hundreds are not reduced | answer: the minuend has a 0 that must be borrowed across, and r = the algorithm where that 0 becomes 9 without decreasing the next place | MDA.17, MDA.18, MDA.21 | PV.16, MDA.18 |
 | `MC.add-instead-of-multiply` | 4 × 3 → 7 | answer: `×` and r = a + b (≠ a·b) | MUL.04, MUL.06, MUL.09, MUL.11, MUL.13 | MUL.02, MUL.04 |
 | `MC.skip-count-slip` | 6 × 5 → 25 or 35: one group too few or too many | answer: `×` and r ∈ {v ± a, v ± b} \ {v} | MUL.02, MUL.09, MUL.13, MUL.14, MUL.15 | MUL.02, MUL.13 |
+| `MC.times-zero-keeps` | 7 × 0 → 7 | answer: a factor is 0, the other is not, and r = the other factor (#17 slice 3b) | MUL.06 | MUL.06 |
+| `MC.double-once` | 4 × 7 → 14: doubles once only | answer: `mul.facts`, a factor 4 or 8, r = v ÷ 2 (#17 slice 3b) | MUL.14 | MUL.14 |
 | `MC.tens-dropped` | 4 × 30 → 12 | answer: `mul.tens` and r = a·(b ÷ 10) | MUL.11, MUL.19, MUL.20 | PV.10, MUL.11 |
 | `MC.partial-product-dropped` | 7 × 6 split as 5 × 6 + 2 × 6 → 30 | answer: break-apart or area-model item and r equals one partial product | MUL.07, MUL.19, MUL.20 | MUL.07 |
 | `MC.division-multiplied` | 12 ÷ 3 → 36 | answer: `÷` and r = a × b | MUL.08, MUL.17, MUL.18, MUL.21 | MUL.05, MUL.08 |
