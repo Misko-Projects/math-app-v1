@@ -499,7 +499,16 @@ export const mulFacts: GeneratorDef = {
             ? {
                 kind: 'state',
                 checker: 'array.dims',
-                target: { rows, cols, orientationMatters: true, requireSplit: true },
+                // Doubling asks for the halves: only the middle line is right (PR #131 review).
+                // `value` is the total typed after the split (read by the misconception rules).
+                target: {
+                  rows,
+                  cols,
+                  orientationMatters: true,
+                  requireSplit: true,
+                  ...(plan.strategy === 'double' ? { splitAt: f / 2 } : {}),
+                  value: result,
+                },
               }
             : { kind: 'number', value: result },
         };
@@ -651,6 +660,27 @@ export const mulFacts: GeneratorDef = {
         const last = type(plan.values.length - 1);
         if (a === 0 || b === 0) return [say('gen.mul.facts.zero', {}, last)];
         if (a === 1 || b === 1) return [say('gen.mul.facts.one', { n: a === 1 ? b : a }, last)];
+        // A fact asked in a strategy skill (MUL.14.t4, MUL.15.t4) shows that strategy, one blank.
+        const family = asStr(out.params.family, 'any');
+        if ((family === 'x4' || family === 'x8') && (f === 4 || f === 8)) {
+          const half = f / 2;
+          const part = half * o;
+          return [
+            say('gen.mul.facts.half', { f, half }),
+            say('gen.mul.facts.is', { a: half, b: o, result: part }),
+            say('gen.mul.facts.double', { part, result }, last),
+          ];
+        }
+        if ((family === 'x3' || family === 'x6' || family === 'x9') && [3, 6, 9].includes(f)) {
+          const k = f === 3 ? 2 : f === 6 ? 5 : 10;
+          const known = k * o;
+          return [
+            say('gen.mul.facts.known', { k, o, known }),
+            f === 9
+              ? say('gen.mul.facts.take-group', { o, known, result }, last)
+              : say('gen.mul.facts.add-group', { o, known, result }, last),
+          ];
+        }
         // Count by the family factor when it is a skip-count family, else by b: once per the other.
         const skip = SKIP_FAMILIES.has(asStr(out.params.family, 'any'));
         const by = skip ? f : b;

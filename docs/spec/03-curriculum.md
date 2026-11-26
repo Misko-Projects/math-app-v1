@@ -1498,7 +1498,7 @@ interface ArrayBuildConfig extends WidgetBase { format: 'array-build'; maxRows: 
   mode: 'build-dims' | 'build-total' | 'read' | 'split' | 'new-way'; rows?: number; cols?: number; total?: number;
   orientationMatters: boolean; found?: [number, number][]; sprite: SpriteId; gridShown: boolean }
 ```
-- **Answer:** `build-dims` → `state` / `array.dims` `{rows, cols, orientationMatters}` (3 × 4 also accepts 4 × 3 unless orientation matters). `build-total` → `array.area` `{total}`: any rectangle with that area. `new-way` (`PUZ.08`) → `array.area` `{total, found}`. `read` → `number`. `split` (`MUL.07`) → `array.dims` with `{requireSplit: true}`: the child places a split line at any column 1 … cols − 1 and types the total, which must equal rows × cols.
+- **Answer:** `build-dims` → `state` / `array.dims` `{rows, cols, orientationMatters}` (3 × 4 also accepts 4 × 3 unless orientation matters). `build-total` → `array.area` `{total}`: any rectangle with that area. `new-way` (`PUZ.08`) → `array.area` `{total, found}`. `read` → `number`. `split` (`MUL.07`) → `array.dims` with `{requireSplit: true}`: the child places a split line at any column 1 … cols − 1 and types the total, which must equal rows × cols. With `splitAt` (doubling, `MUL.14`, #17 slice 3b) only the line after that column (the middle) is right.
 - **Features:** `product` (per 10; 0.3), `factor.over5` (0.4), `mode.buildTotal` (0.4), `split` (0.3), `grid.off` (0.4).
 - **Tiers:** C, P. **Ops:** `drag-rect {rows, cols}`, `add-row`, `split-at {col}`, `count-rows`, `skip-count-rows`.
 

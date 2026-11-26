@@ -346,3 +346,75 @@ describe('slice 3b misconception rules', () => {
     expect(partialProductDropped.predict?.(item)).toEqual(ns(30, 12, 30));
   });
 });
+
+describe('PR #131 review round 1', () => {
+  const split = tpl('array-build', 'pictorial', 'array');
+  const pad = tpl('number-pad', 'abstract', 'symbols');
+  const st = (value: Record<string, number>) => ({ kind: 'state', value }) as const;
+  const n = (value: number) => ({ kind: 'number', value }) as const;
+
+  it('a doubling split counts only the middle line; a break-apart split takes any line', () => {
+    const dbl = solved(split, { a: 8, b: 10, family: 'x8', strategy: 'double', mode: 'split' });
+    expect(checkResponse(dbl, st({ rows: 10, cols: 8, split: 1, value: 80 })).correct).toBe(false);
+    expect(checkResponse(dbl, st({ rows: 10, cols: 8, split: 4, value: 80 })).correct).toBe(true);
+    const brk = solved(split, { a: 7, b: 6, strategy: 'break-apart', mode: 'split' });
+    expect(checkResponse(brk, st({ rows: 6, cols: 7, split: 2, value: 42 })).correct).toBe(true);
+  });
+
+  it('the number beside the three-factor box is the factor left (h.mul.easy-pair: times the other two)', () => {
+    // The number next to the box is the factor left over, for every pair choice.
+    for (const [a, b, c] of [
+      [3, 5, 2],
+      [2, 3, 4],
+      [5, 3, 2],
+      [2, 7, 5],
+    ] as const) {
+      const plan = factPlan({ a, b, c });
+      const [x, y] = plan.pair as [number, number];
+      const tk = plan.tokens;
+      const box = tk.findIndex((t) => t.t === 'blank');
+      const beside = tk[box - 1]?.t === 'rel' ? tk[box + 2] : tk[box - 2];
+      expect(beside).toEqual({ t: 'num', v: plan.left });
+      expect(x * y * plan.left).toBe(a * b * c);
+    }
+  });
+
+  it("split arrays read their misconceptions: halves only, and a part of the child's own split", () => {
+    const dbl = solved(split, { a: 8, b: 10, family: 'x8', strategy: 'double', mode: 'split' });
+    expect(doubleOnce.match(dbl, st({ rows: 10, cols: 8, split: 4, value: 40 }))).toBe(true);
+    expect(doubleOnce.predict?.(dbl)).toEqual(st({ rows: 10, cols: 8, split: 4, value: 40 }));
+    const brk = solved(split, { a: 7, b: 6, strategy: 'break-apart', mode: 'split' });
+    expect(partialProductDropped.match(brk, st({ rows: 6, cols: 7, split: 5, value: 30 }))).toBe(
+      true,
+    );
+    expect(partialProductDropped.match(brk, st({ rows: 6, cols: 7, split: 5, value: 12 }))).toBe(
+      true,
+    );
+    expect(partialProductDropped.match(brk, st({ rows: 6, cols: 7, split: 3, value: 18 }))).toBe(
+      true,
+    );
+    expect(partialProductDropped.match(brk, st({ rows: 6, cols: 7, split: 3, value: 30 }))).toBe(
+      false,
+    );
+    expect(partialProductDropped.predict?.(brk)).toEqual(
+      st({ rows: 6, cols: 7, split: 5, value: 30 }),
+    );
+  });
+
+  it('doubling the 8 too few times: 8 × 6 → 12 or 24; 4 × 8 counts as × 4', () => {
+    const eight = solved(pad, { a: 8, b: 6, family: 'x8' });
+    expect(doubleOnce.match(eight, n(12))).toBe(true);
+    expect(doubleOnce.match(eight, n(24))).toBe(true);
+    const four = solved(pad, { a: 4, b: 8, family: 'x4' });
+    expect(doubleOnce.match(four, n(16))).toBe(true);
+    expect(doubleOnce.match(four, n(8))).toBe(false);
+  });
+
+  it('a fact in a strategy skill shows that strategy in its worked solution', () => {
+    const keys = (p: ParamValues) => itemSolution(solved(pad, p), pad).map((s) => s.say);
+    expect(keys({ a: 8, b: 6, family: 'x8' })).toContain('gen.mul.facts.double');
+    expect(keys({ a: 9, b: 7, family: 'x9' })).toContain('gen.mul.facts.take-group');
+    expect(keys({ a: 6, b: 7, family: 'x6' })).toContain('gen.mul.facts.add-group');
+    expect(keys({ a: 5, b: 7, family: 'x5' })).toContain('gen.mul.facts.count-by');
+  });
+});

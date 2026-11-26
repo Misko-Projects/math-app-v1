@@ -557,7 +557,7 @@ templates:
     difficulty: { base: -0.91 }
     narration:
       prompt: tp.MUL.16.t1.prompt
-      hints: [h.mul.easy-pair, h.mul.count-by]
+      hints: [h.mul.pair-first, h.mul.count-by]
 
   - id: MUL.16.t2
     skillId: MUL.16

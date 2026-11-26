@@ -1751,7 +1751,9 @@ h.mul.near-group:
 h.mul.add-or-take-any:
   text: "Then add or take away one group."
 h.mul.easy-pair:
-  text: "Pick two numbers to times first. Any order gives the same answer."
+  text: "Look at the number next to the first box. Times the other two numbers first."
+h.mul.pair-first:
+  text: "Times {x} and {y} first. That makes one group."
 h.mul.then-last:
   text: "Then times that by the number left."
 h.mul.break-five:
@@ -1907,7 +1909,7 @@ fb.mc.skip-count-slip:
 fb.mc.times-zero-keeps:
   text: "Times zero makes zero. Zero groups have nothing in them."
 fb.mc.double-once:
-  text: "Good start! Now double it one more time."
+  text: "Good start! Double again. Times 4 doubles two times, and times 8 doubles three times."
 fb.mc.tens-dropped:
   text: "Those are tens, not ones. Put the zero back on."
 fb.mc.partial-product-dropped:

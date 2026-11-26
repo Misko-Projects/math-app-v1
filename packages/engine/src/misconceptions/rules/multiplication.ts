@@ -9,10 +9,13 @@
 // - MC.skip-count-slip (skipCountSlip): one group too few or too many, r ∈ {v ± a, v ± b} \ {v},
 //   r > 0 (an add-a-group item that forgets the extra group: 6 × 7 → 35); predict is v − b.
 // - MC.times-zero-keeps (timesZeroKeeps): 7 × 0 → 7, r = the other factor on a fact with a 0.
-// - MC.double-once (doubleOnce): 4 × 7 → 14, r = v ÷ 2 on a mul.facts fact with a factor 4 or 8.
+// - MC.double-once (doubleOnce): stops doubling too soon on a mul.facts fact with a factor 4 or
+//   8: 4 × 7 → 14 (r = v ÷ 2); when the 8 is doubled, 8 × 6 → 12 or 24 (r = v ÷ 4 or v ÷ 2).
 // - MC.tens-dropped (tensDropped): 4 × 30 → 12, r = a × (b ÷ 10) on mul.tens.
 // - MC.partial-product-dropped (partialProductDropped): 7 × 6 as 5 × 6 + 2 × 6 → 30, r = one
-//   partial product on a number-pad break-apart item.
+//   partial product on a number-pad break-apart item; on a split array, one of the two parts the
+//   child's own line makes (rows × split, rows × (cols − split)).
+// Split arrays (array-build `split`) are read through their typed total (target.value).
 
 import type { GeneratedItem, ResponseValue } from '@number-island/shared';
 import type { MisconceptionRule } from '../rules';
@@ -112,13 +115,20 @@ export const timesZeroKeeps: MisconceptionRule = {
   },
 };
 
-/** A mul.facts item with a factor 4 or 8 and a product above 0. */
-function doubled(item: GeneratedItem): Product | null {
+/**
+ * A mul.facts item with a factor 4 or 8 and a product above 0, with the totals of stopping
+ * doubling too soon: v ÷ 2, and v ÷ 4 when the 8 is the factor doubled (8 × 4 doubles the 8's
+ * partner as a × 4 would, so 4 × 8 counts as × 4).
+ */
+function doubled(item: GeneratedItem): { t: Product; short: number[] } | null {
   const t = totalItem(item);
   if (!t || item.params.a === undefined || item.params.steps !== undefined || t.v === 0) {
     return null;
   }
-  return [4, 8].includes(t.g) || [4, 8].includes(t.p) ? t : null;
+  const four = t.g === 4 || t.p === 4;
+  const eight = t.g === 8 || t.p === 8;
+  if (!four && !eight) return null;
+  return { t, short: eight && !four ? [t.v / 2, t.v / 4] : [t.v / 2] };
 }
 
 export const doubleOnce: MisconceptionRule = {
@@ -126,12 +136,12 @@ export const doubleOnce: MisconceptionRule = {
   kind: 'answer',
   applies: (item) => doubled(item) !== null,
   predict(item) {
-    const t = doubled(item);
-    return t ? withTotal(item, t, t.v / 2) : null;
+    const d = doubled(item);
+    return d ? withTotal(item, d.t, d.t.v / 2) : null;
   },
   match(item, r) {
-    const t = doubled(item);
-    return t !== null && totalIs(item, t, r, [t.v / 2]);
+    const d = doubled(item);
+    return d !== null && totalIs(item, d.t, r, d.short);
   },
 };
 
@@ -156,11 +166,25 @@ export const tensDropped: MisconceptionRule = {
   },
 };
 
-/** A number-pad break-apart item: its partial products other than the total. */
-function partials(item: GeneratedItem): { t: Product; parts: number[] } | null {
+/**
+ * A break-apart item: its partial products other than the total. On a number pad they are the
+ * first two asked values; on a split array they come from the line in `r` (or, to predict, the
+ * line after 5 columns the worked solution draws).
+ */
+function partials(item: GeneratedItem, r?: ResponseValue): { t: Product; parts: number[] } | null {
   const t = totalItem(item);
-  if (!t || item.params.strategy !== 'break-apart' || t.asked.length !== 3) return null;
-  const parts = [t.asked[0] as number, t.asked[1] as number].filter((x) => x !== t.v);
+  if (!t || item.params.strategy !== 'break-apart') return null;
+  let parts: number[];
+  if (item.widget.format === 'array-build' && item.answer.kind === 'state') {
+    const rows = Number(item.answer.target.rows);
+    const cols = Number(item.answer.target.cols);
+    const line = r?.kind === 'state' ? Number(r.value.split) : Math.min(5, cols - 1);
+    if (!Number.isInteger(line) || line < 1 || line >= cols) return null;
+    parts = [rows * line, rows * (cols - line)];
+  } else if (t.asked.length === 3) {
+    parts = [t.asked[0] as number, t.asked[1] as number];
+  } else return null;
+  parts = parts.filter((x) => x !== t.v);
   return parts.length > 0 ? { t, parts } : null;
 }
 
@@ -173,7 +197,7 @@ export const partialProductDropped: MisconceptionRule = {
     return p ? withTotal(item, p.t, p.parts[0] as number) : null;
   },
   match(item, r) {
-    const p = partials(item);
+    const p = partials(item, r);
     return p !== null && totalIs(item, p.t, r, p.parts);
   },
 };
