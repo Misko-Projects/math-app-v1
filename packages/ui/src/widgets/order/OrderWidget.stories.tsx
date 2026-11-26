@@ -1998,3 +1998,52 @@ export const MoneyOneCoinTap: Story = {
     await expect(audio.say).toHaveBeenCalledWith('ui.coin.count-one', { n: 1 });
   },
 };
+
+const objectDemo: WidgetDemo = createDemoController({ strict: true });
+
+/** An object card still names its thing during a demo move (TIM.08 events; PR #132 round 3). */
+export const ObjectDemoSpeaks: Story = {
+  args: {
+    config: {
+      format: 'order',
+      direction: 'asc',
+      items: [
+        {
+          id: 'e1',
+          value: 1,
+          stimulus: {
+            kind: 'objects',
+            set: { count: 1, sprite: 'event-wake-up', layout: 'line', layoutSeed: 1 },
+          },
+        },
+        {
+          id: 'e2',
+          value: 2,
+          stimulus: {
+            kind: 'objects',
+            set: { count: 1, sprite: 'event-lunch', layout: 'line', layoutSeed: 1 },
+          },
+        },
+        {
+          id: 'e3',
+          value: 3,
+          stimulus: {
+            kind: 'objects',
+            set: { count: 1, sprite: 'event-bedtime', layout: 'line', layoutSeed: 1 },
+          },
+        },
+      ],
+    },
+    tier: 'pictorial',
+    disabled: true,
+    demo: objectDemo,
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    await findWidget(canvasElement, ROOT);
+    await objectDemo.play({ op: 'drag', args: { id: 'e1', slot: 0 } });
+    await expect(audio.say).toHaveBeenCalledWith('ui.sprite.event-wake-up', undefined);
+  },
+};

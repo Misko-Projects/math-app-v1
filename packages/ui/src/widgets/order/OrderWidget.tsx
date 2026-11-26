@@ -479,16 +479,18 @@ export function OrderWidget({
     // its thing ("apple"), never how many or how much: a picture's quantity is the child's to find.
     if (it.label !== undefined && isNumeral(it.label)) sayNumber(Number(it.label));
     else if (!it.label && !it.stimulus) sayNumber(it.value);
+    else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
     // Money (MON.08, PR #132 review): an amount card says its amount; a purse card says how many
     // pieces it shows, never their total. On a child's tap only: a demo move plays under its own
-    // lesson line, which a card's speech would cut off (review round 2).
+    // lesson line, which a card's speech would cut off (review round 2). The cards above speak
+    // in a demo as they did before (review round 3).
     else if (byDemo) return;
     else if (it.label !== undefined && /^\d+¢$/.test(it.label)) {
       say('ui.money.amount', { cents: Number.parseInt(it.label, 10) });
     } else if (it.stimulus?.kind === 'coins') {
       const n = it.stimulus.coins.length + (it.stimulus.bills?.length ?? 0);
       say(n === 1 ? 'ui.coin.count-one' : 'ui.coin.count', { n });
-    } else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
+    }
   };
 
   /** Puts an item in a slot: its old slot frees up and the slot's occupant goes back to the tray. */
