@@ -40,4 +40,3 @@ lessons:
       - { seed: 4203254563, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [DAT.10.t1, DAT.10.t3] }
-

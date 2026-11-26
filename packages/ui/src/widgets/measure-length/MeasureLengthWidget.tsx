@@ -735,17 +735,19 @@ export function MeasureLengthWidget({
           {/* The ruler is a slider when it moves: tap-tick moves the end mark along it; on the
               concrete tier the ruler itself slides (drag, or ←/→). Otherwise (a pictorial ruler
               read on the pad) it is a fixed picture: no slider role, no tab stop. */}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: the role is slider whenever a handler acts (each returns early on a fixed ruler); Biome cannot read the conditional role */}
+          {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label names both roles, slider and img; Biome cannot read the conditional role */}
           <div
+            role={rulerAdjustable ? 'slider' : 'img'}
             {...(rulerAdjustable
               ? {
-                  role: 'slider',
                   tabIndex: disabled ? -1 : 0,
                   'aria-valuemin': 0,
                   'aria-valuemax': config.input === 'tap-tick' ? rulerMax : slideMax,
                   'aria-valuenow': config.input === 'tap-tick' ? (tapMark ?? 0) : shown,
                   'aria-disabled': disabled ? true : undefined,
                 }
-              : { role: 'img' })}
+              : {})}
             className={['ni-mlen__ruler', invite === 'ruler' ? 'ni-invite' : '']
               .filter(Boolean)
               .join(' ')}
