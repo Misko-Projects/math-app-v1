@@ -2054,6 +2054,10 @@ fb.mc.unit-gaps:
   text: "Put each one right at the end of the last one."
 fb.mc.bigger-unit-more:
   text: "Look at the size. Bigger ones fit fewer times."
+fb.mc.ruler-count-ticks:
+  text: "Count the jumps from mark to mark, not the marks."
+fb.mc.ruler-read-end:
+  text: "It does not start at 0. Count the jumps from where it starts."
 fb.mc.recount-from-one:
   text: "You counted them all. The last number you said tells how many!"
 fb.mc.decade-transition:

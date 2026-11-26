@@ -39,3 +39,43 @@ misconceptions:
       - params: { mode: two-units, unit: cube, altUnit: stick, length: 8 }
         response: { kind: numbers, values: [8, 3] }
         match: false
+
+  # K02 slice 4b (#17): reading a ruler (MEA.03). MEA.03 comes first: examples run on its first
+  # template (a measure-length item that builds `read` from these params).
+  - id: MC.ruler-count-ticks
+    name: Counts the marks on a ruler, not the spaces
+    detect: { kind: answer, rule: rulerCountTicks }
+    appliesTo: { generators: [mea.length] }
+    skills: [MEA.03, CMP.11]
+    remediation: [MEA.02, MEA.03]
+    feedback: fb.mc.ruler-count-ticks
+    priority: 50
+    parentTip: >-
+      Lay a ruler next to a crayon and count the jumps from one mark to the next together, starting
+      from 0. The first mark is the start, not "one".
+    examples:
+      - params: { mode: read, unit: in, length: 5 }
+        response: { kind: number, value: 6 }
+        match: true
+      - params: { mode: read, unit: in, length: 5 }
+        response: { kind: number, value: 4 }
+        match: false
+
+  - id: MC.ruler-read-end
+    name: Reads the number at the end when the object does not start at 0
+    detect: { kind: answer, rule: rulerReadEnd }
+    appliesTo: { generators: [mea.length] }
+    skills: [MEA.03]
+    remediation: [MEA.03]
+    feedback: fb.mc.ruler-read-end
+    priority: 50
+    parentTip: >-
+      Put a pencil on a ruler starting at 2 instead of 0. Ask how long it is, then count the jumps
+      from 2 to its end together.
+    examples:
+      - params: { mode: read, unit: cm, length: 5, offset: 2 }
+        response: { kind: number, value: 7 }
+        match: true
+      - params: { mode: read, unit: cm, length: 5, offset: 2 }
+        response: { kind: number, value: 5 }
+        match: false

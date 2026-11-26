@@ -5,6 +5,7 @@ import type { GeneratedItem, MisconceptionSpec } from '@number-island/shared';
 import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
 import { biggerUnitMore } from './rules/biggerUnitMore';
+import { rulerCountTicks, rulerReadEnd } from './rules/rulerReading';
 import { coinsAsOnes, coinValueBySize } from './rules/coins';
 import {
   borrowAcrossZero,
@@ -58,6 +59,8 @@ const RULES: Record<string, MisconceptionRule> = {
   offByOneCounting: offByOneCounting,
   unitGaps: unitGaps,
   biggerUnitMore: biggerUnitMore,
+  rulerCountTicks: rulerCountTicks,
+  rulerReadEnd: rulerReadEnd,
   recountFromOne: recountFromOne,
   decadeTransition: decadeTransition,
   teenReversal: teenReversal,

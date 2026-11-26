@@ -19,6 +19,7 @@ import { generateItem, generateItemFromParams, itemFeatures } from '../../items/
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { biggerUnitMore } from '../../misconceptions/rules/biggerUnitMore';
 import { unitGaps } from '../../misconceptions/rules/unitGaps';
+import { rulerCountTicks, rulerReadEnd } from '../../misconceptions/rules/rulerReading';
 import { registry } from '..';
 import { GenerationError } from '../types';
 import { lengthCloseness, NONSTANDARD_UNIT_SIZE, objectLengths } from './length';
@@ -799,5 +800,59 @@ describe('MC.bigger-unit-more (biggerUnitMore)', () => {
       same: true,
     });
     expect(biggerUnitMore.predict?.(ruler)).toBeNull();
+  });
+});
+
+describe('MC.ruler-count-ticks and MC.ruler-read-end (rulerReading, K02 MEA.03)', () => {
+  // Fixed ids: the counter of the other test templates stays as it was.
+  const t = (format: ItemFormat, n: number): ItemTemplate => ({
+    ...tplShape('mea.length', format),
+    id: `T.mea.length.ruler.${n}`,
+  });
+
+  it('from 0: counting the marks reads one step more; the end is the answer', () => {
+    const pad = generateItemFromParams(t('number-pad', 1), { mode: 'read', unit: 'in', length: 5 });
+    expect(rulerCountTicks.predict?.(pad)).toEqual({ kind: 'number', value: 6 });
+    expect(rulerCountTicks.match(pad, { kind: 'number', value: 6 })).toBe(true);
+    expect(rulerCountTicks.match(pad, { kind: 'number', value: 4 })).toBe(false);
+    expect(rulerReadEnd.predict?.(pad)).toBeNull();
+    const pick = generateItemFromParams(t('numeral-pick', 2), {
+      mode: 'read',
+      unit: 'cm',
+      length: 7,
+    });
+    expect(rulerCountTicks.predict?.(pick)).toEqual({ kind: 'choice', id: 'opt-8' });
+    const half = generateItemFromParams(t('number-pad', 3), {
+      mode: 'read',
+      unit: 'in',
+      precision: 2,
+      length: 40,
+    });
+    expect(rulerCountTicks.predict?.(half)).toEqual({ kind: 'number', value: 3 });
+  });
+
+  it('not from 0: reading the end number adds the start; counting marks does not apply', () => {
+    const ml = generateItemFromParams(t('measure-length', 4), {
+      mode: 'read',
+      unit: 'cm',
+      length: 5,
+      offset: 2,
+    });
+    expect(ml.answer).toEqual({ kind: 'number', value: 5 });
+    expect(rulerReadEnd.predict?.(ml)).toEqual({ kind: 'number', value: 7 });
+    expect(rulerReadEnd.match(ml, { kind: 'number', value: 7 })).toBe(true);
+    expect(rulerCountTicks.predict?.(ml)).toBeNull();
+  });
+
+  it('ignores items that are not ruler readings', () => {
+    const iterate = generateItemFromParams(t('number-pad', 5), {
+      mode: 'iterate',
+      unit: 'cube',
+      length: 5,
+    });
+    expect(rulerCountTicks.predict?.(iterate)).toBeNull();
+    expect(rulerReadEnd.predict?.(iterate)).toBeNull();
+    expect(rulerCountTicks.applies?.(iterate)).toBe(false);
+    expect(rulerReadEnd.applies?.(iterate)).toBe(false);
   });
 });
