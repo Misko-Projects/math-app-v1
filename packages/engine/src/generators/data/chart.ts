@@ -1,8 +1,8 @@
 // data.chart (03 §5.6): read and build picture graphs, bar graphs, tally charts and tables with up
-// to three categories (DAT.02, DAT.09). Formats: bar-graph-read, bar-graph-build, number-pad,
-// compare.
+// to four categories (DAT.02, DAT.09; four from DAT.04, K02). Formats: bar-graph-read,
+// bar-graph-build, number-pad, compare.
 //
-// The categories hold `a`, `b` and (with `categories: 3`) `c`; which island objects they are and
+// The categories hold `a`, `b`, (with `categories: 3`) `c` and (with `categories: 4`) `d`; which island objects they are and
 // their order on the chart is layout. Category ids are the object (noun) ids, labels
 // `noun.<id>.many`. Scale 1 throughout (scaled graphs are DAT.06, K02).
 // - bar-graph-read: `question` how-many (category a), total (every category), difference (a − b,
@@ -42,7 +42,12 @@ type Category = ChartSpec['categories'][number];
 
 function values(p: Record<string, unknown>): number[] {
   const n = asNum(p.categories as number, 2);
-  return [asNum(p.a as number), asNum(p.b as number), ...(n >= 3 ? [asNum(p.c as number)] : [])];
+  return [
+    asNum(p.a as number),
+    asNum(p.b as number),
+    ...(n >= 3 ? [asNum(p.c as number)] : []),
+    ...(n >= 4 ? [asNum(p.d as number)] : []),
+  ];
 }
 
 const sum = (xs: number[]): number => xs.reduce((x, y) => x + y, 0);
@@ -78,7 +83,7 @@ export const dataChart: GeneratorDef = {
     categories: {
       type: 'int',
       default: { kind: 'const', value: 2 },
-      doc: 'how many categories (2 or 3)',
+      doc: 'how many categories (2 to 4; compare: 2)',
     },
     a: {
       type: 'int',
@@ -90,6 +95,11 @@ export const dataChart: GeneratorDef = {
       type: 'int',
       default: { kind: 'int', min: 1, max: 8 },
       doc: 'count of category c; not drawn with two categories',
+    },
+    d: {
+      type: 'int',
+      default: { kind: 'int', min: 1, max: 8 },
+      doc: 'count of category d; drawn only with four categories (DAT.04)',
     },
     question: {
       type: 'string',
@@ -144,12 +154,13 @@ export const dataChart: GeneratorDef = {
   sample(spec, rng) {
     const p = sampleAll(spec, rng);
     if (asNum(p.categories, 2) < 3) delete p.c;
+    if (asNum(p.categories, 2) < 4) delete p.d;
     return p;
   },
   derive: () => ({}),
   accepts(p, t) {
     const n = asNum(p.categories, 2);
-    if (n < 2 || n > 3) return false;
+    if (n < 2 || n > 4) return false;
     const vs = values(p);
     if (vs.some((x) => x < 1 || x > 10)) return false;
     const q = asStr(p.question);
