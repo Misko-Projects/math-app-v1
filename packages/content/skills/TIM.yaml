@@ -1,5 +1,5 @@
-# K01 (#11): the K–1 TIM rows of 03 §3.15. TIM.02, TIM.03, TIM.05–07, TIM.10 and TIM.11 are grade
-# 2–3 (K02; graph.yaml plannedIds).
+# K01 (#11): the K–1 TIM rows of 03 §3.15. K02 slice 4a (#17) adds the grade-2 rows TIM.02, TIM.05,
+# TIM.10 and TIM.11; TIM.03 and TIM.06–07 are grade 3 (graph.yaml plannedIds).
 strand: TIM
 skills:
   - id: TIM.01
@@ -11,6 +11,15 @@ skills:
     gateway: false
     representations: [clock, digital-clock]
 
+  - id: TIM.02
+    name: Tell time to the nearest 5 minutes
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.C.7] }
+    prerequisites: [TIM.09, CNT.11]
+    gateway: false
+    representations: [clock, digital-clock]
+
   - id: TIM.04
     name: Tell time to the half hour
     kind: procedure
@@ -19,6 +28,15 @@ skills:
     prerequisites: [TIM.01, FRA.01]
     gateway: false
     representations: [clock, digital-clock]
+
+  - id: TIM.05
+    name: "Morning or evening: a.m. and p.m."
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.MD.C.7] }
+    prerequisites: [TIM.02, TIM.08]
+    gateway: false
+    representations: [clock, timeline]
 
   - id: TIM.08
     name: "Put daily events in order (before, after, morning, night)"
@@ -37,3 +55,21 @@ skills:
     prerequisites: [TIM.04]
     gateway: false
     representations: [clock]
+
+  - id: TIM.10
+    name: Quarter past and quarter to
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.MD.C.7] }
+    prerequisites: [TIM.02, FRA.02]
+    gateway: false
+    representations: [clock, digital-clock]
+
+  - id: TIM.11
+    name: Match analog and digital times
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.C.7] }
+    prerequisites: [TIM.02]
+    gateway: false
+    representations: [clock, digital-clock]

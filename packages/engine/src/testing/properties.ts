@@ -541,6 +541,8 @@ export function choiceOptions(item: GeneratedItem): string[] {
     if (w.mode === 'fair-or-not') return ['yes', 'no'];
     return (w.options ?? []).map((o) => o.id);
   }
+  // clock-read `ampm` (TIM.05) answers the fixed pair `am` | `pm`.
+  if (w.format === 'clock-read' && w.input === 'pick' && w.ampm) return ['am', 'pm'];
   if (w.format === 'clock-read' && w.input === 'pick') return (w.options ?? []).map((o) => o.id);
   if (w.format === 'bar-graph-read') return w.chart.categories.map((c) => c.id);
   return [];
@@ -561,6 +563,7 @@ function minChoiceOptions(item: GeneratedItem): number {
   // the categories the chart shows (two or three at grade 1).
   if (w.format === 'fraction-pick' && w.mode === 'fair-or-not') return 2;
   if (w.format === 'bar-graph-read') return 2;
+  if (w.format === 'clock-read' && w.ampm) return 2;
   return 3;
 }
 

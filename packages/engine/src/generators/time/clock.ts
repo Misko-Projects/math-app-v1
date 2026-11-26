@@ -8,13 +8,26 @@
 // - clock-read `input: pick` with `ask: hour` (TIM.09): which hour is it after? The options are
 //   hours (`opt-<h>`), the hour's run of consecutive hours in a fixed partition of the face
 //   (`hourClass`: four with diagnostic distractors, otherwise three), so the set never depends on
-//   which hour is the key. K01 builds no full-time pick (TIM.11, K02).
+//   which hour is the key.
+// - clock-read `mode: match` (TIM.11), `input: pick`, `ask: time`: which digital time does the clock
+//   show? Four options (`matchTimes`): the hour's pair (1–2, 3–4, … 11–12) times the minute's
+//   mirror pair (m and 60 − m; 0 with 30), a fixed partition of the face, so every option is the
+//   key of some item and the set never points at the key. Ids `time-<h>-<mm>`.
+// - clock-read `mode: ampm` (TIM.05): the face shows `h:m` beside a daily-event scene (`scene`, one
+//   of AMPM_SCENES) and the child picks a.m. or p.m. The face hour h (1–12) becomes the hour of day
+//   in the scene's half of the day; the item is accepted only when that hour is one the scene
+//   happens in (lunch at 12 or 1 is p.m., breakfast at 7 is a.m.). Noon is p.m.; no scene is at
+//   midnight.
+// - `mode: quarter` (TIM.10): read (pad) or set a time at quarter past (m 15) or quarter to (m 45).
+//   The vars `hour` and `next` (the hour after h) let a prompt say "quarter past 3" or
+//   "quarter to 4".
 //
 // The clock formats have no engine model (U05), so this generator emits their 03 §5.5 format
 // features itself, reading the precision features from the target time (the finest step the time
 // needs), not from the widget's snapping; `turn` is how far the hands travel from the start.
 
 import type { LessonStep, ResponseValue } from '@number-island/shared';
+import { AMPM_SCENES, isAmPmScene } from '../../formats/clock-read';
 import { numberOptionId } from '../../formats/numeral-pick';
 import {
   asNum,
@@ -26,11 +39,12 @@ import {
   sampleAll,
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
-import { timeText } from './face';
+import { nextHour, timeText } from './face';
 
 export { minuteHandNumber, nextHour, prevHour, timeText } from './face';
 
-const MODES = ['read', 'set'];
+const MODES = ['read', 'set', 'match', 'ampm', 'quarter'];
+const SCENES = Object.keys(AMPM_SCENES);
 const INPUTS = ['digital-pad', 'pick'];
 const ASKS = ['time', 'hour'];
 const PROMPTS = ['spoken', 'digital'];
@@ -68,6 +82,30 @@ export function hourClass(h: number, size: number): number[] {
 const hourClassSize = (t: { distractors?: unknown[] }): number =>
   (t.distractors?.length ?? 0) > 0 ? 4 : 3;
 
+/** The option id of a full time on the match pick (TIM.11). */
+export const timeOptionId = (h: number, m: number): string =>
+  `time-${h}-${String(m).padStart(2, '0')}`;
+
+/**
+ * The match pick's four times (TIM.11): the hour's pair (1–2, 3–4, … 11–12) times the minute's
+ * mirror pair (m with 60 − m, 0 with 30: the long hand on the other side of the face). The pairs
+ * tile the face and its minutes, so every time of a set gets the same set and every option is
+ * the key of some item: the options never give the time away.
+ */
+export function matchTimes(h: number, m: number): { h: number; m: number }[] {
+  const a = h % 2 === 1 ? h : h - 1;
+  const ms = m === 0 || m === 30 ? [0, 30] : [Math.min(m, 60 - m), Math.max(m, 60 - m)];
+  return [a, a + 1].flatMap((hh) => ms.map((mm) => ({ h: hh, m: mm })));
+}
+
+/** The hour of day (0–23) the face hour h (1–12) is in the scene's half of the day; null if none. */
+export function sceneHour(scene: string, h: number): number | null {
+  if (!isAmPmScene(scene)) return null;
+  const { from, to } = AMPM_SCENES[scene];
+  const h24 = (h % 12) + (from >= 12 ? 12 : 0);
+  return h24 >= from && h24 <= to ? h24 : null;
+}
+
 /** How far the hands turn from `startH:00` to `h:m`, the shorter way round, in half-days (0–1). */
 export function turnDistance(startH: number, h: number, m: number): number {
   const minutes = ((((h % 12) * 60 + m - (startH % 12) * 60) % 720) + 720) % 720;
@@ -91,8 +129,14 @@ export const timeClock: GeneratorDef = {
       type: 'string',
       values: MODES,
       // Templates always set it; the default lets either format build from defaults.
-      default: { kind: 'choice', values: MODES },
-      doc: 'read (clock-read) or set (clock-set); K02 adds match, ampm and quarter',
+      default: { kind: 'choice', values: ['read', 'set'] },
+      doc: 'read or set; match (TIM.11 time pick), ampm (TIM.05), quarter (TIM.10: m 15 or 45)',
+    },
+    scene: {
+      type: 'string',
+      values: SCENES,
+      default: { kind: 'choice', values: SCENES },
+      doc: 'ampm: the daily event beside the clock, which tells the half of the day',
     },
     input: {
       type: 'string',
@@ -155,6 +199,8 @@ export const timeClock: GeneratorDef = {
     'gen.time.clock.reads',
     'gen.time.clock.between',
     'gen.time.clock.after',
+    'gen.time.clock.am',
+    'gen.time.clock.pm',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
@@ -163,15 +209,20 @@ export const timeClock: GeneratorDef = {
     const m = asNum(p.m);
     if (h < 1 || h > 12 || m < 0 || m > 59) return false;
     const mode = asStr(p.mode);
+    if (mode === 'quarter' && m !== 15 && m !== 45) return false;
     if (t.format === 'clock-set') {
       const precision = asNum(p.precision, 5);
-      if (mode !== 'set' || !PRECISIONS.includes(precision) || m % precision !== 0) return false;
+      if (mode !== 'set' && mode !== 'quarter') return false;
+      if (!PRECISIONS.includes(precision) || m % precision !== 0) return false;
       // The hands must have somewhere to go.
       return turnDistance(asNum(p.startH, 12), h, m) > 0;
     }
-    if (mode !== 'read') return false;
     const input = asStr(p.input);
     const ask = asStr(p.ask);
+    if (mode === 'match') return input === 'pick' && ask === 'time' && m % 5 === 0;
+    if (mode === 'ampm') return input === 'pick' && sceneHour(asStr(p.scene), h) !== null;
+    if (mode === 'quarter') return input === 'digital-pad' && ask === 'time';
+    if (mode !== 'read') return false;
     // K01: the pad reads a whole time, the pick only the hour (TIM.09).
     if (input === 'pick') return ask === 'hour' && m > 0;
     return ask === 'time';
@@ -187,7 +238,7 @@ export const timeClock: GeneratorDef = {
       const startH = asNum(params.startH, 12);
       p = {
         params,
-        vars: pickVars(t, { time }),
+        vars: pickVars(t, { time, hour: h, next: nextHour(h) }),
         math: {
           ...precisionFeatures(m),
           afterHalf: m >= 30 ? 1 : 0,
@@ -209,13 +260,58 @@ export const timeClock: GeneratorDef = {
     }
     const numerals = params.numerals !== false;
     const pick = asStr(params.input) === 'pick';
+    const mode = asStr(params.mode);
+    const match = pick && mode === 'match';
+    const hourOnly = pick && !match;
+    // The match pick's features are its option set's, the same whichever time is the key: the
+    // minute pair (m, 60 − m) shares its precision (0 with 30 counts as half past), and every set
+    // has a time from half past on.
+    const precisionMinute = match && m === 0 ? 30 : hourOnly ? 0 : m;
     const math: Record<string, number> = {
-      // The hour pick reads no minutes, so the minutes' precision does not make it harder.
-      ...(pick ? precisionFeatures(0) : precisionFeatures(m)),
-      afterHalf: m >= 30 ? 1 : 0,
+      // The hour and a.m./p.m. picks read no minutes, so the minutes' precision adds nothing.
+      ...precisionFeatures(precisionMinute),
+      afterHalf: match || m >= 30 ? 1 : 0,
       'numerals.off': numerals ? 0 : 1,
       'input.pick': pick ? 1 : 0,
     };
+    if (mode === 'ampm') {
+      const scene = asStr(params.scene);
+      const h24 = sceneHour(scene, h) ?? h;
+      const isPm = h24 >= 12;
+      p = {
+        params,
+        vars: pickVars(t, {}),
+        math,
+        widget: {
+          format: 'clock-read',
+          time: { h: h24, m },
+          numerals,
+          input: 'pick',
+          ampm: { scene: scene as never, isPm },
+        },
+        answer: { kind: 'choice', id: isPm ? 'pm' : 'am' },
+        nudge: [{ op: 'point-hour' }],
+      };
+      return finish(timeClock, ctx, p);
+    }
+    if (mode === 'match') {
+      const shown = rng.fork('layout').shuffle(matchTimes(h, m));
+      p = {
+        params,
+        vars: pickVars(t, {}),
+        math,
+        widget: {
+          format: 'clock-read',
+          time: { h, m },
+          numerals,
+          input: 'pick',
+          options: shown.map((o) => ({ id: timeOptionId(o.h, o.m), label: timeText(o.h, o.m) })),
+        },
+        answer: { kind: 'choice', id: timeOptionId(h, m) },
+        nudge: [{ op: 'point-hour' }],
+      };
+      return finish(timeClock, ctx, p);
+    }
     if (pick) {
       const shown = rng.fork('layout').shuffle(hourClass(h, hourClassSize(t)));
       p = {
@@ -236,7 +332,7 @@ export const timeClock: GeneratorDef = {
     }
     p = {
       params,
-      vars: pickVars(t, {}),
+      vars: pickVars(t, { hour: h, next: nextHour(h) }),
       math,
       widget: { format: 'clock-read', time: { h, m }, numerals, input: 'digital-pad' },
       answer: { kind: 'numbers', values: [h, m], ordered: true },
@@ -270,6 +366,21 @@ export const timeClock: GeneratorDef = {
     }
     if (w.format !== 'clock-read') return [];
     const { h, m } = w.time;
+    if (w.ampm) {
+      const id = w.ampm.isPm ? 'pm' : 'am';
+      return [say(`gen.time.clock.${id}`, {}, { op: 'answer', args: { id } })];
+    }
+    if (w.input === 'pick' && (w.options ?? []).some((o) => o.id.startsWith('time-'))) {
+      return [
+        say('gen.time.clock.short-hand', {}, { op: 'point-hour' }),
+        say('gen.time.clock.long-hand', {}, { op: 'point-minute' }),
+        say(
+          'gen.time.clock.reads',
+          { time: timeText(h, m) },
+          { op: 'answer', args: { id: timeOptionId(h, m) } },
+        ),
+      ];
+    }
     if (w.input === 'pick') {
       return [
         say('gen.time.clock.between', {}, { op: 'point-hour' }),

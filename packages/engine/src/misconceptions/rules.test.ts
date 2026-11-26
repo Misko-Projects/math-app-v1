@@ -202,6 +202,7 @@ describe('registry', () => {
       'hourHandNext',
       'hourMinuteSwap',
       'keywordMoreMeansAdd',
+      'minuteHandNumber',
       'offByOneCounting',
       'partialProductDropped',
       'patternRestart',

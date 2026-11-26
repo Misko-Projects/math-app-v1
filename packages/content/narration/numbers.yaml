@@ -516,6 +516,13 @@ word.morning:
   text: "morning"
 word.night:
   text: "night"
+# a.m. / p.m. bins (K02 slice 4a: TIM.05)
+word.am:
+  text: "a.m."
+  level: "2"
+word.pm:
+  text: "p.m."
+  level: "2"
 word.red:
   text: "red"
 word.blue:
@@ -535,6 +542,8 @@ word.halves:
   text: "halves"
 word.fourths:
   text: "fourths"
+word.thirds:
+  text: "thirds"
 word.unequal-parts:
   text: "parts that are not the same size"
 

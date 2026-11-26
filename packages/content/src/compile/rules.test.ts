@@ -153,6 +153,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'DAT.09',
       'DAT.10',
       'FRA.01',
+      'FRA.02',
       'FRA.07',
       'FRA.08',
       'GEO.01',
@@ -240,9 +241,13 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'SUB.08',
       'SUB.09',
       'TIM.01',
+      'TIM.02',
       'TIM.04',
+      'TIM.05',
       'TIM.08',
       'TIM.09',
+      'TIM.10',
+      'TIM.11',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.add-instead-of-multiply',
@@ -264,6 +269,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.hour-hand-next',
       'MC.hour-minute-swap',
       'MC.keyword-more-means-add',
+      'MC.minute-hand-number',
       'MC.off-by-one-counting',
       'MC.partial-product-dropped',
       'MC.pattern-restart',
@@ -1897,9 +1903,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // arrays (K02 slice 3a) added 9 skills, 33 templates, MC.add-instead-of-multiply and
       // MC.skip-count-slip; facts and strategies (K02 slice 3b) added 7 skills, 25 templates,
       // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped.
-      skills: 170,
-      templates: 633,
-      misconceptions: 39,
+      skills: 175,
+      templates: 650,
+      misconceptions: 40,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([

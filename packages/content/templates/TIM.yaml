@@ -204,3 +204,226 @@ templates:
     distractors:
       - { rule: MC.hour-hand-next }
       - { rule: MC.hour-minute-swap }
+
+  # ---------- K02 slice 4a (#17): grade 2 ----------
+  # TIM.02: time to five minutes. The long hand is never at the 12 (m 5–55), so every line about
+  # counting fives from the 12 holds, and the short hand is always past the hour.
+  - id: TIM.02.t1
+    skillId: TIM.02
+    format: clock-set
+    tier: concrete
+    representation: clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 12] }
+      m: { choice: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }
+      prompt: spoken
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: p.time.set
+      hints: [h.time.count-fives, h.time.short-past, h.time.turn-hands]
+
+  - id: TIM.02.t2
+    skillId: TIM.02
+    format: clock-set
+    tier: concrete
+    representation: digital-clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 12] }
+      m: { choice: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }
+      prompt: digital
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: p.time.match-digital
+      hints: [h.time.count-fives, h.time.short-past, h.time.turn-hands]
+
+  - id: TIM.02.t3
+    skillId: TIM.02
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: read
+      h: { int: [1, 12] }
+      m: { choice: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }
+      numerals: { bool: 0.7 }
+    difficulty: { base: -1.1 }
+    narration:
+      prompt: p.time.read
+      hints: [h.time.just-after, h.time.count-fives, h.time.not-the-number]
+
+  # TIM.05: a.m. and p.m. Sorting daily events is the constructed practice (t1, t2); the clock
+  # beside a scene (t3) is a pick, not evidence (04 §7a).
+  - id: TIM.05.t1
+    skillId: TIM.05
+    format: shape-sort
+    tier: concrete
+    representation: timeline
+    generator: time.sequence
+    params:
+      events: 4
+      split: ampm
+    difficulty: { base: 0.0 }
+    narration:
+      prompt: tp.TIM.05.t1.prompt
+      hints: [h.time.am-pm, h.time.noon]
+
+  - id: TIM.05.t2
+    skillId: TIM.05
+    format: shape-sort
+    tier: pictorial
+    representation: timeline
+    generator: time.sequence
+    params:
+      events: { int: [5, 6] }
+      split: ampm
+    difficulty: { base: -0.1 }
+    narration:
+      prompt: tp.TIM.05.t1.prompt
+      hints: [h.time.am-pm, h.time.noon]
+
+  - id: TIM.05.t3
+    skillId: TIM.05
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: ampm
+      input: pick
+      h: { int: [1, 12] }
+      m: { choice: [0, 15, 30, 45] }
+      numerals: true
+    difficulty: { base: 0.3 }
+    narration:
+      prompt: tp.TIM.05.t3.prompt
+      hints: [h.time.look-scene, h.time.am-pm, h.time.noon]
+
+  # TIM.10: quarter past (m 15) and quarter to (m 45).
+  - id: TIM.10.t1
+    skillId: TIM.10
+    format: clock-set
+    tier: concrete
+    representation: clock
+    generator: time.clock
+    params:
+      mode: quarter
+      h: { int: [1, 12] }
+      m: 15
+      prompt: spoken
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.TIM.10.t1.prompt
+      hints: [h.time.quarter-past, h.time.quarter-fifteen, h.time.turn-hands]
+
+  - id: TIM.10.t2
+    skillId: TIM.10
+    format: clock-set
+    tier: concrete
+    representation: clock
+    generator: time.clock
+    params:
+      mode: quarter
+      h: { int: [1, 12] }
+      m: 45
+      prompt: spoken
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: tp.TIM.10.t2.prompt
+      hints: [h.time.quarter-to, h.time.quarter-fifteen, h.time.turn-hands]
+
+  - id: TIM.10.t3
+    skillId: TIM.10
+    format: clock-set
+    tier: concrete
+    representation: digital-clock
+    generator: time.clock
+    params:
+      mode: quarter
+      h: { int: [1, 12] }
+      m: { choice: [15, 45] }
+      prompt: digital
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -1.05 }
+    narration:
+      prompt: p.time.match-digital
+      hints: [h.time.quarter-both, h.time.quarter-fifteen, h.time.turn-hands]
+
+  - id: TIM.10.t4
+    skillId: TIM.10
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: quarter
+      h: { int: [1, 12] }
+      m: { choice: [15, 45] }
+      numerals: { bool: 0.7 }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: p.time.read
+      hints: [h.time.just-after, h.time.quarter-both, h.time.quarter-fifteen]
+
+  # TIM.11: from a digital time to the hands (t1), from the hands to a digital time (t2 pick, t3
+  # typed). The pick's four times are a fixed set for the time's hour pair and minute pair.
+  - id: TIM.11.t1
+    skillId: TIM.11
+    format: clock-set
+    tier: concrete
+    representation: digital-clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 12] }
+      m: { choice: [5, 10, 15, 20, 25, 35, 40, 45, 50, 55] }
+      prompt: digital
+      showDigital: false
+    difficulty: { base: -1.3 }
+    narration:
+      prompt: p.time.match-digital
+      hints: [h.time.digital-parts, h.time.count-fives, h.time.turn-hands]
+
+  - id: TIM.11.t2
+    skillId: TIM.11
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: match
+      input: pick
+      ask: time
+      h: { int: [1, 12] }
+      m: { choice: [5, 10, 15, 20, 25, 35, 40, 45, 50, 55] }
+      numerals: { bool: 0.7 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.TIM.11.t2.prompt
+      hints: [h.time.just-after, h.time.count-fives]
+    distractors:
+      - { rule: MC.hour-hand-next }
+
+  - id: TIM.11.t3
+    skillId: TIM.11
+    format: clock-read
+    tier: pictorial
+    representation: digital-clock
+    generator: time.clock
+    params:
+      mode: read
+      h: { int: [1, 12] }
+      m: { choice: [5, 10, 15, 20, 25, 35, 40, 45, 50, 55] }
+      numerals: true
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.TIM.11.t3.prompt
+      hints: [h.time.digital-parts, h.time.just-after, h.time.count-fives]

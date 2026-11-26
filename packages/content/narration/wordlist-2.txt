@@ -930,3 +930,8 @@ rest
 stays
 become
 nothing
+digital
+type
+noon
+midnight
+points

@@ -24,6 +24,7 @@ import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
+import { minuteHandAsMinutes } from './rules/minuteHandNumber';
 import {
   addInsteadOfMultiply,
   doubleOnce,
@@ -96,6 +97,8 @@ const RULES: Record<string, MisconceptionRule> = {
   doubleOnce: doubleOnce,
   tensDropped: tensDropped,
   partialProductDropped: partialProductDropped,
+  // K02 (#17) slice 4a: time and money
+  minuteHandNumber: minuteHandAsMinutes,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

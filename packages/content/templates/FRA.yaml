@@ -73,6 +73,79 @@ templates:
       prompt: tp.FRA.01.t4.prompt
       hints: [h.frac.mark-middle, h.frac.same-size]
 
+  # ---------- FRA.02: halves, thirds and fourths (K02 slice 4a, #17) ----------
+  # Thirds have no middle cut, so no FRA.02 line says "middle".
+  - id: FRA.02.t1
+    skillId: FRA.02
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: { choice: [circle, rect, square] }
+      den: { choice: [2, 3, 4], weights: [1, 2, 2] }
+      num: 1
+    difficulty: { base: -0.6 }
+    expectedLatencyMs: 15000
+    narration:
+      prompt: tp.FRA.01.t1.prompt
+      hints: [h.frac.same-size, h.frac.count-parts, h.frac.fill-one]
+
+  # Four fourths make a whole: cut into fourths and fill every part.
+  - id: FRA.02.t2
+    skillId: FRA.02
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: { choice: [circle, rect, square] }
+      den: 4
+      num: 4
+    difficulty: { base: -1.0 }
+    expectedLatencyMs: 18000
+    narration:
+      prompt: tp.FRA.02.t2.prompt
+      hints: [h.frac.same-size, h.frac.whole-fourths]
+
+  - id: FRA.02.t3
+    skillId: FRA.02
+    format: fraction-pick
+    tier: pictorial
+    representation: words
+    generator: frac.partition
+    params:
+      mode: pick
+      thirds: true
+      shape: { choice: [circle, rect] }
+      den: { choice: [2, 3, 4], weights: [1, 2, 2] }
+      ask: { choice: [name, unequal], weights: [3, 1] }
+      unequalParts: { choice: [2, 3, 4] }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.FRA.01.t3.prompt
+      hints: [h.frac.look-each, h.frac.same-size, h.frac.count-parts]
+    distractors:
+      - { rule: MC.fraction-unequal-parts }
+
+  - id: FRA.02.t4
+    skillId: FRA.02
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.partition
+    params:
+      mode: partition
+      shape: bar
+      den: { choice: [2, 3, 4], weights: [1, 2, 2] }
+      num: 0
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.FRA.01.t4.prompt
+      hints: [h.frac.same-size, h.frac.count-parts]
+
   # ---------- FRA.07: equal parts or not ----------
   - id: FRA.07.t1
     skillId: FRA.07

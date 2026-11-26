@@ -16,3 +16,25 @@ tp.TIM.08.t3.prompt:
   text: "One is in its place. Put each one in order."
 tp.TIM.09.t3.prompt:
   text: "The short hand is between two numbers. What hour is it after?"
+
+# K02 slice 4a (#17): grade 2
+sk.TIM.02.intro:
+  text: "The long hand counts the minutes by fives."
+sk.TIM.05.intro:
+  text: "Morning times are a.m. Afternoon and evening times are p.m."
+sk.TIM.10.intro:
+  text: "A quarter is one of four equal parts. A clock has quarters too!"
+sk.TIM.11.intro:
+  text: "A digital clock shows the hour, then the minutes."
+tp.TIM.05.t1.prompt:
+  text: "Sort them into a.m. and p.m."
+tp.TIM.05.t3.prompt:
+  text: "Look at the picture and the clock. Is it a.m. or p.m.?"
+tp.TIM.10.t1.prompt:
+  text: "Make the clock show quarter past {hour}."
+tp.TIM.10.t2.prompt:
+  text: "Make the clock show quarter to {next}."
+tp.TIM.11.t2.prompt:
+  text: "Which time matches the clock?"
+tp.TIM.11.t3.prompt:
+  text: "Type the time the clock shows."

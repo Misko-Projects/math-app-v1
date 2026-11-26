@@ -19,7 +19,7 @@ import { groupSizes, SORT_KINDS } from '../src/generators/data/sort';
 import { SHARE_SPRITES } from '../src/generators/div/share';
 import { itemDens, pieceSize } from '../src/generators/frac/compare';
 import { pathOrder, triangleOrder } from '../src/generators/puzzle/grid';
-import { hourClass } from '../src/generators/time/clock';
+import { hourClass, matchTimes } from '../src/generators/time/clock';
 import { isConstructedTemplate } from '../src/items/answer-kind';
 import { checkResponse, retryFeedback } from '../src/items/check';
 import {
@@ -326,6 +326,26 @@ describe('PR #84 review (3): the TIM.09.t3 hour options never give the hour away
   });
 });
 
+describe('#17 slice 4a: the TIM.11.t2 time options never give the time away', () => {
+  const t = fixtureTemplate('TIM.11.t2');
+  const optionsOf = (item: GeneratedItem): string[] => {
+    if (item.widget.format !== 'clock-read') throw new Error('clock-read');
+    return (item.widget.options ?? []).map((o) => o.id);
+  };
+
+  it('an hour pair times a minute pair; each set is one option set whose every member is a key', () => {
+    expect(matchTimes(7, 20)).toEqual([
+      { h: 7, m: 20 },
+      { h: 7, m: 40 },
+      { h: 8, m: 20 },
+      { h: 8, m: 40 },
+    ]);
+    expect(matchTimes(12, 0)).toEqual(matchTimes(11, 30));
+    // 6 hour pairs × 5 minute pairs (the template draws no 0 or 30).
+    expect(expectKeyFreeOptions(t, optionsOf, key, ['h', 'm'])).toBe(30);
+  });
+});
+
 describe('PR #84 review (4): the FRA.01.t3 pictures are the same whatever the key', () => {
   const t = fixtureTemplate('FRA.01.t3');
   const pictures = (item: GeneratedItem): Map<string, string> => {
@@ -591,10 +611,13 @@ function shownOptions(item: GeneratedItem): { options: string[]; key: string } |
 
 describe('PR #84 review: class sweep', () => {
   it('K01 part 7 option sets: every option of a set is the key of some item (findings 3, 4)', () => {
-    // A seed sweep (TIM.09.t3 and FRA.01.t3 enumerate their whole domains above).
+    // A seed sweep (TIM.09.t3, TIM.11.t2 and FRA.01.t3 enumerate their whole domains above; 400
+    // seeds cannot show each of TIM.11.t2's 120 keys).
     let checked = 0;
     for (const { t, items: sample } of catalog) {
-      if (!PART7.test(t.id) || !sample.some((i) => shownOptions(i))) continue;
+      if (!PART7.test(t.id) || t.id === 'TIM.11.t2' || !sample.some((i) => shownOptions(i))) {
+        continue;
+      }
       const keys = new Map<string, Set<string>>();
       for (const item of items(t, 400)) {
         const o = shownOptions(item);
@@ -605,8 +628,8 @@ describe('PR #84 review: class sweep', () => {
       for (const [set, ks] of keys) expect([...ks].sort().join(' | '), `${t.id}: ${set}`).toBe(set);
       if (keys.size > 0) checked += 1;
     }
-    // TIM.09.t3, FRA.01.t3 and the most / least reads DAT.02.t3, DAT.09.t3 and DAT.10.t2.
-    expect(checked).toBe(5);
+    // TIM.09.t3, FRA.01.t3, FRA.02.t3 and the most / least reads DAT.02.t3, DAT.09.t3, DAT.10.t2.
+    expect(checked).toBe(6);
   });
 
   it('PUZ.02 corner hint holds when no corner is blank', () => {
@@ -688,6 +711,7 @@ const SORTING_SKILLS = [
   'GEO.08',
   'MEA.15',
   'MEA.16',
+  'TIM.05',
   'TIM.08',
 ];
 

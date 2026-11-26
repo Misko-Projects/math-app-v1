@@ -9,7 +9,10 @@
 //   slot (a day strip with an anchor, the timeline representation).
 // - shape-sort `sort` (TIM.08): `events` event cards to sort into morning and night bins (a card's
 //   target props are `{ part }`; `sort.byRule`). Morning: wake up, breakfast, sunrise; night:
-//   bedtime, stars, pajamas.
+//   bedtime, stars, pajamas. `split: ampm` (TIM.05) sorts into a.m. and p.m. bins instead: a.m.
+//   wake up, breakfast, sunrise; p.m. lunch, dinner, bedtime (each always in that half of the
+//   day: lunch is at noon or after, and noon is p.m.; stars and pajamas can be either, so they
+//   are left out).
 // Which events an item shows is layout randomness: the features depend on the counts only.
 
 import type { LessonStep, ResponseValue, SortRule } from '@number-island/shared';
@@ -30,6 +33,10 @@ export const DAY_EVENTS = ['wake-up', 'breakfast', 'lunch', 'dinner', 'bedtime']
 /** Events that clearly belong to the morning or to the night (shape-sort). */
 export const MORNING_EVENTS = ['wake-up', 'breakfast', 'sunrise'] as const;
 export const NIGHT_EVENTS = ['bedtime', 'stars', 'pajamas'] as const;
+/** Events always in one half of the day (shape-sort `split: ampm`, TIM.05). */
+export const AM_EVENTS = ['wake-up', 'breakfast', 'sunrise'] as const;
+export const PM_EVENTS = ['lunch', 'dinner', 'bedtime'] as const;
+const SPLITS = ['day', 'ampm'];
 
 /** The art-kit picture of a daily event. */
 export const eventSprite = (event: string): string => `event-${event}`;
@@ -61,6 +68,12 @@ export const timeSequence: GeneratorDef = {
       default: { kind: 'const', value: false },
       doc: 'order: one event is already on its place on the day strip (timeline)',
     },
+    split: {
+      type: 'string',
+      values: SPLITS,
+      default: { kind: 'const', value: 'day' },
+      doc: 'shape-sort: morning and night bins (day, TIM.08) or a.m. and p.m. bins (ampm, TIM.05)',
+    },
   },
   features: {
     'events.over3': { weight: 0.3, doc: 'order: events − 3' },
@@ -75,6 +88,9 @@ export const timeSequence: GeneratorDef = {
     'gen.time.sequence.sort-look',
     'gen.time.sequence.sort-morning',
     'gen.time.sequence.sort-night',
+    'gen.time.sequence.sort-look-ampm',
+    'gen.time.sequence.sort-am',
+    'gen.time.sequence.sort-pm',
     // its order retry line (items/check.ts retryFeedback)
     'fb.order.retry-day',
   ],
@@ -84,6 +100,7 @@ export const timeSequence: GeneratorDef = {
     const n = asNum(p.events);
     if (t.format === 'shape-sort')
       return n >= 4 && n <= 6 && p.adjacent !== true && p.fixed !== true;
+    if (p.split === 'ampm') return false;
     if (n < 2 || n > DAY_EVENTS.length) return false;
     // All five events always follow each other, and an anchor needs two more to place.
     if (p.adjacent !== true && n === DAY_EVENTS.length) return false;
@@ -96,24 +113,24 @@ export const timeSequence: GeneratorDef = {
     let p: PartialOutput;
     if (t.format === 'shape-sort') {
       const draw = rng.fork('cards');
-      const morning = draw.int(
-        Math.max(1, n - NIGHT_EVENTS.length),
-        Math.min(MORNING_EVENTS.length, n - 1),
-      );
+      const ampm = params.split === 'ampm';
+      const [first, second] = ampm ? [AM_EVENTS, PM_EVENTS] : [MORNING_EVENTS, NIGHT_EVENTS];
+      const [p0, p1] = ampm ? ['am', 'pm'] : ['morning', 'night'];
+      const morning = draw.int(Math.max(1, n - second.length), Math.min(first.length, n - 1));
       const picked = [
         ...draw
-          .shuffle(MORNING_EVENTS)
+          .shuffle(first)
           .slice(0, morning)
-          .map((e) => ({ event: e, part: 'morning' })),
+          .map((e) => ({ event: e, part: p0 })),
         ...draw
-          .shuffle(NIGHT_EVENTS)
+          .shuffle(second)
           .slice(0, n - morning)
-          .map((e) => ({ event: e, part: 'night' })),
+          .map((e) => ({ event: e, part: p1 })),
       ];
       const shown = rng.fork('layout').shuffle(picked);
       const bins: { id: string; label: string; rule: SortRule }[] = [
-        { id: 'b0', label: 'word.morning', rule: { prop: 'part', op: '==', value: 'morning' } },
-        { id: 'b1', label: 'word.night', rule: { prop: 'part', op: '==', value: 'night' } },
+        { id: 'b0', label: `word.${p0}`, rule: { prop: 'part', op: '==', value: p0 } },
+        { id: 'b1', label: `word.${p1}`, rule: { prop: 'part', op: '==', value: p1 } },
       ];
       p = {
         params,
@@ -203,11 +220,15 @@ export const timeSequence: GeneratorDef = {
   solution(out): LessonStep[] {
     const w = out.widget;
     if (w.format === 'shape-sort') {
-      const steps: LessonStep[] = [say('gen.time.sequence.sort-look')];
+      const ampm = w.bins?.[0]?.label === 'word.am';
+      const steps: LessonStep[] = [
+        say(ampm ? 'gen.time.sequence.sort-look-ampm' : 'gen.time.sequence.sort-look'),
+      ];
+      const lines = ampm ? ['sort-am', 'sort-pm'] : ['sort-morning', 'sort-night'];
       for (const [bin, ids] of Object.entries(sortPlacement(out))) {
         for (const id of ids) {
           steps.push(
-            say(bin === 'b0' ? 'gen.time.sequence.sort-morning' : 'gen.time.sequence.sort-night', {
+            say(`gen.time.sequence.${bin === 'b0' ? lines[0] : lines[1]}`, {
               op: 'drag-card',
               args: { id, bin },
             }),

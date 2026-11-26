@@ -13,8 +13,11 @@ import { sameResponse } from '../rules';
 export interface ClockItem {
   h: number;
   m: number;
-  kind: 'set' | 'pad' | 'hour-pick';
+  kind: 'set' | 'pad' | 'hour-pick' | 'time-pick';
 }
+
+/** The option id of a full time on the TIM.11 match pick (time.clock `timeOptionId`). */
+const timeId = (h: number, m: number): string => `time-${h}-${String(m).padStart(2, '0')}`;
 
 /** The time a clock item shows or asks for, and how it is answered; null for other items. */
 export function clockItem(item: GeneratedItem): ClockItem | null {
@@ -27,7 +30,8 @@ export function clockItem(item: GeneratedItem): ClockItem | null {
       return { h: w.time.h, m: w.time.m, kind: 'pad' };
     }
     if (w.input === 'pick' && item.answer.kind === 'choice') {
-      return { h: w.time.h, m: w.time.m, kind: 'hour-pick' };
+      const timePick = (w.options ?? []).some((o) => o.id.startsWith('time-'));
+      return { h: w.time.h, m: w.time.m, kind: timePick ? 'time-pick' : 'hour-pick' };
     }
   }
   return null;
@@ -47,6 +51,12 @@ export function clockResponse(
     return has ? { kind: 'choice', id } : null;
   }
   if (faceMinutes(buggy.h, buggy.m) === faceMinutes(c.h, c.m)) return null;
+  if (c.kind === 'time-pick') {
+    const id = timeId(((buggy.h + 11) % 12) + 1, buggy.m);
+    const w = item.widget;
+    const has = w.format === 'clock-read' && (w.options ?? []).some((o) => o.id === id);
+    return has ? { kind: 'choice', id } : null;
+  }
   if (c.kind === 'pad') return { kind: 'numbers', values: [buggy.h, buggy.m] };
   const w = item.widget;
   if (w.format !== 'clock-set' || buggy.m % w.precision !== 0) return null;

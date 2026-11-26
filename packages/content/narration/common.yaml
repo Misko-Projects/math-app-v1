@@ -2393,3 +2393,64 @@ h.est.round-first:
   text: "Round each number first, to the place it says."
 h.est.then-add-take:
   text: "Then add or take away the new numbers."
+
+# ---------- K02 slice 4a (#17): grade 2 time and halves, thirds and fourths ----------
+# TIM.02 and TIM.11 draw m 5–55 (never o'clock); no line names a numeral a time can equal.
+h.time.count-fives:
+  text: "Start at the top. Count by fives to the long hand."
+  level: "2"
+h.time.short-past:
+  text: "The short hand moves with the long hand. It ends just past the hour."
+  level: "2"
+h.time.not-the-number:
+  text: "The long hand points to a number, but that is not the minutes. Count by fives."
+  level: "2"
+h.time.digital-parts:
+  text: "The number before the dots is the hour. The numbers after the dots are the minutes."
+  level: "2"
+# TIM.05: lunch is at noon or later, and noon is p.m.
+h.time.am-pm:
+  text: "Morning times are a.m. Afternoon and evening times are p.m."
+  level: "2"
+h.time.noon:
+  text: "Noon is p.m. From noon until midnight, times are p.m."
+  level: "2"
+h.time.look-scene:
+  text: "Look at the picture. When do we do this?"
+  level: "2"
+# TIM.10: t1 draws m 15 only, t2 m 45 only; t3 and t4 both.
+h.time.quarter-past:
+  text: "At quarter past, the long hand points right, a quarter of the way round."
+  level: "2"
+h.time.quarter-to:
+  text: "At quarter to, the long hand points left. One more quarter makes the next hour."
+  level: "2"
+h.time.quarter-both:
+  text: "At quarter past, the long hand points right. At quarter to, it points left."
+  level: "2"
+h.time.quarter-fifteen:
+  text: "A quarter of an hour is three fives of minutes, not five fives."
+  level: "2"
+h.frac.count-parts:
+  text: "Count the parts. Are there as many as it asks for?"
+  level: "2"
+h.frac.whole-fourths:
+  text: "Fill every part. Four fourths make one whole."
+  level: "2"
+gen.time.clock.am:
+  text: "This is in the morning. From midnight until noon, it is a.m."
+  level: "2"
+gen.time.clock.pm:
+  text: "This is not in the morning. From noon until midnight, it is p.m."
+  level: "2"
+gen.time.sequence.sort-look-ampm:
+  text: "When do we do this? In the morning, or from noon on?"
+  level: "2"
+gen.time.sequence.sort-am:
+  text: "This is in the morning, so it goes with a.m."
+  level: "2"
+gen.time.sequence.sort-pm:
+  text: "This is from noon on, so it goes with p.m."
+  level: "2"
+fb.mc.minute-hand-number:
+  text: "The long hand counts by fives. Count five for each number."

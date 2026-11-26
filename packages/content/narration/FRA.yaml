@@ -34,3 +34,7 @@ tp.FRA.08.t4.prompt:
   # The order holds only because the wholes are the same size and each is cut into equal parts,
   # so the prompt says both (PR #84 review round 3).
   text: "Same size strips, cut into equal parts. The number says how many; biggest pieces first."
+sk.FRA.02.intro:
+  text: "Three equal parts are thirds. Four fourths make a whole."
+tp.FRA.02.t2.prompt:
+  text: "Cut it into fourths. Then fill all the parts."
