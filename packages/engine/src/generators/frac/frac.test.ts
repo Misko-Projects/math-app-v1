@@ -559,25 +559,30 @@ describe('frac.partition grid cuts that need not look the same (FRA.16, K02)', (
     NONCONGRUENT_DEMOS.flatMap((d) =>
       Array.from({ length: d.den }, (_, num) => [d.den, d.cols, d.rows, num] as const),
     ),
-  )('%i parts of a %i × %i grid, %i shaded: free cuts, and the worked solution is correct', (den, cols, rows, num) => {
-    const t = cut();
-    const item = build(t, grid(den, cols, rows, num));
-    expect(widgetConfigSchema.safeParse(item.widget).success).toBe(true);
-    expect(item.widget).toMatchObject({
-      format: 'fraction-cut',
-      shape: 'grid',
-      gridSize: [cols, rows],
-      cutMode: 'free',
-      acceptNonCongruent: true,
-    });
-    expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
-    const r = replaySteps(item, itemSolution(item, t));
-    expect(r && checkResponse(item, r).correct).toBe(true);
-  });
+  )(
+    '%i parts of a %i × %i grid, %i shaded: free cuts, and the worked solution is correct',
+    (den, cols, rows, num) => {
+      const t = cut();
+      const item = build(t, grid(den, cols, rows, num));
+      expect(widgetConfigSchema.safeParse(item.widget).success).toBe(true);
+      expect(item.widget).toMatchObject({
+        format: 'fraction-cut',
+        shape: 'grid',
+        gridSize: [cols, rows],
+        cutMode: 'free',
+        acceptNonCongruent: true,
+      });
+      expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
+      const r = replaySteps(item, itemSolution(item, t));
+      expect(r && checkResponse(item, r).correct).toBe(true);
+    },
+  );
 
   it('draws a grid only for a cut that accepts parts of different shapes, on a listed grid', () => {
     const t = cut();
-    expect(() => build(t, { ...grid(4, 4, 4), acceptNonCongruent: false })).toThrow(GenerationError);
+    expect(() => build(t, { ...grid(4, 4, 4), acceptNonCongruent: false })).toThrow(
+      GenerationError,
+    );
     expect(() => build(t, { ...grid(4, 4, 4), shape: 'rect' })).toThrow(GenerationError);
     expect(() => build(t, grid(2, 4, 2))).toThrow(GenerationError); // halves: always congruent
     expect(() => build(t, grid(4, 6, 2))).toThrow(GenerationError);

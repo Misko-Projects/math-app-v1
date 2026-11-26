@@ -16,8 +16,8 @@
 
 import type { ChartSpec, LessonStep, ResponseValue } from '@number-island/shared';
 import { chartPositionId } from '@number-island/shared';
-import { BUILD_DATA_MEASUREMENTS_MAX } from '../../formats/bar-graph-build';
 import { BUILD_LINE_POSITIONS_MAX, GRAPH_LINE_STACK_MAX } from '../../formats/bar-graph';
+import { BUILD_DATA_MEASUREMENTS_MAX } from '../../formats/bar-graph-build';
 import {
   asNum,
   asStr,
@@ -243,7 +243,11 @@ export const dataLineplot: GeneratorDef = {
         const count = (a.kind === 'state' ? (a.target.values as number[]) : [])[i] ?? 0;
         if (count > 0) {
           steps.push(
-            say('gen.data.lineplot.mark', { at: c.id }, { op: 'add-x', args: { at: Number(c.id), count } }),
+            say(
+              'gen.data.lineplot.mark',
+              { at: c.id },
+              { op: 'add-x', args: { at: Number(c.id), count } },
+            ),
           );
         }
       });

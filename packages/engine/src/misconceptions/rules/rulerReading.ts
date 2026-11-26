@@ -32,7 +32,7 @@ function respond(item: GeneratedItem, n: number): ResponseValue | null {
 
 function predictTicks(item: GeneratedItem): ResponseValue | null {
   const r = reading(item);
-  if (!r || r.offset !== 0) return null;
+  if (r?.offset !== 0) return null;
   return respond(item, r.value + r.step);
 }
 

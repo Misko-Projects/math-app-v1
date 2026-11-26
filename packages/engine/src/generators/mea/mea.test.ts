@@ -18,8 +18,8 @@ import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { biggerUnitMore } from '../../misconceptions/rules/biggerUnitMore';
-import { unitGaps } from '../../misconceptions/rules/unitGaps';
 import { rulerCountTicks, rulerReadEnd } from '../../misconceptions/rules/rulerReading';
+import { unitGaps } from '../../misconceptions/rules/unitGaps';
 import { registry } from '..';
 import { GenerationError } from '../types';
 import { lengthCloseness, NONSTANDARD_UNIT_SIZE, objectLengths } from './length';
@@ -311,7 +311,12 @@ const LENGTH_K02: Case[] = [
     params: { mode: 'difference', unit: 'in', length: 4, length2: 13 },
     answer: { kind: 'number', value: 9 },
     widget: {
-      stimulus: { kind: 'number-line', min: 0, max: 14, marks: [{ at: 4 }, { at: 13, arrow: true }] },
+      stimulus: {
+        kind: 'number-line',
+        min: 0,
+        max: 14,
+        marks: [{ at: 4 }, { at: 13, arrow: true }],
+      },
       unit: 'in',
     },
     lastOp: 'type',
@@ -329,7 +334,9 @@ const LENGTH_K02: Case[] = [
     t: k02('numeral-pick', 3, { representation: 'ruler' }),
     params: { mode: 'difference', unit: 'in', length: 6, length2: 11 },
     answer: { kind: 'choice', id: 'opt-5' },
-    widget: { stimulus: { kind: 'number-line', max: 12, marks: [{ at: 6 }, { at: 11, arrow: true }] } },
+    widget: {
+      stimulus: { kind: 'number-line', max: 12, marks: [{ at: 6 }, { at: 11, arrow: true }] },
+    },
     lastOp: 'tap',
   },
 ];

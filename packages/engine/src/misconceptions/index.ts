@@ -5,7 +5,6 @@ import type { GeneratedItem, MisconceptionSpec } from '@number-island/shared';
 import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
 import { biggerUnitMore } from './rules/biggerUnitMore';
-import { rulerCountTicks, rulerReadEnd } from './rules/rulerReading';
 import { coinsAsOnes, coinValueBySize } from './rules/coins';
 import {
   borrowAcrossZero,
@@ -41,6 +40,7 @@ import { perceptualSize } from './rules/perceptualSize';
 import { placeSwap } from './rules/placeSwap';
 import { recountFromOne } from './rules/recountFromOne';
 import { roundDownAlways, roundWrongPlace } from './rules/rounding';
+import { rulerCountTicks, rulerReadEnd } from './rules/rulerReading';
 import { startUnknownReversed } from './rules/startUnknownReversed';
 import { symbolReversed } from './rules/symbolReversed';
 import { teenReversal } from './rules/teenReversal';

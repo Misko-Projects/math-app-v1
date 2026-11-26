@@ -2,17 +2,12 @@
 // format; the schema bounds (accepts); and a property sweep: every accepted draw is a valid widget
 // whose example answer and worked solution are correct.
 
-import type {
-  GeneratedItem,
-  ItemFormat,
-  ItemTemplate,
-  ParamValues,
-} from '@number-island/shared';
+import type { GeneratedItem, ItemFormat, ItemTemplate, ParamValues } from '@number-island/shared';
 import { widgetConfigSchema } from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../../content/binding';
-import { BUILD_DATA_MEASUREMENTS_MAX } from '../../formats/bar-graph-build';
 import { BUILD_LINE_POSITIONS_MAX, GRAPH_LINE_STACK_MAX } from '../../formats/bar-graph';
+import { BUILD_DATA_MEASUREMENTS_MAX } from '../../formats/bar-graph-build';
 import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
@@ -21,7 +16,7 @@ import { GenerationError } from '../types';
 import { dataLineplot, READ_MEASUREMENTS_MAX, READ_POSITIONS_MAX } from './lineplot';
 
 let nextId = 0;
-function tpl(format: ItemFormat, params: ItemTemplate['params'] = {}): ItemTemplate {
+function tpl(format: ItemFormat, fixed: ParamValues = {}): ItemTemplate {
   nextId += 1;
   return {
     id: `T.lineplot.${format}.${nextId}`,
@@ -29,7 +24,9 @@ function tpl(format: ItemFormat, params: ItemTemplate['params'] = {}): ItemTempl
     format,
     tier: format === 'bar-graph-build' ? 'concrete' : 'pictorial',
     generator: 'data.lineplot',
-    params,
+    params: Object.fromEntries(
+      Object.entries(fixed).map(([k, v]) => [k, { kind: 'const' as const, value: v }]),
+    ),
     difficulty: { base: 0, features: {} },
     narration: { prompt: 'p.x', hints: ['h.one', 'h.two', 'h.three'] },
   };
@@ -55,13 +52,26 @@ function expectSound(item: GeneratedItem, t: ItemTemplate) {
 describe('data.lineplot', () => {
   it('builds a line plot from measurements: one X per length, a mark may stay empty', () => {
     const t = tpl('bar-graph-build', { question: 'build' });
-    const item = make(t, { min: 4, positions: 4, precision: 1, x1: 2, x2: 0, x3: 3, x4: 1, question: 'build' });
+    const item = make(t, {
+      min: 4,
+      positions: 4,
+      precision: 1,
+      x1: 2,
+      x2: 0,
+      x3: 3,
+      x4: 1,
+      question: 'build',
+    });
     const w = item.widget as Extract<GeneratedItem['widget'], { format: 'bar-graph-build' }>;
     expect(w.mode).toBe('xs');
     expect(w.chart.lineScale).toEqual({ min: 4, max: 7, step: 1 });
     expect([...w.data.values].sort()).toEqual([4, 4, 6, 6, 6, 7]);
     expect(w.chart.categories.every((c) => c.value === 0)).toBe(true);
-    expect(item.answer).toEqual({ kind: 'state', checker: 'chart.values', target: { values: [2, 0, 3, 1] } });
+    expect(item.answer).toEqual({
+      kind: 'state',
+      checker: 'chart.values',
+      target: { values: [2, 0, 3, 1] },
+    });
     expect(item.params.measurements).toBe(6);
     expectSound(item, t);
   });
@@ -83,7 +93,10 @@ describe('data.lineplot', () => {
     const read = tpl('bar-graph-read', { question: 'how-many' });
     const build = tpl('bar-graph-build', { question: 'build' });
     const bad: [ItemTemplate, ParamValues][] = [
-      [build, { ...base, positions: BUILD_LINE_POSITIONS_MAX + 1, x4: 1, x5: 1, question: 'build' }],
+      [
+        build,
+        { ...base, positions: BUILD_LINE_POSITIONS_MAX + 1, x4: 1, x5: 1, question: 'build' },
+      ],
       [build, { ...base, x1: 5, x2: 5, question: 'build' }], // 11 measurements
       [read, { ...base, positions: READ_POSITIONS_MAX + 1, question: 'how-many' }],
       [read, { ...base, x1: 0, question: 'how-many' }], // the scale starts before the data
