@@ -101,3 +101,32 @@ skills:
     prerequisites: [GEO.10]
     gateway: false
     representations: [pattern-blocks, shapes]
+
+  # K02 slice 4b (#17): GEO.12, GEO.15 and GEO.16 (grade 2); GEO.13 and GEO.14 (grade 3) are
+  # planned.
+  - id: GEO.12
+    name: Faces of solid shapes (a cube has 6 square faces)
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.G.A.1] }
+    prerequisites: [GEO.07, GEO.03]
+    gateway: false
+    representations: [solids, shapes, symbols]
+
+  - id: GEO.15
+    name: Find square corners (right angles)
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.G.A.1] }
+    prerequisites: [GEO.03]
+    gateway: false
+    representations: [shapes, dot-grid]
+
+  - id: GEO.16
+    name: Draw shapes with a given number of sides and corners on a dot grid
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.G.A.1] }
+    prerequisites: [GEO.03]
+    gateway: false
+    representations: [dot-grid, shapes]

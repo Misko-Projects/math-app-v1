@@ -76,3 +76,28 @@ tp.GEO.04.t4.prompt:
   text: "A rectangle has {rows} rows of {cols} squares. How many squares in all?"
 ls.GEO.04.outro:
   text: "Rows go across, columns go down, and every square is the same size!"
+# K02 slice 4b (#17): GEO.12, GEO.15 and GEO.16.
+sk.GEO.12.intro:
+  text: "Solid shapes have flat faces. Let's count them!"
+sk.GEO.15.intro:
+  text: "A square corner is like the corner of a page."
+sk.GEO.16.intro:
+  text: "Draw shapes dot to dot. Count the sides and corners!"
+tp.GEO.12.t1.prompt:
+  text: "Find every solid with {n} flat faces."
+tp.GEO.12.t2.prompt:
+  text: "Find every shape with {n} flat faces."
+tp.GEO.12.t3.prompt:
+  text: "How many flat faces does this {kind|shape:one} have?"
+tp.GEO.15.t1.prompt:
+  text: "Find every shape with 4 square corners."
+tp.GEO.15.t2.prompt:
+  text: "Draw a shape with 4 sides and 4 square corners."
+tp.GEO.15.t3.prompt:
+  text: "Draw a triangle with one square corner."
+tp.GEO.16.t1.prompt:
+  text: "Draw a shape with {sides} sides and {sides} corners."
+tp.GEO.16.t2.prompt:
+  text: "Draw a shape with 4 sides and no square corners."
+tp.GEO.16.t3.prompt:
+  text: "Find every shape with {sides} sides."

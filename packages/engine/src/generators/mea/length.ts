@@ -368,6 +368,7 @@ export const meaLength: GeneratorDef = {
       altUnit,
       ask,
       many: 2,
+      one: 1,
       long: Math.max(...all),
       short: Math.min(...all),
     });

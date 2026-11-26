@@ -2603,3 +2603,107 @@ fb.coin-pay.retry:
 gen.money.coins.compare-amounts:
   text: "Look at the tens of each amount first, then the ones."
   level: "2"
+
+# ---------- K02 slice 4b (#17): rulers, lengths, graphs, line plots, faces, corners ----------
+# No hint names a number: each is true for every item its templates draw. h.ruler.start-zero and
+# h.ruler.end-number go only on rulers from 0; h.ruler.not-zero and h.ruler.take-start only on
+# objects that start at 1 or more.
+h.ruler.start-zero:
+  text: "One end is at 0, so the number at the other end tells how long."
+  level: "2"
+h.ruler.count-spaces:
+  text: "Count the spaces between the marks, not the marks."
+  level: "2"
+h.ruler.end-number:
+  text: "Find the mark where it ends. Read the number there."
+  level: "2"
+h.ruler.not-zero:
+  text: "It does not start at 0. Look where it starts."
+  level: "2"
+h.ruler.take-start:
+  text: "Count the spaces from where it starts to where it ends."
+  level: "2"
+h.length.diff-spaces:
+  text: "Look past the end of the short one. Count the spaces to the end of the long one."
+  level: "2"
+h.length.diff-count-on:
+  text: "Count on from the short length to the long length."
+  level: "2"
+h.length.diff-bar:
+  text: "The long bar goes on past the short one. That part shows how much longer."
+  level: "2"
+h.length.diff-take-away:
+  text: "Take the short length away from the long length."
+  level: "2"
+h.lineplot.find-each:
+  text: "Find each length on the number line."
+  level: "2"
+h.lineplot.one-x:
+  text: "Put one X above its length for each plank."
+  level: "2"
+h.lineplot.check-list:
+  text: "Count your Xs. There is one for each length on the list."
+  level: "2"
+h.lineplot.find-length:
+  text: "Find that length on the number line."
+  level: "2"
+h.lineplot.x-each:
+  text: "Each X is one plank."
+  level: "2"
+h.lineplot.count-above:
+  text: "Count the Xs above that number. No X means none."
+  level: "2"
+h.lineplot.count-all:
+  text: "Count every X on the line plot."
+  level: "2"
+h.lineplot.count-two:
+  text: "Count the Xs above each of the two lengths."
+  level: "2"
+h.data.bar-reach:
+  text: "Make each bar as tall as its count."
+  level: "2"
+h.data.picture-each:
+  text: "Put one picture in the graph for each one you count."
+  level: "2"
+h.data.find-bar:
+  text: "Find the bar for that kind first."
+  level: "2"
+h.data.add-bars:
+  text: "Add the numbers for all the bars."
+  level: "2"
+h.data.take-smaller:
+  text: "Take the smaller count away from the bigger count."
+  level: "2"
+h.geo.flat-face:
+  text: "A flat face is a flat side. The solid could sit on it."
+  level: "2"
+h.geo.curved-not-face:
+  text: "A curved side is not a flat face."
+  level: "2"
+h.geo.hidden-faces:
+  text: "Think about the back and the bottom too."
+  level: "2"
+h.geo.face-not-edge:
+  text: "Count the flat faces, not the edges where they meet."
+  level: "2"
+h.geo.flat-shapes:
+  text: "A flat shape has no faces to count. Look at the solids."
+  level: "2"
+h.geo.square-corner:
+  text: "A square corner fits the corner of a page."
+  level: "2"
+h.geo.turned-corner:
+  text: "Turned or not, a square corner is still square."
+  level: "2"
+h.geo.every-corner:
+  text: "Check every corner, not just one."
+  level: "2"
+h.geo.grid-corner:
+  text: "Go straight across, then straight up or down. That makes a square corner."
+  level: "2"
+h.geo.sides-corners:
+  text: "A closed shape has as many corners as sides."
+  level: "2"
+h.geo.slant-side:
+  text: "Make the sides slant, so no corner is square."
+  level: "2"
