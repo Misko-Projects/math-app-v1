@@ -268,6 +268,9 @@ export function NumberBondWidget({
     },
   });
 
+  /** Piles: the pointer whose press set the dragged counter's anchor (null: none down). */
+  const pileGrab = useRef<number | null>(null);
+
   const sendHome = (id: number) => {
     if (!interactive) return;
     trace('undo', counterId(id));
@@ -673,9 +676,24 @@ export function NumberBondWidget({
             // Review round 1: a drag carries the counter under the finger, wherever in the pool
             // the press began (the drop is measured from the dragged counter's centre).
             // Round 2: centred exactly on the press (not clamped into the pool, which moved it
-            // off the finger), and set only by the gesture's first pointer (a second finger
-            // never moves the anchor of a drag in progress).
-            if (e.isPrimary) {
+            // off the finger). Round 3: set by exactly the pointer the drag hook accepts (the
+            // first press while no drag is active, as useDragToTarget decides), whichever finger
+            // that is; a press it rejects never moves the anchor of a drag in progress.
+            const accepted =
+              pileGrab.current === null &&
+              interactive &&
+              !(e.pointerType === 'mouse' && e.button !== 0);
+            if (accepted) {
+              const id = e.pointerId;
+              pileGrab.current = id;
+              const end = (ev: PointerEvent) => {
+                if (ev.pointerId !== id) return;
+                pileGrab.current = null;
+                window.removeEventListener('pointerup', end);
+                window.removeEventListener('pointercancel', end);
+              };
+              window.addEventListener('pointerup', end);
+              window.addEventListener('pointercancel', end);
               const r = e.currentTarget.getBoundingClientRect();
               const half = (PILE_CELL * zoom) / 2;
               e.currentTarget.style.setProperty('--grab-x', `${e.clientX - r.left - half}px`);

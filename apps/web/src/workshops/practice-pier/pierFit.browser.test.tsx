@@ -930,6 +930,44 @@ describe('number-bond new-way as piles in a short room (#35)', () => {
     expect(count('.ni-bondw [data-cue="check"] button')).toBe(1);
     expect(await measure('CPS.06.t1')).toEqual([]);
   });
+  // Review round 3 (#128): a hand resting outside the pool, another finger dragging from the
+  // pool's right edge: the counter goes with the dragging finger (its anchor is set by the
+  // pointer the drag accepts, not by the primary one).
+  it('CPS.06.t1, whole 10: a resting hand and a dragging finger, the counter lands under the finger', async () => {
+    await page.viewport(960, 600);
+    const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
+    show(
+      engine.generateItemFromParams(template, { whole: 10, unknown: 'new-way', gap: 4 }),
+      ageModeOf(template),
+    );
+    expect(await measure('CPS.06.t1')).toEqual([]);
+    const whole = document.querySelector(`${pool('whole')} .ni-bondw__grab`) as Element;
+    const resting = document.querySelector('.ni-bondw__found') as Element;
+    const rest = at(resting, 0.5, 0.5);
+    resting.dispatchEvent(new PointerEvent('pointerdown', touch(9, true, rest, 1)));
+    const from = at(whole, 0.92, 0.5);
+    const p = (
+      document.querySelector(`${pool('part-1')} .ni-bondw__pad`) as Element
+    ).getBoundingClientRect();
+    const end = { x: p.left + 50, y: p.top + p.height / 2 };
+    const via = at(whole, 0.5, -0.6);
+    whole.dispatchEvent(new PointerEvent('pointerdown', touch(10, false, from, 1)));
+    let prev = from;
+    for (const q of [via, end]) {
+      for (let i = 1; i <= 6; i += 1) {
+        const m = { x: prev.x + ((q.x - prev.x) * i) / 6, y: prev.y + ((q.y - prev.y) * i) / 6 };
+        window.dispatchEvent(new PointerEvent('pointermove', touch(10, false, m, 1)));
+        await frame();
+      }
+      prev = q;
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', touch(10, false, end, 0)));
+    window.dispatchEvent(new PointerEvent('pointerup', touch(9, true, rest, 0)));
+    await frame();
+    await frame();
+    expect(counts()).toEqual([9, 0, 1]);
+  });
+
   it('CPS.06.t1 on every seed: one counter per move, every state fits; none at 1280 × 800', async () => {
     const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
     const failing: string[] = [];
