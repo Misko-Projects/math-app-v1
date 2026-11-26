@@ -28,7 +28,7 @@ export const FIT_EXCEPTIONS: Readonly<Partial<Record<ItemFormat, readonly FitExc
       reason:
         'Adding with a trade, then the answer on the pad: at 18 px blocks the three-column mat is 645 × 256 px and the tray under it 100 px, beside the equation, an 11-key pad and Check (it fits at 1280 × 800). The widget keeps its blocks countable and its design height, so the area scrolls with Check reachable; fix: a design for short areas (the answer as a second step, the tray beside the mat).',
       at: SMALL,
-      templates: ['MDA.08.t1'],
+      templates: ['MDA.03.t1', 'MDA.08.t1', 'MDA.10.t1', 'MDA.12.t1'],
     },
   ],
   'make-set': [

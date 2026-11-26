@@ -11,6 +11,7 @@ coverageGrades: [K, 1]
 # grade-2 place-value rows (PV.04–PV.07, PV.12, PV.14–PV.17, PV.24), which leaves PV.08 and
 # PV.18–PV.23 (rounding, grade 3, and the stretch rows) as gaps below PV.24. Slice 1b authored
 # CNT.11, CNT.12, CNT.17, CMP.10–12, CPS.10, ADD.14, ADD.22, PV.08 and PV.18.
+# Slice 2a authored MDA.03, MDA.04, MDA.10–MDA.16 and MDA.22, which adds MDA.17–MDA.21 as gaps below MDA.22.
 plannedIds:
   [
     ALG.03,
@@ -27,11 +28,14 @@ plannedIds:
     FRA.06,
     GEO.03,
     GEO.04,
-    MDA.03,
-    MDA.04,
     MDA.05,
     MDA.06,
     MDA.07,
+    MDA.17,
+    MDA.18,
+    MDA.19,
+    MDA.20,
+    MDA.21,
     MEA.03,
     MEA.04,
     MEA.05,

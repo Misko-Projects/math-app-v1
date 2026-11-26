@@ -16,6 +16,14 @@
 // `strategy` shapes the number-line solution: tens-ones (and none) hops ten per ten of b, then the
 // ones in one hop; next-ten hops to the next ten (the previous one, subtracting) first, then the
 // rest. The checker takes any path of allowed hops. Feature values depend on the params only.
+//
+// K02 (#17): `strategy: count-up` (subtraction only, MDA.14) counts up from b to a; on the open
+// line the child jumps from b to a and types the total jump (goal `difference`). A change unknown
+// on the open line (MDA.22) is the same kind of item: a + ? = result jumps from a up to result,
+// a − ? = result from result up to a, and the total jump is the missing number.
+// `addends` 3 or 4 (MDA.04) adds `c` (and `d`) too: the number pad shows a + b + c (+ d) = ?, and
+// expanded-form groups three addends' tens and ones, (40 + 30 + 20) + (7 + 2 + 5) = ? (four do not
+// fit its 17 tokens). Several addends only add, ask the result, and use those two formats.
 
 import type {
   ExpressionToken,
@@ -38,7 +46,9 @@ import {
 import { chartFor } from '../count/sequence';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
-export const MDA_STRATEGIES = ['none', 'tens-ones', 'next-ten'] as const;
+export const MDA_STRATEGIES = ['none', 'tens-ones', 'next-ten', 'count-up'] as const;
+/** The most numbers one item adds (MDA.04: up to four two-digit numbers). */
+export const MDA_ADDENDS_MAX = 4;
 type Strategy = (typeof MDA_STRATEGIES)[number];
 
 /** The digits of n, ones first (0 → [0]). */
@@ -52,16 +62,16 @@ function digits(n: number): number[] {
   return out;
 }
 
-/** Column carries of a + b with the standard algorithm. */
-export function carriesOf(a: number, b: number): number {
-  const da = digits(a);
-  const db = digits(b);
+/** Columns that carry in a + b (+ more addends) with the standard algorithm. */
+export function carriesOf(a: number, b: number, ...more: number[]): number {
+  const ds = [a, b, ...more].map(digits);
+  const width = Math.max(...ds.map((d) => d.length));
   let carry = 0;
   let count = 0;
-  for (let k = 0; k < Math.max(da.length, db.length); k += 1) {
-    const s = (da[k] ?? 0) + (db[k] ?? 0) + carry;
-    carry = s >= 10 ? 1 : 0;
-    count += carry;
+  for (let k = 0; k < width || carry > 0; k += 1) {
+    const s = ds.reduce((sum, d) => sum + (d[k] ?? 0), carry);
+    carry = Math.floor(s / 10);
+    if (k < width && carry > 0) count += 1;
   }
   return count;
 }
@@ -95,8 +105,13 @@ const hto = (n: number): Hto => ({
 });
 
 const plusOf = (p: ParamValues): boolean => asStr(p.op, '+') !== '-';
+/** The addends after a and b: c, then d (`addends` 3 or 4, MDA.04). */
+export const moreAddends = (p: ParamValues): number[] =>
+  [asNum(p.c), asNum(p.d)].slice(0, Math.max(0, asNum(p.addends, 2) - 2));
 const resultOf = (p: ParamValues): number =>
-  plusOf(p) ? asNum(p.a) + asNum(p.b) : asNum(p.a) - asNum(p.b);
+  plusOf(p)
+    ? moreAddends(p).reduce((sum, x) => sum + x, asNum(p.a) + asNum(p.b))
+    : asNum(p.a) - asNum(p.b);
 
 /** Free hops of 1–10 in one direction (the open number line, as addsub.facts). */
 const freeJumps = (dir: 1 | -1): number[] => Array.from({ length: 10 }, (_, i) => dir * (i + 1));
@@ -135,6 +150,22 @@ export function nextTenSplit(
   return { gap, ten: plus ? a + gap : a - gap, rest: b - gap };
 }
 
+/**
+ * A difference item on the open line (count-up subtraction, or a change unknown): the child jumps
+ * up from `from` to `to` and types the total jump, `value`. Null for a landing item.
+ */
+export function differenceLine(p: ParamValues): { from: number; to: number; value: number } | null {
+  const a = asNum(p.a);
+  const b = asNum(p.b);
+  const plus = plusOf(p);
+  const result = resultOf(p);
+  if (asStr(p.unknown, 'result') === 'change') {
+    return plus ? { from: a, to: result, value: b } : { from: result, to: a, value: b };
+  }
+  if (!plus && asStr(p.strategy, 'none') === 'count-up') return { from: b, to: a, value: result };
+  return null;
+}
+
 /** The row of a cell on a hundred chart that starts at `first`. */
 const chartRow = (x: number, first: number): number => Math.floor((x - first) / 10);
 
@@ -153,8 +184,10 @@ export function mdaFeatures(p: ParamValues): Record<string, number> {
   const a = asNum(p.a);
   const b = asNum(p.b);
   const plus = plusOf(p);
-  const carries = plus ? carriesOf(a, b) : 0;
+  const more = moreAddends(p);
+  const carries = plus ? carriesOf(a, b, ...more) : 0;
   const borrows = plus ? 0 : borrowsOf(a, b);
+  const ones = more.reduce((sum, x) => sum + (x % 10), (a % 10) + (b % 10));
   return {
     digits: Math.max(0, digitCount(Math.max(a, b)) - 2),
     regroups: carries + borrows,
@@ -162,7 +195,7 @@ export function mdaFeatures(p: ParamValues): Record<string, number> {
     sub: plus ? 0 : 1,
     'unknown.change': asStr(p.unknown, 'result') === 'change' ? 1 : 0,
     'addends.extra': Math.max(0, asNum(p.addends, 2) - 2),
-    crossDecade: plus ? ((a % 10) + (b % 10) >= 10 ? 1 : 0) : a % 10 < b % 10 ? 1 : 0,
+    crossDecade: plus ? (ones >= 10 ? 1 : 0) : a % 10 < b % 10 ? 1 : 0,
     // How much of b moves (K01): tens past the first, ones past four, and both places at once.
     'tens.moved': Math.max(0, (Math.floor(b / 10) % 10) - 1) / 4,
     'ones.moved': Math.max(0, (b % 10) - 4) / 5,
@@ -179,24 +212,39 @@ const say = (
 
 const basePicture = (n: number): StimulusSpec => ({ kind: 'base-ten', ...hto(n) });
 
-/** (40 + 30) + (7 + 2): the tens and the ones grouped, a zero term dropped. */
-export function groupedTokens(a: number, b: number, plus: boolean): ExpressionToken[] {
+/**
+ * (40 + 30) + (7 + 2): the tens and the ones grouped, a zero term dropped. A two-digit subtraction
+ * with a borrow shows the traded ten (K02, MDA.12): 52 − 27 is (40 − 20) + (12 − 7).
+ */
+export function groupedTokens(
+  a: number,
+  b: number,
+  plus: boolean,
+  more: number[] = [],
+): ExpressionToken[] {
   const op: ExpressionToken = { t: 'op', v: plus ? '+' : '-' };
-  const group = (x: number, y: number): ExpressionToken[] => {
+  const group = (x: number, ys: number[]): ExpressionToken[] => {
     // Subtracting, the first term always stays (40 − 0 is 40, not − 0).
-    const terms = plus ? [x, y].filter((v) => v > 0) : y > 0 ? [x, y] : [x];
+    const terms = plus ? [x, ...ys].filter((v) => v > 0) : [x, ...ys.filter((v) => v > 0)];
     if (terms.length === 0) return [];
     if (terms.length === 1) return [{ t: 'num', v: terms[0] as number }];
     return [
       { t: 'paren', v: '(' },
       { t: 'num', v: terms[0] as number },
-      op,
-      { t: 'num', v: terms[1] as number },
+      ...terms.slice(1).flatMap((v): ExpressionToken[] => [op, { t: 'num', v }]),
       { t: 'paren', v: ')' },
     ];
   };
-  const tens = group(a - (a % 10), b - (b % 10));
-  const ones = group(a % 10, b % 10);
+  const trade = !plus && a % 10 < b % 10 ? 10 : 0;
+  const rest = [b, ...more];
+  const tens = group(
+    a - (a % 10) - trade,
+    rest.map((x) => x - (x % 10)),
+  );
+  const ones = group(
+    (a % 10) + trade,
+    rest.map((x) => x % 10),
+  );
   const parts = [tens, ones].filter(
     (g) => g.length > 0 && !(g.length === 1 && g[0]?.t === 'num' && g[0].v === 0),
   );
@@ -255,18 +303,28 @@ export const mdaAddSub: GeneratorDef = {
       type: 'string',
       values: ['result', 'change'],
       default: { kind: 'const', value: 'result' },
-      doc: 'result, or change (a op ? = result, number-pad only)',
+      doc: 'result, or change (a op ? = result, number-pad and the open line)',
     },
     strategy: {
       type: 'string',
       values: [...MDA_STRATEGIES],
       default: { kind: 'const', value: 'none' },
-      doc: 'number-line solution: tens-ones (and none) hops tens then the ones; next-ten hops to the next ten first',
+      doc: 'number-line solution: tens-ones (and none) hops tens then the ones; next-ten hops to the next ten first; count-up (−) jumps from b up to a',
     },
     addends: {
       type: 'int',
       default: { kind: 'const', value: 2 },
-      doc: 'numbers added (K01: 2 only; MDA.04 adds more in K02)',
+      doc: 'numbers added: 2, or 3–4 (MDA.04: number-pad, and expanded-form with 3)',
+    },
+    c: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'the third addend (addends ≥ 3)',
+    },
+    d: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'the fourth addend (addends 4)',
     },
   },
   derived: ['result', 'carries', 'borrows'],
@@ -328,6 +386,8 @@ export const mdaAddSub: GeneratorDef = {
     'gen.mda.addsub.then-take-rest',
     'gen.mda.addsub.back-to-the-ten',
     'gen.mda.addsub.is',
+    'gen.mda.addsub.count-up',
+    'gen.mda.addsub.jumped',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive(p): ParamValues {
@@ -336,7 +396,7 @@ export const mdaAddSub: GeneratorDef = {
     const plus = plusOf(p);
     return {
       result: resultOf(p),
-      carries: plus ? carriesOf(a, b) : 0,
+      carries: plus ? carriesOf(a, b, ...moreAddends(p)) : 0,
       borrows: plus || a < b ? 0 : borrowsOf(a, b),
     };
   },
@@ -352,13 +412,27 @@ export const mdaAddSub: GeneratorDef = {
     const digitsB = asNum(p.digitsB);
     if (digitsA > 0 && digitCount(a) !== digitsA) return false;
     if (digitsB > 0 && digitCount(b) !== digitsB) return false;
-    const carries = plus ? carriesOf(a, b) : 0;
+    const n = asNum(p.addends, 2);
+    if (!Number.isInteger(n) || n < 2 || n > MDA_ADDENDS_MAX) return false;
+    const more = moreAddends(p);
+    if (n > 2) {
+      // Several addends: add, ask the result, on the pad (or expanded-form with three).
+      if (!plus || asStr(p.unknown, 'result') !== 'result') return false;
+      if (more.some((x) => !Number.isInteger(x) || x < 1 || x > 99)) return false;
+      if (asStr(p.strategy, 'none') !== 'none') return false;
+      if (t.format !== 'number-pad' && !(t.format === 'expanded-form' && n === 3)) return false;
+    }
+    const carries = plus ? carriesOf(a, b, ...more) : 0;
     const borrows = plus ? 0 : borrowsOf(a, b);
     const regroups = asNum(p.regroups, -1);
     if (regroups >= 0 && carries + borrows !== regroups) return false;
     if (p.zeroInMinuend === true && (plus || !hasZeroBelowLead(a))) return false;
-    if (asNum(p.addends, 2) !== 2) return false;
-    if (asStr(p.unknown, 'result') === 'change' && t.format !== 'number-pad') return false;
+    const change = asStr(p.unknown, 'result') === 'change';
+    if (change && t.format !== 'number-pad' && t.format !== 'number-line-jump') return false;
+    // Counting up from b to a subtracts; it asks for the result.
+    if (asStr(p.strategy, 'none') === 'count-up' && (plus || change)) return false;
+    const diff = differenceLine(p);
+    if (t.format === 'number-line-jump' && diff && diff.from >= diff.to) return false;
     switch (t.format) {
       case 'base-ten-build':
         // Built by putting in or taking away b's pieces: no trade.
@@ -366,7 +440,8 @@ export const mdaAddSub: GeneratorDef = {
       case 'base-ten-trade':
         return a <= 999 && b <= 999 && result <= 999;
       case 'expanded-form':
-        return plus || borrows === 0;
+        // A borrow is shown as the traded ten, for two-digit numbers only.
+        return plus || borrows === 0 || (a <= 99 && borrows === 1);
       case 'hundred-chart': {
         const mid = plus ? a + (b - (b % 10)) : a - (b - (b % 10));
         const chart = chartFor(Math.min(a, mid, result), Math.max(a, mid, result));
@@ -387,9 +462,12 @@ export const mdaAddSub: GeneratorDef = {
     const change = asStr(params.unknown, 'result') === 'change';
     const math = mdaFeatures(params);
     const bh = hto(b);
+    const more = moreAddends(params);
     const vars = pickVars(t, {
       a,
       b,
+      ...(more.length > 0 ? { c: more[0] as number } : {}),
+      ...(more.length > 1 ? { d: more[1] as number } : {}),
       tens: Math.floor(b / 10),
       ones: b % 10,
       ...(change ? { result } : {}),
@@ -408,8 +486,7 @@ export const mdaAddSub: GeneratorDef = {
             ]
           : [
               { t: 'num', v: a },
-              opToken,
-              { t: 'num', v: b },
+              ...[b, ...more].flatMap((x): ExpressionToken[] => [opToken, { t: 'num', v: x }]),
               { t: 'rel', v: '=' },
               { t: 'blank', id: 'x' },
             ];
@@ -476,10 +553,15 @@ export const mdaAddSub: GeneratorDef = {
         };
         break;
       case 'number-line-jump': {
-        const dir: 1 | -1 = plus ? 1 : -1;
+        // A difference item jumps up from `from` to `to` and asks the total jump (K02).
+        const diff = differenceLine(params);
+        const dir: 1 | -1 = diff || plus ? 1 : -1;
         const allowedJumps = freeJumps(dir);
-        const lo = Math.min(a, result);
-        const hi = Math.max(a, result);
+        const start = diff ? diff.from : a;
+        const target = diff ? diff.to : result;
+        const value = diff ? diff.value : result;
+        const lo = Math.min(start, target);
+        const hi = Math.max(start, target);
         p = {
           params,
           vars,
@@ -490,20 +572,20 @@ export const mdaAddSub: GeneratorDef = {
             max: Math.ceil(hi / 10) * 10 + 10,
             ticksEvery: null,
             labelsEvery: null,
-            start: a,
-            goal: plus ? 'add' : 'subtract',
-            target: result,
+            start,
+            goal: diff ? 'difference' : plus ? 'add' : 'subtract',
+            target,
             allowedJumps,
             path: 'open',
-            thenAsk: 'landing',
+            thenAsk: diff ? 'total-jump' : 'landing',
           },
           answer: {
             kind: 'state',
             checker: 'jumps.reach',
-            target: { start: a, target: result, allowedJumps, value: result },
+            target: { start, target, allowedJumps, value },
           },
-          nudge: [{ op: 'highlight', args: { at: a } }],
-          highlight: [{ op: 'highlight', args: { at: a } }],
+          nudge: [{ op: 'highlight', args: { at: start } }],
+          highlight: [{ op: 'highlight', args: { at: start } }],
         };
         break;
       }
@@ -516,7 +598,7 @@ export const mdaAddSub: GeneratorDef = {
             format: 'expanded-form',
             target: result,
             mode: 'to-standard',
-            expression: { tokens: groupedTokens(a, b, plus) },
+            expression: { tokens: groupedTokens(a, b, plus, more) },
             unusualOrder: false,
           },
           answer: { kind: 'number', value: result },
@@ -571,6 +653,11 @@ export const mdaAddSub: GeneratorDef = {
       case 'base-ten-trade':
         return { kind: 'state', value: { ...hto(result), value: result } };
       case 'number-line-jump': {
+        const diff = differenceLine(p);
+        if (diff) {
+          const hops = jumpPath(diff.from, diff.to - diff.from, true, 'next-ten');
+          return { kind: 'state', value: { jumps: hops, value: diff.value } };
+        }
         const strategy = asStr(p.strategy, 'none') as Strategy;
         return { kind: 'state', value: { jumps: jumpPath(a, b, plus, strategy), value: result } };
       }
@@ -622,7 +709,12 @@ export const mdaAddSub: GeneratorDef = {
         }
         const first = change
           ? say(plus ? 'gen.mda.addsub.count-on' : 'gen.mda.addsub.count-back', { a, result })
-          : say(plus ? 'gen.mda.addsub.tens-then-ones' : 'gen.mda.addsub.take-tens-then-ones', {});
+          : strategy === 'count-up'
+            ? say('gen.mda.addsub.count-up', { a, b })
+            : say(
+                plus ? 'gen.mda.addsub.tens-then-ones' : 'gen.mda.addsub.take-tens-then-ones',
+                {},
+              );
         return [
           { ...first, action: { op: 'highlight', args: { token: 'x' } } },
           final({ op: 'type', args: { blank: 'x', value: answer } }),
@@ -672,6 +764,31 @@ export const mdaAddSub: GeneratorDef = {
       case 'base-ten-trade':
         return [...tradeSteps(a, b, plus), final({ op: 'answer', args: { value: result } })];
       case 'number-line-jump': {
+        const diff = differenceLine(p);
+        if (diff) {
+          // Up from `from` to the next ten, by tens, then the ones; the total jump is the answer.
+          const steps: LessonStep[] = [
+            say(
+              'gen.mda.addsub.start',
+              { a: diff.from },
+              { op: 'highlight', args: { at: diff.from } },
+            ),
+          ];
+          const gap = diff.from % 10 === 0 ? 0 : 10 - (diff.from % 10);
+          jumpPath(diff.from, diff.to - diff.from, true, 'next-ten').forEach((h, i) => {
+            const key =
+              i === 0 && gap > 0 && gap <= diff.to - diff.from
+                ? 'gen.mda.addsub.to-ten'
+                : h === 10
+                  ? 'gen.mda.addsub.jump-ten'
+                  : 'gen.mda.addsub.jump';
+            steps.push(say(key, { count: h }, { op: 'hop', args: { by: h } }));
+          });
+          return [
+            ...steps,
+            say('gen.mda.addsub.jumped', { v: diff.value, to: diff.to }, { op: 'label-landing' }),
+          ];
+        }
         const strategy = asStr(p.strategy, 'none') as Strategy;
         const hops = jumpPath(a, b, plus, strategy);
         const gap = plus ? (a % 10 === 0 ? 0 : 10 - (a % 10)) : a % 10;

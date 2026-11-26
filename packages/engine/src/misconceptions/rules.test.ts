@@ -184,6 +184,7 @@ describe('registry', () => {
   it('registers the rules by detect.rule id', () => {
     expect(registeredRuleIds().sort()).toEqual([
       'biggerUnitMore',
+      'borrowNoDecrement',
       'compareFirstDigit',
       'countAllInstead',
       'countStartNumber',
@@ -192,6 +193,7 @@ describe('registry', () => {
       'equalsMeansAnswer',
       'faceValue',
       'forgotTheTen',
+      'forgotToRegroupAdd',
       'fractionBiggerDenominator',
       'fractionUnequalParts',
       'hourHandNext',
@@ -204,6 +206,7 @@ describe('registry', () => {
       'recountFromOne',
       'roundDownAlways',
       'roundWrongPlace',
+      'smallerFromLarger',
       'startUnknownReversed',
       'symbolReversed',
       'teenReversal',

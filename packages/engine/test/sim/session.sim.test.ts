@@ -134,6 +134,19 @@ const SLICE_1B = ['CNT.11', 'CNT.12', 'CNT.17', 'CMP.10', 'CMP.11', 'CMP.12', 'C
 const SLICE_1B_FLUENCY = ['ADD.14', 'ADD.22'] as const;
 /** Slice 1b's rounding skills (grade 3): a grade-3 learner reaches and masters them. */
 const SLICE_1B_ROUNDING = ['PV.08', 'PV.18'] as const;
+/** Slice 2a (#17): grade-2 addition and subtraction within 100. */
+const SLICE_2A = [
+  'MDA.03',
+  'MDA.04',
+  'MDA.10',
+  'MDA.11',
+  'MDA.12',
+  'MDA.13',
+  'MDA.14',
+  'MDA.15',
+  'MDA.16',
+  'MDA.22',
+] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -637,7 +650,12 @@ describe('session simulation (04 §8)', () => {
           .map((s) => `${s} ${count(s, 'fluentAt')}`)
           .join(', ')}`,
       );
-      for (const s of [...PV_TO_1000, ...SLICE_1B]) {
+      console.log(
+        `session sim ${ready.name}, slice 2a: children who met / practised / mastered each skill: ${SLICE_2A.map(
+          (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
+        ).join(', ')}`,
+      );
+      for (const s of [...PV_TO_1000, ...SLICE_1B, ...SLICE_2A]) {
         expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
         expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
       }

@@ -289,7 +289,17 @@ export const bondParts: GeneratorDef = {
       parts: unknown === 'whole' ? [part, other] : [part, '?'],
     };
     // A bond of tens is pictured as the bond of its tens (30 and 70 as 3 and 7 on a ten-frame).
-    const overlay = tenFrameOverlay(whole / scale, [part / scale, other / scale]);
+    // Two ten-frames hold 20: a bigger whole (MDA.16, 52 = 27 + 25) is pictured as base-ten pieces
+    // of the whole, never as a frame that drops counters (PR #125 review).
+    const overlay: StimulusSpec =
+      whole / scale > 20
+        ? {
+            kind: 'base-ten',
+            hundreds: Math.floor(whole / 100),
+            tens: Math.floor(whole / 10) % 10,
+            ones: whole % 10,
+          }
+        : tenFrameOverlay(whole / scale, [part / scale, other / scale]);
     // Every split widget asks for two nonzero parts (`nonZero: true`); both checkers do too.
     const splitAnswer =
       unknown === 'new-way'

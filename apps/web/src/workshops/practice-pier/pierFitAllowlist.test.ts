@@ -81,7 +81,7 @@ describe('the pier fit allowlist', () => {
     const templates = Object.values(graph.templates).filter(
       (t) => t.format === 'balance' || t.format === 'story-problem',
     );
-    expect(templates).toHaveLength(13);
+    expect(templates).toHaveLength(15);
     for (const template of templates) {
       for (const viewport of FIT_VIEWPORTS) {
         expect(fitAllowance(template, viewport), `${template.id} at ${viewport}`).toBeNull();

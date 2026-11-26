@@ -165,8 +165,18 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'GEO.11',
       'MDA.01',
       'MDA.02',
+      'MDA.03',
+      'MDA.04',
       'MDA.08',
       'MDA.09',
+      'MDA.10',
+      'MDA.11',
+      'MDA.12',
+      'MDA.13',
+      'MDA.14',
+      'MDA.15',
+      'MDA.16',
+      'MDA.22',
       'MEA.01',
       'MEA.02',
       'MEA.07',
@@ -211,6 +221,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
+      'MC.borrow-no-decrement',
       'MC.compare-first-digit',
       'MC.count-all-instead',
       'MC.count-start-number',
@@ -219,6 +230,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.equals-means-answer',
       'MC.face-value',
       'MC.forgot-the-ten',
+      'MC.forgot-to-regroup-add',
       'MC.fraction-bigger-denominator',
       'MC.fraction-unequal-parts',
       'MC.hour-hand-next',
@@ -231,6 +243,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.recount-from-one',
       'MC.round-down-always',
       'MC.round-wrong-place',
+      'MC.smaller-from-larger',
       'MC.start-unknown-reversed',
       'MC.symbol-reversed',
       'MC.teen-reversal',
@@ -1833,10 +1846,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // and puzzles (K01) added 18 skills, 62 templates and six misconceptions; place value to
       // 1000 (K02 slice 1a) added 10 skills, 46 templates, MC.zero-placeholder and
       // MC.compare-first-digit; counting, number lines, rounding and fact fluency (K02 slice 1b)
-      // added 11 skills, 49 templates, MC.round-down-always and MC.round-wrong-place.
-      skills: 136,
-      templates: 524,
-      misconceptions: 29,
+      // added 11 skills, 49 templates, MC.round-down-always and MC.round-wrong-place; addition and
+      // subtraction within 100 (K02 slice 2a) added 10 skills, 29 templates,
+      // MC.forgot-to-regroup-add, MC.smaller-from-larger and MC.borrow-no-decrement.
+      skills: 146,
+      templates: 553,
+      misconceptions: 32,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1876,6 +1891,8 @@ describe('graph.json (03 §9.1)', () => {
       'CNT.14',
       'CPS.02',
       'CPS.04',
+      'MDA.03',
+      'MDA.12',
       'PV.01',
       'PV.04',
       'PV.09',
@@ -1906,6 +1923,16 @@ describe('graph.json (03 §9.1)', () => {
       ['CNT.10', 'CNT.09', 1],
       ['MDA.01', 'ADD.06', 0.5],
       ['MDA.01', 'PV.03', 0.5],
+      ['MDA.03', 'ADD.14', 0.8],
+      ['MDA.03', 'MDA.08', 0.5],
+      ['MDA.03', 'MDA.09', 1],
+      ['MDA.03', 'PV.12', 0.5],
+      ['MDA.04', 'ADD.13', 0.5],
+      ['MDA.04', 'MDA.03', 1],
+      ['MDA.12', 'ADD.22', 0.8],
+      ['MDA.12', 'MDA.10', 0.5],
+      ['MDA.12', 'MDA.11', 1],
+      ['MDA.12', 'PV.12', 0.5],
       ['PV.06', 'PV.02', 0.6],
       ['PV.06', 'PV.05', 0.5],
       ['PV.07', 'PV.03', 1],

@@ -31,7 +31,7 @@ import {
 } from '@number-island/ui';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { type AppContent, loadContent } from '@/app/boot/content';
 // The app's own faces, as `main.tsx` loads them: without them the layout is measured in whatever
 // fallback fonts the machine has, and differs from machine to machine.
@@ -490,6 +490,128 @@ describe.each(FIT_VIEWPORTS)(
       await shot('PV.16.t1', 'column-of-20');
       expect(button('[data-trade="split-tens"]')?.disabled).toBe(true);
       expect(document.querySelector('[data-fits="false"]')).toBeNull();
+    });
+
+    // K02 slice 2a (#17): two-digit compute items. The fullest states a child reaches: adding,
+    // both numbers' pieces on the mat (8 tens 18 ones) and then the trade; subtracting, the mat
+    // after one ten is split (8 tens 18 ones); and the open line after its longest jump path.
+    const drawn = (
+      templateId: string,
+      ok: (a: number, b: number) => boolean,
+    ): { item: GeneratedItem; template: ItemTemplate } => {
+      const template = content.store.graph.templates[templateId] as ItemTemplate;
+      for (let seed = 1; seed < 40_000; seed += 1) {
+        const item = engine.generateItem(template, seed);
+        if (ok(Number(item.params.a), Number(item.params.b))) return { item, template };
+      }
+      throw new Error(`${templateId}: no such item in 40000 seeds`);
+    };
+    const tens = (n: number) => Math.floor(n / 10);
+    /** Fits, or (an allowlisted template at this viewport, #17) scrolls with every control kept. */
+    const fitsOrAllowed = async (id: string) => {
+      const misfit = await measure(id);
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      if (fitAllowance(template, viewport)) expect(misfit).not.toContain(FALLBACK);
+      else expect(misfit).toEqual([]);
+    };
+    const place = async (c: 'tens' | 'ones') => {
+      await userEvent.click(document.querySelector(`[data-place-item="pending-${c}"]`) as Element);
+      await userEvent.click(document.querySelector(`[data-place-target="col-${c}"]`) as Element);
+    };
+
+    it('base-ten-trade (MDA.03.t1): 49 + 49 on the mat as 8 tens 18 ones, then traded', async () => {
+      await page.viewport(width, height);
+      const { item, template } = drawn(
+        'MDA.03.t1',
+        (a, b) => a % 10 === 9 && b % 10 === 9 && tens(a) + tens(b) === 8,
+      );
+      show(item, ageModeOf(template));
+      await fitsOrAllowed('MDA.03.t1');
+      await place('tens');
+      await place('ones');
+      await fitsOrAllowed('MDA.03.t1');
+      expect(tradeMat()).toEqual([0, 8, 18]);
+      await shot('MDA.03.t1', 'joined');
+      button('[data-trade="trade-ones-tens"]')?.click();
+      await fitsOrAllowed('MDA.03.t1');
+      expect(tradeMat()).toEqual([0, 9, 8]);
+      await shot('MDA.03.t1', 'traded');
+    });
+
+    it('base-ten-trade (MDA.12.t1): 98 − 19 with one ten split, 8 tens 18 ones', async () => {
+      await page.viewport(width, height);
+      const { item, template } = drawn('MDA.12.t1', (a, b) => a === 98 && b % 10 === 9);
+      show(item, ageModeOf(template));
+      await fitsOrAllowed('MDA.12.t1');
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.12.t1');
+      expect(tradeMat()).toEqual([0, 8, 18]);
+      await shot('MDA.12.t1', 'split');
+    });
+
+    it('number-line-jump (MDA.12.t2): back 8 tens and the ones, every jump drawn', async () => {
+      await page.viewport(width, height);
+      const { item, template } = drawn('MDA.12.t2', (_a, b) => tens(b) === 8);
+      show(item, ageModeOf(template));
+      expect(await measure('MDA.12.t2')).toEqual([]);
+      const hop = async (by: number) => {
+        for (let i = 0; i < 12; i += 1) {
+          const jump = document.querySelector<HTMLButtonElement>(`.ni-nlj__jump[data-by="${by}"]`);
+          if (jump) return userEvent.click(jump);
+          const now = Number(
+            document.querySelector('.ni-nlj__jump[data-by]')?.getAttribute('data-by'),
+          );
+          const dir = Math.abs(by) > Math.abs(now) ? 'bigger' : 'smaller';
+          await userEvent.click(document.querySelector(`[data-dir="${dir}"]`) as Element);
+        }
+        throw new Error(`no jump of ${by}`);
+      };
+      const b = Number(item.params.b);
+      const jumps = [...new Array<number>(tens(b)).fill(-10), -(b % 10)];
+      expect(jumps.length).toBe(9);
+      for (const by of jumps) await hop(by);
+      expect(await measure('MDA.12.t2')).toEqual([]);
+      await shot('MDA.12.t2', 'all-jumps');
+      // Nine arcs are drawn; a hop label with no free room is left out (the last one stays).
+      expect(document.querySelectorAll('[data-hop]').length).toBeGreaterThan(0);
+    });
+
+    it('number-pad (MDA.04.t2): four addends on one line of the equation card, at the usual size', async () => {
+      await page.viewport(width, height);
+      const nums = () => [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-testid="pier-stage"] .ni-npw__expr .ni-expr__num',
+        ),
+      ];
+      const two = drawn('MDA.03.t4', () => true);
+      show(two.item, ageModeOf(two.template));
+      expect(await measure('MDA.03.t4')).toEqual([]);
+      const usual = nums()[0]?.getBoundingClientRect().height ?? 0;
+      const template = content.store.graph.templates['MDA.04.t2'] as ItemTemplate;
+      let item: GeneratedItem | null = null;
+      for (let seed = 1; seed < 5000 && !item; seed += 1) {
+        const it4 = engine.generateItem(template, seed);
+        if (it4.params.addends === 4) item = it4;
+      }
+      if (!item) throw new Error('MDA.04.t2: no four-addend item in 5000 seeds');
+      show(item, ageModeOf(template));
+      expect(await measure('MDA.04.t2')).toEqual([]);
+      await shot('MDA.04.t2', 'four-addends');
+      const shown = nums();
+      expect(shown.length).toBe(4);
+      const tops = shown.map((el) => el.getBoundingClientRect().top);
+      expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(4);
+      // The card scales a long sum to keep it on one line: at 960 × 600 four addends are drawn at
+      // 63% of a two-addend item's numerals (decided on #17 slice 2a; a stacked layout is a
+      // follow-up), at 1280 × 800 at 83%.
+      const least = width < 1280 ? 0.6 : 0.8;
+      const el0 = shown[0] as HTMLElement;
+      const drawnFont =
+        (Number.parseFloat(getComputedStyle(el0).fontSize) * el0.getBoundingClientRect().height) /
+        el0.offsetHeight;
+      // The project bar for numerals: at least 32 px as drawn (37.5 px here at 960 × 600).
+      expect(drawnFont, viewport).toBeGreaterThanOrEqual(32);
+      expect(shown[0]?.getBoundingClientRect().height ?? 0).toBeGreaterThanOrEqual(usual * least);
     });
 
     it('PV.24.t1 shows no goal card: the mat that lacks one digit does not name what it is worth', async () => {

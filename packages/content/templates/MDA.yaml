@@ -1,4 +1,4 @@
-# MDA templates (03 §4.3), K01: the grade-1 two-digit addition and subtraction rows (mda.addsub).
+# MDA templates (03 §4.3): K01 the grade-1 rows, K02 slice 2a (#17) the grade-2 rows within 100.
 strand: MDA
 templates:
   # ---------- MDA.01 add tens; add ones without crossing a ten ----------
@@ -158,3 +158,373 @@ templates:
     constraints: ["carries == 0", "result <= 99"]
     difficulty: { base: -0.76 }
     narration: { prompt: tp.MDA.09.t3.prompt, hints: [h.mda.add-the-tens, h.mda.add-the-ones] }
+
+  # ================= K02 slice 2a (#17): grade 2 within 100 =================
+
+  # ---------- MDA.03 add two-digit numbers with regrouping (gateway) ----------
+  # Exactly one carry: the ones always make a new ten, and the sum stays within 99.
+  - id: MDA.03.t1
+    skillId: MDA.03
+    format: base-ten-trade
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [15, 79] }, b: { int: [12, 79] }, op: "+", digitsB: 2 }
+    constraints: ["carries == 1", "result <= 99"]
+    difficulty: { base: -1.72 }
+    narration:
+      { prompt: tp.MDA.03.t1.prompt, hints: [h.mda.ten-ones-bundle, h.mda.count-tens-ones] }
+
+  - id: MDA.03.t2
+    skillId: MDA.03
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [15, 79] }, b: { int: [12, 79] }, op: "+", digitsB: 2, strategy: tens-ones }
+    constraints: ["carries == 1", "result <= 99"]
+    difficulty: { base: -3.38 }
+    narration: { prompt: tp.MDA.03.t2.prompt, hints: [h.mda.jump-tens, h.mda.jump-ones] }
+
+  - id: MDA.03.t3
+    skillId: MDA.03
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: mda.addsub
+    params: { a: { int: [15, 79] }, b: { int: [12, 79] }, op: "+", digitsB: 2 }
+    constraints: ["carries == 1", "result <= 99"]
+    difficulty: { base: -1.72 }
+    narration: { prompt: tp.MDA.03.t3.prompt, hints: [h.mda.add-the-tens, h.mda.ones-new-ten] }
+
+  - id: MDA.03.t4
+    skillId: MDA.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [15, 79] }, b: { int: [12, 79] }, op: "+", digitsB: 2 }
+    constraints: ["carries == 1", "result <= 99"]
+    difficulty: { base: -2.08 }
+    narration: { prompt: tp.MDA.03.t4.prompt, hints: [h.mda.ones-new-ten, h.mda.add-the-tens] }
+
+  # ---------- MDA.04 add up to four two-digit numbers ----------
+  # Three or four two-digit addends, the sum within 99, with or without a new ten from the ones.
+  - id: MDA.04.t1
+    skillId: MDA.04
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: mda.addsub
+    params:
+      { a: { int: [11, 49] }, b: { int: [11, 39] }, c: { int: [11, 39] }, op: "+", addends: 3 }
+    constraints: ["result <= 99"]
+    difficulty: { base: -1.95 }
+    narration: { prompt: tp.MDA.04.t1.prompt, hints: [h.mda.add-all-tens, h.mda.all-ones] }
+
+  - id: MDA.04.t2
+    skillId: MDA.04
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params:
+      a: { int: [11, 39] }
+      b: { int: [11, 29] }
+      c: { int: [11, 29] }
+      d: { int: [11, 29] }
+      op: "+"
+      addends: { choice: [3, 4] }
+    constraints: ["result <= 99"]
+    difficulty: { base: -2.5 }
+    narration: { prompt: tp.MDA.04.t2.prompt, hints: [h.mda.add-all-tens, h.mda.all-ones] }
+
+  # ---------- MDA.10 subtract a one-digit number across a ten ----------
+  # The ones of a are fewer than b (and not zero), so the take-away passes a ten: 42 − 5.
+  - id: MDA.10.t1
+    skillId: MDA.10
+    format: base-ten-trade
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [21, 98] }, b: { int: [2, 9] }, op: "-" }
+    constraints: ["borrows == 1", "a % 10 > 0"]
+    difficulty: { base: -1.94 }
+    narration: { prompt: tp.MDA.10.t1.prompt, hints: [h.mda.split-a-ten, h.mda.take-the-ones] }
+
+  - id: MDA.10.t2
+    skillId: MDA.10
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [21, 98] }, b: { int: [2, 9] }, op: "-", strategy: next-ten }
+    constraints: ["borrows == 1", "a % 10 > 0"]
+    difficulty: { base: -3.24 }
+    narration:
+      { prompt: tp.MDA.10.t2.prompt, hints: [h.mda.jump-back-to-ten, h.mda.back-to-ten-first] }
+
+  - id: MDA.10.t3
+    skillId: MDA.10
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [21, 98] }, b: { int: [2, 9] }, op: "-", strategy: next-ten }
+    constraints: ["borrows == 1", "a % 10 > 0"]
+    difficulty: { base: -1.94 }
+    narration:
+      { prompt: tp.MDA.10.t3.prompt, hints: [h.mda.back-to-ten-first, h.mda.then-take-rest] }
+
+  # ---------- MDA.11 subtract two-digit numbers without regrouping ----------
+  # b has tens and ones, and each of its digits is at most a's: no ten is split.
+  - id: MDA.11.t1
+    skillId: MDA.11
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [22, 99] }, b: { int: [11, 89] }, op: "-" }
+    constraints: ["borrows == 0", "b % 10 > 0", "result >= 1"]
+    difficulty: { base: -0.84 }
+    narration: { prompt: tp.MDA.11.t1.prompt, hints: [h.mda.take-tens, h.mda.take-cubes] }
+
+  - id: MDA.11.t2
+    skillId: MDA.11
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [22, 99] }, b: { int: [11, 89] }, op: "-" }
+    constraints: ["borrows == 0", "b % 10 > 0", "result >= 1"]
+    difficulty: { base: -1.12 }
+    narration: { prompt: tp.MDA.11.t2.prompt, hints: [h.mda.take-away-tens, h.mda.take-away-ones] }
+
+  # ---------- MDA.12 subtract two-digit numbers with regrouping (gateway) ----------
+  # Exactly one borrow: the ones of a are fewer than b's, so one ten is split into ten ones.
+  - id: MDA.12.t1
+    skillId: MDA.12
+    format: base-ten-trade
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [21, 99] }, b: { int: [12, 89] }, op: "-", digitsB: 2 }
+    constraints: ["borrows == 1"]
+    difficulty: { base: -2.38 }
+    narration:
+      { prompt: tp.MDA.12.t1.prompt, hints: [h.mda.split-a-ten, h.mda.take-ones-then-tens] }
+
+  - id: MDA.12.t2
+    skillId: MDA.12
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [21, 99] }, b: { int: [12, 89] }, op: "-", digitsB: 2, strategy: tens-ones }
+    constraints: ["borrows == 1"]
+    difficulty: { base: -4.29 }
+    narration: { prompt: tp.MDA.12.t2.prompt, hints: [h.mda.jump-back-tens, h.mda.jump-back-ones] }
+
+  - id: MDA.12.t3
+    skillId: MDA.12
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: mda.addsub
+    params: { a: { int: [21, 99] }, b: { int: [12, 89] }, op: "-", digitsB: 2 }
+    constraints: ["borrows == 1"]
+    difficulty: { base: -2.72 }
+    narration:
+      { prompt: tp.MDA.12.t3.prompt, hints: [h.mda.ten-moved-to-ones, h.mda.take-away-tens] }
+
+  - id: MDA.12.t4
+    skillId: MDA.12
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [21, 99] }, b: { int: [12, 89] }, op: "-", digitsB: 2 }
+    constraints: ["borrows == 1"]
+    difficulty: { base: -2.31 }
+    narration: { prompt: tp.MDA.12.t4.prompt, hints: [h.mda.split-a-ten, h.mda.one-ten-less] }
+
+  # ---------- MDA.13 jump by tens and ones on an open number line ----------
+  # b has tens and ones; the line jumps its tens, then its ones.
+  - id: MDA.13.t1
+    skillId: MDA.13
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [11, 79] }, b: { int: [11, 49] }, op: "+", strategy: tens-ones }
+    constraints: ["b % 10 > 0", "result <= 99"]
+    difficulty: { base: -2.7 }
+    narration: { prompt: tp.MDA.13.t1.prompt, hints: [h.mda.jump-tens, h.mda.jump-ones] }
+
+  - id: MDA.13.t2
+    skillId: MDA.13
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [22, 99] }, b: { int: [11, 49] }, op: "-", strategy: tens-ones }
+    constraints: ["b % 10 > 0", "result >= 1"]
+    difficulty: { base: -3.5 }
+    narration: { prompt: tp.MDA.13.t2.prompt, hints: [h.mda.jump-back-tens, h.mda.jump-back-ones] }
+
+  - id: MDA.13.t3
+    skillId: MDA.13
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params:
+      a: { int: [22, 79] }
+      b: { int: [11, 49] }
+      op: { choice: ["+", "-"] }
+      strategy: tens-ones
+    constraints: ["b % 10 > 0", "result >= 1", "result <= 99"]
+    difficulty: { base: -1.14 }
+    narration: { prompt: tp.MDA.13.t3.prompt, hints: [h.mda.picture-line, h.mda.tens-then-ones] }
+
+  # ---------- MDA.14 subtract by counting up ----------
+  # a and b are close (a difference of 30 or less) and the ones cross a ten: 62 − 48.
+  - id: MDA.14.t1
+    skillId: MDA.14
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [31, 99] }, b: { int: [12, 89] }, op: "-", strategy: count-up }
+    constraints: ["borrows == 1", "result <= 30"]
+    difficulty: { base: -3.43 }
+    narration: { prompt: tp.MDA.14.t1.prompt, hints: [h.mda.up-to-next-ten, h.mda.add-the-jumps] }
+
+  - id: MDA.14.t2
+    skillId: MDA.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [31, 99] }, b: { int: [12, 89] }, op: "-", strategy: count-up }
+    constraints: ["borrows == 1", "result <= 30"]
+    difficulty: { base: -2.38 }
+    narration:
+      { prompt: tp.MDA.14.t2.prompt, hints: [h.mda.up-to-next-ten, h.mda.count-up-between] }
+
+  # ---------- MDA.15 make a friendly number ----------
+  # a is one or two below a ten (49, 38); b gives it those ones and has at least a ten left.
+  - id: MDA.15.t1
+    skillId: MDA.15
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [18, 79] }, b: { int: [12, 69] }, op: "+", strategy: next-ten }
+    constraints: ["a % 10 >= 8", "carries == 1", "result <= 99"]
+    difficulty: { base: -1.94 }
+    narration: { prompt: tp.MDA.15.t1.prompt, hints: [h.mda.friendly-ten, h.mda.add-what-is-left] }
+
+  - id: MDA.15.t2
+    skillId: MDA.15
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [18, 79] }, b: { int: [12, 69] }, op: "+", strategy: next-ten }
+    constraints: ["a % 10 >= 8", "carries == 1", "result <= 99"]
+    difficulty: { base: -3.25 }
+    narration: { prompt: tp.MDA.15.t2.prompt, hints: [h.mda.jump-to-next-ten, h.mda.jump-tens] }
+
+  # 49 + 26 = 50 + ?: c is the ten just above a.
+  - id: MDA.15.t3
+    skillId: MDA.15
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: equality.eq
+    params:
+      form: a+b=c+_
+      a: { choice: [18, 19, 28, 29, 38, 39, 48, 49, 58, 59, 68, 69, 78, 79] }
+      b: { int: [12, 69] }
+      c: { choice: [20, 30, 40, 50, 60, 70, 80] }
+      maxN: 100
+    constraints: ["c > a", "c - a <= 2", "a + b <= 99"]
+    difficulty: { base: -1.95, features: { size: 0.045 } }
+    narration: { prompt: tp.MDA.15.t3.prompt, hints: [h.eq.same-both, h.mda.give-and-take] }
+
+  - id: MDA.15.t4
+    skillId: MDA.15
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [18, 79] }, b: { int: [12, 69] }, op: "+", strategy: next-ten }
+    constraints: ["a % 10 >= 8", "carries == 1", "result <= 99"]
+    difficulty: { base: -2.0 }
+    narration: { prompt: tp.MDA.15.t4.prompt, hints: [h.mda.friendly-ten, h.mda.add-what-is-left] }
+
+  # ---------- MDA.16 check subtraction with addition ----------
+  # Two-digit parts: the missing part found, then the parts added back to the whole.
+  - id: MDA.16.t1
+    skillId: MDA.16
+    format: number-bond
+    tier: pictorial
+    representation: number-bond
+    generator: bond.parts
+    params: { whole: { int: [31, 99] }, part: { int: [11, 88] }, unknown: part }
+    constraints: ["part < whole", "other >= 11"]
+    difficulty:
+      { base: -2.67, features: { whole.over20: 0.05, missing.over4: 0.05, whole.over5: 0.03 } }
+    narration: { prompt: tp.MDA.16.t1.prompt, hints: [h.bond.count-on, h.mda.parts-make-whole] }
+
+  - id: MDA.16.t2
+    skillId: MDA.16
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [31, 99] }, b: { int: [11, 88] }, op: "-" }
+    constraints: ["result >= 11"]
+    difficulty: { base: -1.28 }
+    narration: { prompt: tp.MDA.16.t2.prompt, hints: [h.mda.think-plus, h.mda.check-with-plus] }
+
+  # ---------- MDA.22 find a missing number within 100 ----------
+  # The change is missing: a + ? = result, or a − ? = result (the pad); the line and the balance
+  # add. The missing number is at least 11, so it is never one jump or one count.
+  - id: MDA.22.t1
+    skillId: MDA.22
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [11, 79] }, b: { int: [11, 79] }, op: "+", unknown: change }
+    constraints: ["result <= 99"]
+    difficulty: { base: -3.3 }
+    narration: { prompt: tp.MDA.22.t1.prompt, hints: [h.mda.up-to-next-ten, h.mda.add-the-jumps] }
+
+  - id: MDA.22.t2
+    skillId: MDA.22
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: equality.eq
+    params: { form: a+_=c, a: { int: [11, 79] }, b: { int: [11, 79] }, maxN: 100 }
+    constraints: ["a + b <= 99"]
+    difficulty: { base: -2.12, features: { size: 0.045 } }
+    narration: { prompt: tp.MDA.22.t2.prompt, hints: [h.eq.same-both, h.mda.count-up-between] }
+
+  - id: MDA.22.t3
+    skillId: MDA.22
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params:
+      a: { int: [11, 99] }
+      b: { int: [11, 79] }
+      op: { choice: ["+", "-"] }
+      unknown: change
+    constraints: ["result >= 11", "result <= 99"]
+    difficulty: { base: -1.8 }
+    narration: { prompt: tp.MDA.22.t3.prompt, hints: [h.mda.count-up-between, h.eq.think-parts] }
