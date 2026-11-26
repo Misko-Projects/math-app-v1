@@ -1764,6 +1764,57 @@ gen.mul.groups.hop:
 gen.mul.groups.land:
   text: "You land on {total}."
   level: "2"
+gen.mul.facts.zero:
+  text: "Any number times 0 is 0."
+  level: "2"
+gen.mul.facts.one:
+  text: "Times 1 keeps the number the same: {n}."
+  level: "2"
+gen.mul.facts.turn:
+  text: "Turn it around. {a} times {b} is the same as {b} times {a}."
+  level: "2"
+gen.mul.facts.count-by:
+  text: "Count by {by}s: {counts}."
+  level: "2"
+gen.mul.facts.is:
+  text: "{a} times {b} is {result}."
+  level: "2"
+gen.mul.facts.half:
+  text: "Half of {f} is {half}. Times by {half}, then double it."
+  level: "2"
+gen.mul.facts.double:
+  text: "Double it: {part} and {part} make {result}."
+  level: "2"
+gen.mul.facts.known:
+  text: "{k} times {o} is {known}."
+  level: "2"
+gen.mul.facts.add-group:
+  text: "Add one more group of {o}: {known} and {o} make {result}."
+  level: "2"
+gen.mul.facts.take-group:
+  text: "Take away one group of {o}: {known} take away {o} is {result}."
+  level: "2"
+gen.mul.facts.break:
+  text: "Break {f} into 5 and {rest}."
+  level: "2"
+gen.mul.facts.part:
+  text: "{k} times {o} is {part}."
+  level: "2"
+gen.mul.facts.join:
+  text: "{p1} and {p2} make {result}."
+  level: "2"
+gen.mul.facts.split:
+  text: "Draw a line after 5 columns."
+  level: "2"
+gen.mul.facts.pair:
+  text: "Times {x} and {y} first. That makes {part}."
+  level: "2"
+gen.mul.tens.tens:
+  text: "{a} times {t} tens is {tens} tens."
+  level: "2"
+gen.mul.tens.times-ten:
+  text: "{tens} tens is {result}."
+  level: "2"
 gen.parity.pair-up:
   text: "Give one to each friend."
   level: "2"
