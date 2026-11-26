@@ -1723,59 +1723,81 @@ h.partition.lines:
 h.partition.same-size:
   text: "Make every square the same size."
 h.partition.cover:
-  text: "Cover it with squares. Leave no gaps."
+  text: "Cover it with squares, with no gaps."
 h.partition.count-rows:
   text: "Count the squares in one row. Then count by rows."
 h.partition.picture:
   text: "Picture the rows. Each row has the same number of squares."
 gen.mul.groups.count-by:
   text: "Count by {perGroup}s."
+  level: "2"
 gen.mul.groups.total:
   text: "{counts}. That makes {total} in all."
+  level: "2"
 gen.mul.groups.fill:
   text: "Put {perGroup} in this group."
+  level: "2"
 gen.mul.groups.share:
   text: "Share them out, one to each group at a time."
+  level: "2"
 gen.mul.groups.each:
   text: "Each group has {perGroup}."
+  level: "2"
 gen.mul.groups.make-group:
   text: "Make a group of {perGroup}."
+  level: "2"
 gen.mul.groups.how-many-groups:
   text: "That makes {groups} groups."
+  level: "2"
 gen.mul.groups.rows:
   text: "Make {groups} rows with {perGroup} in each row."
+  level: "2"
 gen.mul.groups.look:
   text: "Look at the groups again."
+  level: "2"
 gen.mul.groups.hop:
   text: "Hop to {n}."
+  level: "2"
 gen.mul.groups.land:
   text: "You land on {total}."
+  level: "2"
 gen.parity.pair-up:
   text: "Give one to each friend."
+  level: "2"
 gen.parity.even:
   text: "{n} is even. Everyone has a partner."
+  level: "2"
 gen.parity.odd:
   text: "{n} is odd. One is left with no partner."
+  level: "2"
 gen.parity.left:
   text: "One is left over. The seagull gets it."
+  level: "2"
 gen.parity.sort:
   text: "Even numbers go in one bin, odd numbers in the other."
+  level: "2"
 gen.parity.bin-even:
   text: "Even"
+  level: "2"
 gen.parity.bin-odd:
   text: "Odd"
+  level: "2"
 gen.geo.partition.rows:
   text: "Draw a line across. Make {rows} rows."
+  level: "2"
 gen.geo.partition.cols:
   text: "Draw a line down. Make {cols} columns."
+  level: "2"
 gen.geo.partition.fill-row:
   text: "Fill a row with {cols} squares."
+  level: "2"
 gen.geo.partition.count:
   text: "{counts}. There are {result} squares."
+  level: "2"
 fb.mc.add-instead-of-multiply:
   text: "That adds two numbers. Count every one in every group."
 fb.mc.skip-count-slip:
-  text: "So close! Count the groups again. Did you miss one?"
+  text: "So close! Count the groups again. Did you skip one?"
 
 # ---------- feedback ----------
 fb.correct.1:

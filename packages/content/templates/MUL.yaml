@@ -2,6 +2,7 @@
 # the rest going to the seagull (t2); a picture of the pile, then type how many each friend gets
 # (t3). There is no one-basket make-set template: its count check never needs the dealing the skill
 # teaches (PR #84 review), and t1 and t2 already assess the deal.
+# K02 (#17) slice 3a adds MUL.01–05 and MUL.22 on parity.evenodd, mul.groups and div.share.
 strand: MUL
 templates:
   # ---------- K02 (#17) slice 3a ----------
@@ -174,8 +175,7 @@ templates:
     tier: pictorial
     representation: number-line
     generator: mul.groups
-    params:
-      { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, signs: true }
+    params: { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, signs: true }
     difficulty: { base: -0.8 }
     narration:
       prompt: tp.MUL.04.t3.prompt
@@ -187,8 +187,7 @@ templates:
     tier: abstract
     representation: symbols
     generator: mul.groups
-    params:
-      { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, signs: true }
+    params: { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, signs: true }
     difficulty: { base: -0.8 }
     narration:
       prompt: tp.MUL.04.t4.prompt

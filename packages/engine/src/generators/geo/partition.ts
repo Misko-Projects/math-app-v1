@@ -4,7 +4,7 @@
 // - area-tiles `partition`: a plain rectangle; the child draws the row and column lines (state
 //   `array.dims`). `tile`: the child covers the rectangle with unit squares and types how many
 //   (`tiles.cover`).
-// - array-build `read`: rows of squares on a grid; type how many squares.
+// - array-build `read`: rows of cubes on a grid (the kit draws no square sprite); type how many.
 // - number-pad: "rows of" in words, no picture; type how many squares.
 // Bounds: a worked rectangle (partition, tile) is at most AREA_WORK_H_MAX rows and AREA_WORK_W_MAX
 // columns; a read array at most ARRAY_SIDE_MAX each way.
@@ -78,7 +78,7 @@ export const geoPartition: GeneratorDef = {
           cols <= AREA_WORK_W_MAX
         );
       case 'array-build':
-        return mode === 'read' && rows <= ARRAY_SIDE_MAX && cols <= ARRAY_SIDE_MAX;
+        return rows <= ARRAY_SIDE_MAX && cols <= ARRAY_SIDE_MAX;
       case 'number-pad':
         return rows <= ARRAY_SIDE_MAX && cols <= ARRAY_SIDE_MAX;
       default:
@@ -127,7 +127,7 @@ export const geoPartition: GeneratorDef = {
           rows,
           cols,
           orientationMatters: true,
-          sprite: 'square',
+          sprite: 'cube',
           gridShown: true,
         },
         answer: { kind: 'number', value: result },

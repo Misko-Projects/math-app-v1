@@ -71,7 +71,7 @@ tp.GEO.04.t1.prompt:
 tp.GEO.04.t2.prompt:
   text: "Cover the rectangle with squares. How many squares?"
 tp.GEO.04.t3.prompt:
-  text: "How many squares in all?"
+  text: "How many cubes in all?"
 tp.GEO.04.t4.prompt:
   text: "A rectangle has {rows} rows of {cols} squares. How many squares in all?"
 ls.GEO.04.outro:

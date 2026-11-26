@@ -183,6 +183,7 @@ beforeEach(() => {
 describe('registry', () => {
   it('registers the rules by detect.rule id', () => {
     expect(registeredRuleIds().sort()).toEqual([
+      'addInsteadOfMultiply',
       'biggerUnitMore',
       'borrowAcrossZero',
       'borrowNoDecrement',
@@ -207,6 +208,7 @@ describe('registry', () => {
       'recountFromOne',
       'roundDownAlways',
       'roundWrongPlace',
+      'skipCountSlip',
       'smallerFromLarger',
       'startUnknownReversed',
       'symbolReversed',

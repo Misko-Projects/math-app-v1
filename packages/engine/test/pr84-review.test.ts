@@ -677,17 +677,20 @@ const meetsStandardVariety = (ev: ItemTemplate[]): boolean =>
 /**
  * Skills whose constructed practice includes a sort (`sort.byRule`): each one's skill is sorting or
  * classifying (by kind or attribute, shape names, flat or solid, sides and corners, what can be
- * measured, heavier or lighter than a named object, morning or night), so a sort is evidence of
+ * measured, heavier or lighter than a named object, morning or night, polygon names, even or odd
+ * numbers), so a sort is evidence of
  * it. Pinned, so a sort cannot become evidence for a counting or ordering skill again.
  */
 const SORTING_SKILLS = [
   'DAT.01',
   'GEO.01',
+  'GEO.03',
   'GEO.06',
   'GEO.07',
   'GEO.08',
   'MEA.15',
   'MEA.16',
+  'MUL.01',
   'TIM.08',
 ];
 
