@@ -46,6 +46,11 @@ describe('a picture of jumps says its start and jumps, never the landing', () =>
       const landing = jumps.at(-1)?.to;
       const sizes = jumps.map((j) => j.to - j.from);
       expect(d?.vars.start, id).toBe(jumps[0]?.from);
+      if (sizes.every((z) => z === sizes[0]))
+        expect(d, id).toEqual({
+          key: 'ui.widget.jumps',
+          vars: { start: jumps[0]?.from, count: jumps.length, size: sizes[0] },
+        });
       // The words carry the start, the count and the sizes, and nothing else (no landing).
       const allowed = new Set<string | number>([
         jumps[0]?.from ?? 0,

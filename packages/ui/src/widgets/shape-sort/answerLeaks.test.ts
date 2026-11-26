@@ -75,7 +75,7 @@ describe('shape-sort never says or shows the answer on shipped items', () => {
     expect([...bad]).toEqual([]);
   });
 
-  it('a flat shape among flat shapes never carries its name, even for a screen reader', () => {
+  it('a flat shape among flat shapes carries its name only where its counts are not unique', () => {
     const bad = new Set<string>();
     let described = 0;
     for (const item of items) {
@@ -83,13 +83,42 @@ describe('shape-sort never says or shows the answer on shipped items', () => {
       if (w.namesGiven) continue;
       if (w.cards.some((c) => !isShape(c.card) || c.card.props.solid)) continue;
       for (const c of w.cards) {
+        if (!isShape(c.card)) continue;
+        const card = c.card;
+        const sameCounts = w.cards.some(
+          (x) =>
+            isShape(x.card) &&
+            x.card.shape !== card.shape &&
+            x.card.props.sides === card.props.sides &&
+            x.card.props.corners === card.props.corners,
+        );
         const s = cardSpeech(w, c);
-        if (!('key' in s) || s.key === cardNameKey(c.card)) bad.add(`${item.templateId} ${c.id}`);
-        else described += 1;
+        if (!('key' in s)) bad.add(`${item.templateId} ${c.id}`);
+        else if (s.key === cardNameKey(card) && !sameCounts) bad.add(`${item.templateId} ${c.id}`);
+        else if (s.key !== cardNameKey(card)) described += 1;
       }
     }
     expect([...bad]).toEqual([]);
     expect(described).toBeGreaterThan(0);
+  });
+
+  it('a screen reader can tell every two kinds of card apart (review round 1: GEO.08.t4)', () => {
+    const bad = new Set<string>();
+    const kindOf = (c: Card) =>
+      isShape(c.card) ? c.card.shape : JSON.stringify(c.card).replace(/"id":"[^"]*",?/, '');
+    for (const item of items) {
+      const w = item.widget as ShapeSortConfig;
+      const nameOf = (c: Card) => {
+        const s = cardSpeech(w, c);
+        // The place ("Shape N") is not the picture: compare what the label says about the card.
+        return 'number' in s ? `n${s.number}` : JSON.stringify([s.key, { ...s.vars, n: 0 }]);
+      };
+      for (const a of w.cards)
+        for (const b of w.cards)
+          if (kindOf(a) !== kindOf(b) && nameOf(a) === nameOf(b))
+            bad.add(`${item.templateId} ${kindOf(a)}/${kindOf(b)}`);
+    }
+    expect([...bad]).toEqual([]);
   });
 
   it('names are given only where they do not answer the item', () => {

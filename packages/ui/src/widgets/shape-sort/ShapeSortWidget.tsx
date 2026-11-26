@@ -71,9 +71,10 @@ export function cardNameKey(c: Card['card']): string | null {
  * find), so a tap says nothing, and the accessible name (what a screen reader reads on focus,
  * standing in for the picture) describes what a sighted child sees:
  * - a flat shape among flat shapes: its place and counts, "Shape 3, 6 sides, 6 corners", never
- *   its name;
- * - a solid, any card among solids (a flat-or-solid ask), an object or a coin: its name, as the
- *   picture shows it (no description says "cone" without saying it rolls).
+ *   its name, unless another kind in the set has the same counts (a square and a trapezoid);
+ * - that card, a solid, any card among solids (a flat-or-solid ask), an object or a coin: its
+ *   name, as the picture shows it (no description says "cone" without saying it rolls, or
+ *   tells a square from a kite without saying which has equal sides).
  */
 export type CardSpeech =
   | { number: number }
@@ -89,9 +90,22 @@ export function cardSpeech(config: Config, c: Card): CardSpeech {
     config.cards.every((x) => !isShape(x.card) || !x.card.props.solid) &&
     !c.card.props.solid;
   if (isShape(c.card) && flatAmongFlat) {
-    const n = config.cards.findIndex((x) => x.id === c.id) + 1;
-    const { sides, corners } = c.card.props;
-    return { key: 'ui.ssort.shape', vars: { n, sides, corners }, spoken: false };
+    const card = c.card;
+    const { sides, corners } = card.props;
+    // Counts that another kind in the set shares (a square and a trapezoid, a circle and an
+    // oval) cannot tell the pictures apart: such a card keeps its name for a screen reader, as a
+    // solid does, so no item is impossible to answer by ear (review round 1).
+    const ambiguous = config.cards.some(
+      (x) =>
+        isShape(x.card) &&
+        x.card.shape !== card.shape &&
+        x.card.props.sides === sides &&
+        x.card.props.corners === corners,
+    );
+    if (!ambiguous) {
+      const n = config.cards.findIndex((x) => x.id === c.id) + 1;
+      return { key: 'ui.ssort.shape', vars: { n, sides, corners }, spoken: false };
+    }
   }
   return { key, spoken: false };
 }
