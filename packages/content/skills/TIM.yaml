@@ -17,6 +17,7 @@ skills:
     grade: 2
     standards: { ccss: [2.MD.C.7] }
     prerequisites: [TIM.09, CNT.11]
+    encompasses: { TIM.04: 0.6, TIM.09: 0.5 }
     gateway: false
     representations: [clock, digital-clock]
 

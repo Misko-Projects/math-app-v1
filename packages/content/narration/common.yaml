@@ -2454,3 +2454,47 @@ gen.time.sequence.sort-pm:
   level: "2"
 fb.mc.minute-hand-number:
   text: "The long hand counts by fives. Count five for each number."
+
+# ---------- K02 slice 4a (#17): money.coins ----------
+gen.money.coins.option:
+  text: "{cents|cents}"
+  level: "2"
+gen.money.coins.look:
+  text: "Look at the coin: its size, its color and its edge."
+  level: "2"
+gen.money.coins.worth:
+  text: "It is worth {cents|cents}."
+  level: "2"
+gen.money.coins.sort:
+  text: "Put the coins in order, the coin worth the most first."
+  level: "2"
+gen.money.coins.count-on:
+  text: "Count on by what this one is worth."
+  level: "2"
+gen.money.coins.total:
+  text: "That is {cents|cents} in all."
+  level: "2"
+gen.money.coins.total-dollars:
+  text: "That is {cents|dollars}."
+  level: "2"
+gen.money.coins.drop:
+  text: "Put this one in."
+  level: "2"
+gen.money.coins.paid:
+  text: "Now it is just right."
+  level: "2"
+gen.money.coins.count-purse:
+  text: "Count the money in this purse."
+  level: "2"
+gen.money.coins.more:
+  text: "This purse has more money."
+  level: "2"
+gen.money.coins.least-first:
+  text: "This one has the least money. It goes first."
+  level: "2"
+gen.money.coins.next:
+  text: "Then the one with a little more."
+  level: "2"
+gen.money.coins.writing:
+  text: "Write the dollars, then a dot, then the cents."
+  level: "2"
