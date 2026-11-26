@@ -44,10 +44,10 @@ tp.PUZ.06.t3.prompt:
   text: "The cards are {x}, {y} and {z}. Use each card once. What is the biggest number you can make?"
   level: "2"
 tp.PUZ.07.t1.prompt:
-  text: "Mystery number: its tens digit is {t}, it is odd, and you say it counting by fives. Tap it."
+  text: "Mystery number: its tens digit is {t}, it is odd, and you say it counting by fives. Find it."
   level: "2"
 tp.PUZ.07.t2.prompt:
-  text: "Mystery number: it is more than {lo}, it is less than {hi}, and it is {par|word}. Tap it."
+  text: "Mystery number: it is more than {lo}, it is less than {hi}, and it is {par|word}. Find it."
   level: "2"
 tp.PUZ.07.t3.prompt:
   text: "Mystery number: it is more than {lo}, it is less than {hi}, and it is {par|word}. What is it?"

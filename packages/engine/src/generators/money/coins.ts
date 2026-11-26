@@ -21,8 +21,9 @@
 //   writings is right: `$d.cc` (right), `$dcc` (the dot left out) and `$d.cc¢` (both signs).
 // - `ways` (PUZ.09, K02 slice 4e): ways to pay `cents` from the unlimited kinds in `kinds`. A way
 //   is a set of coins: the same coins in another order are the same way. coin-pay `new-way`: the
-//   ways of at most TRAY_NARROW_PIECES_MAX pieces, fewest pieces first (`waysList`); the first
-//   `found` of them are listed as found and the child makes another one. number-pad: how many
+//   ways (every one of at most TRAY_NARROW_PIECES_MAX pieces, so any way fits the tray), fewest
+//   pieces first (`waysList`); the first `found` of them are listed as found and the child makes
+//   another one. number-pad: how many
 //   ways there are (any number of pieces); the prompt names the coins (no picture: a coins
 //   stimulus is shown only by the coin formats).
 // MON.07 (make change) will add `change`.
@@ -339,9 +340,16 @@ export const moneyCoins: GeneratorDef = {
         if (kinds.length > PURSE_NARROW_UNITS_MAX) return false;
         if (!Number.isInteger(cents) || cents < 1 || cents > 100) return false;
         if (f === 'coin-pay') {
-          // Something is listed as found, and at least one way is left to make.
+          // Something is listed as found, at least one way is left to make, and every way fits
+          // the tray (no way of more coins than the tray holds can be left unmakeable).
           const found = asNum(p.found);
-          return found >= 1 && found <= COIN_FOUND_MAX && waysList(cents, kinds).length > found;
+          const ways = waysList(cents, kinds).length;
+          return (
+            found >= 1 &&
+            found <= COIN_FOUND_MAX &&
+            ways > found &&
+            ways === waysCount(cents, kinds)
+          );
         }
         if (f === 'number-pad') {
           const count = waysCount(cents, kinds);

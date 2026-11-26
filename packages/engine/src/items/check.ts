@@ -82,6 +82,15 @@ export function retryFeedback(item: GeneratedItem): NarrationKey {
     if (own) return own;
     if (w.direction === 'desc') return 'fb.order.retry-desc';
   }
+  // A mystery number has no next box: check the clues (#17 slice 4e).
+  if (
+    item.params.variant === 'clues' &&
+    boundTemplate(item.templateId)?.generator === 'puzzle.grid'
+  ) {
+    return 'fb.clues.retry';
+  }
+  // A balance that does not tilt cannot be watched: work out each side (#17 slice 4e).
+  if (w.format === 'balance' && !w.showTilt) return 'fb.balance.retry-sides';
   // "Show it with counters" is only true on a story with a counters board (#17 slice 4e).
   if (w.format === 'story-problem' && w.workspace !== 'counters') {
     return 'fb.story-problem.retry-listen';

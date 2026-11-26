@@ -254,8 +254,8 @@ templates:
     generator: money.coins
     params:
       mode: ways
-      cents: { choice: [10, 15, 20, 25, 30] }
-      kinds: { choice: [dn, qdn, dnp] }
+      cents: { choice: [10, 15, 20, 25] }
+      kinds: { choice: [dn, qdn] }
       found: { int: [1, 2] }
     difficulty: { base: -0.5 }
     narration: { prompt: tp.PUZ.09.t1.prompt, hints: [h.coins.ways-found, h.coins.ways-trade] }

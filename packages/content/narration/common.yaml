@@ -2220,6 +2220,10 @@ fb.measure-length.retry:
   text: "Check the ends. Then count again."
 fb.balance.retry:
   text: "Watch which side goes down."
+fb.balance.retry-sides:
+  text: "Work out each side. Are they the same?"
+fb.clues.retry:
+  text: "Check each clue again, one at a time."
 fb.shape-compose.retry:
   text: "Look at the outline again. Try turning a piece."
 fb.puzzle-grid.retry:
@@ -2765,7 +2769,7 @@ gen.money.coins.writing:
   text: "Write the dollars, then a dot, then the cents."
   level: "2"
 gen.money.coins.ways-big-first:
-  text: "Start with the biggest coins. Then trade one for smaller coins, again and again."
+  text: "Use as many big coins as you can, then one fewer, and so on. Fill the rest with small coins."
   level: "2"
 gen.money.coins.ways-count:
   text: "That makes {n} ways."
@@ -2982,7 +2986,7 @@ h.coins.ways-trade:
   text: "Trade a coin for smaller coins that make the same amount."
   level: "2"
 h.coins.ways-big-first:
-  text: "Start with as many big coins as you can. Then trade for smaller ones."
+  text: "Use as many big coins as you can, then one fewer, then none."
   level: "2"
 h.grow.keep-adding:
   text: "Keep adding the same number, one step at a time."

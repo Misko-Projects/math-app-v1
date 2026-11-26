@@ -22,7 +22,7 @@ import {
   numberOf,
   SQUARES3,
 } from '../src/generators/puzzle/k02';
-import { checkResponse } from '../src/items/check';
+import { checkResponse, retryFeedback } from '../src/items/check';
 import { generateItem } from '../src/items/generate';
 import { loadFixture } from './fixture';
 
@@ -262,7 +262,57 @@ describe('PUZ.07: mystery number clues', () => {
   });
 });
 
+describe('retry lines fit the screen (review round 1)', () => {
+  it('a mystery number checks its clues; a balance that does not tilt works out each side', () => {
+    for (const id of ['PUZ.07.t1', 'PUZ.07.t2', 'PUZ.07.t3']) {
+      for (const item of items(id, 5)) expect(retryFeedback(item)).toBe('fb.clues.retry');
+    }
+    for (const id of ['ALG.06.t1', 'ALG.06.t2', 'ALG.07.t1', 'PUZ.04.t1']) {
+      for (const item of items(id, 5)) {
+        expect(item.widget.format === 'balance' && item.widget.showTilt).toBe(false);
+        expect(retryFeedback(item)).toBe('fb.balance.retry-sides');
+      }
+    }
+    expect(say('fb.balance.retry-sides')).not.toMatch(/down|tilt/);
+  });
+
+  it('no clue prompt says "tap" (a tall room types the number instead)', () => {
+    for (const id of ['PUZ.07.t1', 'PUZ.07.t2', 'PUZ.07.t3']) {
+      for (const item of items(id, 20)) {
+        expect(say(item.prompt.narration, item.prompt.vars ?? {})).not.toMatch(/tap/i);
+      }
+    }
+  });
+});
+
 describe('PUZ.09: ways to pay', () => {
+  it('every way to pay fits the five-coin tray, so any way a child finds can be made', () => {
+    for (const item of items('PUZ.09.t1')) {
+      const p = item.params;
+      expect(waysList(p.cents as number, String(p.kinds))).toHaveLength(
+        waysCount(p.cents as number, String(p.kinds)),
+      );
+    }
+  });
+
+  it('the counting method in the hint finds every way (as many big coins as fit, then one fewer)', () => {
+    const VALUES: Record<string, number> = { q: 25, d: 10, n: 5, p: 1 };
+    const method = (cents: number, values: number[]): number => {
+      const [v, ...rest] = values as [number, ...number[]];
+      if (rest.length === 0) return cents % v === 0 ? 1 : 0;
+      let n = 0;
+      for (let k = Math.floor(cents / v); k >= 0; k--) n += method(cents - k * v, rest);
+      return n;
+    };
+    for (const id of ['PUZ.09.t2', 'PUZ.09.t3']) {
+      for (const item of items(id, 50)) {
+        const p = item.params;
+        const values = [...String(p.kinds)].map((k) => VALUES[k] as number);
+        expect(method(p.cents as number, values)).toBe((item.answer as { value: number }).value);
+      }
+    }
+  });
+
   /** Every multiset of the kinds paying `cents`, counted the way a second-grader would. */
   const brute = (cents: number, values: number[]): number => {
     if (values.length === 0) return cents === 0 ? 1 : 0;

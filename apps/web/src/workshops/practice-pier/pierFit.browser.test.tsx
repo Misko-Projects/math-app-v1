@@ -1947,7 +1947,7 @@ describe('grade 2 puzzles at their fullest (#17 slice 4e)', () => {
     const template = content.store.graph.templates[id] as ItemTemplate;
     const item = engine.generateItemFromParams(template, {
       mode: 'ways',
-      cents: 30,
+      cents: 25,
       kinds: 'dn',
       found: 2,
     });

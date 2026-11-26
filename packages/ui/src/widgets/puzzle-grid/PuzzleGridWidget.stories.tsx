@@ -711,7 +711,13 @@ export const KenKen3: Story = {
       '4+',
       '2',
     ]);
-    await expect(box(root, 0, 0)).toHaveAccessibleName('3+ Empty box, Row 1, box 1');
+    // Every box names its cage: the outline is a picture a screen reader skips (#17 slice 4e).
+    await expect(box(root, 0, 0)).toHaveAccessibleName(
+      '3+ Empty box, Row 1, box 1, in the cage that makes 3',
+    );
+    await expect(box(root, 1, 2)).toHaveAccessibleName(
+      'Empty box, Row 2, box 3, in the cage that makes 4',
+    );
     for (const v of [1, 2, 3, 2, 3, 1, 3, 1]) await userEvent.click(card(root, v));
     await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(
