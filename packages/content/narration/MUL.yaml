@@ -117,7 +117,7 @@ tp.MUL.15.t3.prompt:
 tp.MUL.15.t4.prompt:
   text: "Use a fact you know to find the answer."
 tp.MUL.16.t1.prompt:
-  text: "Times {x} and {y} first: that is one group. How many in all?"
+  text: "{a} times {b} times {c}. Times {x} and {y} first: that is one group. How many in all?"
 tp.MUL.16.t2.prompt:
   text: "Each group is {x} times {y}. Fill in each box."
 tp.MUL.16.t3.prompt:

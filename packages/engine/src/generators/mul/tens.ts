@@ -6,7 +6,7 @@
 // - number-pad: the `base-ten` picture is ONE group, b as t tens (the child times it by a), never
 //   the product; `symbols` shows no picture.
 // - base-ten-build (`read`, pictorial): the a groups of t tens lie on the mat as a × t rods (at
-//   most TENS_READ_MAX, so 4 × 30 shows 12 rods), the tray offers rods only, and the child types
+//   most TENS_READ_MAX = 12 at 960×600, so 4 × 30 shows 12 rods), the tray offers rods only, and the child types
 //   the value: twelve tens is 120.
 // Not built yet: equal-groups (the rod of ten has no sprite) and a base-ten-build that asks the
 // child to build the product (its goal card would show it). A numeral-pick was tried and dropped:
@@ -20,7 +20,7 @@ export const TENS_A_MIN = 2;
 export const TENS_A_MAX = 9;
 export const TENS_B_MAX = 90;
 /** The most rods a base-ten-build read lays on the mat (a × b ÷ 10). */
-export const TENS_READ_MAX = 20;
+export const TENS_READ_MAX = 12;
 
 const say = (
   key: string,

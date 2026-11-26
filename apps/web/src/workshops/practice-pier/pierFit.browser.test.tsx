@@ -1769,3 +1769,69 @@ describe('a seeded lesson example aims at the built template stats', () => {
     expect(await measure('CPS.06 worked 1')).toEqual([]);
   });
 });
+
+// K02 (#17) slice 3b. States a child reaches by acting, fuller than the first render: the whole
+// array-build board built, a split placed on the largest split arrays, and the most rods a
+// mul.tens read lays on the mat (12, as in 4 × 30).
+describe.each(FIT_VIEWPORTS)(
+  'multiplication states a child reaches fit at %s (#17)',
+  (viewport) => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    const itemOf = (id: string, params: Record<string, string | number | boolean>) =>
+      engine.generateItemFromParams(content.store.graph.templates[id] as ItemTemplate, params);
+    const padTap = async (dir: 'down' | 'right', times: number) => {
+      for (let k = 0; k < times; k += 1) {
+        // A direct click: the pad's own handler, with no wait for pointer actionability.
+        document.querySelector<HTMLElement>(`[data-cue="pad-${dir}"] button`)?.click();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    };
+    const shot = async (id: string, state: string) => {
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-${state}-${viewport}.png` });
+    };
+
+    it('array-build (MUL.03.t1): the fullest built state, every row and column of the board', async () => {
+      await page.viewport(width, height);
+      const item = itemOf('MUL.03.t1', { groups: 5, perGroup: 5, unknown: 'total', mode: 'build' });
+      if (item.widget.format !== 'array-build') throw new Error('array-build');
+      show(item, 'g1-up');
+      expect(await measure('MUL.03.t1')).toEqual([]);
+      await padTap('down', item.widget.maxRows);
+      await padTap('right', item.widget.maxCols);
+      expect(document.querySelectorAll('[data-ab-sprite]').length).toBe(
+        item.widget.maxRows * item.widget.maxCols,
+      );
+      expect(await measure('MUL.03.t1')).toEqual([]);
+      await shot('MUL.03.t1', 'fullest-built');
+    });
+
+    it.each([
+      ['MUL.07.t2', { a: 9, b: 9, strategy: 'break-apart', mode: 'split' }, 5],
+      ['MUL.14.t1', { a: 8, b: 10, family: 'x8', strategy: 'double', mode: 'split' }, 4],
+    ] as const)(
+      'array-build split (%s): the largest array with its split line',
+      async (id, params, at) => {
+        await page.viewport(width, height);
+        show(itemOf(id, params), 'g1-up');
+        expect(await measure(id)).toEqual([]);
+        await padTap('right', at);
+        expect(document.querySelector('[data-split]')?.getAttribute('data-split')).toBe(String(at));
+        expect(await measure(id)).toEqual([]);
+        await shot(id, 'split');
+      },
+    );
+
+    it('base-ten-build read (MUL.11.t1): the most rods, 12', async () => {
+      await page.viewport(width, height);
+      for (const params of [
+        { a: 4, b: 30, steps: false },
+        { a: 6, b: 20, steps: false },
+      ]) {
+        show(itemOf('MUL.11.t1', params), 'g1-up');
+        expect(await measure('MUL.11.t1')).toEqual([]);
+      }
+      await shot('MUL.11.t1', 'twelve-rods');
+    });
+  },
+);
