@@ -274,3 +274,22 @@
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* MEA.09: the inch ruler sits right above the object; each answer box prints its unit. */
+.ni-mlen__inch-ruler {
+  line-height: 0;
+}
+.ni-mlen[data-compact="true"][data-two-ruler="true"] {
+  gap: 8px;
+}
+.ni-mlen[data-compact="true"][data-two-ruler="true"] .ni-mlen__on-ruler {
+  gap: 0;
+}
+.ni-mlen__unit-word::after {
+  content: attr(data-unit-word);
+}
+.ni-mlen__unit-word {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--color-ink);
+}

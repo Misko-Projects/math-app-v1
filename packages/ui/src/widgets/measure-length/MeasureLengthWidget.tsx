@@ -1,11 +1,14 @@
 import {
+  CM_PER_INCH,
   type FormatModel,
   formatModel,
+  isTwoRuler,
   type LaidUnit,
   type LengthUnit,
   lengthIn,
   type MeasureLengthState,
   objectUnits,
+  TWO_RULER_CM,
   UNIT_SIZE,
 } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
@@ -38,6 +41,7 @@ import {
   RULER_PAD,
   Ruler,
   rulerLabels,
+  rulerLabelsEach,
   rulerWidth,
   UnitPiece,
   unitHeight,
@@ -59,6 +63,10 @@ import './measure-length.css';
  *   (`numbers`). The pictorial tier draws the units already laid; the child counts and types.
  * - `read`: the object lies on a ruler from mark `startOffset`; type the length (`pad`), tap the
  *   end mark (`tap-tick`, a placement) or pick it (`pick`). On the concrete tier the ruler slides.
+ * - `two-units` on rulers (MEA.09): the object lies on a centimeter ruler with an inch ruler above
+ *   it, both from 0 on one px scale and both to 10 cm (every centimeter keeps its numeral at
+ *   960 × 600); the child types the centimeters and the inches (each box says its unit). Pictorial
+ *   only: both rulers are a fixed picture from 0.
  * - `estimate`: pick an option.
  * Every response comes from the engine model (`formatModel('measure-length')`).
  *
@@ -132,7 +140,9 @@ export function MeasureLengthWidget({
   const root = useRef<HTMLDivElement>(null);
   const avail = useAvailableSize(root);
 
-  const laying = config.mode === 'iterate' || config.mode === 'two-units';
+  /** MEA.09: centimeters on a ruler under the object, inches on a ruler above it. */
+  const twoRuler = isTwoRuler(config);
+  const laying = config.mode === 'iterate' || (config.mode === 'two-units' && !twoRuler);
   const picking = config.mode === 'estimate' || config.input === 'pick';
   const drawnUnits = laying && tier === 'pictorial';
   /** The ruler moves (a tap-tick mark, or the concrete ruler sliding); otherwise it is a picture. */
@@ -217,6 +227,7 @@ export function MeasureLengthWidget({
   // fifth mark it stops at the last one the object reaches (evidence review: a 30 cm ruler's
   // ticks ran on to 31 past its last numeral).
   const rulerMax = (() => {
+    if (twoRuler) return TWO_RULER_CM;
     const end = Math.ceil(config.startOffset + whole);
     let max = end + 1;
     if (laying) return max;
@@ -719,8 +730,31 @@ export function MeasureLengthWidget({
           className="ni-mlen__on-ruler"
           style={{ width: rulerWidth(rulerMax, rulerUnit, unitLabel) }}
         >
+          {twoRuler ? (
+            // MEA.09: the inch ruler above the object, its 0 over the centimeter ruler's 0 on the
+            // same px scale; the two rulers are one picture (named on the centimeter ruler).
+            <div
+              className="ni-mlen__inch-ruler"
+              aria-hidden="true"
+              style={{ transform: `translateX(${-shift}px)` }}
+            >
+              <Ruler
+                max={4}
+                unitPx={rulerUnit * CM_PER_INCH}
+                unitLabel="in"
+                flip
+                width={rulerWidth(rulerMax, rulerUnit, unitLabel)}
+                labels={rulerLabelsEach(4, rulerUnit * CM_PER_INCH)}
+                dense={compact}
+              />
+            </div>
+          ) : null}
           <div className="ni-mlen__object" style={{ marginLeft: objectLeft, width: objectPx }}>
-            <LengthObject sprite={config.object.sprite} width={objectPx} height={44} />
+            <LengthObject
+              sprite={config.object.sprite}
+              width={objectPx}
+              height={twoRuler && compact ? 26 : 44}
+            />
           </div>
           {/* Where the object starts, when that is not 0: a bold line from its end down onto the
               ruler and an arrow on the mark (evidence review). It stays with the object. */}
@@ -754,10 +788,12 @@ export function MeasureLengthWidget({
             aria-label={
               rulerAdjustable
                 ? t('ui.mlen.ruler')
-                : t('ui.mlen.ruler-picture', {
-                    unit: unitName(config.unit),
-                    thing: name.toLowerCase(),
-                  })
+                : twoRuler
+                  ? t('ui.mlen.two-ruler-picture', { thing: name.toLowerCase() })
+                  : t('ui.mlen.ruler-picture', {
+                      unit: unitName(config.unit),
+                      thing: name.toLowerCase(),
+                    })
             }
             data-ruler-start={shown}
             style={{ transform: `translateX(${-shift}px)` }}
@@ -792,6 +828,9 @@ export function MeasureLengthWidget({
               precision={config.precision}
               unitLabel={unitLabel}
               marks={rulerMarks}
+              {...(twoRuler
+                ? { labels: rulerLabelsEach(rulerMax, rulerUnit), dense: compact }
+                : {})}
             />
           </div>
         </div>
@@ -839,19 +878,28 @@ export function MeasureLengthWidget({
         setInvite(null);
         setTexts(next);
       }}
-      labels={units.map((u) => (laying ? unitName(u) : t('ui.widget.answer')))}
+      labels={units.map((u) =>
+        // Two rulers: the name holds the symbol the box prints ("centimeters (cm)").
+        twoRuler ? `${unitName(u)} (${u})` : laying ? unitName(u) : t('ui.widget.answer'),
+      )}
       adornments={
-        laying
+        twoRuler
           ? units.map((u) => (
-              // The whole unit picture, centred in a square beside the number (evidence review: a
-              // shell sat at the top of its slot and read as a clipped dome).
-              <span key={u} className="ni-mlen__unit-icon" data-unit-icon={u}>
-                <UnitPiece unit={u} width={u === 'cube' ? 30 : 38} />
-              </span>
+              // Each box prints its unit as the rulers do (drawn by CSS from data-unit-word, so the
+              // box's name, "centimeters (cm): 8", stays its whole accessible text).
+              <span key={u} className="ni-mlen__unit-word" data-unit-word={u} aria-hidden="true" />
             ))
-          : []
+          : laying
+            ? units.map((u) => (
+                // The whole unit picture, centred in a square beside the number (evidence review: a
+                // shell sat at the top of its slot and read as a clipped dome).
+                <span key={u} className="ni-mlen__unit-icon" data-unit-icon={u}>
+                  <UnitPiece unit={u} width={u === 'cube' ? 30 : 38} />
+                </span>
+              ))
+            : []
       }
-      maxDigits={laying ? 2 : readDigits}
+      maxDigits={laying || twoRuler ? 2 : readDigits}
       allowDecimal={!laying && config.precision < 1}
       disabled={!interactive}
       compact
@@ -867,6 +915,7 @@ export function MeasureLengthWidget({
       ref={root}
       className="ni-mlen"
       data-mode={config.mode}
+      data-two-ruler={twoRuler ? 'true' : undefined}
       data-tier={tier}
       data-compact={compact ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}

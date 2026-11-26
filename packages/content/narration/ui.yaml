@@ -566,6 +566,9 @@ ui.mlen.ruler:
 ui.mlen.ruler-picture:
   text: "A ruler in {unit} with a {thing} on it"
   level: K
+ui.mlen.two-ruler-picture:
+  text: "A {thing} with a ruler in inches above it and a ruler in centimeters below it"
+  level: "2"
 ui.scomp.outline:
   text: "The shape to fill"
   level: K

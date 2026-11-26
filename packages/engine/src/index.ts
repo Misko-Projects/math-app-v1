@@ -246,7 +246,9 @@ export {
   type MakeChangeState,
 } from './formats/make-change';
 export {
+  CM_PER_INCH,
   isNonStandard,
+  isTwoRuler,
   type LaidUnit,
   type LengthUnit,
   lengthIn,
@@ -258,6 +260,7 @@ export {
   ML_OPTIONS_MAX,
   objectUnits,
   SIXTEENTHS,
+  TWO_RULER_CM,
   UNIT_SIZE,
 } from './formats/measure-length';
 export {

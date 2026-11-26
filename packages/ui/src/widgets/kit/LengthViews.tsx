@@ -287,6 +287,17 @@ export function rulerLabels(max: number, unitPx: number): number[] {
   return stepsBetween(0, max, 1).filter((v) => v % stride === 0);
 }
 
+/**
+ * Every whole unit labelled when each neighbouring pair of numerals fits, measured pair by pair
+ * (a "9" beside a "10" needs less room than two "10"s); otherwise `rulerLabels`. MEA.09's rulers
+ * use it, so a 10 cm ruler keeps every numeral at 960 × 600.
+ */
+export function rulerLabelsEach(max: number, unitPx: number): number[] {
+  const all = stepsBetween(0, max, 1);
+  const fits = all.every((v, i) => i === 0 || (numeralW(v - 1) + numeralW(v)) / 2 <= unitPx);
+  return fits ? all : rulerLabels(max, unitPx);
+}
+
 export interface RulerProps {
   /** The ruler runs from 0 to `max` units. */
   max: number;
@@ -297,6 +308,20 @@ export interface RulerProps {
   unitLabel?: string;
   /** Marks a value on the ruler (align-zero, read-end): an ink triangle under the mark. */
   marks?: number[];
+  /**
+   * Upside down (MEA.09's inch ruler above the object): the marks hang from the bottom edge,
+   * towards the object, and the numerals sit above them.
+   */
+  flip?: boolean;
+  /** The drawn width, when it must match another ruler's (default `rulerWidth`). */
+  width?: number;
+  /** The labelled marks (default `rulerLabels`). */
+  labels?: readonly number[];
+  /**
+   * Shorter marks and the numerals closer to them, for two rulers in a short area (MEA.09 at
+   * 960 × 600): 72 px tall (70 flipped) instead of 96, numerals still 50 px.
+   */
+  dense?: boolean;
   className?: string;
 }
 
@@ -329,13 +354,23 @@ export function Ruler({
   precision = 1,
   unitLabel,
   marks = [],
+  flip = false,
+  width: fixedWidth,
+  labels: fixedLabels,
+  dense = false,
   className,
 }: RulerProps) {
-  const width = rulerWidth(max, unitPx, unitLabel);
+  const width = fixedWidth ?? rulerWidth(max, unitPx, unitLabel);
   // The digits end 8+ px above the bottom edge (baseline 84, ink about 1 px below it).
-  const height = 96;
+  const height = dense ? (flip ? 70 : 72) : 96;
+  // Flipped, the marks hang from the bottom edge and the digits' ink (about 33 px) sits 8+ px
+  // below the top edge, clear of the longest mark (40 px). Dense: 3+ px below the top edge and
+  // 3+ px clear of the marks either way.
+  const baseline = dense ? (flip ? 36 : 70) : flip ? 44 : NUMERAL_BASELINE;
+  const tickY = (len: number) =>
+    flip ? { y1: height - 2, y2: height - 2 - len } : { y1: 2, y2: 2 + len };
   const ticks = stepsBetween(0, max, precision);
-  const labels = new Set(rulerLabels(max, unitPx));
+  const labels = new Set(fixedLabels ?? rulerLabels(max, unitPx));
   // Tiers (evidence review: half-cm ticks drew as tall as whole ones): every fifth whole unit
   // longest, whole units long, halves shorter, quarters shortest. Steps are compared within a
   // rounding tolerance, never by exact float equality.
@@ -348,7 +383,9 @@ export function Ruler({
         : isMultiple(v, 0.5)
           ? 'half'
           : 'quarter';
-  const TICK = { five: 40, whole: 30, half: 18, quarter: 11 } as const;
+  const TICK = dense
+    ? ({ five: 32, whole: 28, half: 16, quarter: 10 } as const)
+    : ({ five: 40, whole: 30, half: 18, quarter: 11 } as const);
   const tickLen = (v: number) => TICK[tier(v)];
   return (
     <svg
@@ -374,8 +411,7 @@ export function Ruler({
           data-tick={v}
           x1={RULER_PAD + v * unitPx}
           x2={RULER_PAD + v * unitPx}
-          y1={2}
-          y2={2 + tickLen(v)}
+          {...tickY(tickLen(v))}
         />
       ))}
       {[...labels].map((v) => (
@@ -384,7 +420,7 @@ export function Ruler({
           className="ni-ruler__numeral"
           data-label={v}
           x={RULER_PAD + v * unitPx}
-          y={NUMERAL_BASELINE}
+          y={baseline}
           fontSize={RULER_NUMERAL_PX}
           textAnchor="middle"
         >
@@ -396,7 +432,7 @@ export function Ruler({
           className="ni-ruler__unit"
           data-unit-label={unitLabel}
           x={RULER_PAD + max * unitPx + numeralHalf(max) + UNIT_GAP}
-          y={NUMERAL_BASELINE}
+          y={baseline}
           fontSize={UNIT_PX}
           textAnchor="start"
         >

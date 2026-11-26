@@ -1320,3 +1320,99 @@ export const TapTickRangeIsTheRuler: Story = {
     await expect(Number(r.getAttribute('aria-valuemax'))).toBe(last);
   },
 };
+
+/** MEA.09: a plank of 8 cm (about 3 in) between an inch ruler above and a centimeter ruler below. */
+const twoRulers = (length: number): Config => ({
+  ...base,
+  object: { sprite: 'plank', length },
+  tool: 'ruler',
+  unit: 'cm',
+  altUnit: 'in',
+  mode: 'two-units',
+});
+
+/** The x of a ruler's mark `v` (page px), for the centimeter (`cm`) or the inch (`in`) ruler. */
+const markX = (root: HTMLElement, which: 'cm' | 'in', v: number) => {
+  const sel =
+    which === 'in' ? '.ni-mlen__inch-ruler .ni-ruler__tick' : '.ni-mlen__ruler .ni-ruler__tick';
+  const tick = [...root.querySelectorAll(sel)].find((t) => t.getAttribute('data-tick') === `${v}`);
+  return tick ? tick.getBoundingClientRect().left + tick.getBoundingClientRect().width / 2 : NaN;
+};
+
+/**
+ * MEA.09 at a viewport: both rulers start at the plank's start, every centimeter and every inch
+ * keeps its numeral (12+ px apart), the plank ends on the 8 cm mark and between 3 and 4 inches
+ * (nearer 3), the picture names both rulers and no length, each box says its unit, and Check
+ * answers [cm, inches].
+ */
+async function twoRulersPlay({
+  canvasElement,
+  args,
+}: {
+  canvasElement: HTMLElement;
+  args: { onResponse?: unknown };
+}) {
+  const root = await findWidget(canvasElement, ROOT);
+  await waitFor(() => expect(root.querySelectorAll('.ni-ruler')).toHaveLength(2));
+  for (const [which, last] of [
+    ['cm', 10],
+    ['in', 4],
+  ] as const) {
+    const scope = root.querySelector(
+      which === 'in' ? '.ni-mlen__inch-ruler' : '.ni-mlen__ruler',
+    ) as HTMLElement;
+    const numerals = [...scope.querySelectorAll('.ni-ruler__numeral')];
+    await expect(numerals.map((n) => n.textContent)).toEqual(
+      Array.from({ length: last + 1 }, (_, i) => String(i)),
+    );
+    const boxes = numerals.map((n) => n.getBoundingClientRect());
+    for (let i = 1; i < boxes.length; i += 1) {
+      const gap = (boxes[i] as DOMRect).left - (boxes[i - 1] as DOMRect).right;
+      await expect(
+        gap,
+        `${which} numerals ${i - 1} and ${i} are 12+ px apart`,
+      ).toBeGreaterThanOrEqual(12);
+    }
+  }
+  const plank = (root.querySelector('.ni-mlen__object') as HTMLElement).getBoundingClientRect();
+  await expect(Math.abs(markX(root, 'cm', 0) - plank.left)).toBeLessThan(1.5);
+  await expect(Math.abs(markX(root, 'in', 0) - plank.left)).toBeLessThan(1.5);
+  await expect(Math.abs(markX(root, 'cm', 8) - plank.right)).toBeLessThan(1.5);
+  const in3 = markX(root, 'in', 3);
+  const in4 = markX(root, 'in', 4);
+  await expect(plank.right - in3).toBeGreaterThan(12);
+  await expect(in4 - plank.right).toBeGreaterThan(plank.right - in3);
+  await expect(within(root).getByRole('img')).toHaveAccessibleName(
+    'A plank with a ruler in inches above it and a ruler in centimeters below it',
+  );
+  await expect(root.querySelectorAll('.ni-mlen__unit-word')).toHaveLength(2);
+  await expect(
+    [...root.querySelectorAll('.ni-mlen__unit-word')].map(
+      (u) => getComputedStyle(u, '::after').content,
+    ),
+  ).toEqual(['"cm"', '"in"']);
+  await expectFitsArea(areaBox(canvasElement), [
+    ...root.querySelectorAll('.ni-boxentry__box, .ni-pad__key'),
+    within(root).getByRole('button', { name: 'Check' }),
+  ]);
+  await expectNumeralsAtLeast32(root, '.ni-ruler__numeral');
+  await expectNumeralsAtLeast32(root, '.ni-boxentry__text');
+  await userEvent.click(within(root).getByRole('button', { name: 'centimeters (cm): ?' }));
+  await userEvent.click(key(root, '8'));
+  await userEvent.click(within(root).getByRole('button', { name: 'inches (in): ?' }));
+  await userEvent.click(key(root, '3'));
+  await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+  await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [8, 3] });
+}
+
+export const TwoRulersLandscapeMin: Story = {
+  args: { config: twoRulers(8), tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: twoRulersPlay,
+};
+
+export const TwoRulersTablet: Story = {
+  args: { config: twoRulers(8), tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: twoRulersPlay,
+};
