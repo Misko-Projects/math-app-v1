@@ -262,3 +262,22 @@ describe('partners of 100 on an open line (CPS.10)', () => {
     expect(item.widget.allowedJumps).toEqual([1]);
   });
 });
+
+describe('partners of 100 on the mat (CPS.10, PR #124 review)', () => {
+  it.each<[number, number, number]>([
+    [64, 6, 3],
+    [11, 9, 8],
+    [89, 1, 1],
+  ])('from %i the demo puts in %i ones, makes a ten, then %i tens', (part, ones, tens) => {
+    const t = tpl('base-ten-build', 'concrete', 'base-ten');
+    const { steps } = build(t, { whole: 100, part, unknown: 'part' });
+    const adds = steps.flatMap((s) =>
+      s.action?.op === 'add-piece' ? [[s.action.args?.kind, s.action.args?.count]] : [],
+    );
+    expect(adds).toEqual([
+      ['ones', ones],
+      ['tens', tens],
+    ]);
+    expect(steps.some((s) => s.action?.op === 'fuse')).toBe(true);
+  });
+});

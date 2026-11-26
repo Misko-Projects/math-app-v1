@@ -211,6 +211,7 @@ export const bondParts: GeneratorDef = {
     'gen.bond.parts.ten-and',
     'gen.bond.parts.put-in',
     'gen.bond.parts.hop-to',
+    'gen.bond.parts.ones-make-ten',
   ],
   sample(spec, rng) {
     const p = sampleAll(spec, rng);
@@ -897,6 +898,30 @@ export const bondParts: GeneratorDef = {
       }
       case 'base-ten-build': {
         // Count the known part, put in the missing pieces, then count the whole.
+        const fill = (10 - (part % 10)) % 10;
+        if (scale === 1 && fill > 0 && whole % 10 === 0 && other > fill) {
+          // CPS.10 (64 + ? = 100): ones up to the next ten, bundle them, then tens, never dozens
+          // of single ones.
+          return [
+            say(
+              'gen.bond.parts.count-on',
+              { part, whole },
+              { op: 'count-by', args: { kind: 'tens' } },
+            ),
+            say(
+              'gen.bond.parts.put-in',
+              { n: fill },
+              { op: 'add-piece', args: { kind: 'ones', count: fill } },
+            ),
+            say('gen.bond.parts.ones-make-ten', {}, { op: 'fuse', args: { kind: 'ones' } }),
+            say(
+              'gen.bond.parts.put-in',
+              { n: other - fill },
+              { op: 'add-piece', args: { kind: 'tens', count: (other - fill) / 10 } },
+            ),
+            say('gen.bond.parts.whole-is', { whole }, { op: 'count-by', args: { kind: 'tens' } }),
+          ];
+        }
         const kind = scale === 10 ? 'tens' : 'ones';
         return [
           say('gen.bond.parts.count-on', { part, whole }, { op: 'count-by', args: { kind } }),

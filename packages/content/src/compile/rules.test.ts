@@ -1954,3 +1954,23 @@ describe('place value to 1000: lines that hold for every item (K02)', () => {
     expect(text('fb.mc.write-as-spoken')).toMatch(/Each place gets just one number/);
   });
 });
+
+describe('counting, number lines and rounding: lines that hold for every item (K02 slice 1b)', () => {
+  const text = (key: string) => compileContent(FIXTURE).content?.narration[key]?.text ?? '';
+
+  it('the number-line hint counts on from the number before the mark, never the nearest', () => {
+    // CMP.11.t1 at 38: the nearest label is 40, and counting on from it moves away.
+    expect(text('h.numberline.from-label')).toMatch(/just before the mark/);
+    expect(text('h.numberline.from-label')).not.toMatch(/closest|nearest/);
+  });
+
+  it('the rounding pad hints hold at the middle (45, 350 round up)', () => {
+    const c = compileContent(FIXTURE).content;
+    for (const id of ['PV.08.t1', 'PV.18.t1']) {
+      const hints = c?.templates.find((t) => t.id === id)?.narration.hints ?? [];
+      expect(hints, id).not.toContain('h.closer.middle');
+      expect(hints, id).toContain('h.round.middle-up');
+    }
+    expect(text('h.round.middle-up')).toMatch(/middle or past it, round up/);
+  });
+});

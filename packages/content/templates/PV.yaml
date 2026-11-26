@@ -453,7 +453,7 @@ templates:
     generator: pv.round
     params: { n: { int: [11, 99] }, place: 10 }
     difficulty: { base: -0.9 }
-    narration: { prompt: tp.PV.08.t1.prompt, hints: [h.round.ones-digit, h.closer.middle] }
+    narration: { prompt: tp.PV.08.t1.prompt, hints: [h.round.ones-digit, h.round.middle-up] }
 
   - id: PV.08.t2
     skillId: PV.08
@@ -914,7 +914,7 @@ templates:
     generator: pv.round
     params: { n: { int: [101, 999] }, place: 100 }
     difficulty: { base: -1.6 }
-    narration: { prompt: tp.PV.18.t1.prompt, hints: [h.round.tens-digit, h.closer.middle] }
+    narration: { prompt: tp.PV.18.t1.prompt, hints: [h.round.tens-digit, h.round.middle-up] }
 
   - id: PV.18.t2
     skillId: PV.18

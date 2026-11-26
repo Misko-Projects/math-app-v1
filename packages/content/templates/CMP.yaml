@@ -580,7 +580,14 @@ templates:
     tier: pictorial
     representation: number-line
     generator: numberline.place
-    params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 100, labelsEvery: 500 }
+    params:
+      {
+        min: 0,
+        max: 1000,
+        target: { int: [1, 999], exclude: [500] },
+        ticksEvery: 100,
+        labelsEvery: 500,
+      }
     difficulty: { base: -1.2 }
     narration:
       { prompt: tp.CMP.10.t3.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }
@@ -603,7 +610,14 @@ templates:
     tier: abstract
     representation: symbols
     generator: numberline.place
-    params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 100, labelsEvery: 500 }
+    params:
+      {
+        min: 0,
+        max: 1000,
+        target: { int: [1, 999], exclude: [500] },
+        ticksEvery: 100,
+        labelsEvery: 500,
+      }
     difficulty: { base: -1.2 }
     narration:
       { prompt: tp.CMP.10.t4.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }

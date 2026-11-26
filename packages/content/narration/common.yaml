@@ -1967,9 +1967,11 @@ h.numberline.count-hundreds:
 h.numberline.skip-ticks:
   text: "Each tick is {step} more than the one before."
 h.numberline.from-label:
-  text: "Find the closest number on the line. Count on by the ticks from there."
+  text: "Find the number on the line just before the mark. Count on by the ticks from there."
 h.closer.how-far:
   text: "How far is it to each of the two numbers? Which one is closer?"
+h.round.middle-up:
+  text: "Find the middle of the two numbers. At the middle or past it, round up."
 h.closer.middle:
   text: "Find the middle of the two numbers. Which side is it on?"
 h.closer.which-tens:
@@ -1992,6 +1994,8 @@ fb.mc.round-down-always:
   text: "Look at the next place. Five or more goes up."
 fb.mc.round-wrong-place:
   text: "Round to the place you are asked. Look at the hundreds."
+gen.bond.parts.ones-make-ten:
+  text: "Ten ones make one ten."
 gen.bond.parts.hop-to:
   text: "Jump {by} to {n}."
 gen.pv.round.between:

@@ -17,6 +17,7 @@ import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { createRng } from '../../rng';
+import { arrowOnPrintedAnswer } from '../../testing/properties';
 import { registry } from '..';
 import { ESTIMATE_LADDER, estimateRung } from '../estimate/quantity';
 import { GenerationError } from '../types';
@@ -449,5 +450,22 @@ describe('estimate.quantity', () => {
       });
       featuresStable(ft, generateItem(ft, seed));
     }
+  });
+});
+
+describe('a read-the-arrow picture never prints the answer (PR #124 review)', () => {
+  const line = { min: 0, max: 1000, ticksEvery: 100, labelsEvery: 500 };
+  it('500 on a line labelled every 500 is caught, for the arrow and for "which arrow shows 500?"', () => {
+    const pick = tpl('numberline.place', 'numeral-pick');
+    expect(arrowOnPrintedAnswer(generateItemFromParams(pick, { ...line, target: 500 }))).toBe(500);
+    const which = tpl('numberline.place', 'numeral-pick', {
+      tier: 'abstract',
+      representation: 'symbols',
+    });
+    expect(arrowOnPrintedAnswer(generateItemFromParams(which, { ...line, target: 500 }))).toBe(500);
+  });
+  it('a target between labels passes', () => {
+    const pick = tpl('numberline.place', 'numeral-pick');
+    expect(arrowOnPrintedAnswer(generateItemFromParams(pick, { ...line, target: 499 }))).toBeNull();
   });
 });
