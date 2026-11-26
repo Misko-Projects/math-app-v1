@@ -220,8 +220,38 @@ const configSchema = storyProblemConfigSchema.superRefine((c, ctx) => {
         message: `a scene shows at most ${STORY_SCENE_GROUPS_MAX} groups of at least one, on ${STORY_SCENE_ROWS_MAX} rows of ten`,
       });
     }
+  } else if (c.scene.kind === 'bar-model') {
+    // #17 slice 4d: two-digit stories show their bar model: 1–3 parts a bar, numbers 1–999, at
+    // least one "?", a comparison or a second bar but not both, and a two-step model's first
+    // result (null) in both bars.
+    const bar = c.scene;
+    const rows = [bar.parts, ...(bar.lower ? [bar.lower.parts] : [])];
+    const amounts = [
+      ...rows.flat(),
+      bar.whole,
+      ...(bar.lower ? [bar.lower.whole] : []),
+      ...(bar.compare ? [bar.compare.bigger, bar.compare.smaller] : []),
+    ];
+    const firsts = amounts.filter((v) => v === null).length;
+    if (
+      rows.some((r) => r.length < 1 || r.length > STORY_BAR_PARTS_MAX) ||
+      amounts.some((v) => typeof v === 'number' && !whole(v, 1, STORY_BAR_PART_MAX)) ||
+      !amounts.includes('?') ||
+      (bar.compare !== undefined && bar.lower !== undefined) ||
+      (bar.lower === undefined ? firsts > 0 : firsts !== 2)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['scene'],
+        message: `a bar model has 1–${STORY_BAR_PARTS_MAX} parts a bar, numbers 1–${STORY_BAR_PART_MAX}, a "?", and a two-step model's first result in both bars`,
+      });
+    }
   } else if (c.scene.kind !== 'none') {
-    ctx.addIssue({ code: 'custom', path: ['scene'], message: 'the scene is a scene or none' });
+    ctx.addIssue({
+      code: 'custom',
+      path: ['scene'],
+      message: 'the scene is a scene, a bar model or none',
+    });
   }
   if (c.situation === 'two-step' && c.steps !== 2) {
     ctx.addIssue({ code: 'custom', path: ['steps'], message: 'a two-step story has two steps' });

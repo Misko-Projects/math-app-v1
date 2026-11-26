@@ -24,6 +24,8 @@ import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
+import { dollarAsOne } from './rules/dollarAsOne';
+import { firstStepOnly } from './rules/firstStepOnly';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { minuteHandAsMinutes } from './rules/minuteHandNumber';
 import {
@@ -81,6 +83,8 @@ const RULES: Record<string, MisconceptionRule> = {
   equalsAddAll: equalsAddAll,
   startUnknownReversed: startUnknownReversed,
   keywordMoreMeansAdd: keywordMoreMeansAdd,
+  firstStepOnly: firstStepOnly, // K02 (#17) slice 4d: two-step stories
+  dollarAsOne: dollarAsOne, // K02 (#17) slice 4d: money stories
   symbolReversed: symbolReversed,
   // K02 (#17): place value to 1000
   zeroPlaceholder: zeroPlaceholder,

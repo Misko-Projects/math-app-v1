@@ -18,7 +18,11 @@ export interface StoryContext {
   other: string;
   /** The SituationType families the context supports (a subset of its contexts.yaml situations). */
   families: readonly StoryFamily[];
+  /** A measured context: its amounts are lengths or money in a `unit`, not things to count. */
+  measure?: StoryMeasure;
 }
+
+export type StoryMeasure = 'length' | 'money';
 
 export const STORY_CONTEXTS: Readonly<Record<string, StoryContext>> = {
   'beach-shells': {
@@ -35,6 +39,31 @@ export const STORY_CONTEXTS: Readonly<Record<string, StoryContext>> = {
     other: 'firefly',
     families: ['add-to', 'take-from', 'put-together', 'compare'],
   },
+  // #17 slice 4d: measured stories, told in units (`unit`) by their own lines (p.story.len.*,
+  // p.story.money.*): the sawmill's planks in inches, feet, centimeters or meters (MEA.04), the
+  // market's apples and kites in cents or dollars (MON.03).
+  'sawmill-planks': {
+    addItem: 'plank',
+    takeItem: 'plank',
+    item: 'plank',
+    other: 'plank',
+    families: ['add-to', 'take-from', 'put-together', 'compare'],
+    measure: 'length',
+  },
+  'market-stall': {
+    addItem: 'apple',
+    takeItem: 'apple',
+    item: 'kite',
+    other: 'apple',
+    families: ['add-to', 'take-from', 'put-together', 'compare'],
+    measure: 'money',
+  },
 };
 
 export const STORY_CONTEXT_IDS = Object.keys(STORY_CONTEXTS);
+
+/** The units a measured context tells its amounts in (`unit` param; narration unit.<id>.*). */
+export const MEASURE_UNITS: Readonly<Record<StoryMeasure, readonly string[]>> = {
+  length: ['in', 'ft', 'cm', 'm'],
+  money: ['cent', 'dollar'],
+};

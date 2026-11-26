@@ -43,7 +43,9 @@ import {
   useTwoStep,
   useWidgetRoom,
 } from '../kit';
+import { layoutBarModel } from '../kit/barModel';
 import { BoxEntry, enteredValues } from '../kit/BoxEntry';
+import { StimulusView } from '../kit/StimulusView';
 import type { ConfigFor, WidgetProps } from '../types';
 import {
   boxWidth,
@@ -130,6 +132,9 @@ export function StoryProblemWidget({
   const hasBoard = config.workspace !== 'none';
   const frames = config.workspace === 'ten-frame';
   const sceneGroups = config.scene.kind === 'scene' ? config.scene.sprites : [];
+  /** A bar-model scene (#17 slice 4d: two-digit stories), drawn by the kit instead of sprites. */
+  const barScene = config.scene.kind === 'bar-model' ? config.scene : null;
+  const barSize = barScene ? layoutBarModel(barScene, 0) : null;
   const maxDigits = Math.max(...config.blanks.map((b) => b.maxDigits));
   const split = answersSplit(config);
   const sceneColours = storySceneColours(config);
@@ -227,8 +232,9 @@ export function StoryProblemWidget({
         ageMode,
         scene: sceneCounts,
         board: hasBoard,
+        bar: barSize ? { minWidth: barSize.minWidth, h: barSize.h } : undefined,
       }),
-    [box.w, box.h, button, ageMode, sceneKey, hasBoard],
+    [box.w, box.h, button, ageMode, sceneKey, hasBoard, barSize?.minWidth, barSize?.h],
   );
   const ask = useMemo(
     () =>
@@ -517,6 +523,13 @@ export function StoryProblemWidget({
               {n}
             </span>
           ))}
+        </div>
+      );
+    }
+    if (barScene) {
+      return (
+        <div className="ni-story__barscene" data-cue="scene">
+          <StimulusView spec={barScene} maxWidth={build.side?.w ?? 0} />
         </div>
       );
     }

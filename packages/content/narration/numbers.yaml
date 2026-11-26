@@ -386,6 +386,15 @@ unit.m.one:
   text: "meter"
 unit.m.many:
   text: "meters"
+# Money stories (MON.03): amounts in cents or dollars.
+unit.cent.one:
+  text: "cent"
+unit.cent.many:
+  text: "cents"
+unit.dollar.one:
+  text: "dollar"
+unit.dollar.many:
+  text: "dollars"
 unit.g.one:
   text: "gram"
 unit.g.many:

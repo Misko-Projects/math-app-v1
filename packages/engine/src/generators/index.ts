@@ -41,6 +41,7 @@ import { pvRegroup } from './pv/regroup';
 import { pvRound } from './pv/round';
 import { pvTenMore } from './pv/tenmore';
 import { storyAddsub } from './story/addsub';
+import { storyTwostep } from './story/twostep';
 import { subitizeFlash } from './subitize/flash';
 import { timeClock } from './time/clock';
 import { timeSequence } from './time/sequence';
@@ -87,6 +88,7 @@ const GENERATORS: GeneratorDef[] = [
   mdaAddSub,
   equalityEq,
   storyAddsub,
+  storyTwostep, // K02 (#17) slice 4d: two-step stories (MDA.19)
   addsubThree,
   // K02 (#17) slice 3a: equal groups, arrays, even and odd, rectangles in rows and columns
   mulFacts,
