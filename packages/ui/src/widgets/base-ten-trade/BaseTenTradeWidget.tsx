@@ -893,7 +893,13 @@ function TradeMat({
       fit.unit >= unitRange(baseCaps.disks).floor &&
       chosen.side.sideH <= budgetIn(planRoom) - 2 * ROOT_PAD_Y;
     arrangedFor.current = planRoom;
-    if (!fitsRoom && stepsFor(budgetIn(planRoom), box.main + GAP + box.side)?.fits) {
+    const steps = !fitsRoom ? stepsFor(budgetIn(planRoom), box.main + GAP + box.side) : null;
+    // The steps are planned for the item; only a mat that has already outgrown them (splits made
+    // in a larger room before it shrank, review round 2) keeps the scrolling layout instead.
+    const now = stateRef.current;
+    const all = { hundreds: 0, tens: 0, ones: 0 };
+    for (const c of COLUMNS) all[c] = now.mat[c] + now.taken[c] + now.pending[c];
+    if (steps?.fits && stepsHold({ age, plan: steps, base: baseCaps, all })) {
       arranged.current = 'steps';
       return chosen;
     }

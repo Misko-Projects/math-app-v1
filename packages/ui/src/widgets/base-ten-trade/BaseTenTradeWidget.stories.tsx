@@ -2224,6 +2224,35 @@ export const PierSmallTakeSteps: Story = {
 };
 
 /**
+ * Review round 2 (#126): split after split in the large room, then the room shrinks to 960 × 600.
+ * The mat has outgrown the steps' fixed room, so the item keeps the scrolling layout: nothing is
+ * drawn over the mat, and there is no step to go to.
+ */
+export const PierResizeAfterSplitsScrolls: Story = {
+  args: { config: pierTake, tier: 'concrete' },
+  tags: ['!visual'],
+  render: inRoom('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root).toHaveAttribute('data-arrange', 'usual');
+    while (!trade(root, 'tens', 'ones').disabled) {
+      await userEvent.click(trade(root, 'tens', 'ones'));
+      await settled(root);
+    }
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 0, ones: 98 });
+    resizeRoom(canvasElement, 'small');
+    await stableLayout(root);
+    await waitFor(() => expect(root).toHaveAttribute('data-arrange', 'tall'));
+    await expect(root.querySelector('[data-cue="next"]')).toBeNull();
+    const matBox = q(root, '.ni-btt__mat').getBoundingClientRect();
+    const pad = q(root, '.ni-pad').getBoundingClientRect();
+    // The pad stands beside the mat, never over it.
+    await expect(pad.left >= matBox.right || pad.top >= matBox.bottom).toBe(true);
+  },
+};
+
+/**
  * Review round 1 (#126): split after split on 98 − 19. Splits stop while every piece still fits
  * (layout.ts stepsHold): the pieces stay countable, the mat stays above the pad row in the answer
  * step, and with every one taken the take-away box holds them all.
