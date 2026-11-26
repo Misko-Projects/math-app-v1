@@ -1,0 +1,36 @@
+# Authored lessons (03 §4.5, §6). K02 (#17) slice 3a: the two gateway rows.
+strand: MUL
+lessons:
+  # MUL.04 (gateway): build 3 groups of 4, then read an array and jumps named with ×.
+  - skillId: MUL.04
+    mode: authored
+    templateId: MUL.04.t1
+    worked:
+      - params: { groups: 3, perGroup: 4, unknown: total, mode: build }
+    faded:
+      - templateId: MUL.04.t2
+        params: { groups: 4, perGroup: 3, unknown: total, mode: read }
+        childSteps: 1
+      - templateId: MUL.04.t3
+        params: { groups: 2, perGroup: 5, unknown: total, signs: true }
+        childSteps: 1
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.MUL.04.outro
+
+  # MUL.05 (gateway): deal 12 among 3, then share into groups and read equal rows named with ÷.
+  - skillId: MUL.05
+    mode: authored
+    templateId: MUL.05.t1
+    worked:
+      - params: { ask: each, items: 12, recipients: 3 }
+    faded:
+      - templateId: MUL.05.t2
+        params: { groups: 2, perGroup: 4, unknown: size, mode: build }
+        childSteps: 1
+      - templateId: MUL.05.t3
+        params: { groups: 3, perGroup: 2, unknown: size, signs: true }
+        childSteps: 1
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.MUL.05.outro

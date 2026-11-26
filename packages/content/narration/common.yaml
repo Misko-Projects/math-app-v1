@@ -1644,6 +1644,12 @@ gen.frac.compare.order-first:
 gen.frac.compare.order-next:
   text: "This one comes next."
 
+fb.equal-groups.retry:
+  text: "Let's look at each group again."
+fb.array-build.retry:
+  text: "Let's look at the rows again."
+fb.area-tiles.retry:
+  text: "Let's look at the squares again."
 fb.equal-share.retry:
   text: "Let's look at each share again."
 fb.fraction-cut.retry:
@@ -1658,6 +1664,140 @@ fb.mc.fraction-bigger-denominator:
   text: "More parts make smaller pieces. Think about the size of one piece."
 fb.mc.unequal-share:
   text: "Give one to each in turn, so each one gets the same."
+
+# K02 (#17) slice 3a: equal groups, arrays, even and odd, rows and columns
+h.parity.pairs:
+  text: "Give one to each friend, then go round again."
+h.parity.partner:
+  text: "Even: everyone has a partner. Odd: one is left over."
+h.parity.left:
+  text: "Is one left with no partner?"
+h.parity.two-by-two:
+  text: "Make pairs, two by two."
+h.parity.ends-in:
+  text: "Even numbers end in 0, 2, 4, 6 or 8."
+h.mul.count-by:
+  text: "Count by the number in one group."
+h.mul.add-groups:
+  text: "Add the same number once for each group."
+h.mul.fill-same:
+  text: "Put the same number in every group."
+h.mul.jump-same:
+  text: "Every jump is the same size."
+h.mul.count-jumps:
+  text: "Count your jumps as you go."
+h.mul.row-across:
+  text: "A row goes across, from side to side."
+h.mul.same-row:
+  text: "Every row has the same number."
+h.mul.count-by-rows:
+  text: "Count by the number in one row."
+h.mul.add-rows:
+  text: "Add the same number once for each row."
+h.mul.add-same:
+  text: "Every number you add is the same. Count on by it."
+h.mul.times-groups:
+  text: "Times means groups of. Think of {groups} groups of {perGroup}."
+h.mul.times-rows:
+  text: "{groups} times {perGroup} means {groups} rows of {perGroup}."
+h.mul.times-jumps:
+  text: "{groups} times {perGroup} means {groups} jumps of {perGroup}."
+h.mul.share-round:
+  text: "Give one to each group, then go round again."
+h.mul.share-rows:
+  text: "Every row has the same number. Count one row."
+h.mul.groups-of:
+  text: "Think: what number in each group makes the total?"
+h.mul.make-groups:
+  text: "Make one group, then another, until none are left."
+h.mul.count-groups:
+  text: "Count the groups, not the {sprite|noun:total}."
+h.mul.see-groups:
+  text: "See the groups. How many are in one group?"
+h.mul.see-rows:
+  text: "See the rows. How many are in one row?"
+h.geo.name-sides:
+  text: "Three sides: a triangle. Five sides: a pentagon. Six sides: a hexagon."
+h.partition.lines:
+  text: "Draw lines across for rows and down for columns."
+h.partition.same-size:
+  text: "Make every square the same size."
+h.partition.cover:
+  text: "Cover it with squares, with no gaps."
+h.partition.count-rows:
+  text: "Count the squares in one row. Then count by rows."
+h.partition.picture:
+  text: "Picture the rows. Each row has the same number of squares."
+gen.mul.groups.count-by:
+  text: "Count by {perGroup}s."
+  level: "2"
+gen.mul.groups.total:
+  text: "{counts}. That makes {total} in all."
+  level: "2"
+gen.mul.groups.fill:
+  text: "Put {perGroup} in this group."
+  level: "2"
+gen.mul.groups.share:
+  text: "Share them out, one to each group at a time."
+  level: "2"
+gen.mul.groups.deal:
+  text: "One for this group."
+  level: "2"
+gen.mul.groups.each:
+  text: "Each group has {perGroup}."
+  level: "2"
+gen.mul.groups.make-group:
+  text: "Make a group of {perGroup}."
+  level: "2"
+gen.mul.groups.how-many-groups:
+  text: "That makes {groups} groups."
+  level: "2"
+gen.mul.groups.rows:
+  text: "Make {groups} rows with {perGroup} in each row."
+  level: "2"
+gen.mul.groups.look:
+  text: "Look at the groups again."
+  level: "2"
+gen.mul.groups.hop:
+  text: "Hop to {n}."
+  level: "2"
+gen.mul.groups.land:
+  text: "You land on {total}."
+  level: "2"
+gen.parity.pair-up:
+  text: "Give one to each friend."
+  level: "2"
+gen.parity.even:
+  text: "{n} is even. Everyone has a partner."
+  level: "2"
+gen.parity.odd:
+  text: "{n} is odd. One is left with no partner."
+  level: "2"
+gen.parity.left:
+  text: "One is left over. The seagull gets it."
+  level: "2"
+gen.geo.partition.rows:
+  text: "Draw a line across. Make {rows} rows."
+  level: "2"
+gen.geo.partition.cols:
+  text: "Draw a line down. Make {cols} columns."
+  level: "2"
+gen.geo.partition.fill-row:
+  text: "Fill a row with {cols} squares."
+  level: "2"
+gen.geo.partition.count-rows:
+  text: "Count by rows. Each row has {cols}."
+  level: "2"
+gen.geo.partition.total:
+  text: "{counts}. There are {result} in all."
+  level: "2"
+gen.geo.partition.count:
+  text: "{counts}. There are {result} squares."
+  level: "2"
+fb.mc.add-instead-of-multiply:
+  text: "That adds two numbers. Count every one in every group."
+fb.mc.skip-count-slip:
+  text: "So close! Count the groups again. Did you skip one?"
 
 # ---------- feedback ----------
 fb.correct.1:

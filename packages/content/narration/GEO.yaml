@@ -56,3 +56,23 @@ tp.GEO.10.t3.prompt:
   text: "Which two shapes make this {whole|shape:one}?"
 tp.GEO.11.t3.prompt:
   text: "How many {piece|shape:many} make this {whole|shape:one}?"
+
+# K02 (#17) slice 3a
+sk.GEO.03.intro:
+  text: "Count the sides and corners to name a shape."
+sk.GEO.04.intro:
+  text: "Split a rectangle into rows and columns of squares."
+tp.GEO.03.t1.prompt:
+  text: "Draw a {kind|shape:one} on the dots."
+tp.GEO.03.t2.prompt:
+  text: "Find every shape with {n} sides."
+tp.GEO.04.t1.prompt:
+  text: "Split the rectangle into {rows} rows and {cols} columns of equal squares."
+tp.GEO.04.t2.prompt:
+  text: "Cover the rectangle with squares. How many squares?"
+tp.GEO.04.t3.prompt:
+  text: "How many cubes in all?"
+tp.GEO.04.t4.prompt:
+  text: "A rectangle has {rows} rows of {cols} squares. How many squares in all?"
+ls.GEO.04.outro:
+  text: "Rows go across, columns go down, and every square is the same size!"

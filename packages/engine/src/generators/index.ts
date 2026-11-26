@@ -20,11 +20,14 @@ import { fracPartition } from './frac/partition';
 import { geoCompose } from './geo/compose';
 import { geoDraw } from './geo/draw';
 import { geoIdentify } from './geo/identify';
+import { geoPartition } from './geo/partition';
 import { geoPosition } from './geo/position';
 import { mdaAddSub } from './mda/addsub';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
+import { mulGroups } from './mul/groups';
 import { numberlinePlace } from './numberline/place';
+import { parityEvenOdd } from './parity/evenodd';
 import { patternGrow } from './pattern/grow';
 import { patternRepeat } from './pattern/repeat';
 import { puzzleGrid } from './puzzle/grid';
@@ -79,6 +82,10 @@ const GENERATORS: GeneratorDef[] = [
   equalityEq,
   storyAddsub,
   addsubThree,
+  // K02 (#17) slice 3a: equal groups, arrays, even and odd, rectangles in rows and columns
+  mulGroups,
+  parityEvenOdd,
+  geoPartition,
 ];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));

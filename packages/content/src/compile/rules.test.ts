@@ -156,6 +156,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'FRA.08',
       'GEO.01',
       'GEO.02',
+      'GEO.03',
+      'GEO.04',
       'GEO.05',
       'GEO.06',
       'GEO.07',
@@ -190,7 +192,13 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.15',
       'MEA.16',
       'MEA.22',
+      'MUL.01',
+      'MUL.02',
+      'MUL.03',
+      'MUL.04',
+      'MUL.05',
       'MUL.12',
+      'MUL.22',
       'PUZ.01',
       'PUZ.02',
       'PUZ.03',
@@ -222,12 +230,14 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'SUB.06',
       'SUB.07',
       'SUB.08',
+      'SUB.09',
       'TIM.01',
       'TIM.04',
       'TIM.08',
       'TIM.09',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
+      'MC.add-instead-of-multiply',
       'MC.bigger-unit-more',
       'MC.borrow-across-zero',
       'MC.borrow-no-decrement',
@@ -252,6 +262,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.recount-from-one',
       'MC.round-down-always',
       'MC.round-wrong-place',
+      'MC.skip-count-slip',
       'MC.smaller-from-larger',
       'MC.start-unknown-reversed',
       'MC.symbol-reversed',
@@ -281,6 +292,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'geo.compose',
         'geo.position',
         'geo.draw',
+        // K02 (#17) slice 3a: equal groups, arrays, even and odd, rows and columns
+        'mul.groups',
+        'parity.evenodd',
+        'geo.partition',
         'mea.length',
         'mea.massvolume',
         'count.ordinal',
@@ -361,6 +376,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'base-ten-trade',
         // K01 (#11): equality and story problems
         'story-problem',
+        // K02 (#17) slice 3a: equal groups, arrays, rows and columns
+        'equal-groups',
+        'array-build',
+        'area-tiles',
       ]),
     );
   });
@@ -1860,10 +1879,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // added 11 skills, 49 templates, MC.round-down-always and MC.round-wrong-place; addition and
       // subtraction within 100 (K02 slice 2a) added 10 skills, 29 templates,
       // MC.forgot-to-regroup-add, MC.smaller-from-larger and MC.borrow-no-decrement; within 1000
-      // (K02 slice 2b) added 8 skills, 22 templates and MC.borrow-across-zero.
-      skills: 154,
-      templates: 575,
-      misconceptions: 33,
+      // (K02 slice 2b) added 8 skills, 22 templates and MC.borrow-across-zero; equal groups and
+      // arrays (K02 slice 3a) added 9 skills, 33 templates, MC.add-instead-of-multiply and
+      // MC.skip-count-slip.
+      skills: 163,
+      templates: 608,
+      misconceptions: 35,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1903,8 +1924,11 @@ describe('graph.json (03 §9.1)', () => {
       'CNT.14',
       'CPS.02',
       'CPS.04',
+      'GEO.04',
       'MDA.03',
       'MDA.12',
+      'MUL.04',
+      'MUL.05',
       'PV.01',
       'PV.04',
       'PV.09',
@@ -1917,8 +1941,9 @@ describe('graph.json (03 §9.1)', () => {
     // CPS.04, CPS.09, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07, CPS.10, PV.09 and SUB.04
     expect(g?.descendants2['CPS.03']).toBe(10);
     // CNT.07, CNT.15, CPS.04, DAT.09, MEA.02, MUL.12, PV.09; then ADD.03, ADD.08, CMP.03, CMP.07,
-    // CNT.08, CNT.09, CNT.14, CNT.19, CPS.07, FRA.07, MEA.22, PV.10, PV.11 and SUB.04
-    expect(g?.descendants2['CNT.06']).toBe(21);
+    // CNT.08, CNT.09, CNT.14, CNT.19, CPS.07, FRA.07, MEA.22, PV.10, PV.11 and SUB.04; K02 slice
+    // 3a adds GEO.03 and then GEO.04 and MUL.05
+    expect(g?.descendants2['CNT.06']).toBe(24);
     expect(g?.encompasses).toEqual([
       ['ADD.06', 'ADD.02', 1],
       ['ADD.08', 'CPS.03', 1],
@@ -1966,6 +1991,7 @@ describe('graph.json (03 §9.1)', () => {
       'SUB.06',
       'SUB.07',
       'SUB.08',
+      'SUB.09',
     ]);
   });
 });

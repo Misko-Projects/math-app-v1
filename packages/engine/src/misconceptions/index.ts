@@ -24,6 +24,7 @@ import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
+import { addInsteadOfMultiply, skipCountSlip } from './rules/multiplication';
 import { offByOneCounting } from './rules/offByOneCounting';
 import { patternRestart } from './rules/patternRestart';
 import { perceptualSize } from './rules/perceptualSize';
@@ -80,6 +81,9 @@ const RULES: Record<string, MisconceptionRule> = {
   // K02 (#17): rounding
   roundDownAlways: roundDownAlways,
   roundWrongPlace: roundWrongPlace,
+  // K02 (#17) slice 3a: equal groups
+  addInsteadOfMultiply: addInsteadOfMultiply,
+  skipCountSlip: skipCountSlip,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

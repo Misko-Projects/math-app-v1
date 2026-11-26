@@ -424,6 +424,8 @@ As built (#17 slice 2a): base-ten-trade takes one operand, so `MDA.04` ships on 
 | MUL.22 | Division as making groups: how many groups of 4 are in 12? | concept | 3 | 3.OA.A.2 | MUL.02 | N | objects, groups, number-line | equal-groups, number-line-jump, number-pad | — |
 | MUL.23 | Measurement and area story problems with × and ÷ | problem-solving | 3 | 3.OA.A.3 | MUL.10, MEA.12 | N | area-model, story, bar-model | story-problem, number-pad | — |
 
+As built (#17 slice 3a): `MUL.01`–`MUL.05`, `MUL.22`, `SUB.09`, `GEO.03` and `GEO.04` as in the rows. `MUL.06` and `MUL.13` wait for `mul.facts` and come with the next MUL slice. `MUL.05` uses `div.share` on equal-share and `mul.groups` for its groups, array and ÷ items. The × sign first shows in `MUL.04` and the ÷ sign in `MUL.05`. `GEO.04`'s array counts cubes, because the art kit draws no square sprite.
+
 ### 3.11 FRA: Fractions (17)
 
 | ID | Skill | Kind | Gr | CCSS | Prerequisites | GW | Representations | Formats | Fluency |
@@ -1813,6 +1815,10 @@ The v1 generators, grouped by family. One generator serves many templates and fo
 | `alg.function` | pattern-extend, number-pad | `rule` (+n, −n, ×n), `pairs`, `inverse` | — | (format features only) | ALG.09 |
 | `alg.balance` | balance, puzzle-grid | `kinds`, `weights`, `mode` | — | (format features only) | PUZ.05 |
 | `puzzle.grid` | puzzle-grid, number-bond, balance, order, hundred-chart, array-build, number-pad | `variant`, `size`, `blanks`, `maxN`. K01 builds `number-path` (puzzle-grid: `rows`, `cols`, `start`, `blanks` on a snake path; hundred-chart: a `piece` cut out at cell `at`), `sum-triangle` (corners `a`, `b`, `c`, side sum `sum`, `blankSet`; number-bond: one side, the corners together as one part) and `all-ways` (`whole`; puzzle-grid rows, or order cards of two groups). Solutions fill in dependency order: a sum triangle names a side with one empty cell (`check-line {index}`) before filling it, and a number path fills a cell only next to a known one | `middle`, `ways` | `chain` (a blank corner is found before its other side; 0.4), `crossDecade` (0.3), `rows.over1` (a hundred-chart piece spans rows; 0.3), `sum.over10` (0.3), plus the puzzle-grid format features `blanks`, `constraints`, `multipleSolutions` (no model yet) | PUZ.01–10, CPS.06 |
+As built (#17 slice 3a), with only the params those nine skills use:
+- `mul.groups` adds `mode` (equal-groups `read` | `build`, array-build `read` | `build-dims`), `signs` (number-pad writes × or ÷, and otherwise the total as equal addends) and `flashMs`. It builds equal-groups, array-build, number-pad, dot-flash and number-line-jump. Area-tiles and ten-rod containers are not built yet.
+- `parity.evenodd` uses `n` plus `ask` (equal-share `even-odd` | `leftover`), `cards` and `find` (shape-sort `find-all`: find every even or odd number among 4–6 cards; a two-bin sort would show a card in each bin as its picture) and `sprite`. `display` is not built yet.
+- `geo.partition` builds area-tiles (`partition`, `tile`), array-build (`read`) and number-pad. MEA.05's uses come later.
 
 ### 5.7 Checking responses
 

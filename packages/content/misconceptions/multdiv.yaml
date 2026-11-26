@@ -6,7 +6,7 @@ misconceptions:
     name: Deals shares unequally, or keeps a leftover big enough for another round
     detect: { kind: state, rule: unequalShare }
     appliesTo: { generators: [div.share] }
-    skills: [MUL.12]
+    skills: [MUL.12, MUL.01, MUL.05]
     remediation: [MUL.12]
     feedback: fb.mc.unequal-share
     priority: 50
@@ -22,4 +22,44 @@ misconceptions:
         match: true
       - params: { ask: each, items: 6, recipients: 2 }
         response: { kind: state, value: { shares: [3, 3], leftover: 0, value: 4 } }
+        match: false
+
+  # K02 (#17) slice 3a: the two equal-groups rows of the 03 §7.2 table.
+  - id: MC.add-instead-of-multiply
+    name: Adds the two numbers instead of finding the total of the equal groups
+    detect: { kind: answer, rule: addInsteadOfMultiply }
+    appliesTo: { generators: [mul.groups] }
+    skills: [MUL.04]
+    remediation: [MUL.02, MUL.04]
+    feedback: fb.mc.add-instead-of-multiply
+    priority: 50
+    parentTip: >-
+      Make 4 piles of 3 spoons together and count them all. "4 groups of 3" is 12, not 4 and 3.
+    examples:
+      - params: { groups: 4, perGroup: 3, unknown: total, mode: build }
+        response: { kind: state, value: { groups: [3, 3, 3, 3], value: 7 } }
+        match: true
+      - params: { groups: 4, perGroup: 3, unknown: total, mode: build }
+        response: { kind: state, value: { groups: [3, 3, 3, 3], value: 11 } }
+        match: false
+
+  - id: MC.skip-count-slip
+    name: Skip-counts one group too few or too many
+    detect: { kind: answer, rule: skipCountSlip }
+    appliesTo: { generators: [mul.groups] }
+    skills: [MUL.02]
+    remediation: [MUL.02]
+    feedback: fb.mc.skip-count-slip
+    priority: 40
+    parentTip: >-
+      When counting by fives or tens, touch one group for each number you say, so none is skipped.
+    examples:
+      - params: { groups: 4, perGroup: 5, unknown: total, mode: read }
+        response: { kind: number, value: 15 }
+        match: true
+      - params: { groups: 4, perGroup: 5, unknown: total, mode: read }
+        response: { kind: number, value: 25 }
+        match: true
+      - params: { groups: 4, perGroup: 5, unknown: total, mode: read }
+        response: { kind: number, value: 9 }
         match: false

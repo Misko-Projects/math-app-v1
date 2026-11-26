@@ -332,3 +332,53 @@ templates:
     params: { n: { int: [21, 99] }, mode: read }
     difficulty: { base: -1.0 }
     narration: { prompt: tp.SUB.08.t3.prompt, hints: [h.pv.bundle-is-ten, h.pv.count-tens-ones] }
+
+  # SUB.09 (K02 #17 slice 3a) on mul.groups: equal groups, a small array or dots in groups flash;
+  # then read an array without a flash. Up to 4 groups of 5 flash; arrays to 5 × 5.
+  - id: SUB.09.t1
+    skillId: SUB.09
+    format: dot-flash
+    tier: pictorial
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [2, 4] }, perGroup: { int: [2, 5] }, unknown: total }
+    difficulty: { base: -2.0 }
+    narration:
+      prompt: tp.SUB.09.t1.prompt
+      hints: [h.mul.see-groups, h.mul.count-by]
+
+  - id: SUB.09.t2
+    skillId: SUB.09
+    format: dot-flash
+    tier: pictorial
+    representation: array
+    generator: mul.groups
+    params: { groups: { int: [2, 4] }, perGroup: { int: [2, 5] }, unknown: total }
+    difficulty: { base: -1.8 }
+    narration:
+      prompt: tp.SUB.09.t2.prompt
+      hints: [h.mul.see-rows, h.mul.count-by-rows]
+
+  - id: SUB.09.t3
+    skillId: SUB.09
+    format: dot-flash
+    tier: pictorial
+    representation: dots
+    generator: mul.groups
+    params: { groups: { int: [2, 4] }, perGroup: { int: [2, 5] }, unknown: total }
+    difficulty: { base: -2.0 }
+    narration:
+      prompt: tp.SUB.09.t1.prompt
+      hints: [h.mul.see-groups, h.mul.count-by]
+
+  - id: SUB.09.t4
+    skillId: SUB.09
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: total }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.SUB.09.t4.prompt
+      hints: [h.mul.see-rows, h.mul.count-by-rows]

@@ -3,6 +3,7 @@ a
 a.m
 about
 above
+across
 add
 added
 adding
@@ -14,6 +15,7 @@ all
 almost
 always
 am
+among
 an
 and
 angle
@@ -188,6 +190,7 @@ dime
 dimes
 divide
 divided
+dividing
 division
 do
 dock
@@ -234,11 +237,13 @@ eleven
 empty
 end
 equal
+equally
 equals
 equation
 estimate
 even
 every
+everyone
 exactly
 expanded
 eye
@@ -485,6 +490,7 @@ mass
 match
 may
 me
+means
 measure
 measured
 men
@@ -552,6 +558,7 @@ opens
 or
 orchard
 order
+other
 our
 out
 outside
@@ -841,6 +848,7 @@ two
 under
 unit
 units
+until
 up
 upon
 us
