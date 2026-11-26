@@ -230,7 +230,7 @@ templates:
       b: { int: [6, 48] }
       c: { int: [1, 60] }
       maxN: 99
-    difficulty: { base: -4.2 }
+    difficulty: { base: -4.27 }
     narration: { prompt: tp.ALG.06.t1.prompt, hints: [h.eq.compare-not-add, h.eq.compensate] }
 
   - id: ALG.06.t2

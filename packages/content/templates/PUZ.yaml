@@ -144,7 +144,7 @@ templates:
       c: 1
       maxN: 6
     constraints: ["a != b"]
-    difficulty: { base: -1 }
+    difficulty: { base: -1.5 }
     narration: { prompt: tp.PUZ.04.t1.prompt, hints: [h.puzzle.cage-add, h.eq.same-both] }
 
   - id: PUZ.04.t2
@@ -177,7 +177,7 @@ templates:
       d2: { int: [1, 9] }
       d3: { int: [1, 9] }
       want: biggest
-    difficulty: { base: -0.5 }
+    difficulty: { base: -0.3 }
     narration: { prompt: tp.PUZ.06.t1.prompt, hints: [h.digits.biggest-place, h.digits.big-first] }
 
   - id: PUZ.06.t2
@@ -193,7 +193,7 @@ templates:
       d2: { int: [1, 9] }
       d3: { int: [1, 9] }
       want: smallest
-    difficulty: { base: -0.3 }
+    difficulty: { base: 0.0 }
     narration:
       prompt: tp.PUZ.06.t2.prompt
       hints: [h.digits.biggest-place, h.digits.small-first]
@@ -286,7 +286,7 @@ templates:
       mode: ways
       cents: { choice: [25, 30] }
       kinds: qdn
-    difficulty: { base: -0.9 }
+    difficulty: { base: -0.75 }
     narration:
       prompt: tp.PUZ.09.t3.prompt
       hints: [h.coins.ways-big-first, h.coins.ways-trade]

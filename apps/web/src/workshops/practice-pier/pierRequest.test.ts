@@ -41,6 +41,7 @@ describe('what the Practice Pier plays', () => {
       'PUZ.02.t1',
       'PUZ.02.t3',
       'PUZ.03.t2',
+      'PUZ.04.t2',
     ]);
     for (const t of templates) {
       expect(pierPlayable(t), t.id).toBe(true);
@@ -67,6 +68,9 @@ describe('what the Practice Pier plays', () => {
       'ALG.05.t1',
       'ALG.05.t3',
       'ALG.05.t4',
+      'ALG.06.t1',
+      'ALG.06.t2',
+      'ALG.07.t1',
       'CMP.08.t1',
       'MDA.06.t1',
       'MDA.06.t3',
@@ -80,6 +84,7 @@ describe('what the Practice Pier plays', () => {
       'MON.03.t1',
       'MON.03.t2',
       'MON.03.t4',
+      'PUZ.04.t1',
     ]);
     for (const t of templates) {
       expect(pierMisfit(t), t.id).toBeNull();
