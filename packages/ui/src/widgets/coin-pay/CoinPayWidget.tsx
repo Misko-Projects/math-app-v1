@@ -21,7 +21,9 @@ import {
   MoneyBoard,
   type MoneyPiece,
   MoneyTag,
+  moneyNameKey,
   PIECE_ORDER,
+  pieceCents,
   purseLimits,
   useAlive,
   useDemoPause,
@@ -221,12 +223,19 @@ export function CoinPayWidget({
     const tr = parseTrayKey(k);
     return tr ? [{ key: k, tray: tr }] : [];
   });
+  // A screen reader hears every way found, coin by coin (PUZ.09: "Found: A dime, 10 cents, …").
+  const wayWords = found.map(({ tray: way }) =>
+    PIECE_ORDER.flatMap((p) => Array.from({ length: way[p] ?? 0 }, () => p))
+      .map((p) => t(moneyNameKey(p), { cents: pieceCents(p) }))
+      .join(', '),
+  );
+  const foundLabel = [t('ui.money.found'), ...wayWords].join('. ');
 
   const purseAside = (
     <div className="ni-cpay__aside">
       <MoneyTag kind="price" label={t('ui.money.price')} cents={config.target} />
       {config.mode === 'new-way' ? (
-        <div className="ni-cpay__found" role="img" aria-label={t('ui.money.found')}>
+        <div className="ni-cpay__found" role="img" aria-label={foundLabel}>
           <span className="ni-money__tag-label" aria-hidden="true">
             {t('ui.money.found')}
           </span>

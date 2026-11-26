@@ -19,7 +19,14 @@
 // - `dollars` (MON.06): coin-count with `bills` one-dollar bills and the coins `q, d, n, p`,
 //   answered in dollars and cents ([d, c] on a `$ _ . _ _` pad); numeral-pick asks which of three
 //   writings is right: `$d.cc` (right), `$dcc` (the dot left out) and `$d.cc¢` (both signs).
-// MON.07 (make change) and PUZ.09 (ways to pay) will add `change` and `ways`.
+// - `ways` (PUZ.09, K02 slice 4e): ways to pay `cents` from the unlimited kinds in `kinds`. A way
+//   is a set of coins: the same coins in another order are the same way. coin-pay `new-way`: the
+//   ways (every one of at most TRAY_NARROW_PIECES_MAX pieces, so any way fits the tray), fewest
+//   pieces first (`waysList`); the first `found` of them are listed as found and the child makes
+//   another one. number-pad: how many
+//   ways there are (any number of pieces); the prompt names the coins (no picture: a coins
+//   stimulus is shown only by the coin formats).
+// MON.07 (make change) will add `change`.
 //
 // The coins of every item come from its params alone (counts or amounts), so the format features
 // coin-count and coin-pay compute (03 §5.5) are a function of the params (03 §5.4).
@@ -31,8 +38,22 @@ import type {
   ResponseValue,
   StimulusSpec,
 } from '@number-island/shared';
-import { COIN_SLOTS_MAX, TRAY_PIECES_MAX } from '@number-island/shared';
-import { fewestPieces, PIECE_CENTS, type Purse } from '../../formats/money';
+import {
+  COIN_FOUND_MAX,
+  COIN_SLOTS_MAX,
+  PURSE_NARROW_UNITS_MAX,
+  TRAY_NARROW_PIECES_MAX,
+  TRAY_PIECES_MAX,
+} from '@number-island/shared';
+import {
+  fewestPieces,
+  PIECE_CENTS,
+  type Purse,
+  type Tray,
+  trayKey,
+  trayPieces,
+  waysToPay,
+} from '../../formats/money';
 import { numberOptionId } from '../../formats/numeral-pick';
 import {
   asNum,
@@ -45,7 +66,7 @@ import {
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
-const MODES = ['identify', 'count', 'pay', 'compare', 'dollars'] as const;
+const MODES = ['identify', 'count', 'pay', 'compare', 'dollars', 'ways'] as const;
 const COINS = ['penny', 'nickel', 'dime', 'quarter'] as const;
 const ARRANGEMENTS = ['sorted', 'mixed'] as const;
 /** Coins biggest value first (the sorted order, and the greedy order). */
@@ -107,6 +128,20 @@ export function payPurse(kinds: string): Purse {
   return purse;
 }
 
+/** The most ways a `ways` item asks a child to count (number-pad). */
+export const WAYS_COUNT_MAX = 6;
+
+/** The ways of a `ways` item on coin-pay: at most a narrow tray's pieces, fewest first, by key. */
+export function waysList(cents: number, kinds: string): Tray[] {
+  return waysToPay(cents, payPurse(kinds), 5000, TRAY_NARROW_PIECES_MAX).sort(
+    (x, y) => trayPieces(x) - trayPieces(y) || trayKey(x).localeCompare(trayKey(y)),
+  );
+}
+
+/** How many ways pay `cents` from the kinds (any number of pieces). */
+export const waysCount = (cents: number, kinds: string): number =>
+  waysToPay(cents, payPurse(kinds), 5000).length;
+
 /** The two purses of a compare item: the fewest coins each, or the poorer in small coins. */
 export function comparePurses(a: number, b: number, conflict: boolean): [CoinKind[], CoinKind[]] {
   const left = fewestCoins(a);
@@ -148,7 +183,7 @@ export const moneyCoins: GeneratorDef = {
       values: [...MODES],
       // Templates always set it; the choice lets every format build from defaults.
       default: { kind: 'choice', values: [...MODES] },
-      doc: 'identify, count, pay, compare or dollars (MON.07 and PUZ.09 will add change and ways)',
+      doc: 'identify, count, pay, compare, dollars or ways (MON.07 will add change)',
     },
     coin: {
       type: 'string',
@@ -181,6 +216,11 @@ export const moneyCoins: GeneratorDef = {
       default: { kind: 'const', value: 'qdnp' },
       doc: 'pay: the purse, letters q, d, n, p and $ (each unlimited)',
     },
+    found: {
+      type: 'int',
+      default: { kind: 'int', min: 1, max: 2 },
+      doc: 'ways on coin-pay: ways already listed as found (1 to COIN_FOUND_MAX)',
+    },
     runningTotal: {
       type: 'bool',
       default: { kind: 'const', value: true },
@@ -205,6 +245,9 @@ export const moneyCoins: GeneratorDef = {
   },
   derived: ['value'],
   features: {
+    kinds: { weight: 0.3, doc: 'ways: coin kinds in the purse − 2' },
+    found: { weight: -0.2, doc: 'ways on coin-pay: ways listed as found − 1 (fewer left to try)' },
+    waysOver3: { weight: 0.3, doc: 'ways on number-pad: ways to count − 3' },
     conflict: { weight: 0.5, doc: 'compare: the purse with less money has more coins' },
     'coin.confusable': {
       weight: 0.3,
@@ -227,6 +270,10 @@ export const moneyCoins: GeneratorDef = {
     'gen.money.coins.least-first',
     'gen.money.coins.next',
     'gen.money.coins.writing',
+    'gen.money.coins.ways-big-first',
+    'gen.money.coins.ways-count',
+    'gen.money.coins.ways-look',
+    'gen.money.coins.ways-new',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive(p) {
@@ -242,6 +289,7 @@ export const moneyCoins: GeneratorDef = {
       return { value: total };
     }
     if (mode === 'pay') return { value: asNum(p.cents) };
+    if (mode === 'ways') return { value: waysCount(asNum(p.cents), asStr(p.kinds)) };
     return { value: Math.max(asNum(p.a), asNum(p.b)) };
   },
   accepts(p, t) {
@@ -284,6 +332,30 @@ export const moneyCoins: GeneratorDef = {
           coins.length <= COUNT_COINS_MAX &&
           total <= MONEY_COINS_CENTS_MAX
         );
+      }
+      case 'ways': {
+        const cents = asNum(p.cents);
+        const kinds = asStr(p.kinds);
+        if (!/^[qdnp]+$/.test(kinds) || new Set(kinds).size !== kinds.length) return false;
+        if (kinds.length > PURSE_NARROW_UNITS_MAX) return false;
+        if (!Number.isInteger(cents) || cents < 1 || cents > 100) return false;
+        if (f === 'coin-pay') {
+          // Something is listed as found, at least one way is left to make, and every way fits
+          // the tray (no way of more coins than the tray holds can be left unmakeable).
+          const found = asNum(p.found);
+          const ways = waysList(cents, kinds).length;
+          return (
+            found >= 1 &&
+            found <= COIN_FOUND_MAX &&
+            ways > found &&
+            ways === waysCount(cents, kinds)
+          );
+        }
+        if (f === 'number-pad') {
+          const count = waysCount(cents, kinds);
+          return count >= 2 && count <= WAYS_COUNT_MAX;
+        }
+        return false;
       }
       case 'pay': {
         const cents = asNum(p.cents);
@@ -404,6 +476,45 @@ export const moneyCoins: GeneratorDef = {
       };
       return finish(moneyCoins, ctx, p);
     }
+    if (mode === 'ways') {
+      const cents = asNum(params.cents);
+      const kinds = asStr(params.kinds);
+      const purse = payPurse(kinds);
+      const varsW = pickVars(t, { cents, n: value });
+      if (t.format === 'number-pad') {
+        p = {
+          params,
+          vars: varsW,
+          math: { ...math, kinds: kinds.length - 2, waysOver3: Math.max(0, value - 3) },
+          widget: {
+            format: 'number-pad',
+            stimulus: { kind: 'none' },
+            blanks: [{ id: 'x', maxDigits: 1 }],
+          },
+          answer: { kind: 'number', value },
+        };
+        return finish(moneyCoins, ctx, p);
+      }
+      const found = waysList(cents, kinds)
+        .slice(0, asNum(params.found))
+        .map((x) => trayKey(x));
+      p = {
+        params,
+        vars: varsW,
+        math: { ...math, kinds: kinds.length - 2, found: found.length - 1 },
+        widget: {
+          format: 'coin-pay',
+          target: cents,
+          purse,
+          requireFewest: false,
+          mode: 'new-way',
+          found,
+          showRunningTotal: true,
+        },
+        answer: { kind: 'state', checker: 'coins.total', target: { cents, purse, found } },
+      };
+      return finish(moneyCoins, ctx, p);
+    }
     if (mode === 'pay') {
       const purse = payPurse(asStr(params.kinds));
       p = {
@@ -469,6 +580,7 @@ export const moneyCoins: GeneratorDef = {
     if (a.kind !== 'state') return correctFromAnswer(a);
     const w = out.widget;
     if (w.format !== 'coin-pay') return correctFromAnswer(a);
+    if (w.mode === 'new-way') return { kind: 'state', value: { coins: newWay(out) } };
     return { kind: 'state', value: { coins: payTray(w.target, w.purse) } };
   },
   solution(out): LessonStep[] {
@@ -486,6 +598,16 @@ export const moneyCoins: GeneratorDef = {
         ),
       ];
     }
+    if (w.format === 'number-pad' && asStr(out.params.mode) === 'ways') {
+      return [
+        say('gen.money.coins.ways-big-first', {}),
+        say(
+          'gen.money.coins.ways-count',
+          { n: value },
+          { op: 'type', args: { blank: 'x', value } },
+        ),
+      ];
+    }
     if (w.format === 'number-pad') {
       // The abstract item names the coin and draws none: no picture to look at.
       if (w.stimulus.kind === 'none') {
@@ -494,6 +616,18 @@ export const moneyCoins: GeneratorDef = {
       return [
         say('gen.money.coins.look', {}),
         say('gen.money.coins.worth', { cents: value }, { op: 'answer', args: { value } }),
+      ];
+    }
+    if (w.format === 'coin-pay' && w.mode === 'new-way') {
+      const tray = newWay(out);
+      const pieces = PAY_ORDER.flatMap((k) => new Array<string>(tray[k] ?? 0).fill(k));
+      return [
+        say('gen.money.coins.ways-look', {}),
+        ...pieces.map((coin, i) =>
+          i < pieces.length - 1
+            ? say('gen.money.coins.drop', {}, { op: 'drop', args: { coin } })
+            : say('gen.money.coins.ways-new', { cents: w.target }, { op: 'drop', args: { coin } }),
+        ),
       ];
     }
     if (w.format === 'coin-pay') {
@@ -569,6 +703,17 @@ export const moneyCoins: GeneratorDef = {
 };
 
 const PAY_ORDER = ['dollar', 'quarter', 'dime', 'nickel', 'penny'] as const;
+
+/** The first way of a `new-way` item that is not listed as found. */
+function newWay(out: GeneratorOutput): Record<string, number> {
+  const p = out.params;
+  const found = asNum(p.found);
+  const way = waysList(asNum(p.cents), asStr(p.kinds))[found];
+  if (!way) throw new Error('money.coins: no way left to find');
+  const tray: Record<string, number> = {};
+  for (const k of PAY_ORDER) if ((way[k] ?? 0) > 0) tray[k] = way[k] as number;
+  return tray;
+}
 
 /** A tray that pays `cents` from the purse: the fewest pieces, biggest first (greedy over kinds). */
 export function payTray(cents: number, purse: Purse): Record<string, number> {

@@ -39,3 +39,31 @@ skills:
     prerequisites: [CMP.01]
     gateway: false
     representations: [objects, balance]
+
+  # K02 slice 4e (#17): grade 2 equality and growing shapes. ALG.09 waits for a table layout.
+  - id: ALG.06
+    name: Same value without adding up (7 + 5 = 8 + 4)
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.OA.B.2] }
+    prerequisites: [ADD.11, ADD.14]
+    gateway: false
+    representations: [balance, symbols]
+
+  - id: ALG.07
+    name: Balance puzzles with a box for the unknown (? + 4 = 6 + 3)
+    kind: problem-solving
+    grade: 2
+    standards: { ccss: [], supports: [1.OA.D.8] }
+    prerequisites: [ALG.06]
+    gateway: false
+    representations: [balance, symbols]
+
+  - id: ALG.10
+    name: "Growing shape patterns: build the next step"
+    kind: problem-solving
+    grade: 2
+    standards: { ccss: [], supports: [3.OA.D.9] }
+    prerequisites: [ALG.02, ALG.04]
+    gateway: false
+    representations: [tiles, table]

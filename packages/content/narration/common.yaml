@@ -192,16 +192,16 @@ p.story.len.both:
   text: "Two planks, end to end, are {n} {unit|unit:n} long."
   level: "2"
 p.story.len.big:
-  text: "The first plank is {n} {unit|unit:n} long."
+  text: "The long plank is {n} {unit|unit:n} long."
   level: "2"
 p.story.len.small:
-  text: "The second plank is {n} {unit|unit:n} long."
+  text: "The short plank is {n} {unit|unit:n} long."
   level: "2"
 p.story.len.big-more:
-  text: "The first plank is {n} {unit|unit:n} longer than the second plank."
+  text: "The long plank is {n} {unit|unit:n} longer than the short plank."
   level: "2"
 p.story.len.small-fewer:
-  text: "The second plank is {n} {unit|unit:n} shorter than the first plank."
+  text: "The short plank is {n} {unit|unit:n} shorter than the long plank."
   level: "2"
 p.story.len.q.now:
   text: "How many {unit|unit:many} long is the plank now?"
@@ -228,16 +228,16 @@ p.story.len.q.each:
   text: "How long could each plank be?"
   level: "2"
 p.story.len.q.more:
-  text: "How many {unit|unit:many} longer is the first plank?"
+  text: "How many {unit|unit:many} longer is the long plank?"
   level: "2"
 p.story.len.q.fewer:
-  text: "How many {unit|unit:many} shorter is the second plank?"
+  text: "How many {unit|unit:many} shorter is the short plank?"
   level: "2"
 p.story.len.q.big:
-  text: "How many {unit|unit:many} long is the first plank?"
+  text: "How many {unit|unit:many} long is the long plank?"
   level: "2"
 p.story.len.q.small:
-  text: "How many {unit|unit:many} long is the second plank?"
+  text: "How many {unit|unit:many} long is the short plank?"
   level: "2"
 p.story.money.has:
   text: "{who|name} has {n} {unit|unit:n}."
@@ -884,7 +884,8 @@ h.add3.can-ten:
 h.add3.two-then-one:
   text: "Add two of the numbers. Then add the last one."
 h.bar.find-missing:
-  text: "Find the box. Is it a part, is it the whole?"
+  text: "Find the box with the question mark. Is it a part or the whole?"
+  level: "2"
 h.bond.join-parts:
   text: "Put both parts together. That makes the whole."
 h.numberline.from-mark:
@@ -2219,6 +2220,10 @@ fb.measure-length.retry:
   text: "Check the ends. Then count again."
 fb.balance.retry:
   text: "Watch which side goes down."
+fb.balance.retry-sides:
+  text: "Work out each side. Are they the same?"
+fb.clues.retry:
+  text: "Listen again. Your number must fit every part."
 fb.shape-compose.retry:
   text: "Look at the outline again. Try turning a piece."
 fb.puzzle-grid.retry:
@@ -2231,6 +2236,8 @@ fb.bar-graph-build.retry:
   text: "Let's count each kind again, one by one."
 fb.story-problem.retry:
   text: "Let's listen to the story again. Show it with counters."
+fb.story-problem.retry-listen:
+  text: "Let's listen to the story again. Then try again."
 fb.mc.off-by-one-counting:
   text: "Touch each one once. Count again with me."
 fb.mc.count-start-number:
@@ -2403,6 +2410,12 @@ gen.pattern.grow.next:
   text: "Next comes {n}."
 gen.pattern.grow.land:
   text: "We land on {n}."
+gen.pattern.grow.squares:
+  text: "Count the squares. Each step adds {step}."
+  level: "2"
+gen.pattern.grow.next-squares:
+  text: "The next step has {n} squares."
+  level: "2"
 gen.puzzle.grid.path-look:
   text: "Let's count along the path."
 gen.puzzle.grid.path-fill:
@@ -2421,6 +2434,39 @@ gen.puzzle.grid.piece:
   text: "Look at the numbers next to the piece."
 gen.puzzle.grid.piece-fill:
   text: "Here are the numbers for the piece."
+gen.puzzle.grid.cage-look:
+  text: "Each row and each column has 1, 2 and 3. Each cage adds up to its number."
+  level: "2"
+gen.puzzle.grid.cage-one:
+  text: "This cage has one empty box. Its number tells what goes there."
+  level: "2"
+gen.puzzle.grid.cage-try:
+  text: "Try a number in this cage. Then check its row, its column and its cage."
+  level: "2"
+gen.puzzle.grid.cage-line:
+  text: "This line has one empty box. Which of 1, 2 and 3 is missing?"
+  level: "2"
+gen.puzzle.grid.cage-fill:
+  text: "It is {n}."
+  level: "2"
+gen.puzzle.grid.digits-big:
+  text: "The biggest digit goes first, in the biggest place."
+  level: "2"
+gen.puzzle.grid.digits-small:
+  text: "The smallest digit goes first, in the biggest place."
+  level: "2"
+gen.puzzle.grid.digits-next:
+  text: "Then the next one."
+  level: "2"
+gen.puzzle.grid.digits-make:
+  text: "That makes {n}."
+  level: "2"
+gen.puzzle.grid.clues-check:
+  text: "Check each clue, one at a time."
+  level: "2"
+gen.puzzle.grid.clues-it:
+  text: "Only {n} fits every clue."
+  level: "2"
 fb.pattern-extend.retry:
   text: "Say the pattern again. Then try once more."
 # One line for every pattern.repeat task the rule reads: going on, filling in, ordering the cards and
@@ -2722,6 +2768,18 @@ gen.money.coins.next:
 gen.money.coins.writing:
   text: "Write the dollars, then a dot, then the cents."
   level: "2"
+gen.money.coins.ways-big-first:
+  text: "Use the most big coins, then one fewer each time, down to none. Do the same with the next coin."
+  level: "2"
+gen.money.coins.ways-count:
+  text: "That makes {n} ways."
+  level: "2"
+gen.money.coins.ways-look:
+  text: "Look at the ways we found. Make one with different coins."
+  level: "2"
+gen.money.coins.ways-new:
+  text: "That pays {cents|cents} a new way."
+  level: "2"
 
 # MON hints (K02 slice 4a, #17): no hint names a number an answer can be.
 h.mon.size-not-value:
@@ -2880,3 +2938,67 @@ h.geo.sides-corners:
 h.geo.not-square:
   text: "Make every corner wider or narrower than the corner of a page."
   level: "2"
+
+# K02 slice 4e (#17): grade 2 equality, growing shapes and puzzles.
+h.eq.compare-not-add:
+  text: "Don't add it all up. Compare the numbers in the same place on each side."
+  level: "2"
+h.eq.compensate:
+  text: "{c} is {d} {more|word} than {cp}. So the box is {d} {less|word} than {bp}."
+  level: "2"
+h.grow.count-steps:
+  text: "Count the squares in each step."
+  level: "2"
+h.grow.add-same:
+  text: "Each step adds the same number of squares. The pattern keeps growing."
+  level: "2"
+h.puzzle.cage-add:
+  text: "The boxes in a cage add up to the cage's number."
+  level: "2"
+h.puzzle.line-once:
+  text: "Each row and each column has 1, 2 and 3, once each."
+  level: "2"
+h.puzzle.cage-try:
+  text: "Try a number in a box. Do its row, its column and its cage still work?"
+  level: "2"
+h.digits.biggest-place:
+  text: "The first card is in the biggest place."
+  level: "2"
+h.digits.big-first:
+  text: "Put the biggest digit in the biggest place."
+  level: "2"
+h.digits.small-first:
+  text: "Put the smallest digit in the biggest place."
+  level: "2"
+h.clues.one-at-a-time:
+  text: "Read one clue at a time. Which numbers still fit?"
+  level: "2"
+h.clues.fives:
+  text: "When you count by fives, the numbers end in 5 or 0."
+  level: "2"
+h.clues.between:
+  text: "Find the numbers between the two numbers. Then check odd or even."
+  level: "2"
+h.coins.ways-found:
+  text: "Look at the ways we found. Use different coins."
+  level: "2"
+h.coins.ways-trade:
+  text: "Trade a coin for smaller coins that make the same amount."
+  level: "2"
+h.coins.ways-big-first:
+  text: "Use the most big coins, then one fewer each time, down to none. Do the same with the next coin."
+  level: "2"
+h.grow.keep-adding:
+  text: "Keep adding the same number, one step at a time."
+  level: "2"
+gen.pattern.grow.step-squares:
+  text: "Step {k} has {n} squares."
+  level: "2"
+fb.mc.grow-as-repeat:
+  text: "This pattern grows. Each step has more squares."
+fb.mc.cage-repeat-digit:
+  text: "Each row and each column has 1, 2 and 3 just once."
+fb.mc.digit-order-reversed:
+  text: "The first card is the biggest place. Which card goes there?"
+fb.mc.way-counted-twice:
+  text: "We found those coins before. A new order is the same way."

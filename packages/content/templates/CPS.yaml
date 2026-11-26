@@ -234,7 +234,8 @@ templates:
     representation: objects
     generator: puzzle.grid
     params: { variant: all-ways, whole: { int: [4, 7] } }
-    difficulty: { base: -0.3 }
+    # -0.45: the median sits between two steps of 0.3 (K02 slice 4e moved the draws).
+    difficulty: { base: -0.45 }
     narration:
       prompt: tp.CPS.06.t2.prompt
       hints: [h.puzzle.ways-fewest, h.puzzle.ways-one-more]

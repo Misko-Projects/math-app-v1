@@ -23,6 +23,10 @@ function predict(item: GeneratedItem): ResponseValue | null {
 export const equalsAddAll: MisconceptionRule = {
   id: 'equalsAddAll',
   kind: 'answer',
+  // A judged equation (true or false) never asks for a number, so the rule is not about it.
+  applies: (item) =>
+    item.widget.format !== 'compare' &&
+    !(item.widget.format === 'balance' && item.widget.mode !== 'fill-blank'),
   predict,
   match(item, r) {
     const p = predict(item);

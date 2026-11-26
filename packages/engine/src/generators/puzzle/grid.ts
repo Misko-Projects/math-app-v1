@@ -14,6 +14,8 @@
 //   (turn-arounds once); the child fills them all, in any order. all-ways (order): every way as a
 //   picture of two groups (turn-arounds included); the child orders them by the first group.
 // K01 builds puzzle-grid, hundred-chart, number-bond and order.
+// K02 slice 4e adds `cage-sum` (PUZ.04, puzzle-grid), `digit-cards` (PUZ.06, order and
+// number-pad) and `clues` (PUZ.07, hundred-chart and number-pad): see k02.ts.
 
 import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
 import { PUZZLE_GRID, PUZZLE_NUMBER_MAX } from '../../formats/puzzle-grid';
@@ -29,8 +31,20 @@ import {
   sampleAll,
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
+import {
+  CAGE_LAYOUTS,
+  CLUE_SETS,
+  isK02Variant,
+  K02_NARRATION,
+  K02_VARIANTS,
+  k02Accepts,
+  k02Build,
+  k02Example,
+  k02Solution,
+  SQUARES3,
+} from './k02';
 
-const VARIANTS = ['number-path', 'sum-triangle', 'all-ways'] as const;
+const VARIANTS = ['number-path', 'sum-triangle', 'all-ways', ...K02_VARIANTS] as const;
 const BLANK_SETS = ['two-middles', 'middles', 'corner-middle', 'chain'] as const;
 
 type Cell = [number, number];
@@ -184,13 +198,13 @@ const waysOf = (whole: number): [number, number][] =>
 
 export const puzzleGrid: GeneratorDef = {
   id: 'puzzle.grid',
-  formats: ['puzzle-grid', 'hundred-chart', 'number-bond', 'order'],
+  formats: ['puzzle-grid', 'hundred-chart', 'number-bond', 'order', 'number-pad'],
   params: {
     variant: {
       type: 'string',
       values: [...VARIANTS],
       default: { kind: 'choice', values: [...VARIANTS] },
-      doc: 'number-path, sum-triangle or all-ways',
+      doc: 'number-path, sum-triangle, all-ways, cage-sum, digit-cards or clues',
     },
     rows: {
       type: 'int',
@@ -250,6 +264,43 @@ export const puzzleGrid: GeneratorDef = {
       default: { kind: 'int', min: 4, max: 7 },
       doc: 'all-ways: the number to make',
     },
+    square: {
+      type: 'int',
+      default: { kind: 'int', min: 0, max: SQUARES3.length - 1 },
+      doc: 'cage-sum: which 3 × 3 square of the digits 1–3 solves it',
+    },
+    layout: {
+      type: 'int',
+      default: { kind: 'int', min: 0, max: CAGE_LAYOUTS.length - 1 },
+      doc: 'cage-sum: which cage layout',
+    },
+    givens: {
+      type: 'int',
+      default: { kind: 'int', min: 0, max: 2 },
+      doc: 'cage-sum: cells shown at the start (0 to 3)',
+    },
+    count: {
+      type: 'int',
+      default: { kind: 'choice', values: [2, 3] },
+      doc: 'digit-cards: how many cards (2 or 3)',
+    },
+    d1: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'digit-cards: a card' },
+    d2: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'digit-cards: a card' },
+    d3: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'digit-cards: a card' },
+    want: {
+      type: 'string',
+      values: ['biggest', 'smallest'],
+      default: { kind: 'choice', values: ['biggest', 'smallest'] },
+      doc: 'digit-cards: make the biggest or the smallest number',
+    },
+    clues: {
+      type: 'string',
+      values: [...CLUE_SETS],
+      default: { kind: 'choice', values: [...CLUE_SETS] },
+      doc: 'clues: fives (t tens, odd, counted by fives) or near (more than n − 2, less than n + 2, odd or even)',
+    },
+    t: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'clues fives: the tens' },
+    n: { type: 'int', default: { kind: 'int', min: 12, max: 98 }, doc: 'clues near: the number' },
   },
   derived: ['middle', 'ways'],
   features: {
@@ -264,6 +315,10 @@ export const puzzleGrid: GeneratorDef = {
     'rows.over1': { weight: 0.3, doc: 'hundred-chart piece: it spans more than one row' },
     'sum.over10': { weight: 0.3, doc: 'sum-triangle: the sides add up to more than 10' },
     items: { weight: 0.3, doc: 'order format feature (03 §5.5): card count − 3' },
+    three: { weight: 0.5, doc: 'digit-cards: three cards (a three-digit number)' },
+    threeClues: { weight: 0.2, doc: 'clues: three clues to keep in mind' },
+    near: { weight: 0.3, doc: 'clues: more than, less than, odd or even' },
+    big: { weight: 0.35, doc: 'clues: the number is above 50' },
   },
   narration: [
     'gen.puzzle.grid.path-look',
@@ -275,6 +330,7 @@ export const puzzleGrid: GeneratorDef = {
     'gen.puzzle.grid.ways-rest',
     'gen.puzzle.grid.piece',
     'gen.puzzle.grid.piece-fill',
+    ...K02_NARRATION,
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive(p) {
@@ -283,6 +339,7 @@ export const puzzleGrid: GeneratorDef = {
   },
   accepts(p, t) {
     const variant = asStr(p.variant);
+    if (isK02Variant(variant)) return k02Accepts(p, t.format);
     if (variant === 'number-path') {
       if (t.format === 'hundred-chart') return pieceCells(asStr(p.piece), asNum(p.at)) !== null;
       if (t.format !== 'puzzle-grid') return false;
@@ -318,6 +375,11 @@ export const puzzleGrid: GeneratorDef = {
     const { params, template: t, rng } = ctx;
     const variant = asStr(params.variant);
     let p: PartialOutput;
+    if (isK02Variant(variant)) {
+      const b = k02Build(params, t.format, rng);
+      p = { params, vars: pickVars(t, b.vars), math: b.math, widget: b.widget, answer: b.answer };
+      return finish(puzzleGrid, ctx, p);
+    }
     if (variant === 'number-path' && t.format === 'hundred-chart') {
       const piece = asStr(params.piece);
       const hidden = pieceCells(piece, asNum(params.at)) ?? [];
@@ -538,10 +600,11 @@ export const puzzleGrid: GeneratorDef = {
   exampleCorrect(out): ResponseValue {
     const a = out.answer;
     if (a.kind !== 'state') return correctFromAnswer(a);
-    return { kind: 'state', value: { fill: solvedFill(out) } };
+    return k02Example(out.params) ?? { kind: 'state', value: { fill: solvedFill(out) } };
   },
   solution(out): LessonStep[] {
     const w = out.widget;
+    if (isK02Variant(asStr(out.params.variant))) return k02Solution(out.params, w);
     if (w.format === 'hundred-chart') {
       return [
         say('gen.puzzle.grid.piece', {}, { op: 'highlight-row', args: { n: 0 } }),

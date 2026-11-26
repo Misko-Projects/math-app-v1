@@ -21,9 +21,13 @@ coverageGrades: [K, 1]
 # (money.coins), which adds MON.03 and MON.07 as gaps below MON.08.
 # Slice 4b authored MEA.03, MEA.10, DAT.04, DAT.05, GEO.12, GEO.15 and GEO.16, which adds GEO.13 and
 # GEO.14 as gaps below GEO.15 (DAT.03, MEA.08, MEA.09 and FRA.16 stay planned).
+# Slice 4e authored ALG.06, ALG.07, ALG.10, PUZ.04, PUZ.06, PUZ.07 and PUZ.09, which adds ALG.08,
+# ALG.09 (waits for a table layout), PUZ.05 and PUZ.08 as gaps.
 plannedIds:
   [
     ALG.03,
+    ALG.08,
+    ALG.09,
     DAT.03,
     DAT.06,
     DAT.07,
@@ -58,6 +62,8 @@ plannedIds:
     MUL.19,
     MUL.20,
     MUL.21,
+    PUZ.05,
+    PUZ.08,
     PV.20,
     PV.21,
     PV.22,

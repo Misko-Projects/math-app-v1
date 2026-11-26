@@ -714,6 +714,12 @@ export const FoundMaxLandscapeMin: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const ways = [...root.querySelectorAll<HTMLElement>('.ni-cpay__found li')];
     await expect(ways).toHaveLength(COIN_FOUND_MAX);
+    // A screen reader hears each way found, coin by coin (#17 slice 4e), not just "Found".
+    const said = root.querySelector('.ni-cpay__found')?.getAttribute('aria-label') ?? '';
+    const parts = said.split('. ');
+    await expect(parts).toHaveLength(1 + COIN_FOUND_MAX);
+    await expect(parts[1]?.match(/nickel/gi)).toHaveLength(4);
+    await expect(parts[3]?.match(/dime/gi)).toHaveLength(3);
     const list = (root.querySelector('.ni-cpay__found') as HTMLElement).getBoundingClientRect();
     for (const li of ways) {
       for (const piece of li.children) {

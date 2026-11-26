@@ -104,6 +104,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ALG.02',
       'ALG.04',
       'ALG.05',
+      'ALG.06',
+      'ALG.07',
+      'ALG.10',
       'CMP.01',
       'CMP.02',
       'CMP.03',
@@ -228,6 +231,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'PUZ.01',
       'PUZ.02',
       'PUZ.03',
+      'PUZ.04',
+      'PUZ.06',
+      'PUZ.07',
+      'PUZ.09',
       'PV.01',
       'PV.02',
       'PV.03',
@@ -271,12 +278,14 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.bigger-unit-more',
       'MC.borrow-across-zero',
       'MC.borrow-no-decrement',
+      'MC.cage-repeat-digit',
       'MC.coin-value-by-size',
       'MC.coins-as-ones',
       'MC.compare-first-digit',
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
+      'MC.digit-order-reversed',
       'MC.dollar-as-one',
       'MC.double-once',
       'MC.equals-add-all',
@@ -287,6 +296,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.forgot-to-regroup-add',
       'MC.fraction-bigger-denominator',
       'MC.fraction-unequal-parts',
+      'MC.grow-as-repeat',
       'MC.hour-hand-next',
       'MC.hour-minute-swap',
       'MC.keyword-more-means-add',
@@ -310,6 +320,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.times-zero-keeps',
       'MC.unequal-share',
       'MC.unit-gaps',
+      'MC.way-counted-twice',
       'MC.write-as-spoken',
       'MC.wrong-operation',
       'MC.zero-placeholder',
@@ -1933,10 +1944,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped;
       // rulers, graphs, faces and corners (K02 slice 4b) added 7 skills, 23 templates,
       // MC.ruler-count-ticks and MC.ruler-read-end; grade 2 story problems (K02 slice 4d) added 4
-      // skills, 13 templates, MC.first-step-only and MC.dollar-as-one.
-      skills: 192,
-      templates: 706,
-      misconceptions: 46,
+      // skills, 13 templates, MC.first-step-only and MC.dollar-as-one; grade 2 patterns and puzzles
+      // (K02 slice 4e) added 7 skills, 19 templates, MC.grow-as-repeat, MC.cage-repeat-digit,
+      // MC.digit-order-reversed and MC.way-counted-twice.
+      skills: 199,
+      templates: 725,
+      misconceptions: 50,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([

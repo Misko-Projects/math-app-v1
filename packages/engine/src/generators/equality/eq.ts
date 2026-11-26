@@ -6,6 +6,7 @@
 //   a+b=_   a op b = _          _=a+b   _ = a op b        (the blank alone on the left)
 //   a+_=c   a op _ = result     _+b=c   _ op b = result   (change and start unknown)
 //   a+b=c+_ a op b = c + _      a+b=_+c a op b = _ + c    (operations on both sides)
+//   _+c=a+b _ + c = a op b      (the box first, ALG.07's "? + 4 = 6 + 3")
 //   a=c+_   a = c + _           (one number against a sum: how many more make it the same)
 //   between a < _ < a + 2, or a + 2 > _ > a with `rel` >  (the one number between, CMP.08)
 // The number shown on the right of a two-sided form is `c`; `result` is a op b and `missing` the
@@ -18,6 +19,12 @@
 // child adds unit blocks until they balance, checked by balance.equal). The compare format always
 // judges. Balance terms are numerals at the pictorial tier and `sprite` objects at the concrete
 // tier (one object weighs one).
+//
+// `near` (ALG.06, same value without adding up): on a two-sided form the shown `c` is 1 to `near`
+// away from its partner, the number in the same place on the other side (`a` in a+b=c+_, `b` in
+// a+b=_+c and _+c=a+b), so the box is the box's partner moved the other way. The hint vars say it
+// for every draw: `cp` (c's partner), `bp` (the box's partner), `d` (how far c moved), `more` and
+// `less` ("more" and "less", swapped when c is below its partner).
 
 import type {
   BalanceSide,
@@ -157,13 +164,26 @@ function sampleEq(spec: Record<string, ParamSpec>, rng: Rng): ParamValues {
   if (fact === 'turn-around') {
     // a + b = b + _ and a + b = _ + a: the shown number is the other addend.
     if (form === 'a+b=c+_') set('c', asNum(p.b));
-    if (form === 'a+b=_+c') set('c', asNum(p.a));
+    if (form === 'a+b=_+c' || form === '_+c=a+b') set('c', asNum(p.a));
   } else if (fact === 'zero' && asNum(p.a) !== 0 && asNum(p.b) !== 0) {
     // One addend is 0 (a − 0 for subtraction), drawn within the template's domains.
     const which = asOp(p.op) === '-' ? 'b' : rng.fork('zero').bool(0.5) ? 'a' : 'b';
     set(which, 0);
   }
+  const near = asNum(p.near, 0);
+  if (near >= 1 && TWO_SIDED.has(form)) {
+    const r = rng.fork('near');
+    const d = r.int(1, near);
+    set('c', partners(form, p).cp + (r.bool(0.5) ? d : -d));
+  }
   return p;
+}
+
+/** c's partner (`cp`, the number in c's place on the other side) and the box's partner (`bp`). */
+export function partners(form: string, p: ParamValues): { cp: number; bp: number } {
+  const a = asNum(p.a);
+  const b = asNum(p.b);
+  return form === 'a+b=c+_' ? { cp: a, bp: b } : { cp: b, bp: a };
 }
 
 function valid(p: ParamValues, t: ItemTemplate): boolean {
@@ -184,6 +204,15 @@ function valid(p: ParamValues, t: ItemTemplate): boolean {
     if (eq.op !== '+' || !TWO_SIDED.has(eq.form)) return false;
     if (eq.form === 'a+b=c+_' ? c !== b : c !== a) return false;
     if (a === b) return false; // a turn-around needs two different addends
+  }
+  const near = asNum(p.near, 0);
+  if (near >= 1) {
+    // Same value without adding up: c sits 1 to `near` from its partner, on an adding form.
+    if (!TWO_SIDED.has(eq.form) || eq.op !== '+') return false;
+    const d = Math.abs(c - partners(eq.form, p).cp);
+    if (d < 1 || d > near) return false;
+    // The hint names c, its partner and the change: none of them is the answer.
+    if ([c, partners(eq.form, p).cp, d].includes(eq.missing)) return false;
   }
   if (fact === 'zero') {
     if (!ONE_SIDED.has(eq.form)) return false;
@@ -245,6 +274,7 @@ function thinkLines(eq: Equation, p: ParamValues): LessonStep[] {
       ];
     case 'a+b=c+_':
     case 'a+b=_+c':
+    case '_+c=a+b':
       return [
         say('gen.equality.eq.side', { n: eq.value }),
         say('gen.equality.eq.and-what', { x: c, n: eq.value }),
@@ -277,7 +307,7 @@ export const equalityEq: GeneratorDef = {
     c: {
       type: 'int',
       default: { kind: 'int', min: 1, max: 10 },
-      doc: 'the number shown on the right of a two-sided form (a+b=c+_, a+b=_+c, a=c+_)',
+      doc: 'the number shown beside the box in a two-sided form (a+b=c+_, a+b=_+c, _+c=a+b, a=c+_)',
     },
     fact: {
       type: 'string',
@@ -312,6 +342,11 @@ export const equalityEq: GeneratorDef = {
       values: [...DEFAULT_SPRITES],
       default: { kind: 'const', value: 'shell' },
       doc: 'concrete balance pans and the objects picture: the art-kit object',
+    },
+    near: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'two-sided adding forms: c is 1 to near from its partner (0: any c)',
     },
     maxN: {
       type: 'int',
@@ -373,7 +408,20 @@ export const equalityEq: GeneratorDef = {
     const mode = asStr(params.mode, 'fill');
     const sprite = asStr(params.sprite, 'shell');
     const concrete = t.tier === 'concrete';
-    const vars = pickVars(t, { a, b, c, n: eq.value, lo: a, hi: a + 2 });
+    const { cp, bp } = partners(eq.form, params);
+    const vars = pickVars(t, {
+      a,
+      b,
+      c,
+      n: eq.value,
+      lo: a,
+      hi: a + 2,
+      cp,
+      bp,
+      d: Math.abs(c - cp),
+      more: c >= cp ? 'more' : 'less',
+      less: c >= cp ? 'less' : 'more',
+    });
     const zero = ONE_SIDED.has(eq.form) && (eq.op === '-' ? b === 0 : a === 0 || b === 0) ? 1 : 0;
     const math: Record<string, number> = {
       size: Math.max(0, Math.max(...eq.shown, eq.missing, eq.value) - 5) / 5,

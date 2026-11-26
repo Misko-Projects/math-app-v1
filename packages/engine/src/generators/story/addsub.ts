@@ -373,8 +373,9 @@ export function storyLines(s: Story, context: string, unit = 'in', dollar = 0): 
 /**
  * The lines of a measured story (#17 slice 4d): planks in a length unit (p.story.len.*) or prices
  * in cents or dollars (p.story.money.*). Each amount is told with its unit, and the question names
- * the unit, so the answer box needs none. Compare stories set a first plank against a second one,
- * or a kite against an apple; the bigger is the first plank and the kite.
+ * the unit, so the answer box needs none. Compare stories set the long plank against the short
+ * one (named by length, so the order they are told in never matters), or a kite against an apple;
+ * the bigger is the long plank and the kite.
  */
 function measuredLines(
   s: Story,

@@ -6,7 +6,7 @@ misconceptions:
     name: Reads the equal sign as "the answer comes next"
     detect: { kind: answer, rule: equalsMeansAnswer }
     appliesTo: { generators: [equality.eq] }
-    skills: [ADD.10, ADD.11]
+    skills: [ADD.10, ADD.11, ALG.06, ALG.07]
     remediation: [ALG.05, ADD.10]
     feedback: fb.mc.equals-means-answer
     parentTip: >-
@@ -26,7 +26,7 @@ misconceptions:
     name: Adds every number shown, whatever the equal sign says
     detect: { kind: answer, rule: equalsAddAll }
     appliesTo: { generators: [equality.eq] }
-    skills: [ADD.11]
+    skills: [ADD.11, ALG.06, ALG.07]
     remediation: [ALG.05, ADD.10]
     feedback: fb.mc.equals-add-all
     parentTip: >-

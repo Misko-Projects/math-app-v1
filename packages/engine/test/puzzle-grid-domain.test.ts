@@ -34,6 +34,7 @@ const SHIPPED: Readonly<Record<string, Config['variant']>> = {
   'PUZ.02.t1': 'sum-triangle',
   'PUZ.02.t3': 'sum-triangle',
   'PUZ.03.t2': 'shape-fill',
+  'PUZ.04.t2': 'cage-sum',
 };
 
 const issues = (c: Config) => {
@@ -744,7 +745,7 @@ describe('puzzle-grid: the rule a fill leaves unmet (what the widget marks at th
 });
 
 describe('puzzle-grid: the shipped templates (500 seeds each)', () => {
-  it('there are five, and each draws the variant named here', () => {
+  it('there are six, and each draws the variant named here', () => {
     const shipped = fixture.templates.filter((t) => t.format === 'puzzle-grid').map((t) => t.id);
     expect(shipped.sort()).toEqual(Object.keys(SHIPPED).sort());
   });
@@ -827,7 +828,8 @@ describe('puzzle-grid: the shipped templates (500 seeds each)', () => {
       if (c.variant !== 'shape-fill') {
         expect(puzzleAnswerIssues(c, withTarget({ ...target, palette: [1] }))).not.toEqual([]);
       }
-      if (c.cells.some((x) => x.given !== undefined)) {
+      // A cage grid's givens live in its own cells (the cells check above covers them).
+      if (c.variant !== 'cage-sum' && c.cells.some((x) => x.given !== undefined)) {
         expect(puzzleAnswerIssues(c, withTarget({ ...target, givens: [] }))).not.toEqual([]);
       }
       expect(puzzleAnswerIssues(c, { kind: 'number', value: 1 })).not.toEqual([]);

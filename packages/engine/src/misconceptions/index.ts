@@ -26,6 +26,12 @@ import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
+import {
+  cageRepeatDigit,
+  digitOrderReversed,
+  growAsRepeat,
+  wayCountedTwice,
+} from './rules/k02Puzzles';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { minuteHandAsMinutes } from './rules/minuteHandNumber';
 import {
@@ -109,6 +115,11 @@ const RULES: Record<string, MisconceptionRule> = {
   minuteHandNumber: minuteHandAsMinutes,
   coinsAsOnes: coinsAsOnes,
   coinValueBySize: coinValueBySize,
+  // K02 (#17) slice 4e: patterns and puzzles
+  growAsRepeat: growAsRepeat,
+  cageRepeatDigit: cageRepeatDigit,
+  digitOrderReversed: digitOrderReversed,
+  wayCountedTwice: wayCountedTwice,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {
