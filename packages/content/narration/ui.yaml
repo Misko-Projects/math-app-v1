@@ -977,6 +977,9 @@ ui.nlj.bigger:
 ui.nlj.hopper:
   text: "Pebbling on {n}"
   level: K
+ui.nlj.pebbling:
+  text: "Pebbling"
+  level: K
 ui.nlj.start:
   text: "Start"
   level: K

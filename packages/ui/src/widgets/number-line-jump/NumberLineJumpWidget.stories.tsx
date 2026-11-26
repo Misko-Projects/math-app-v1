@@ -297,8 +297,11 @@ export const StonesK: Story = {
     await expect(here(root)).toBe(4);
     const check = within(root).getByRole('button', { name: 'Check' });
     await expect(check).toBeDisabled();
+    // The item asks the landing: a hop says itself, never where it lands (Refs #35).
     await userEvent.click(jump(root, 1));
-    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 5 }]);
+    await expect(audio.say).toHaveBeenCalledWith('ui.nlj.hop', { n: 1 });
+    await expect(audio.sayPhrases).not.toHaveBeenCalledWith([{ number: 5 }]);
+    await expect(root.querySelector('.ni-nlj__hopper')).toHaveAccessibleName('Pebbling');
     await userEvent.click(jump(root, 1));
     await expect(here(root)).toBe(6);
     // Still nothing to check until the landing is typed.
