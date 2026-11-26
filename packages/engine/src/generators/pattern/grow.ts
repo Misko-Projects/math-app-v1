@@ -7,8 +7,14 @@
 // - pattern-extend `extend` (number tokens): the next `ask` terms (pattern.tokens); `rule`: the
 //   step (a number).
 // K01 builds pattern-extend, hundred-chart and number-line-jump.
+// `kind: shape` (ALG.10, K02 slice 4e): a growing shape pattern on pattern-extend `extend`, kind
+// `grow`. Three steps are shown; each step has `step` more squares than the one before (1 to 3,
+// starting at 1 to 4 squares). At the `tiles` representation each step is a stack of square tiles
+// and the child builds the next stack with one-more / one-less (built, never picked); otherwise the
+// steps are the numbers of squares and the child types the count of each asked step. A stack has
+// at most MAX_TILES squares.
 
-import type { LessonStep, ResponseValue } from '@number-island/shared';
+import type { LessonStep, PatternToken, ResponseValue } from '@number-island/shared';
 import {
   asNum,
   asStr,
@@ -18,9 +24,13 @@ import {
   pickVars,
   sampleAll,
 } from '../common';
+import { MAX_TILES } from '../../formats/pattern-extend';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 const MODES = ['extend', 'rule'] as const;
+const KINDS = ['number', 'shape'] as const;
+/** A growing shape pattern grows by 1 to this many squares a step. */
+export const SHAPE_STEP_MAX = 3;
 const SHOWN = 3;
 
 /** The k-th term (0 = start). */
@@ -62,6 +72,12 @@ export const patternGrow: GeneratorDef = {
       default: { kind: 'const', value: 'extend' },
       doc: 'pattern-extend: extend (the next terms) or rule (the step)',
     },
+    kind: {
+      type: 'string',
+      values: [...KINDS],
+      default: { kind: 'const', value: 'number' },
+      doc: 'number (a number pattern) or shape (squares in each step, pattern-extend extend only)',
+    },
   },
   derived: ['next', 'last'],
   features: {
@@ -78,6 +94,8 @@ export const patternGrow: GeneratorDef = {
     'gen.pattern.grow.rule',
     'gen.pattern.grow.next',
     'gen.pattern.grow.land',
+    'gen.pattern.grow.squares',
+    'gen.pattern.grow.next-squares',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive(p) {
@@ -92,8 +110,20 @@ export const patternGrow: GeneratorDef = {
     const start = asNum(p.start);
     const step = asNum(p.step);
     const ask = asNum(p.ask, 1);
-    if (start < 0 || ![1, 2, 10].includes(step) || ask < 1 || ask > 3) return false;
+    if (ask < 1 || ask > 3) return false;
     const last = term(start, step, SHOWN - 1 + ask);
+    if (asStr(p.kind, 'number') === 'shape') {
+      // Squares in each step: built (tiles) or typed, never the rule or another format.
+      return (
+        t.format === 'pattern-extend' &&
+        asStr(p.mode, 'extend') === 'extend' &&
+        start >= 1 &&
+        step >= 1 &&
+        step <= SHAPE_STEP_MAX &&
+        last <= MAX_TILES
+      );
+    }
+    if (start < 0 || ![1, 2, 10].includes(step)) return false;
     if (t.format === 'hundred-chart') return start >= 1 && last <= 100;
     if (t.format === 'number-line-jump') return ask === 1 && last <= 90;
     if (asStr(p.mode) === 'rule') return ask === 1 && last <= 100;
@@ -160,6 +190,25 @@ export const patternGrow: GeneratorDef = {
         },
         highlight: [{ op: 'highlight', args: { at: c } }],
       };
+    } else if (asStr(params.kind, 'number') === 'shape') {
+      const tok = (n: number) => (t.representation === 'tiles' ? { tiles: n } : { n });
+      p = {
+        params,
+        vars,
+        math,
+        widget: {
+          format: 'pattern-extend',
+          sequence: [...terms.map(tok), ...Array.from({ length: ask }, () => null)],
+          palette: [],
+          mode: 'extend',
+          kind: 'grow',
+        },
+        answer: {
+          kind: 'state',
+          checker: 'pattern.tokens',
+          target: { expected: asked.map(tok) },
+        },
+      };
     } else {
       const rule = asStr(params.mode) === 'rule';
       p = {
@@ -197,7 +246,7 @@ export const patternGrow: GeneratorDef = {
       const step = asNum(out.params.step);
       return { kind: 'state', value: { jumps: [step], value: a.target.value as number } };
     }
-    return { kind: 'state', value: { tokens: [...(a.target.expected as { n: number }[])] } };
+    return { kind: 'state', value: { tokens: [...(a.target.expected as PatternToken[])] } };
   },
   solution(out): LessonStep[] {
     const w = out.widget;
@@ -225,6 +274,20 @@ export const patternGrow: GeneratorDef = {
       return [
         look,
         say('gen.pattern.grow.rule', { step }, { op: 'answer', args: { value: step } }),
+      ];
+    }
+    const tiles = w.format === 'pattern-extend' && w.kind === 'grow' && w.sequence[0] !== null &&
+      'tiles' in (w.sequence[0] as PatternToken);
+    if (w.format === 'pattern-extend' && w.kind === 'grow') {
+      return [
+        say('gen.pattern.grow.squares', { step }),
+        ...asked.map((n, k) =>
+          say(
+            'gen.pattern.grow.next-squares',
+            { n },
+            { op: 'place-token', args: { index: SHOWN + k, token: tiles ? { tiles: n } : { n } } },
+          ),
+        ),
       ];
     }
     return [

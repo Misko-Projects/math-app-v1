@@ -11,13 +11,14 @@ export const FORMS = [
   '_+b=c',
   'a+b=c+_',
   'a+b=_+c',
+  '_+c=a+b',
   'a=c+_',
   'between',
 ] as const;
 export type Form = (typeof FORMS)[number];
 
 /** Forms with an operation on both sides of the equal sign. */
-export const TWO_SIDED: ReadonlySet<string> = new Set(['a+b=c+_', 'a+b=_+c']);
+export const TWO_SIDED: ReadonlySet<string> = new Set(['a+b=c+_', 'a+b=_+c', '_+c=a+b']);
 /** Forms a number bond can show (one operation, one blank). */
 export const ONE_SIDED: ReadonlySet<string> = new Set(['a+b=_', '_=a+b', 'a+_=c', '_+b=c']);
 /** Forms a balance can make equal: the blank is what the right pan still needs. */
@@ -77,6 +78,9 @@ export function equation(p: ParamValues): Equation {
       return eq([n(a), o, n(b)], [n(c), plus, blank], r, r - c, [a, b, c]);
     case 'a+b=_+c':
       return eq([n(a), o, n(b)], [blank, plus, n(c)], r, r - c, [a, b, c]);
+    case '_+c=a+b':
+      // The box first (ALG.07, "? + 4 = 6 + 3"): the mirror of a + b = _ + c.
+      return eq([blank, plus, n(c)], [n(a), o, n(b)], r, r - c, [c, a, b]);
     case 'a=c+_':
       return eq([n(a)], [n(c), plus, blank], a, a - c, [a, c], '+');
     case 'between': {

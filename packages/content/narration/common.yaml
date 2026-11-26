@@ -2406,6 +2406,12 @@ gen.pattern.grow.next:
   text: "Next comes {n}."
 gen.pattern.grow.land:
   text: "We land on {n}."
+gen.pattern.grow.squares:
+  text: "Count the squares. Each step adds {step}."
+  level: "2"
+gen.pattern.grow.next-squares:
+  text: "The next step has {n} squares."
+  level: "2"
 gen.puzzle.grid.path-look:
   text: "Let's count along the path."
 gen.puzzle.grid.path-fill:
@@ -2424,6 +2430,39 @@ gen.puzzle.grid.piece:
   text: "Look at the numbers next to the piece."
 gen.puzzle.grid.piece-fill:
   text: "Here are the numbers for the piece."
+gen.puzzle.grid.cage-look:
+  text: "Each row and each column has 1, 2 and 3. Each cage adds up to its number."
+  level: "2"
+gen.puzzle.grid.cage-one:
+  text: "This cage has one empty box. Its number tells what goes there."
+  level: "2"
+gen.puzzle.grid.cage-line:
+  text: "This line has one empty box. Which of 1, 2 and 3 is not there yet?"
+  level: "2"
+gen.puzzle.grid.cage-fill:
+  text: "It is {n}."
+  level: "2"
+gen.puzzle.grid.cage-balance:
+  text: "Both sides must make the same number. Add up the boxes you know."
+  level: "2"
+gen.puzzle.grid.digits-big:
+  text: "The biggest digit goes first, in the biggest place."
+  level: "2"
+gen.puzzle.grid.digits-small:
+  text: "The smallest digit goes first, in the biggest place."
+  level: "2"
+gen.puzzle.grid.digits-next:
+  text: "Then the next one."
+  level: "2"
+gen.puzzle.grid.digits-make:
+  text: "That makes {n}."
+  level: "2"
+gen.puzzle.grid.clues-check:
+  text: "Check each clue, one at a time."
+  level: "2"
+gen.puzzle.grid.clues-it:
+  text: "Only {n} fits every clue."
+  level: "2"
 fb.pattern-extend.retry:
   text: "Say the pattern again. Then try once more."
 # One line for every pattern.repeat task the rule reads: going on, filling in, ordering the cards and
@@ -2724,6 +2763,18 @@ gen.money.coins.next:
   level: "2"
 gen.money.coins.writing:
   text: "Write the dollars, then a dot, then the cents."
+  level: "2"
+gen.money.coins.ways-big-first:
+  text: "Start with the biggest coins. Then trade one for smaller coins, again and again."
+  level: "2"
+gen.money.coins.ways-count:
+  text: "That makes {n} ways."
+  level: "2"
+gen.money.coins.ways-look:
+  text: "Look at the ways we found. Make one with different coins."
+  level: "2"
+gen.money.coins.ways-new:
+  text: "That pays {cents|cents} a new way."
   level: "2"
 
 # MON hints (K02 slice 4a, #17): no hint names a number an answer can be.
