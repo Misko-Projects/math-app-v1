@@ -192,16 +192,16 @@ p.story.len.both:
   text: "Two planks, end to end, are {n} {unit|unit:n} long."
   level: "2"
 p.story.len.big:
-  text: "The first plank is {n} {unit|unit:n} long."
+  text: "The long plank is {n} {unit|unit:n} long."
   level: "2"
 p.story.len.small:
-  text: "The second plank is {n} {unit|unit:n} long."
+  text: "The short plank is {n} {unit|unit:n} long."
   level: "2"
 p.story.len.big-more:
-  text: "The first plank is {n} {unit|unit:n} longer than the second plank."
+  text: "The long plank is {n} {unit|unit:n} longer than the short plank."
   level: "2"
 p.story.len.small-fewer:
-  text: "The second plank is {n} {unit|unit:n} shorter than the first plank."
+  text: "The short plank is {n} {unit|unit:n} shorter than the long plank."
   level: "2"
 p.story.len.q.now:
   text: "How many {unit|unit:many} long is the plank now?"
@@ -228,16 +228,16 @@ p.story.len.q.each:
   text: "How long could each plank be?"
   level: "2"
 p.story.len.q.more:
-  text: "How many {unit|unit:many} longer is the first plank?"
+  text: "How many {unit|unit:many} longer is the long plank?"
   level: "2"
 p.story.len.q.fewer:
-  text: "How many {unit|unit:many} shorter is the second plank?"
+  text: "How many {unit|unit:many} shorter is the short plank?"
   level: "2"
 p.story.len.q.big:
-  text: "How many {unit|unit:many} long is the first plank?"
+  text: "How many {unit|unit:many} long is the long plank?"
   level: "2"
 p.story.len.q.small:
-  text: "How many {unit|unit:many} long is the second plank?"
+  text: "How many {unit|unit:many} long is the short plank?"
   level: "2"
 p.story.money.has:
   text: "{who|name} has {n} {unit|unit:n}."
