@@ -275,6 +275,14 @@ export const ComparePurses: Story = {
     // Tab order: "same" (between the purses), then "this one" under the left and right purse.
     await expect(choices.map((c) => c.dataset.id)).toEqual(['same', 'left', 'right']);
     const [, left, right] = choices as [HTMLElement, HTMLElement, HTMLElement];
+    // The two cards read "This one", but their names say which purse (PR #132 review).
+    await expect(
+      within(root).getByRole('button', { name: 'This one: the purse on the left' }),
+    ).toBe(left);
+    await expect(
+      within(root).getByRole('button', { name: 'This one: the purse on the right' }),
+    ).toBe(right);
+    await expect(left).toHaveTextContent('This one');
     // Each "this one" sits under its own purse.
     const leftPurse = root.querySelector('[data-side="left"]') as HTMLElement;
     const rightPurse = root.querySelector('[data-side="right"]') as HTMLElement;

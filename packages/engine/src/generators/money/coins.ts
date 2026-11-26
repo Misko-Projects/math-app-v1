@@ -222,6 +222,7 @@ export const moneyCoins: GeneratorDef = {
     'gen.money.coins.drop',
     'gen.money.coins.paid',
     'gen.money.coins.count-purse',
+    'gen.money.coins.compare-amounts',
     'gen.money.coins.more',
     'gen.money.coins.least-first',
     'gen.money.coins.next',
@@ -486,6 +487,10 @@ export const moneyCoins: GeneratorDef = {
       ];
     }
     if (w.format === 'number-pad') {
+      // The abstract item names the coin and draws none: no picture to look at.
+      if (w.stimulus.kind === 'none') {
+        return [say('gen.money.coins.worth', { cents: value }, { op: 'answer', args: { value } })];
+      }
       return [
         say('gen.money.coins.look', {}),
         say('gen.money.coins.worth', { cents: value }, { op: 'answer', args: { value } }),
@@ -501,7 +506,10 @@ export const moneyCoins: GeneratorDef = {
       );
     }
     if (w.format === 'order' && a.kind === 'numbers') {
-      const steps: LessonStep[] = [say('gen.money.coins.count-purse', {})];
+      const labelled = w.items.every((x) => x.label !== undefined);
+      const steps: LessonStep[] = [
+        say(labelled ? 'gen.money.coins.compare-amounts' : 'gen.money.coins.count-purse', {}),
+      ];
       a.values.forEach((v, slot) => {
         const id = w.items.find((x) => x.value === v)?.id ?? 'obj-0';
         steps.push(

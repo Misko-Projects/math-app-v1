@@ -398,10 +398,12 @@ export function CoinCountWidget({
   };
 
   if (compare) {
-    const choiceCard = (id: string, labelKey: string, area: string) => (
+    // The two side cards read the same ("This one"); their accessible names say which purse
+    // (PR #132 review).
+    const choiceCard = (id: string, labelKey: string, area: string, nameKey = labelKey) => (
       <span className="ni-ccount__choice" style={{ gridArea: area }}>
         <PickCard
-          label={t(labelKey)}
+          label={t(nameKey)}
           selected={choice === id}
           highlighted={invitedChoice === id || glow === id}
           variant="word"
@@ -432,8 +434,8 @@ export function CoinCountWidget({
           </div>
         ))}
         {choiceCard('same', 'ui.money.same', 'same')}
-        {choiceCard('left', 'ui.money.this-one', 'left-pick')}
-        {choiceCard('right', 'ui.money.this-one', 'right-pick')}
+        {choiceCard('left', 'ui.money.this-one', 'left-pick', 'ui.money.this-one-left')}
+        {choiceCard('right', 'ui.money.this-one', 'right-pick', 'ui.money.this-one-right')}
         <span className="ni-ccount__check" style={{ gridArea: 'check' }}>
           <CheckButton onPress={submit} disabled={!interactive || choice === null} />
         </span>

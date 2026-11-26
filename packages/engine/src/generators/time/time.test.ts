@@ -547,9 +547,11 @@ describe('time.sequence shape-sort a.m. / p.m. (TIM.05)', () => {
   const sort = tpl('time.sequence', 'shape-sort', {
     params: { split: { kind: 'const', value: 'ampm' } },
   });
-  it('sorts morning events into a.m. and lunch, dinner and bedtime into p.m.', () => {
+  it('sorts morning events into a.m. and dinner and bedtime into p.m.; never lunch', () => {
     expect(AM_EVENTS).toEqual(['wake-up', 'breakfast', 'sunrise']);
-    expect(PM_EVENTS).toEqual(['lunch', 'dinner', 'bedtime']);
+    // Lunch can be before noon (PR #132 review), so no card needs a time to be placed.
+    expect(PM_EVENTS).toEqual(['dinner', 'bedtime']);
+    expect(() => build(sort, { events: 6, split: 'ampm' })).toThrow(GenerationError);
     for (let seed = 1; seed <= 40; seed += 1) {
       const item = generateItem(sort, seed);
       if (item.widget.format !== 'shape-sort') throw new Error('shape-sort');

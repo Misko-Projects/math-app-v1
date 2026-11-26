@@ -401,6 +401,12 @@ ui.sprite.event-lunch:
   level: K
 ui.sprite.event-wake-up:
   text: "Waking up"
+ui.sprite.event-sunrise:
+  text: "Sunrise"
+ui.sprite.event-stars:
+  text: "Stars"
+ui.sprite.event-pajamas:
+  text: "Pajamas"
   level: K
 ui.sprite.feather:
   text: "Feather"
@@ -1171,6 +1177,12 @@ ui.money.cents-box:
   level: "2"
 ui.money.this-one:
   text: "This one"
+  level: "2"
+ui.money.this-one-left:
+  text: "This one: the purse on the left"
+  level: "2"
+ui.money.this-one-right:
+  text: "This one: the purse on the right"
   level: "2"
 ui.money.same:
   text: "Same"

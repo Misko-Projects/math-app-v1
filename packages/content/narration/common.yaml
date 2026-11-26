@@ -2579,3 +2579,6 @@ fb.coin-count.retry:
   text: "Let's count the coins again."
 fb.coin-pay.retry:
   text: "Let's count the coins in the tray again."
+gen.money.coins.compare-amounts:
+  text: "Look at the tens of each amount first, then the ones."
+  level: "2"

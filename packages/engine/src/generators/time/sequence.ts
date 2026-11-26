@@ -10,9 +10,9 @@
 // - shape-sort `sort` (TIM.08): `events` event cards to sort into morning and night bins (a card's
 //   target props are `{ part }`; `sort.byRule`). Morning: wake up, breakfast, sunrise; night:
 //   bedtime, stars, pajamas. `split: ampm` (TIM.05) sorts into a.m. and p.m. bins instead: a.m.
-//   wake up, breakfast, sunrise; p.m. lunch, dinner, bedtime (each always in that half of the
-//   day: lunch is at noon or after, and noon is p.m.; stars and pajamas can be either, so they
-//   are left out).
+//   wake up, breakfast, sunrise; p.m. dinner, bedtime (each always in that half of the day;
+//   lunch can be before or after noon, and stars and pajamas can be either, so they are left
+//   out). At most five cards (PR #132 review).
 // Which events an item shows is layout randomness: the features depend on the counts only.
 
 import type { LessonStep, ResponseValue, SortRule } from '@number-island/shared';
@@ -35,7 +35,7 @@ export const MORNING_EVENTS = ['wake-up', 'breakfast', 'sunrise'] as const;
 export const NIGHT_EVENTS = ['bedtime', 'stars', 'pajamas'] as const;
 /** Events always in one half of the day (shape-sort `split: ampm`, TIM.05). */
 export const AM_EVENTS = ['wake-up', 'breakfast', 'sunrise'] as const;
-export const PM_EVENTS = ['lunch', 'dinner', 'bedtime'] as const;
+export const PM_EVENTS = ['dinner', 'bedtime'] as const;
 const SPLITS = ['day', 'ampm'];
 
 /** The art-kit picture of a daily event. */
@@ -99,7 +99,12 @@ export const timeSequence: GeneratorDef = {
   accepts(p, t) {
     const n = asNum(p.events);
     if (t.format === 'shape-sort')
-      return n >= 4 && n <= 6 && p.adjacent !== true && p.fixed !== true;
+      return (
+        n >= 4 &&
+        n <= (p.split === 'ampm' ? AM_EVENTS.length + PM_EVENTS.length : 6) &&
+        p.adjacent !== true &&
+        p.fixed !== true
+      );
     if (p.split === 'ampm') return false;
     if (n < 2 || n > DAY_EVENTS.length) return false;
     // All five events always follow each other, and an anchor needs two more to place.

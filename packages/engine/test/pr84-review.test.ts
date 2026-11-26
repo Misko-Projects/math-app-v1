@@ -530,6 +530,19 @@ describe('PR #84 review (8): time hints hold for every time a template draws', (
     }
   });
 
+  it('a clock template whose hints count on the numbers always shows them (PR #132 review)', () => {
+    const NUMBER_HINTS = new Set(['h.time.just-after', 'h.time.not-the-number']);
+    for (const tt of fixture.templates.filter((x) => x.generator === 'time.clock')) {
+      if (tt.format !== 'clock-read' || !tt.narration.hints.some((h) => NUMBER_HINTS.has(h))) {
+        continue;
+      }
+      // TIM.09.t3 (K01, on main) draws faces without numbers: a recorded follow-up.
+      if (tt.id === 'TIM.09.t3') continue;
+      const numerals = new Set(domain(tt).map((d) => d.params.numerals));
+      expect([...numerals], tt.id).toEqual([true]);
+    }
+  });
+
   it('no clock template that draws m = 0 uses a past-only hint, nor one drawing m > 0 an o’clock one', () => {
     for (const tt of fixture.templates.filter((x) => x.generator === 'time.clock')) {
       const ms = new Set(domain(tt).map((d) => Number(d.params.m)));

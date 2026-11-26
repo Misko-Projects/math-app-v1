@@ -208,3 +208,23 @@ describe('money.coins dollars (MON.06)', () => {
     expect(item.answer).toEqual({ kind: 'choice', id: 'w-right' });
   });
 });
+
+describe('money.coins solutions name only what the item shows (PR #132 review)', () => {
+  it('the named-coin pad and the labelled order say no picture line', () => {
+    const named = tpl('number-pad', {
+      tier: 'abstract',
+      params: { mode: { kind: 'const', value: 'identify' } },
+    });
+    const item = build(named, { mode: 'identify', coin: 'dime' });
+    expect(itemSolution(item, named).map((s) => s.say)).toEqual(['gen.money.coins.worth']);
+    const labels = tpl('order', {
+      tier: 'abstract',
+      params: { mode: { kind: 'const', value: 'compare' } },
+    });
+    const ord = build(labels, { mode: 'compare', a: 40, b: 15, c: 26 });
+    expect(itemSolution(ord, labels)[0]?.say).toBe('gen.money.coins.compare-amounts');
+    const pictures = tpl('order', { params: { mode: { kind: 'const', value: 'compare' } } });
+    const pic = build(pictures, { mode: 'compare', a: 40, b: 15, c: 26 });
+    expect(itemSolution(pic, pictures)[0]?.say).toBe('gen.money.coins.count-purse');
+  });
+});

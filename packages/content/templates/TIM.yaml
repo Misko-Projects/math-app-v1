@@ -252,8 +252,8 @@ templates:
       mode: read
       h: { int: [1, 12] }
       m: { choice: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }
-      numerals: { bool: 0.7 }
-    difficulty: { base: -1.1 }
+      numerals: true # the hints count on the numbers (PR #132 review)
+    difficulty: { base: -0.8 }
     narration:
       prompt: p.time.read
       hints: [h.time.just-after, h.time.count-fives, h.time.not-the-number]
@@ -281,7 +281,7 @@ templates:
     representation: timeline
     generator: time.sequence
     params:
-      events: { int: [5, 6] }
+      events: 5
       split: ampm
     difficulty: { base: -0.1 }
     narration:
@@ -367,7 +367,7 @@ templates:
       mode: quarter
       h: { int: [1, 12] }
       m: { choice: [15, 45] }
-      numerals: { bool: 0.7 }
+      numerals: true # the hints count on the numbers (PR #132 review)
     difficulty: { base: -0.9 }
     narration:
       prompt: p.time.read
@@ -404,7 +404,7 @@ templates:
       ask: time
       h: { int: [1, 12] }
       m: { choice: [5, 10, 15, 20, 25, 35, 40, 45, 50, 55] }
-      numerals: { bool: 0.7 }
+      numerals: true # the hints count on the numbers (PR #132 review)
     difficulty: { base: -0.8 }
     narration:
       prompt: tp.TIM.11.t2.prompt

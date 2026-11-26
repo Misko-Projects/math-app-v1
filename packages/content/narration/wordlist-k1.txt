@@ -820,3 +820,6 @@ vine
 watermelon
 ruler
 sticks
+sunrise
+stars
+pajamas
