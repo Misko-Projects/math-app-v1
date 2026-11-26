@@ -4,7 +4,13 @@
 // column above DISK_COLUMN_MAX and no more than 2 hundreds in an addition's tray on the way to
 // the answer.
 
-import type { ItemFormat, ItemTemplate, ParamSpec, Representation, Tier } from '@number-island/shared';
+import type {
+  ItemFormat,
+  ItemTemplate,
+  ParamSpec,
+  Representation,
+  Tier,
+} from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../../content/binding';
 import { formatModel } from '../../formats';
@@ -58,12 +64,18 @@ describe('borrows across a zero', () => {
   });
 
   it('zeroTens draws minuends with no tens, and accepts only those', () => {
-    const t = tpl('number-pad', 'abstract', 'symbols', {
-      a: int(100, 999),
-      b: int(11, 899),
-      op: k('-'),
-      zeroTens: k(true),
-    }, ['acrossZeros >= 1']);
+    const t = tpl(
+      'number-pad',
+      'abstract',
+      'symbols',
+      {
+        a: int(100, 999),
+        b: int(11, 899),
+        op: k('-'),
+        zeroTens: k(true),
+      },
+      ['acrossZeros >= 1'],
+    );
     for (let seed = 1; seed <= 80; seed += 1) {
       const p = generateItem(t, seed).params;
       expect(Math.floor(Number(p.a) / 10) % 10).toBe(0);
@@ -90,7 +102,21 @@ describe('three-digit sums', () => {
     groupedTokens(a, b, true).map((x) => ('v' in x ? x.v : x.t));
 
   it('expanded-form lists every hundred, ten and one in place order, a zero term dropped', () => {
-    expect(words(345, 232)).toEqual([300, '+', 200, '+', 40, '+', 30, '+', 5, '+', 2, '=', 'blank']);
+    expect(words(345, 232)).toEqual([
+      300,
+      '+',
+      200,
+      '+',
+      40,
+      '+',
+      30,
+      '+',
+      5,
+      '+',
+      2,
+      '=',
+      'blank',
+    ]);
     expect(words(305, 201)).toEqual([300, '+', 200, '+', 5, '+', 1, '=', 'blank']);
     expect(words(456, 78)).toEqual([400, '+', 50, '+', 70, '+', 6, '+', 8, '=', 'blank']);
   });
@@ -140,37 +166,56 @@ describe('MDA.16: the worked solution ends with the addition check', () => {
 // The shipped three-column compute templates (templates/MDA.yaml, slice 2b), their params and
 // constraints as authored.
 const SHIPPED: [string, Record<string, ParamSpec>, string[]][] = [
-  ['MDA.05.t1', { a: int(101, 899), b: int(11, 299), op: k('+') }, ['carries >= 1', 'result <= 999']],
-  ['MDA.07.t1', { a: int(101, 899), b: int(11, 299), op: k('+'), strategy: k('algorithm') }, ['carries >= 1', 'result <= 999']],
+  [
+    'MDA.05.t1',
+    { a: int(101, 899), b: int(11, 299), op: k('+') },
+    ['carries >= 1', 'result <= 999'],
+  ],
+  [
+    'MDA.07.t1',
+    { a: int(101, 899), b: int(11, 299), op: k('+'), strategy: k('algorithm') },
+    ['carries >= 1', 'result <= 999'],
+  ],
   ['MDA.17.t1', { a: int(201, 999), b: int(101, 899), op: k('-') }, ['borrows >= 1']],
-  ['MDA.18.t1', { a: int(100, 999), zeroTens: k(true), b: int(11, 899), op: k('-') }, ['acrossZeros >= 1']],
-  ['MDA.21.t1', { a: int(101, 999), b: int(11, 899), op: k('-'), strategy: k('algorithm') }, ['borrows >= 1']],
+  [
+    'MDA.18.t1',
+    { a: int(100, 999), zeroTens: k(true), b: int(11, 899), op: k('-') },
+    ['acrossZeros >= 1'],
+  ],
+  [
+    'MDA.21.t1',
+    { a: int(101, 999), b: int(11, 899), op: k('-'), strategy: k('algorithm') },
+    ['borrows >= 1'],
+  ],
 ];
 
 describe('the disk bound of three-column compute (03 §5.5 place-value disks)', () => {
-  it.each(SHIPPED)('%s: every column stays within 20 on the worked path to the answer', (_id, params, constraints) => {
-    const t = tpl('base-ten-trade', 'concrete', 'base-ten', params, constraints);
-    const model = formatModel('base-ten-trade');
-    if (!model) throw new Error('no base-ten-trade model');
-    let fullest = 0;
-    for (let seed = 1; seed <= 300; seed += 1) {
-      const item = generateItem(t, seed);
-      const w = item.widget;
-      if (w.format !== 'base-ten-trade' || !w.operation) throw new Error('not a compute item');
-      if (w.operation.op === '+')
-        expect(w.operation.operand.hundreds).toBeLessThanOrEqual(TRADE_ADD_OPERAND_HUNDREDS_MAX);
-      expect(Number(item.params.result)).toBeLessThanOrEqual(999);
-      const steps = itemSolution(item, t);
-      let s = model.initialState(w);
-      for (const step of steps) {
-        if (!step.action) continue;
-        s = model.apply(s, step.action);
-        const mat = (s as { mat: Record<string, number> }).mat;
-        fullest = Math.max(fullest, mat.hundreds ?? 0, mat.tens ?? 0, mat.ones ?? 0);
+  it.each(SHIPPED)(
+    '%s: every column stays within 20 on the worked path to the answer',
+    (_id, params, constraints) => {
+      const t = tpl('base-ten-trade', 'concrete', 'base-ten', params, constraints);
+      const model = formatModel('base-ten-trade');
+      if (!model) throw new Error('no base-ten-trade model');
+      let fullest = 0;
+      for (let seed = 1; seed <= 300; seed += 1) {
+        const item = generateItem(t, seed);
+        const w = item.widget;
+        if (w.format !== 'base-ten-trade' || !w.operation) throw new Error('not a compute item');
+        if (w.operation.op === '+')
+          expect(w.operation.operand.hundreds).toBeLessThanOrEqual(TRADE_ADD_OPERAND_HUNDREDS_MAX);
+        expect(Number(item.params.result)).toBeLessThanOrEqual(999);
+        const steps = itemSolution(item, t);
+        let s = model.initialState(w);
+        for (const step of steps) {
+          if (!step.action) continue;
+          s = model.apply(s, step.action);
+          const mat = (s as { mat: Record<string, number> }).mat;
+          fullest = Math.max(fullest, mat.hundreds ?? 0, mat.tens ?? 0, mat.ones ?? 0);
+        }
+        const response = replaySteps(item, steps);
+        expect(response && checkResponse(item, response).correct).toBe(true);
       }
-      const response = replaySteps(item, steps);
-      expect(response && checkResponse(item, response).correct).toBe(true);
-    }
-    expect(fullest).toBeLessThanOrEqual(DISK_COLUMN_MAX);
-  });
+      expect(fullest).toBeLessThanOrEqual(DISK_COLUMN_MAX);
+    },
+  );
 });

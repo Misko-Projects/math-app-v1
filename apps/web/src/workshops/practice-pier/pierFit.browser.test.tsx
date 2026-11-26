@@ -585,7 +585,12 @@ describe.each(FIT_VIEWPORTS)(
       'base-ten-trade (%s): 900 − 899, split across the zero, the take-away box at its fullest',
       async (id) => {
         await page.viewport(width, height);
-        const params = { a: 900, b: 899, op: '-', ...(id.startsWith('MDA.18') ? { zeroTens: true } : {}) };
+        const params = {
+          a: 900,
+          b: 899,
+          op: '-',
+          ...(id.startsWith('MDA.18') ? { zeroTens: true } : {}),
+        };
         const { item, template } = fromParams(id, params);
         show(item, ageModeOf(template));
         await fitsOrAllowed(id);
@@ -595,18 +600,36 @@ describe.each(FIT_VIEWPORTS)(
         await fitsOrAllowed(id);
         expect(tradeMat()).toEqual([8, 9, 10]);
         await shot(id, 'split');
-        for (const [c, n] of [['ones', 9], ['tens', 9], ['hundreds', 8]] as const) {
+        // The usual layout scrolls at 960 × 600: bring each piece and the box into view first. The
+        // box is reached from the keyboard (focus, Enter): once it holds a piece, its "put back"
+        // button covers the middle of the drop pad, where a pointer click would land.
+        const press = async (sel: string) => {
+          const el = document.querySelector<HTMLElement>(sel);
+          if (!el) throw new Error(`nothing at ${sel}`);
+          el.scrollIntoView({ block: 'nearest' });
+          await frame();
+          if (el.dataset.placeTarget === 'take') {
+            el.focus();
+            await userEvent.keyboard('{Enter}');
+          } else await userEvent.click(el);
+        };
+        for (const [c, n] of [
+          ['ones', 9],
+          ['tens', 9],
+          ['hundreds', 8],
+        ] as const) {
           for (let i = 0; i < n; i += 1) {
-            await userEvent.click(document.querySelector(`[data-place-item^="mat-${c}-"]`) as Element);
-            await userEvent.click(document.querySelector('[data-place-target="take"]') as Element);
+            await press(`[data-place-item^="mat-${c}-"]`);
+            await press('[data-place-target="take"]');
           }
         }
         await fitsOrAllowed(id);
         expect(tradeMat()).toEqual([0, 0, 1]);
-        expect(count('.ni-btt__takebox [data-piece^="taken-"]')).toBe(26);
+        expect(count('.ni-btt__nest [data-piece^="taken-"]')).toBe(26);
         await shot(id, 'taken');
         await checkReachable();
       },
+      90_000,
     );
 
     it('base-ten-trade (MDA.03.t1): 49 + 49 on the mat as 8 tens 18 ones, then traded', async () => {

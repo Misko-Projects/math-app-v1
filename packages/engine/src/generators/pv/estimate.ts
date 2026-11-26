@@ -76,7 +76,9 @@ export function estimateOptions(p: Record<string, unknown>): number[] {
   const out = [estimate];
   if (down !== null) out.push(down);
   // One place off, away from the cut-down distractor where there is one.
-  const off = [estimate + place, estimate - place, estimate + 2 * place].filter((v) => v > 0 && !out.includes(v));
+  const off = [estimate + place, estimate - place, estimate + 2 * place].filter(
+    (v) => v > 0 && !out.includes(v),
+  );
   for (const v of off) if (out.length < 3) out.push(v);
   return out;
 }
@@ -112,11 +114,7 @@ export const pvEstimate: GeneratorDef = {
     sub: { weight: 0.3, doc: 'subtraction' },
     roundsUp: { weight: 0.4, doc: 'numbers that round up, / 2' },
   },
-  narration: [
-    'gen.pv.estimate.round',
-    'gen.pv.estimate.add',
-    'gen.pv.estimate.take',
-  ],
+  narration: ['gen.pv.estimate.round', 'gen.pv.estimate.add', 'gen.pv.estimate.take'],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive(p) {
     const { result, estimate } = estimateParts(p);
@@ -212,11 +210,7 @@ export const pvEstimate: GeneratorDef = {
     return [
       say('gen.pv.estimate.round', { n: a, v: ra }),
       say('gen.pv.estimate.round', { n: b, v: rb }),
-      say(
-        plus ? 'gen.pv.estimate.add' : 'gen.pv.estimate.take',
-        { ra, rb, v: estimate },
-        action,
-      ),
+      say(plus ? 'gen.pv.estimate.add' : 'gen.pv.estimate.take', { ra, rb, v: estimate }, action),
     ];
   },
 };
