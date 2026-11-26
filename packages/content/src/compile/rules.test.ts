@@ -177,6 +177,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MDA.03',
       'MDA.04',
       'MDA.05',
+      'MDA.06',
       'MDA.07',
       'MDA.08',
       'MDA.09',
@@ -189,6 +190,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MDA.16',
       'MDA.17',
       'MDA.18',
+      'MDA.19',
       'MDA.21',
       'MDA.22',
       'MDA.24',
@@ -196,6 +198,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.01',
       'MEA.02',
       'MEA.03',
+      'MEA.04',
       'MEA.07',
       'MEA.10',
       'MEA.15',
@@ -203,6 +206,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.22',
       'MON.01',
       'MON.02',
+      'MON.03',
       'MON.04',
       'MON.05',
       'MON.06',
@@ -273,10 +277,12 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
+      'MC.dollar-as-one',
       'MC.double-once',
       'MC.equals-add-all',
       'MC.equals-means-answer',
       'MC.face-value',
+      'MC.first-step-only',
       'MC.forgot-the-ten',
       'MC.forgot-to-regroup-add',
       'MC.fraction-bigger-denominator',
@@ -370,6 +376,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): equality and story problems
         'equality.eq',
         'story.addsub',
+        'story.twostep',
         'addsub.three',
       ]),
     );
@@ -1925,10 +1932,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // MC.skip-count-slip; facts and strategies (K02 slice 3b) added 7 skills, 25 templates,
       // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped;
       // rulers, graphs, faces and corners (K02 slice 4b) added 7 skills, 23 templates,
-      // MC.ruler-count-ticks and MC.ruler-read-end.
-      skills: 188,
-      templates: 693,
-      misconceptions: 44,
+      // MC.ruler-count-ticks and MC.ruler-read-end; grade 2 story problems (K02 slice 4d) added 4
+      // skills, 13 templates, MC.first-step-only and MC.dollar-as-one.
+      skills: 192,
+      templates: 706,
+      misconceptions: 46,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -2015,6 +2023,8 @@ describe('graph.json (03 §9.1)', () => {
       ['MDA.04', 'MDA.03', 1],
       ['MDA.05', 'MDA.03', 1],
       ['MDA.05', 'MDA.24', 1],
+      ['MDA.06', 'MDA.03', 0.5],
+      ['MDA.06', 'MDA.12', 0.5],
       ['MDA.07', 'MDA.05', 1],
       ['MDA.12', 'ADD.22', 0.8],
       ['MDA.12', 'MDA.10', 0.5],

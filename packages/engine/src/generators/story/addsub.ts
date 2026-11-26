@@ -373,8 +373,8 @@ export function storyLines(s: Story, context: string, unit = 'in', dollar = 0): 
 /**
  * The lines of a measured story (#17 slice 4d): planks in a length unit (p.story.len.*) or prices
  * in cents or dollars (p.story.money.*). Each amount is told with its unit, and the question names
- * the unit, so the answer box needs none. Compare stories set a red plank against a blue one, or a
- * kite against an apple; the bigger is the red plank and the kite.
+ * the unit, so the answer box needs none. Compare stories set a first plank against a second one,
+ * or a kite against an apple; the bigger is the first plank and the kite.
  */
 function measuredLines(s: Story, measure: 'length' | 'money', unit: string, dollar: number): Line[] {
   const p = measure === 'length' ? 'p.story.len' : 'p.story.money';
