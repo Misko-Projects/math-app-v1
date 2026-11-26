@@ -1,7 +1,7 @@
 import type { StimulusSpec } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
-import { MIN_PIECE } from './barModel';
+import { pieceNeed } from './barModel';
 import { StimulusView } from './StimulusView';
 
 /**
@@ -27,7 +27,9 @@ async function check(root: HTMLElement, unknown: number, pieces: number) {
   const ps = [...root.querySelectorAll<HTMLElement>('.ni-bar__piece')];
   await expect(ps).toHaveLength(pieces);
   for (const p of ps) {
-    await expect(p.getBoundingClientRect().width).toBeGreaterThanOrEqual(MIN_PIECE - 1);
+    await expect(p.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      pieceNeed(p.textContent ?? '') - 1,
+    );
     await expect(Number.parseFloat(getComputedStyle(p).fontSize)).toBeGreaterThanOrEqual(32);
   }
   for (const w of root.querySelectorAll<HTMLElement>('.ni-bar__whole'))

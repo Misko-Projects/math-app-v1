@@ -3,7 +3,7 @@ import {
   type BarSpec,
   describeBarModel,
   layoutBarModel,
-  MIN_PIECE,
+  pieceNeed,
   pieceWeight,
   solveRow,
 } from './barModel';
@@ -54,11 +54,11 @@ describe('bar model layout (#17 slice 4d)', () => {
   });
 
   it.each(ALL.map((s, i) => [i, s] as const))(
-    'model %i: no piece narrower than MIN_PIECE, at 300 px and at its widest',
+    'model %i: no piece narrower than its label needs, at 300 px and at its widest',
     (_, spec) => {
       for (const maxWidth of [300, 720]) {
         const l = layoutBarModel(spec, maxWidth);
-        for (const p of l.pieces) expect(p.w).toBeGreaterThanOrEqual(MIN_PIECE - 0.5);
+        for (const p of l.pieces) expect(p.w).toBeGreaterThanOrEqual(pieceNeed(p.label) - 0.5);
         expect(l.w).toBe(Math.max(l.minWidth, maxWidth));
       }
     },

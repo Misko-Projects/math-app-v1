@@ -27,8 +27,14 @@ export const BRACE_LABEL_H = 40;
 export const ROW_GAP = 12;
 /** Between the two bars of a two-step model: the strip that joins the shared piece. */
 export const LINK_GAP = 28;
-/** The narrowest piece: room for "100" at 32 px. */
-export const MIN_PIECE = 72;
+/** The narrowest piece ("?" or a one-digit number at 32 px, inside its border). */
+export const MIN_PIECE = 44;
+/** A blank piece (a two-step model's first result) needs no room for a label. */
+const BLANK_PIECE = 36;
+
+/** The least width of a piece with this label: about 19 px a digit at 32 px, and its border. */
+export const pieceNeed = (label: string): number =>
+  label === '' ? BLANK_PIECE : Math.max(MIN_PIECE, 19 * label.length + 20);
 /** The step number left of each bar of a two-step model. */
 export const BADGE_W = 44;
 /** A comparison's smaller bar, as a share of the bigger, by the ratio of the two amounts. */
@@ -146,8 +152,17 @@ export function layoutBarModel(spec: BarSpec, maxWidth: number): BarLayout {
   return layoutWhole(spec, maxWidth);
 }
 
-function fitScale(units: number, minUnit: number, maxWidth: number) {
-  const minWidth = Math.ceil((MIN_PIECE / minUnit) * units);
+/**
+ * The px per unit that fits `maxWidth`, never less than every piece's label needs (pieceNeed of
+ * each width in units with its label).
+ */
+function fitScale(
+  units: number,
+  pieces: readonly { w: number; label: string }[],
+  maxWidth: number,
+) {
+  const k0 = Math.max(...pieces.map((p) => pieceNeed(p.label) / p.w));
+  const minWidth = Math.ceil(k0 * units);
   const w = Math.max(minWidth, Math.floor(maxWidth));
   return { k: w / units, w, minWidth };
 }
@@ -157,7 +172,11 @@ function layoutWhole(spec: BarSpec, maxWidth: number): BarLayout {
   const max = Math.max(...solved.parts);
   const row = rowUnits(spec.parts, solved.parts, max, spec.whole);
   const units = rowEnd(row);
-  const { k, w, minWidth } = fitScale(units, Math.min(...row.ws), maxWidth);
+  const { k, w, minWidth } = fitScale(
+    units,
+    row.values.map((v, i) => ({ w: row.ws[i] as number, label: labelOf(v) })),
+    maxWidth,
+  );
   const pieces = row.values.map((v, i) => ({
     x: (row.xs[i] as number) * k,
     y: 0,
@@ -189,7 +208,13 @@ function layoutCompare(spec: BarSpec, maxWidth: number): BarLayout {
   if (gap === undefined) gap = big - small;
   const ratio = big > 0 ? small / big : 1;
   const share = (COMPARE_BUCKETS.find(([at]) => ratio >= at) as [number, number])[1];
-  const minWidth = Math.ceil(MIN_PIECE / Math.min(share, 1 - share));
+  const minWidth = Math.ceil(
+    Math.max(
+      pieceNeed(labelOf(c.bigger)),
+      pieceNeed(labelOf(c.smaller)) / share,
+      pieceNeed(labelOf(extra)) / (1 - share),
+    ),
+  );
   const w = Math.max(minWidth, Math.floor(maxWidth));
   const smallW = Math.round(w * share);
   return {
@@ -252,8 +277,14 @@ function layoutTwoStep(
   const left = Math.min(0, ...xs2);
   const right = Math.max(rowEnd(r1), ...xs2.map((x, i) => x + (ws2[i] as number)));
   const units = right - left;
-  const minUnit = Math.min(...r1.ws, ...ws2);
-  const fit = fitScale(units, minUnit, maxWidth - BADGE_W);
+  const fit = fitScale(
+    units,
+    [
+      ...r1.values.map((v, i) => ({ w: r1.ws[i] as number, label: labelOf(v) })),
+      ...r2.values.map((v, i) => ({ w: ws2[i] as number, label: labelOf(v) })),
+    ],
+    maxWidth - BADGE_W,
+  );
   const k = fit.k;
   const toPx = (u: number) => BADGE_W + (u - left) * k;
   const topBrace = spec.whole !== null;
