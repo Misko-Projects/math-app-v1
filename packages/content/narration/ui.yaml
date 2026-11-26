@@ -1417,7 +1417,7 @@ ui.widget.pz.at:
   text: "Row {r}, box {c}"
   level: K
 ui.widget.pz.in-cage:
-  text: "in the cage that makes {sum}"
+  text: "in the cage from row {r}, box {c}, that makes {sum}"
   level: "2"
 ui.widget.pz.spot.top:
   text: "Top corner"

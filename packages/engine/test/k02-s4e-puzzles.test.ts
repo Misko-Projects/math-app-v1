@@ -304,6 +304,11 @@ describe('PUZ.09: ways to pay', () => {
       for (let k = Math.floor(cents / v); k >= 0; k--) n += method(cents - k * v, rest);
       return n;
     };
+    // The words say this method: every count from the most down to none, then the next coin.
+    for (const key of ['h.coins.ways-big-first', 'gen.money.coins.ways-big-first']) {
+      expect(say(key)).toMatch(/one fewer each time, down to none/);
+      expect(say(key)).toMatch(/same with the next coin/);
+    }
     for (const id of ['PUZ.09.t2', 'PUZ.09.t3']) {
       for (const item of items(id, 50)) {
         const p = item.params;

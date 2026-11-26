@@ -582,12 +582,19 @@ export function PuzzleGridWidget({
     const label = sum === undefined ? '' : cageOf(cage as string).length > 1 ? `${sum}+` : `${sum}`;
     const piece = typeof value === 'string' && value !== '' ? PIECE_NAME[value] : undefined;
     // The box's name is what it shows: the cage's label, then its number, or these words.
-    // Every box of a cage names its cage's number: the outline is a picture a screen reader skips.
+    // Every box names its cage by the cage's first box and its number: the outline is a picture a
+    // screen reader skips, and two cages can make the same number.
     const inCage = x.cage === undefined ? undefined : cageSum(x.cage);
+    const head =
+      x.cage === undefined
+        ? undefined
+        : [...cageOf(x.cage)].sort((a, b) => a.r - b.r || a.c - b.c)[0];
     const words = [
       ...(value === '' ? [t('ui.widget.pz.empty')] : piece ? [t(piece)] : []),
       placeOf(x.r, x.c),
-      ...(inCage === undefined ? [] : [t('ui.widget.pz.in-cage', { sum: inCage })]),
+      ...(inCage === undefined || head === undefined
+        ? []
+        : [t('ui.widget.pz.in-cage', { r: head.r + 1, c: head.c + 1, sum: inCage })]),
     ].join(', ');
     return (
       <button

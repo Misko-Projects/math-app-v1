@@ -2769,7 +2769,7 @@ gen.money.coins.writing:
   text: "Write the dollars, then a dot, then the cents."
   level: "2"
 gen.money.coins.ways-big-first:
-  text: "Use as many big coins as you can, then one fewer, and so on. Fill the rest with small coins."
+  text: "Use the most big coins, then one fewer each time, down to none. Do the same with the next coin."
   level: "2"
 gen.money.coins.ways-count:
   text: "That makes {n} ways."
@@ -2986,7 +2986,7 @@ h.coins.ways-trade:
   text: "Trade a coin for smaller coins that make the same amount."
   level: "2"
 h.coins.ways-big-first:
-  text: "Use as many big coins as you can, then one fewer, then none."
+  text: "Use the most big coins, then one fewer each time, down to none. Do the same with the next coin."
   level: "2"
 h.grow.keep-adding:
   text: "Keep adding the same number, one step at a time."
