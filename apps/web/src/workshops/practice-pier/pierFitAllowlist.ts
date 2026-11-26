@@ -23,6 +23,14 @@ const SMALL = ['960x600'] as const;
 
 /** Templates whose widget is taller or wider than the area, by widget. */
 export const FIT_EXCEPTIONS: Readonly<Partial<Record<ItemFormat, readonly FitException[]>>> = {
+  'base-ten-trade': [
+    {
+      reason:
+        'Three-column disk compute (K02 slice 2b, #17): the mat of disks beside the tray or take-away box, the answer card and Check is 278 px taller than the 358 px area at 960 × 600; the two-step layout (#35) cannot hold three disk columns either (276 px too wide at the 26 px floor), so these keep the usual layout and scroll, with Check reachable by scrolling (decided on PR #126; they fit at 1280 × 800). Fix: the follow-up "base-ten-trade: three-column disk compute at 960×600".',
+      at: SMALL,
+      templates: ['MDA.05.t1', 'MDA.07.t1', 'MDA.17.t1', 'MDA.18.t1', 'MDA.18.t2', 'MDA.21.t1'],
+    },
+  ],
   'make-set': [
     {
       reason:

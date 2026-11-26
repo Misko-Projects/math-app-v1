@@ -1197,10 +1197,17 @@ function TradeMat({
     );
   };
 
+  /**
+   * A column of disks holds at most DISK_COLUMN_MAX (03 §5.5): like a split, putting the tray's
+   * group in or a taken piece back is refused when it would pass that; the child groups first.
+   */
+  const roomFor = (s: typeof state, col: Column, n: number) =>
+    !disks || s.mat[col] + n <= DISK_COLUMN_MAX;
+
   const runCombine = async (col: Column, via: Via) => {
     const s = stateRef.current;
     const n = s.pending[col];
-    if (n <= 0) return;
+    if (n <= 0 || !roomFor(s, col, n)) return;
     const next = model.apply(s, { op: 'combine', args: { column: col } });
     stopFx();
     // A drag already brought the group to its column: the pieces settle in place instead.
@@ -1239,6 +1246,7 @@ function TradeMat({
   /** One taken piece flies back from the nest to its column (the undo of a take). */
   const runPutBack = async (col: Column) => {
     const s = stateRef.current;
+    if (!roomFor(s, col, 1)) return;
     const next = model.apply(s, { op: 'take', args: { column: col, count: -1 } });
     if (next === s) return;
     stopFx();
@@ -1265,7 +1273,8 @@ function TradeMat({
     canPlace: (item, target) => {
       const c = colOf(item);
       if (!c) return false;
-      if (item.startsWith('pending-')) return target === `col-${c}`;
+      if (item.startsWith('pending-'))
+        return target === `col-${c}` && roomFor(stateRef.current, c, stateRef.current.pending[c]);
       return target === 'take';
     },
     onSelect: (item) => {
@@ -1297,10 +1306,17 @@ function TradeMat({
       void runTakeOne(heldCol, 'tap', grab[heldCol]);
       return;
     }
+    if (!roomFor(stateRef.current, c, 1)) return;
     trace('tap', `back-${c}`);
     if (speakOnTap) say(BACK_KEY[c]);
     void runPutBack(c);
   };
+
+  /**
+   * A put-back control is offered while its piece has room on the mat (DISK_COLUMN_MAX), or while
+   * a mat piece is picked up, when a tap on it drops that piece in the nest instead.
+   */
+  const canPutBack = (c: Column) => dnd.selected !== null || roomFor(state, c, 1);
 
   const onTrade = (from: Column, to: Column) => {
     if (!interactive) return;
@@ -1959,7 +1975,7 @@ function TradeMat({
                     .join(' ')}
                   data-back={c}
                   aria-label={t(BACK_KEY[c])}
-                  disabled={!interactive}
+                  disabled={!interactive || !canPutBack(c)}
                   style={{ left: inner.x + slot.x, width: slot.w }}
                   onClick={() => onBack(c)}
                 />
@@ -2120,7 +2136,7 @@ function TradeMat({
                       .join(' ')}
                     data-back={c}
                     aria-label={t(BACK_KEY[c])}
-                    disabled={!interactive}
+                    disabled={!interactive || !canPutBack(c)}
                     style={{
                       left: ox + slot.x,
                       width: slot.w,

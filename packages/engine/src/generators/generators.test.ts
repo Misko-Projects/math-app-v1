@@ -1198,6 +1198,7 @@ describe('registry', () => {
       'pattern.grow',
       'pattern.repeat',
       'puzzle.grid',
+      'pv.estimate',
       'pv.number',
       'pv.regroup',
       'pv.round',

@@ -28,6 +28,7 @@ import { numberlinePlace } from './numberline/place';
 import { patternGrow } from './pattern/grow';
 import { patternRepeat } from './pattern/repeat';
 import { puzzleGrid } from './puzzle/grid';
+import { pvEstimate } from './pv/estimate';
 import { pvNumber } from './pv/number';
 import { pvRegroup } from './pv/regroup';
 import { pvRound } from './pv/round';
@@ -73,6 +74,7 @@ const GENERATORS: GeneratorDef[] = [
   pvRegroup,
   pvTenMore,
   pvRound, // K02 (#17) rounding (PV.08, PV.18, CMP.12)
+  pvEstimate, // K02 (#17) slice 2b: estimate by rounding (PV.19)
   mdaAddSub,
   equalityEq,
   storyAddsub,

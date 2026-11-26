@@ -24,6 +24,12 @@
 // `addends` 3 or 4 (MDA.04) adds `c` (and `d`) too: the number pad shows a + b + c (+ d) = ?, and
 // expanded-form groups three addends' tens and ones, (40 + 30 + 20) + (7 + 2 + 5) = ? (four do not
 // fit its 17 tokens). Several addends only add, ask the result, and use those two formats.
+// K02 slice 2b (#17): `strategy: algorithm` (MDA.07, MDA.21, MDA.18) plays base-ten-trade with the
+// column algorithm written beside the mat (`showAlgorithm`, the place-value chart). Derived
+// `acrossZeros` counts the zero digits of a that a borrow passes through (403 − 127: 1), for
+// MDA.18, and `zeroTens` draws such minuends (403, 400). A three-digit sum on expanded-form lists the places in order without brackets,
+// 300 + 200 + 40 + 30 + 7 + 2 = ? (the bracketed form needs 19 tokens; the format takes 17), and
+// the number pad's worked solution goes place by place from the ones.
 
 import type {
   ExpressionToken,
@@ -46,7 +52,7 @@ import {
 import { chartFor } from '../count/sequence';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
-export const MDA_STRATEGIES = ['none', 'tens-ones', 'next-ten', 'count-up'] as const;
+export const MDA_STRATEGIES = ['none', 'tens-ones', 'next-ten', 'count-up', 'algorithm'] as const;
 /** The most numbers one item adds (MDA.04: up to four two-digit numbers). */
 export const MDA_ADDENDS_MAX = 4;
 type Strategy = (typeof MDA_STRATEGIES)[number];
@@ -86,6 +92,23 @@ export function borrowsOf(a: number, b: number): number {
     const d = (da[k] ?? 0) - borrow - (db[k] ?? 0);
     borrow = d < 0 ? 1 : 0;
     count += borrow;
+  }
+  return count;
+}
+
+/**
+ * Zero digits of a that a borrow of a − b passes through with the standard algorithm: the column
+ * lends to the one on its right, has nothing, and borrows in turn (403 − 127 and 400 − 168: 1).
+ */
+export function acrossZerosOf(a: number, b: number): number {
+  const da = digits(a);
+  const db = digits(b);
+  let borrow = 0;
+  let count = 0;
+  for (let k = 0; k < da.length; k += 1) {
+    if (borrow > 0 && da[k] === 0) count += 1;
+    const d = (da[k] ?? 0) - borrow - (db[k] ?? 0);
+    borrow = d < 0 ? 1 : 0;
   }
   return count;
 }
@@ -223,6 +246,23 @@ export function groupedTokens(
   more: number[] = [],
 ): ExpressionToken[] {
   const op: ExpressionToken = { t: 'op', v: plus ? '+' : '-' };
+  if (plus && Math.max(a, b, ...more) >= 100) {
+    // Three-digit sums: every hundred, then every ten, then every one, a zero term dropped.
+    const nums = [a, b, ...more];
+    // The leading term keeps every place above the hundreds (1234: 1000), as the tens did.
+    const part = (x: number, u: number) =>
+      u === 1000 ? Math.floor(x / 1000) * 1000 : (Math.floor(x / u) % 10) * u;
+    const terms = [1000, 100, 10, 1]
+      .flatMap((u) => nums.map((x) => part(x, u)))
+      .filter((v) => v > 0);
+    return [
+      ...terms.flatMap((v, i): ExpressionToken[] =>
+        i === 0 ? [{ t: 'num', v }] : [op, { t: 'num', v }],
+      ),
+      { t: 'rel', v: '=' },
+      { t: 'blank', id: 'x' },
+    ];
+  }
   const group = (x: number, ys: number[]): ExpressionToken[] => {
     // Subtracting, the first term always stays (40 − 0 is 40, not − 0).
     const terms = plus ? [x, ...ys].filter((v) => v > 0) : [x, ...ys.filter((v) => v > 0)];
@@ -294,6 +334,16 @@ export const mdaAddSub: GeneratorDef = {
       default: { kind: 'const', value: -1 },
       doc: '−1: any; otherwise exactly this many carries (+) or borrows (−)',
     },
+    checkByAdding: {
+      type: 'bool',
+      default: { kind: 'const', value: false },
+      doc: 'true: a subtraction on the number pad whose worked solution ends with the addition check, result + b = a (MDA.16)',
+    },
+    zeroTens: {
+      type: 'bool',
+      default: { kind: 'const', value: false },
+      doc: "true: a three-digit a has no tens (sampling sets a's tens digit to 0), for borrows across a zero (MDA.18)",
+    },
     zeroInMinuend: {
       type: 'bool',
       default: { kind: 'const', value: false },
@@ -309,7 +359,7 @@ export const mdaAddSub: GeneratorDef = {
       type: 'string',
       values: [...MDA_STRATEGIES],
       default: { kind: 'const', value: 'none' },
-      doc: 'number-line solution: tens-ones (and none) hops tens then the ones; next-ten hops to the next ten first; count-up (−) jumps from b up to a',
+      doc: 'number-line solution: tens-ones (and none) hops tens then the ones; next-ten hops to the next ten first; count-up (−) jumps from b up to a; algorithm writes the column algorithm beside the trade mat',
     },
     addends: {
       type: 'int',
@@ -327,7 +377,7 @@ export const mdaAddSub: GeneratorDef = {
       doc: 'the fourth addend (addends 4)',
     },
   },
-  derived: ['result', 'carries', 'borrows'],
+  derived: ['result', 'carries', 'borrows', 'acrossZeros'],
   features: {
     digits: { weight: 0.5, doc: 'digits of the larger number − 2 (two-digit work is 0)' },
     regroups: { weight: 0.7, doc: 'carries (+) or borrows (−) in the column algorithm' },
@@ -388,8 +438,18 @@ export const mdaAddSub: GeneratorDef = {
     'gen.mda.addsub.is',
     'gen.mda.addsub.count-up',
     'gen.mda.addsub.jumped',
+    'gen.mda.addsub.columns-add',
+    'gen.mda.addsub.columns-take',
+    'gen.mda.addsub.sum-hundreds',
+    'gen.mda.addsub.check-add',
   ],
-  sample: (spec, rng) => sampleAll(spec, rng),
+  sample(spec, rng) {
+    const p = sampleAll(spec, rng);
+    // MDA.18: an across-zero minuend is one draw in ten; zeroing the tens keeps sampling cheap.
+    if (p.zeroTens === true && typeof p.a === 'number' && p.a >= 100)
+      p.a -= (Math.floor(p.a / 10) % 10) * 10;
+    return p;
+  },
   derive(p): ParamValues {
     const a = asNum(p.a);
     const b = asNum(p.b);
@@ -398,6 +458,7 @@ export const mdaAddSub: GeneratorDef = {
       result: resultOf(p),
       carries: plus ? carriesOf(a, b, ...moreAddends(p)) : 0,
       borrows: plus || a < b ? 0 : borrowsOf(a, b),
+      acrossZeros: plus || a < b ? 0 : acrossZerosOf(a, b),
     };
   },
   accepts(p, t) {
@@ -427,10 +488,14 @@ export const mdaAddSub: GeneratorDef = {
     const regroups = asNum(p.regroups, -1);
     if (regroups >= 0 && carries + borrows !== regroups) return false;
     if (p.zeroInMinuend === true && (plus || !hasZeroBelowLead(a))) return false;
+    if (p.checkByAdding === true && (plus || t.format !== 'number-pad')) return false;
+    if (p.zeroTens === true && (a < 100 || Math.floor(a / 10) % 10 !== 0)) return false;
     const change = asStr(p.unknown, 'result') === 'change';
     if (change && t.format !== 'number-pad' && t.format !== 'number-line-jump') return false;
     // Counting up from b to a subtracts; it asks for the result.
     if (asStr(p.strategy, 'none') === 'count-up' && (plus || change)) return false;
+    // The column algorithm is written beside the trade mat only.
+    if (asStr(p.strategy, 'none') === 'algorithm' && t.format !== 'base-ten-trade') return false;
     const diff = differenceLine(p);
     if (t.format === 'number-line-jump' && diff && diff.from >= diff.to) return false;
     switch (t.format) {
@@ -540,7 +605,7 @@ export const mdaAddSub: GeneratorDef = {
             start: hto(a),
             operation: { op: plus ? '+' : '-', operand: bh },
             goal: 'compute',
-            showAlgorithm: false,
+            showAlgorithm: asStr(params.strategy, 'none') === 'algorithm',
             thenAsk: true,
           },
           // The mat must end canonical (PR #83 review): a carry or borrow shows in the checked
@@ -711,13 +776,21 @@ export const mdaAddSub: GeneratorDef = {
           ? say(plus ? 'gen.mda.addsub.count-on' : 'gen.mda.addsub.count-back', { a, result })
           : strategy === 'count-up'
             ? say('gen.mda.addsub.count-up', { a, b })
-            : say(
-                plus ? 'gen.mda.addsub.tens-then-ones' : 'gen.mda.addsub.take-tens-then-ones',
-                {},
-              );
+            : a >= 100
+              ? say(plus ? 'gen.mda.addsub.columns-add' : 'gen.mda.addsub.columns-take', {})
+              : say(
+                  plus ? 'gen.mda.addsub.tens-then-ones' : 'gen.mda.addsub.take-tens-then-ones',
+                  {},
+                );
+        // MDA.16: the answer is checked by adding it back (25 + 27 = 52).
+        const check =
+          p.checkByAdding === true && !plus && !change
+            ? [say('gen.mda.addsub.check-add', { r: result, b, a })]
+            : [];
         return [
           { ...first, action: { op: 'highlight', args: { token: 'x' } } },
           final({ op: 'type', args: { blank: 'x', value: answer } }),
+          ...check,
         ];
       }
       case 'base-ten-build': {
@@ -815,6 +888,17 @@ export const mdaAddSub: GeneratorDef = {
         return [...steps, final({ op: 'label-landing' })];
       }
       case 'expanded-form':
+        if (plus && a >= 100) {
+          // Place by place, each line only for a place with a term on the card.
+          const nums = [a, b, ...moreAddends(p)];
+          const has = (u: number) => nums.some((x) => Math.floor(x / u) % 10 > 0);
+          const lines: LessonStep[] = [
+            say('gen.mda.addsub.sum-hundreds', {}, { op: 'stack-cards' }),
+          ];
+          if (has(10)) lines.push(say('gen.mda.addsub.sum-tens', {}));
+          if (has(1)) lines.push(say('gen.mda.addsub.sum-ones', {}));
+          return [...lines, final({ op: 'answer', args: { value: result } })];
+        }
         return [
           say(
             plus ? 'gen.mda.addsub.sum-tens' : 'gen.mda.addsub.diff-tens',

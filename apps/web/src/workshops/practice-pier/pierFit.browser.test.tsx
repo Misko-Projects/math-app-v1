@@ -516,10 +516,185 @@ describe.each(FIT_VIEWPORTS)(
       if (fitAllowance(template, viewport)) expect(misfit).not.toContain(FALLBACK);
       else expect(misfit).toEqual([]);
     };
-    const place = async (c: 'tens' | 'ones') => {
+    const place = async (c: 'hundreds' | 'tens' | 'ones') => {
       await userEvent.click(document.querySelector(`[data-place-item="pending-${c}"]`) as Element);
       await userEvent.click(document.querySelector(`[data-place-target="col-${c}"]`) as Element);
     };
+
+    // K02 slice 2b (#17): three-column compute on disks, allowlisted at 960 × 600 (they scroll,
+    // Check reachable by scrolling) and fitting at 1280 × 800. The fullest states a child reaches:
+    // a column of exactly 20 ones (990 − 115, two tens split, then a hundred), the tray at its
+    // fullest (699 + 299: 2 hundreds 9 tens 9 ones, the mat at 8 hundreds 18 tens 18 ones before
+    // the trades) and the take-away box at its fullest (900 − 899: 8 hundreds 9 tens 9 ones).
+    const fromParams = (id: string, params: Record<string, number | string | boolean>) => {
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      return { item: engine.generateItemFromParams(template, params), template };
+    };
+    const checkReachable = async () => {
+      const check = button('.ni-btt__checkwrap button');
+      expect(check).not.toBeNull();
+      check?.scrollIntoView({ block: 'nearest' });
+      await frame();
+      const r = check?.getBoundingClientRect();
+      expect(r).toBeDefined();
+      expect((r?.top ?? -1) >= 0 && (r?.bottom ?? 1e9) <= window.innerHeight + SLACK_PX).toBe(true);
+    };
+
+    it('base-ten-trade (MDA.17.t1): 990 − 115 split to a column of exactly 20 ones, then a hundred', async () => {
+      await page.viewport(width, height);
+      const { item, template } = fromParams('MDA.17.t1', { a: 990, b: 115, op: '-' });
+      show(item, ageModeOf(template));
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 9, 0]);
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 7, 20]);
+      // A third split would make 30 ones.
+      expect(button('[data-trade="trade-tens-ones"]')?.disabled).toBe(true);
+      button('[data-trade="trade-hundreds-tens"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([8, 17, 20]);
+      await shot('MDA.17.t1', 'column-of-20');
+      await checkReachable();
+    });
+
+    it.each(['MDA.05.t1', 'MDA.07.t1'])(
+      'base-ten-trade (%s): 699 + 299, the tray at its fullest, joined and traded',
+      async (id) => {
+        await page.viewport(width, height);
+        const { item, template } = fromParams(id, { a: 699, b: 299, op: '+' });
+        show(item, ageModeOf(template));
+        await fitsOrAllowed(id);
+        await shot(id, 'tray-full');
+        for (const c of ['hundreds', 'tens', 'ones'] as const) await place(c);
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([8, 18, 18]);
+        button('[data-trade="trade-ones-tens"]')?.click();
+        await fitsOrAllowed(id);
+        button('[data-trade="trade-tens-hundreds"]')?.click();
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([9, 9, 8]);
+        await shot(id, 'traded');
+        await checkReachable();
+        await shot(id, 'scrolled-to-check');
+      },
+    );
+
+    it.each(['MDA.18.t1', 'MDA.18.t2', 'MDA.21.t1'])(
+      'base-ten-trade (%s): 900 − 899, split across the zero, the take-away box at its fullest',
+      async (id) => {
+        await page.viewport(width, height);
+        const params = {
+          a: 900,
+          b: 899,
+          op: '-',
+          ...(id.startsWith('MDA.18') ? { zeroTens: true } : {}),
+        };
+        const { item, template } = fromParams(id, params);
+        show(item, ageModeOf(template));
+        await fitsOrAllowed(id);
+        button('[data-trade="trade-hundreds-tens"]')?.click();
+        await fitsOrAllowed(id);
+        button('[data-trade="trade-tens-ones"]')?.click();
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([8, 9, 10]);
+        await shot(id, 'split');
+        // The usual layout scrolls at 960 × 600: bring each piece and the box into view first. The
+        // box is reached from the keyboard (focus, Enter): once it holds a piece, its "put back"
+        // button covers the middle of the drop pad, where a pointer click would land.
+        const press = async (sel: string) => {
+          const el = document.querySelector<HTMLElement>(sel);
+          if (!el) throw new Error(`nothing at ${sel}`);
+          el.scrollIntoView({ block: 'nearest' });
+          await frame();
+          if (el.dataset.placeTarget === 'take') {
+            el.focus();
+            await userEvent.keyboard('{Enter}');
+          } else await userEvent.click(el);
+        };
+        for (const [c, n] of [
+          ['ones', 9],
+          ['tens', 9],
+          ['hundreds', 8],
+        ] as const) {
+          for (let i = 0; i < n; i += 1) {
+            await press(`[data-place-item^="mat-${c}-"]`);
+            await press('[data-place-target="take"]');
+          }
+        }
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([0, 0, 1]);
+        expect(count('.ni-btt__nest [data-piece^="taken-"]')).toBe(26);
+        await shot(id, 'taken');
+        await checkReachable();
+      },
+      90_000,
+    );
+
+    // Review round 1 (#127): the tray's group and a put-back obey the 20-disk cap as a split does.
+    it('base-ten-trade (MDA.05.t1): 699 + 299 with a ten split first, the ones wait until grouped', async () => {
+      await page.viewport(width, height);
+      const { item, template } = fromParams('MDA.05.t1', { a: 699, b: 299, op: '+' });
+      show(item, ageModeOf(template));
+      await fitsOrAllowed('MDA.05.t1');
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.05.t1');
+      expect(tradeMat()).toEqual([6, 8, 19]);
+      // Nine more ones would make 28: with the group picked up, the Ones column is not a target.
+      await userEvent.click(document.querySelector('[data-place-item="pending-ones"]') as Element);
+      const onesPad = () => document.querySelector('[data-place-target="col-ones"]');
+      expect(onesPad()?.getAttribute('aria-disabled')).toBe('true');
+      expect(tradeMat()).toEqual([6, 8, 19]);
+      // Grouped back to 9 ones, the nine fit: the child can still finish.
+      button('[data-trade="trade-ones-tens"]')?.click();
+      await fitsOrAllowed('MDA.05.t1');
+      expect(onesPad()?.getAttribute('aria-disabled')).not.toBe('true');
+      await userEvent.click(onesPad() as Element);
+      await fitsOrAllowed('MDA.05.t1');
+      expect(tradeMat()).toEqual([6, 9, 18]);
+    }, 60_000);
+
+    it('base-ten-trade (MDA.17.t1): 991 − 115, a one taken, two tens split: no put-back to 21', async () => {
+      await page.viewport(width, height);
+      const { item, template } = fromParams('MDA.17.t1', { a: 991, b: 115, op: '-' });
+      show(item, ageModeOf(template));
+      await fitsOrAllowed('MDA.17.t1');
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      const one = document.querySelector<HTMLElement>('[data-place-item^="mat-ones-"]');
+      one?.scrollIntoView({ block: 'nearest' });
+      await userEvent.click(one as Element);
+      const nest = document.querySelector<HTMLElement>('[data-place-target="take"]');
+      nest?.scrollIntoView({ block: 'nearest' });
+      nest?.focus();
+      await userEvent.keyboard('{Enter}');
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 8, 10]);
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 7, 20]);
+      // Review round 2: at 20 ones the put-back control is disabled, not silently inert.
+      expect(button('[data-back="ones"]')?.disabled).toBe(true);
+      button('[data-back="ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 7, 20]);
+      // With a one picked up, the nest still takes it (the control stays open to the drop).
+      const held = document.querySelector<HTMLElement>('[data-place-item^="mat-ones-"]');
+      held?.scrollIntoView({ block: 'nearest' });
+      await userEvent.click(held as Element);
+      expect(button('[data-back="ones"]')?.disabled).toBe(false);
+      await userEvent.click(held as Element);
+      expect(button('[data-back="ones"]')?.disabled).toBe(true);
+      // Grouped first, the one goes back.
+      button('[data-trade="trade-ones-tens"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(button('[data-back="ones"]')?.disabled).toBe(false);
+      button('[data-back="ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 8, 11]);
+    }, 60_000);
 
     it('base-ten-trade (MDA.03.t1): 49 + 49 on the mat as 8 tens 18 ones, then traded', async () => {
       await page.viewport(width, height);

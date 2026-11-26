@@ -302,3 +302,14 @@ tp.PV.18.t1.prompt:
   text: "Round {n} to the nearest hundred."
 tp.PV.18.t2.prompt:
   text: "Round {target} to the nearest hundred. Is it closer to {b0} or to {b1}?"
+
+# K02 slice 2b (#17): estimating by rounding.
+sk.PV.19.intro:
+  text: "Round each number first. Then add or take away."
+tp.PV.19.t1.prompt:
+  text: "About how much is {a} + {b}? Round each number to the nearest hundred first."
+  say: "About how much is {a} plus {b}? Round each number to the nearest hundred first."
+tp.PV.19.t2.prompt:
+  text: "Round each number to the nearest hundred. About how much is it?"
+tp.PV.19.t3.prompt:
+  text: "Round each number to the nearest {place}. About how much is it?"

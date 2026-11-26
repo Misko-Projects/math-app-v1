@@ -184,6 +184,7 @@ describe('registry', () => {
   it('registers the rules by detect.rule id', () => {
     expect(registeredRuleIds().sort()).toEqual([
       'biggerUnitMore',
+      'borrowAcrossZero',
       'borrowNoDecrement',
       'compareFirstDigit',
       'countAllInstead',

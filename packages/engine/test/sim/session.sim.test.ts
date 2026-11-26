@@ -147,6 +147,9 @@ const SLICE_2A = [
   'MDA.16',
   'MDA.22',
 ] as const;
+/** Slice 2b (#17): addition and subtraction within 1000, grade 2 and grade 3 (PV.19 included). */
+const SLICE_2B_G2 = ['MDA.24', 'MDA.25', 'MDA.05', 'MDA.17'] as const;
+const SLICE_2B_G3 = ['MDA.07', 'MDA.18', 'MDA.21', 'PV.19'] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -655,7 +658,16 @@ describe('session simulation (04 §8)', () => {
           (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
         ).join(', ')}`,
       );
+      console.log(
+        `session sim ${ready.name}, slice 2b: children who met / practised / mastered each skill: ${SLICE_2B_G2.map(
+          (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
+        ).join(', ')}`,
+      );
       for (const s of [...PV_TO_1000, ...SLICE_1B, ...SLICE_2A]) {
+        expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
+        expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
+      }
+      for (const s of SLICE_2B_G2) {
         expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
         expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
       }
@@ -685,7 +697,16 @@ describe('session simulation (04 §8)', () => {
           (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
         ).join(', ')}`,
       );
+      console.log(
+        `session sim ${ready.name}, slice 2b: children who met / practised / mastered each skill: ${SLICE_2B_G3.map(
+          (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
+        ).join(', ')}`,
+      );
       for (const s of SLICE_1B_ROUNDING) {
+        expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
+        expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
+      }
+      for (const s of SLICE_2B_G3) {
         expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
         expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
       }
