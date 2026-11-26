@@ -1306,10 +1306,17 @@ function TradeMat({
       void runTakeOne(heldCol, 'tap', grab[heldCol]);
       return;
     }
+    if (!roomFor(stateRef.current, c, 1)) return;
     trace('tap', `back-${c}`);
     if (speakOnTap) say(BACK_KEY[c]);
     void runPutBack(c);
   };
+
+  /**
+   * A put-back control is offered while its piece has room on the mat (DISK_COLUMN_MAX), or while
+   * a mat piece is picked up, when a tap on it drops that piece in the nest instead.
+   */
+  const canPutBack = (c: Column) => dnd.selected !== null || roomFor(state, c, 1);
 
   const onTrade = (from: Column, to: Column) => {
     if (!interactive) return;
@@ -1968,7 +1975,7 @@ function TradeMat({
                     .join(' ')}
                   data-back={c}
                   aria-label={t(BACK_KEY[c])}
-                  disabled={!interactive}
+                  disabled={!interactive || !canPutBack(c)}
                   style={{ left: inner.x + slot.x, width: slot.w }}
                   onClick={() => onBack(c)}
                 />
@@ -2129,7 +2136,7 @@ function TradeMat({
                       .join(' ')}
                     data-back={c}
                     aria-label={t(BACK_KEY[c])}
-                    disabled={!interactive}
+                    disabled={!interactive || !canPutBack(c)}
                     style={{
                       left: ox + slot.x,
                       width: slot.w,

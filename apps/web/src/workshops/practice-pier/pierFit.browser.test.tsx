@@ -578,6 +578,7 @@ describe.each(FIT_VIEWPORTS)(
         expect(tradeMat()).toEqual([9, 9, 8]);
         await shot(id, 'traded');
         await checkReachable();
+        await shot(id, 'scrolled-to-check');
       },
     );
 
@@ -674,12 +675,22 @@ describe.each(FIT_VIEWPORTS)(
       button('[data-trade="trade-tens-ones"]')?.click();
       await fitsOrAllowed('MDA.17.t1');
       expect(tradeMat()).toEqual([9, 7, 20]);
+      // Review round 2: at 20 ones the put-back control is disabled, not silently inert.
+      expect(button('[data-back="ones"]')?.disabled).toBe(true);
       button('[data-back="ones"]')?.click();
       await fitsOrAllowed('MDA.17.t1');
       expect(tradeMat()).toEqual([9, 7, 20]);
+      // With a one picked up, the nest still takes it (the control stays open to the drop).
+      const held = document.querySelector<HTMLElement>('[data-place-item^="mat-ones-"]');
+      held?.scrollIntoView({ block: 'nearest' });
+      await userEvent.click(held as Element);
+      expect(button('[data-back="ones"]')?.disabled).toBe(false);
+      await userEvent.click(held as Element);
+      expect(button('[data-back="ones"]')?.disabled).toBe(true);
       // Grouped first, the one goes back.
       button('[data-trade="trade-ones-tens"]')?.click();
       await fitsOrAllowed('MDA.17.t1');
+      expect(button('[data-back="ones"]')?.disabled).toBe(false);
       button('[data-back="ones"]')?.click();
       await fitsOrAllowed('MDA.17.t1');
       expect(tradeMat()).toEqual([9, 8, 11]);
