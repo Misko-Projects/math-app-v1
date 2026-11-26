@@ -509,8 +509,8 @@ ui.ssort.tray:
 ui.ssort.find:
   text: "Cards"
   level: K
-ui.ssort.card:
-  text: "Card {n}"
+ui.ssort.shape:
+  text: "Shape {n}, {sides} sides, {corners} corners"
   level: K
 ui.clen.object:
   text: "{name} {n}"

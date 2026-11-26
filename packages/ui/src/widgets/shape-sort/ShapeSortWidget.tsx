@@ -64,11 +64,16 @@ export function cardNameKey(c: Card['card']): string | null {
 }
 
 /**
- * What a card says on tap and carries as its accessible name, by rule (never by template): what
- * the child can see without knowing the answer. A number or word card reads its face. A picture
- * card (shape, object, coin) says its name only when the config marks names as given
- * (`namesGiven`: the ask is a side count, a colour, a weight …); otherwise its name could be the
- * answer (a kind sort or find), so it is "Shape 3" by its place, and says nothing on tap.
+ * What a card says on tap (`spoken`) and carries as its accessible name, by rule (never by
+ * template). A number or word card reads its face, aloud too. A picture card (shape, object,
+ * coin) says its name aloud only when the config marks names as given (`namesGiven`: the ask is
+ * a side count, a colour, a weight …). Otherwise its name may be the answer (a kind sort or
+ * find), so a tap says nothing, and the accessible name (what a screen reader reads on focus,
+ * standing in for the picture) describes what a sighted child sees:
+ * - a flat shape among flat shapes: its place and counts, "Shape 3, 6 sides, 6 corners", never
+ *   its name;
+ * - a solid, any card among solids (a flat-or-solid ask), an object or a coin: its name, as the
+ *   picture shows it (no description says "cone" without saying it rolls).
  */
 export type CardSpeech =
   | { number: number }
@@ -77,10 +82,18 @@ export type CardSpeech =
 export function cardSpeech(config: Config, c: Card): CardSpeech {
   if (!isShape(c.card) && c.card.kind === 'number') return { number: c.card.value };
   if (!isShape(c.card) && c.card.kind === 'event') return { key: c.card.event, spoken: true };
-  const key = config.namesGiven ? cardNameKey(c.card) : null;
-  if (key) return { key, spoken: true };
-  const n = config.cards.findIndex((x) => x.id === c.id) + 1;
-  return { key: 'ui.ssort.card', vars: { n }, spoken: false };
+  const key = cardNameKey(c.card) ?? c.id;
+  if (config.namesGiven) return { key, spoken: true };
+  const flatAmongFlat =
+    isShape(c.card) &&
+    config.cards.every((x) => !isShape(x.card) || !x.card.props.solid) &&
+    !c.card.props.solid;
+  if (isShape(c.card) && flatAmongFlat) {
+    const n = config.cards.findIndex((x) => x.id === c.id) + 1;
+    const { sides, corners } = c.card.props;
+    return { key: 'ui.ssort.shape', vars: { n, sides, corners }, spoken: false };
+  }
+  return { key, spoken: false };
 }
 
 /**

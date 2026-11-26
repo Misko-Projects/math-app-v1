@@ -62,19 +62,34 @@ describe('shape-sort never says or shows the answer on shipped items', () => {
     expect(new Set(items.map((i) => i.templateId)).size).toBeGreaterThan(15);
   });
 
-  it('a picture card names itself only where its name is given', () => {
-    const bad: string[] = [];
+  it('a tap says a picture card aloud only where its name is given', () => {
+    const bad = new Set<string>();
     for (const item of items) {
       const w = item.widget as ShapeSortConfig;
       for (const c of w.cards) {
-        if (!isPicture(c.card)) continue;
+        if (!isPicture(c.card) || w.namesGiven) continue;
         const s = cardSpeech(w, c);
-        const named = 'key' in s && s.key === cardNameKey(c.card);
-        if (named && !w.namesGiven) bad.push(`${item.templateId}#${item.seed} ${c.id}`);
-        if (!w.namesGiven && 'key' in s && s.spoken) bad.push(`${item.templateId} ${c.id} spoken`);
+        if (!('key' in s) || s.spoken) bad.add(`${item.templateId} ${c.id}`);
       }
     }
-    expect(bad.slice(0, 10)).toEqual([]);
+    expect([...bad]).toEqual([]);
+  });
+
+  it('a flat shape among flat shapes never carries its name, even for a screen reader', () => {
+    const bad = new Set<string>();
+    let described = 0;
+    for (const item of items) {
+      const w = item.widget as ShapeSortConfig;
+      if (w.namesGiven) continue;
+      if (w.cards.some((c) => !isShape(c.card) || c.card.props.solid)) continue;
+      for (const c of w.cards) {
+        const s = cardSpeech(w, c);
+        if (!('key' in s) || s.key === cardNameKey(c.card)) bad.add(`${item.templateId} ${c.id}`);
+        else described += 1;
+      }
+    }
+    expect([...bad]).toEqual([]);
+    expect(described).toBeGreaterThan(0);
   });
 
   it('names are given only where they do not answer the item', () => {

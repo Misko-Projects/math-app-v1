@@ -358,10 +358,10 @@ export const SortBlocksK: Story = {
     await pointerDrag(cardEl(root, 'c0'), center(pad(root, 'b1')), 'mouse');
     await waitFor(() => expect(inBin(root, 'b1')).toEqual(['c0']));
     // Tap-to-place: tap the card, then the bin. On a kind sort the card's name is the answer:
-    // it says nothing, and its accessible name is its place (Refs #35).
+    // it says nothing; a screen reader hears its place and counts (Refs #35).
     await userEvent.click(cardEl(root, 'c3'));
     await expect(audio.say).not.toHaveBeenCalledWith('shape.triangle.one', undefined);
-    await expect(cardEl(root, 'c3')).toHaveAccessibleName('Card 4');
+    await expect(cardEl(root, 'c3')).toHaveAccessibleName('Shape 4, 3 sides, 3 corners');
     await userEvent.click(pad(root, 'b0'));
     await waitFor(() => expect(inBin(root, 'b0')).toEqual(['c1', 'c3']));
     // Keyboard: Enter picks the last card up, focus jumps to the first bin it can go in (not
@@ -953,7 +953,7 @@ export const FindAllTriangles: Story = {
     // A find by kind: the card's name is the answer, so a tap says nothing (Refs #35).
     await userEvent.click(cardEl(root, 'c0'));
     await expect(audio.say).not.toHaveBeenCalledWith('shape.triangle.one', undefined);
-    await expect(cardEl(root, 'c0')).toHaveAccessibleName('Card 1');
+    await expect(cardEl(root, 'c0')).toHaveAccessibleName('Shape 1, 3 sides, 3 corners');
     await userEvent.click(open);
     await userEvent.click(cardEl(root, 'c2'));
     await expect(open).toHaveAttribute('aria-pressed', 'true');
