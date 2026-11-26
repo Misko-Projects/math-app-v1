@@ -516,10 +516,98 @@ describe.each(FIT_VIEWPORTS)(
       if (fitAllowance(template, viewport)) expect(misfit).not.toContain(FALLBACK);
       else expect(misfit).toEqual([]);
     };
-    const place = async (c: 'tens' | 'ones') => {
+    const place = async (c: 'hundreds' | 'tens' | 'ones') => {
       await userEvent.click(document.querySelector(`[data-place-item="pending-${c}"]`) as Element);
       await userEvent.click(document.querySelector(`[data-place-target="col-${c}"]`) as Element);
     };
+
+    // K02 slice 2b (#17): three-column compute on disks, allowlisted at 960 × 600 (they scroll,
+    // Check reachable by scrolling) and fitting at 1280 × 800. The fullest states a child reaches:
+    // a column of exactly 20 ones (990 − 115, two tens split, then a hundred), the tray at its
+    // fullest (699 + 299: 2 hundreds 9 tens 9 ones, the mat at 8 hundreds 18 tens 18 ones before
+    // the trades) and the take-away box at its fullest (900 − 899: 8 hundreds 9 tens 9 ones).
+    const fromParams = (id: string, params: Record<string, number | string | boolean>) => {
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      return { item: engine.generateItemFromParams(template, params), template };
+    };
+    const checkReachable = async () => {
+      const check = button('.ni-btt__checkwrap button');
+      expect(check).not.toBeNull();
+      check?.scrollIntoView({ block: 'nearest' });
+      await frame();
+      const r = check?.getBoundingClientRect();
+      expect(r).toBeDefined();
+      expect((r?.top ?? -1) >= 0 && (r?.bottom ?? 1e9) <= window.innerHeight + SLACK_PX).toBe(true);
+    };
+
+    it('base-ten-trade (MDA.17.t1): 990 − 115 split to a column of exactly 20 ones, then a hundred', async () => {
+      await page.viewport(width, height);
+      const { item, template } = fromParams('MDA.17.t1', { a: 990, b: 115, op: '-' });
+      show(item, ageModeOf(template));
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 9, 0]);
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      button('[data-trade="trade-tens-ones"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([9, 7, 20]);
+      // A third split would make 30 ones.
+      expect(button('[data-trade="trade-tens-ones"]')?.disabled).toBe(true);
+      button('[data-trade="trade-hundreds-tens"]')?.click();
+      await fitsOrAllowed('MDA.17.t1');
+      expect(tradeMat()).toEqual([8, 17, 20]);
+      await shot('MDA.17.t1', 'column-of-20');
+      await checkReachable();
+    });
+
+    it.each(['MDA.05.t1', 'MDA.07.t1'])(
+      'base-ten-trade (%s): 699 + 299, the tray at its fullest, joined and traded',
+      async (id) => {
+        await page.viewport(width, height);
+        const { item, template } = fromParams(id, { a: 699, b: 299, op: '+' });
+        show(item, ageModeOf(template));
+        await fitsOrAllowed(id);
+        await shot(id, 'tray-full');
+        for (const c of ['hundreds', 'tens', 'ones'] as const) await place(c);
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([8, 18, 18]);
+        button('[data-trade="trade-ones-tens"]')?.click();
+        await fitsOrAllowed(id);
+        button('[data-trade="trade-tens-hundreds"]')?.click();
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([9, 9, 8]);
+        await shot(id, 'traded');
+        await checkReachable();
+      },
+    );
+
+    it.each(['MDA.18.t1', 'MDA.18.t2', 'MDA.21.t1'])(
+      'base-ten-trade (%s): 900 − 899, split across the zero, the take-away box at its fullest',
+      async (id) => {
+        await page.viewport(width, height);
+        const params = { a: 900, b: 899, op: '-', ...(id.startsWith('MDA.18') ? { zeroTens: true } : {}) };
+        const { item, template } = fromParams(id, params);
+        show(item, ageModeOf(template));
+        await fitsOrAllowed(id);
+        button('[data-trade="trade-hundreds-tens"]')?.click();
+        await fitsOrAllowed(id);
+        button('[data-trade="trade-tens-ones"]')?.click();
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([8, 9, 10]);
+        await shot(id, 'split');
+        for (const [c, n] of [['ones', 9], ['tens', 9], ['hundreds', 8]] as const) {
+          for (let i = 0; i < n; i += 1) {
+            await userEvent.click(document.querySelector(`[data-place-item^="mat-${c}-"]`) as Element);
+            await userEvent.click(document.querySelector('[data-place-target="take"]') as Element);
+          }
+        }
+        await fitsOrAllowed(id);
+        expect(tradeMat()).toEqual([0, 0, 1]);
+        expect(count('.ni-btt__takebox [data-piece^="taken-"]')).toBe(26);
+        await shot(id, 'taken');
+        await checkReachable();
+      },
+    );
 
     it('base-ten-trade (MDA.03.t1): 49 + 49 on the mat as 8 tens 18 ones, then traded', async () => {
       await page.viewport(width, height);

@@ -60,13 +60,13 @@ export function estimateParts(p: Record<string, unknown>): {
   };
 }
 
-/** The estimate with both numbers cut down to the place, or null when that is the estimate. */
+/** The estimate with both numbers cut down to the place, or null when that is the estimate or 0. */
 export function roundedDownEstimate(p: Record<string, unknown>): number | null {
   const { a, b, plus, place, estimate } = estimateParts(p);
   const ta = Math.floor(a / place) * place;
   const tb = Math.floor(b / place) * place;
   const r = plus ? ta + tb : ta - tb;
-  return r !== estimate && r >= 0 ? r : null;
+  return r !== estimate && r > 0 ? r : null;
 }
 
 /** The three numeral-pick values: the estimate first (see the header). */
