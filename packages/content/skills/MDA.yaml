@@ -1,5 +1,6 @@
 # MDA: Multi-digit addition and subtraction, catalog rows from 03 §3.9 (K01: the grade-1 rows).
-# The grade-2 and grade-3 rows MDA.03–MDA.07 and MDA.10–MDA.25 are K02 (graph.yaml plannedIds).
+# K02 slice 2a (#17) adds the grade-2 rows within 100: MDA.03, MDA.04, MDA.10–MDA.16 and MDA.22. The
+# rows left (MDA.05–MDA.07, MDA.17–MDA.21, MDA.23–MDA.25) are K02 (graph.yaml plannedIds).
 strand: MDA
 skills:
   - id: MDA.01
@@ -21,6 +22,28 @@ skills:
     gateway: false
     representations: [base-ten, hundred-chart, open-number-line, symbols]
 
+  - id: MDA.03
+    name: Add two-digit numbers with regrouping (place-value strategies)
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.5] }
+    prerequisites: [MDA.08, MDA.09, PV.12, ADD.14]
+    encompasses: { ADD.14: 0.8, MDA.09: 1.0, MDA.08: 0.5, PV.12: 0.5 }
+    gateway: true
+    representations: [base-ten, open-number-line, expanded, symbols]
+
+  # 03 §3 lists base-ten-trade and the base-ten representation; the trade mat takes one operand, so
+  # MDA.04 ships on expanded-form (three addends) and the number pad (decided on #17 slice 2a).
+  - id: MDA.04
+    name: Add up to four two-digit numbers
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.6] }
+    prerequisites: [MDA.03, ADD.13]
+    encompasses: { MDA.03: 1.0, ADD.13: 0.5 }
+    gateway: false
+    representations: [expanded, symbols]
+
   - id: MDA.08
     name: Add a one-digit number across a ten (37 + 5 → 40 + 2)
     kind: strategy
@@ -38,3 +61,78 @@ skills:
     prerequisites: [MDA.01]
     gateway: false
     representations: [base-ten, expanded, symbols]
+
+  - id: MDA.10
+    name: Subtract a one-digit number from a two-digit number across a ten
+    kind: strategy
+    grade: 2
+    standards: { ccss: [2.NBT.B.5] }
+    prerequisites: [MDA.02, ADD.18]
+    gateway: false
+    representations: [base-ten, open-number-line, symbols]
+
+  - id: MDA.11
+    name: Subtract two-digit numbers without regrouping
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.5] }
+    prerequisites: [MDA.02, PV.01, ADD.06]
+    gateway: false
+    representations: [base-ten, symbols]
+
+  - id: MDA.12
+    name: Subtract two-digit numbers with regrouping (trade a ten)
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.5] }
+    prerequisites: [MDA.10, MDA.11, PV.12, ADD.22]
+    encompasses: { ADD.22: 0.8, MDA.11: 1.0, MDA.10: 0.5, PV.12: 0.5 }
+    gateway: true
+    representations: [base-ten, open-number-line, expanded, symbols]
+
+  - id: MDA.13
+    name: Jump by tens and ones on an open number line
+    kind: strategy
+    grade: 2
+    standards: { ccss: [2.NBT.B.5] }
+    prerequisites: [MDA.09, CMP.04, PV.03]
+    gateway: false
+    representations: [open-number-line, symbols]
+
+  # MDA.14, MDA.16 and MDA.22 leave out 03 §3's bar-model until StimulusView draws bar models (U04);
+  # MDA.14 shows symbols instead.
+  - id: MDA.14
+    name: Subtract by counting up (62 − 48 as 48 → 50 → 62)
+    kind: strategy
+    grade: 2
+    standards: { ccss: [2.NBT.B.9] }
+    prerequisites: [MDA.13, ADD.19]
+    gateway: false
+    representations: [open-number-line, symbols]
+
+  - id: MDA.15
+    name: Make a friendly number (49 + 26 = 50 + 25)
+    kind: strategy
+    grade: 2
+    standards: { ccss: [2.NBT.B.9] }
+    prerequisites: [MDA.03]
+    gateway: false
+    representations: [base-ten, balance, open-number-line, symbols]
+
+  - id: MDA.16
+    name: Check subtraction with addition (within 100)
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.NBT.B.9] }
+    prerequisites: [MDA.12, ADD.09]
+    gateway: false
+    representations: [number-bond, symbols]
+
+  - id: MDA.22
+    name: Find a missing number in addition or subtraction within 100 (36 + ? = 80)
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.OA.A.1] }
+    prerequisites: [MDA.14, ADD.11]
+    gateway: false
+    representations: [balance, open-number-line, symbols]

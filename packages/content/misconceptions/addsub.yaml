@@ -1,5 +1,6 @@
 # Addition and subtraction misconceptions (03 §7.2). K01 lists the K–1 skills authored so far;
-# ADD.14, ADD.22 and the K02 MDA skills join these rows when they are authored.
+# ADD.14, ADD.22 and the K02 MDA skills join these rows when they are authored (slice 2a: the
+# grade-2 rows within 100 and the three column bugs).
 area: addsub
 misconceptions:
   - id: MC.count-start-number
@@ -132,8 +133,8 @@ misconceptions:
   - id: MC.wrong-operation
     name: Adds when the fact takes away, or takes away when it adds
     detect: { kind: answer, rule: wrongOperation }
-    appliesTo: { generators: [addsub.facts] }
-    skills: [ADD.06, ADD.09, ADD.14, ADD.22]
+    appliesTo: { generators: [addsub.facts, mda.addsub] }
+    skills: [ADD.06, ADD.09, ADD.14, ADD.22, MDA.11, MDA.12]
     remediation: [ADD.09]
     feedback: fb.mc.wrong-operation
     parentTip: >-
@@ -199,3 +200,94 @@ misconceptions:
         params: { situation: take-from/start, context: beach-shells, a: 3, b: 5 }
         response: { kind: number, value: 2 }
         match: true
+
+  # K02 slice 2a (#17): the column bugs of two-digit addition and subtraction.
+  - id: MC.forgot-to-regroup-add
+    name: Adds each column but leaves out the new ten the ones make
+    detect: { kind: answer, rule: forgotToRegroupAdd }
+    appliesTo: { generators: [mda.addsub] }
+    skills: [MDA.03, MDA.04]
+    remediation: [PV.12, MDA.03]
+    feedback: fb.mc.forgot-to-regroup-add
+    priority: 60
+    parentTip: >-
+      When the ones add up to ten or more, bundle ten of them and say "one more ten" out loud.
+    examples:
+      # 47 + 38: 7 + 8 = 15, the 1 ten is dropped, 75.
+      - generator: mda.addsub
+        params: { a: 47, b: 38, op: "+" }
+        response: { kind: number, value: 75 }
+        match: true
+      - generator: mda.addsub
+        params: { a: 47, b: 38, op: "+" }
+        response: { kind: state, value: { hundreds: 0, tens: 8, ones: 5, value: 75 } }
+        match: true
+      - generator: mda.addsub
+        params: { a: 47, b: 38, op: "+" }
+        response: { kind: number, value: 85 }
+        match: false
+      # No carry: nothing is dropped, so 34 + 25 cannot show it.
+      - generator: mda.addsub
+        params: { a: 34, b: 25, op: "+" }
+        response: { kind: number, value: 59 }
+        match: false
+      # 19 + 18 + 26: the ones make 23, the 2 tens are dropped, 43.
+      - generator: mda.addsub
+        params: { a: 19, b: 18, c: 26, op: "+", addends: 3 }
+        response: { kind: number, value: 43 }
+        match: true
+
+  - id: MC.smaller-from-larger
+    name: Takes the smaller digit from the larger in each column instead of splitting a ten
+    detect: { kind: answer, rule: smallerFromLarger }
+    appliesTo: { generators: [mda.addsub] }
+    skills: [MDA.10, MDA.12]
+    remediation: [PV.12, MDA.12]
+    feedback: fb.mc.smaller-from-larger
+    priority: 60
+    parentTip: >-
+      Ask "are there enough ones to take away?" before subtracting, and split a ten when there are not.
+    examples:
+      # 52 − 27: 7 − 2 in the ones, 35.
+      - generator: mda.addsub
+        params: { a: 52, b: 27, op: "-" }
+        response: { kind: number, value: 35 }
+        match: true
+      # 42 − 5: 5 − 2 in the ones, 43.
+      - generator: mda.addsub
+        params: { a: 42, b: 5, op: "-" }
+        response: { kind: number, value: 43 }
+        match: true
+      - generator: mda.addsub
+        params: { a: 52, b: 27, op: "-" }
+        response: { kind: number, value: 25 }
+        match: false
+      - generator: mda.addsub
+        params: { a: 57, b: 22, op: "-" }
+        response: { kind: number, value: 35 }
+        match: false
+
+  - id: MC.borrow-no-decrement
+    name: Splits a ten for the ones but does not take it from the tens
+    detect: { kind: answer, rule: borrowNoDecrement }
+    appliesTo: { generators: [mda.addsub] }
+    skills: [MDA.12]
+    remediation: [PV.12, MDA.12]
+    feedback: fb.mc.borrow-no-decrement
+    priority: 55
+    parentTip: >-
+      After splitting a ten, cross it out in the tens and count the tens that are left.
+    examples:
+      # 53 − 27: 13 − 7 = 6 in the ones, but 5 − 2 = 3 in the tens, 36.
+      - generator: mda.addsub
+        params: { a: 53, b: 27, op: "-" }
+        response: { kind: number, value: 36 }
+        match: true
+      - generator: mda.addsub
+        params: { a: 53, b: 27, op: "-" }
+        response: { kind: number, value: 26 }
+        match: false
+      - generator: mda.addsub
+        params: { a: 58, b: 27, op: "-" }
+        response: { kind: number, value: 31 }
+        match: false

@@ -1016,6 +1016,10 @@ gen.mda.addsub.back-to-the-ten:
   text: "Take away {b} from {a}. That gets you back to a ten."
 gen.mda.addsub.is:
   text: "That is {v}."
+gen.mda.addsub.count-up:
+  text: "Count up from {b} to {a}. How many is that?"
+gen.mda.addsub.jumped:
+  text: "All the jumps up to {to} make {v}."
 gen.addsub.facts.start-at:
   text: "Start at {a}. Then count on {b}."
 gen.addsub.facts.start-back:
@@ -2006,3 +2010,63 @@ gen.pv.round.closer:
   text: "{n} is closer to {v}."
 gen.pv.round.half-up:
   text: "{n} is right in the middle, so it goes up to {v}."
+
+# K02 slice 2a (#17): hints for the grade-2 rows within 100.
+h.mda.ones-new-ten:
+  text: "Add the ones. Ten of them make one more ten."
+h.mda.split-a-ten:
+  text: "Need more ones? Split a ten into ten ones."
+h.mda.take-the-ones:
+  text: "Now you have more ones. Take them away."
+h.mda.jump-back-to-ten:
+  text: "Jump back to the ten first. Then jump back the ones left."
+h.mda.back-to-ten-first:
+  text: "How many ones take you back to the ten? Take those first."
+h.mda.then-take-rest:
+  text: "Then take away the ones that are left."
+h.mda.take-cubes:
+  text: "Take away cubes. Each cube is one."
+h.mda.take-away-tens:
+  text: "Take away the tens."
+h.mda.take-away-ones:
+  text: "Take away the ones."
+h.mda.take-ones-then-tens:
+  text: "Take away the ones. Then take away the tens."
+h.mda.jump-back-ones:
+  text: "Then jump back the ones."
+h.mda.ten-moved-to-ones:
+  text: "One ten went over to the ones. Take the ones from there."
+h.mda.one-ten-less:
+  text: "You split a ten, so there is one less ten."
+h.mda.picture-line:
+  text: "Picture a number line. Start at the first number."
+h.mda.tens-then-ones:
+  text: "Jump the tens first. Then jump the ones."
+h.mda.up-to-next-ten:
+  text: "Start at the smaller number. Jump up to the next ten."
+h.mda.add-the-jumps:
+  text: "Add up all your jumps."
+h.mda.friendly-ten:
+  text: "The first number is close to a ten. Give it some ones."
+h.mda.add-what-is-left:
+  text: "Now add what is left of the second number."
+h.mda.give-and-take:
+  text: "One number went up to a ten. The box is less by the same."
+h.mda.parts-make-whole:
+  text: "Add the two parts. Do they make the whole?"
+h.mda.check-with-plus:
+  text: "Add your answer and the number you take away. Do you get the first number?"
+h.mda.think-plus:
+  text: "Think: the number you take away plus what makes the first number?"
+h.mda.count-up-between:
+  text: "Count up from the smaller number to the bigger one."
+h.mda.add-all-tens:
+  text: "Add all the tens first."
+h.mda.all-ones:
+  text: "Then add all the ones. Do they make a new ten?"
+fb.mc.forgot-to-regroup-add:
+  text: "The ones made a new ten. Add that ten too!"
+fb.mc.smaller-from-larger:
+  text: "Need more ones to take away? Split a ten first."
+fb.mc.borrow-no-decrement:
+  text: "You split a ten, so there is one less ten now."

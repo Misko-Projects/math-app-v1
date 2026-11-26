@@ -44,3 +44,107 @@ tp.MDA.09.t2.prompt:
 tp.MDA.09.t3.prompt:
   text: "{a} + {b} = ?"
   say: "{a} plus {b} equals what number?"
+
+# K02 slice 2a (#17): the grade-2 rows within 100.
+sk.MDA.03.intro:
+  text: "Add the ones. Ten ones make a new ten!"
+sk.MDA.10.intro:
+  text: "Take away to get back to the ten. Then take away the ones left."
+sk.MDA.11.intro:
+  text: "Take away the tens, then take away the ones."
+sk.MDA.12.intro:
+  text: "Need more ones? Split a ten into ten ones."
+sk.MDA.13.intro:
+  text: "Jump by tens, then jump the ones."
+sk.MDA.14.intro:
+  text: "Take away by counting up from the smaller number."
+sk.MDA.15.intro:
+  text: "Make one number a ten. Then add what is left."
+sk.MDA.16.intro:
+  text: "Check a take-away with plus."
+sk.MDA.22.intro:
+  text: "Find the missing number. Count up to see how far."
+
+tp.MDA.03.t1.prompt:
+  text: "Here is {a}. Put in {b} more. Make the trade, then tell how many."
+tp.MDA.03.t2.prompt:
+  text: "Start at {a} and jump {b} more. Where do you land?"
+tp.MDA.03.t3.prompt:
+  text: "Add {a} and {b}: the tens, then the ones."
+tp.MDA.03.t4.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"
+
+tp.MDA.10.t1.prompt:
+  text: "Here is {a}. Take away {b}, then tell how many are left."
+tp.MDA.10.t2.prompt:
+  text: "Start at {a} and jump back {b}. Stop at the ten on the way."
+tp.MDA.10.t3.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"
+
+tp.MDA.11.t1.prompt:
+  text: "Here is {a}. Take away {b} and build what is left."
+tp.MDA.11.t2.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"
+
+tp.MDA.12.t1.prompt:
+  text: "Here is {a}. Take away {b}, then tell how many are left."
+tp.MDA.12.t2.prompt:
+  text: "Start at {a} and jump back {b}. Where do you land?"
+tp.MDA.12.t3.prompt:
+  text: "Take {b} from {a}: the tens, then the ones."
+tp.MDA.12.t4.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"
+
+tp.MDA.13.t1.prompt:
+  text: "Start at {a} and jump {b} more. Where do you land?"
+tp.MDA.13.t2.prompt:
+  text: "Start at {a} and jump back {b}. Where do you land?"
+tp.MDA.13.t3.prompt:
+  text: "Jump in your head. What is the answer?"
+
+tp.MDA.14.t1.prompt:
+  text: "{a} − {b} = ? Start at {b} and jump up to {a}. How far is it?"
+  say: "{a} minus {b}. Start at {b} and jump up to {a}. How far is it?"
+tp.MDA.14.t2.prompt:
+  text: "{a} − {b} = ? Count up from {b} to {a}."
+  say: "{a} minus {b}. Count up from {b} to {a}."
+
+tp.MDA.15.t1.prompt:
+  text: "Give {a} some ones to make the next ten. What is {a} + {b}?"
+  say: "Give {a} some ones to make the next ten. What is {a} plus {b}?"
+tp.MDA.15.t2.prompt:
+  text: "Start at {a} and jump {b} more. Jump to the next ten first."
+tp.MDA.15.t3.prompt:
+  text: "What number in the box makes it balance?"
+tp.MDA.15.t4.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"
+
+tp.MDA.16.t1.prompt:
+  text: "{whole} take away {part}. Find the missing part, then add to check."
+tp.MDA.16.t2.prompt:
+  text: "{a} − {b} = ? Check it with plus."
+  say: "{a} minus {b}. Check it with plus."
+
+tp.MDA.22.t1.prompt:
+  text: "{a} + ? = {result}. Jump from {a} up to {result}. How far is it?"
+  say: "{a} plus what makes {result}? Jump from {a} up to {result}. How far is it?"
+tp.MDA.22.t2.prompt:
+  text: "What number in the box makes it balance?"
+tp.MDA.22.t3.prompt:
+  text: "What number goes in the box?"
+
+sk.MDA.04.intro:
+  text: "Add many numbers: all the tens, then all the ones."
+tp.MDA.04.t1.prompt:
+  text: "Add {a}, {b} and {c}: the tens, then the ones."
+tp.MDA.04.t2.prompt:
+  text: "Add all the numbers. What is the total?"
+ls.MDA.03.outro:
+  text: "Ten ones make a new ten. Now you can add big numbers!"
+ls.MDA.12.outro:
+  text: "Need more ones? Split a ten. Now you can take away big numbers!"

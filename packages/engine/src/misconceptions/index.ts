@@ -5,6 +5,7 @@ import type { GeneratedItem, MisconceptionSpec } from '@number-island/shared';
 import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
 import { biggerUnitMore } from './rules/biggerUnitMore';
+import { borrowNoDecrement, forgotToRegroupAdd, smallerFromLarger } from './rules/columnBugs';
 import { compareFirstDigit } from './rules/compareFirstDigit';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
@@ -66,6 +67,10 @@ const RULES: Record<string, MisconceptionRule> = {
   // K02 (#17): place value to 1000
   zeroPlaceholder: zeroPlaceholder,
   compareFirstDigit: compareFirstDigit,
+  // K02 (#17): multi-digit column bugs
+  forgotToRegroupAdd: forgotToRegroupAdd,
+  smallerFromLarger: smallerFromLarger,
+  borrowNoDecrement: borrowNoDecrement,
   // K02 (#17): rounding
   roundDownAlways: roundDownAlways,
   roundWrongPlace: roundWrongPlace,

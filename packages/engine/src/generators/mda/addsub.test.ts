@@ -457,23 +457,97 @@ describe('mda.addsub validity', () => {
     }
   });
 
-  it('rejects change unknowns off the number pad, more than two addends, a − b below 0', () => {
+  it('rejects change unknowns off the pad and the line, bad extra addends, a − b below 0', () => {
     const fails = (format: ItemFormat, params: Record<string, ParamSpec>) => {
       const t = tpl(format, 'pictorial', undefined, params);
       expect(() => generateItem(t, 1)).toThrow(GenerationError);
     };
-    fails('base-ten-trade', { unknown: { kind: 'const', value: 'change' } });
-    fails('number-pad', { addends: { kind: 'const', value: 3 } });
-    fails('number-pad', {
-      a: { kind: 'const', value: 5 },
-      b: { kind: 'const', value: 9 },
-      op: { kind: 'const', value: '-' },
+    const n = (value: number | string): ParamSpec => ({ kind: 'const', value });
+    fails('base-ten-trade', { unknown: n('change') });
+    // More addends: 3–4 (MDA_ADDENDS_MAX), each 1–99, adding the result on the pad (or three in
+    // expanded form) only.
+    fails('number-pad', { addends: n(3) }); // c is 0
+    fails('number-pad', { addends: n(5), c: n(11), d: n(12) });
+    fails('number-pad', { addends: n(3), c: n(100) });
+    fails('number-pad', { addends: n(3), c: n(11), op: n('-') });
+    fails('number-pad', { addends: n(3), c: n(11), unknown: n('change') });
+    fails('base-ten-trade', { addends: n(3), c: n(11) });
+    fails('expanded-form', { addends: n(4), c: n(11), d: n(12) });
+    fails('number-pad', { a: n(5), b: n(9), op: n('-') });
+    // count-up subtracts and asks the result.
+    fails('number-line-jump', { op: n('+'), strategy: n('count-up') });
+    // A borrow in expanded form is shown for two-digit numbers only, and once.
+    fails('expanded-form', { a: n(305), b: n(128), op: n('-') });
+  });
+
+  it('adds three or four numbers on the pad and three in expanded form (MDA.04)', () => {
+    const n = (value: number | string): ParamSpec => ({ kind: 'const', value });
+    const four = generateItem(
+      tpl('number-pad', 'abstract', 'symbols', {
+        a: n(23),
+        b: n(18),
+        c: n(29),
+        d: n(14),
+        addends: n(4),
+      }),
+      1,
+    );
+    expect(four.answer).toEqual({ kind: 'number', value: 84 });
+    expect(four.params.carries).toBe(1);
+    const tokens = (four.widget as { expression: { tokens: { v?: unknown }[] } }).expression.tokens;
+    expect(tokens.map((x) => x.v ?? '_').join(' ')).toBe('23 + 18 + 29 + 14 = _');
+    expect(
+      groupedTokens(47, 25, true, [16])
+        .map((x) => ('v' in x ? x.v : '_'))
+        .join(' '),
+    ).toBe('( 40 + 20 + 10 ) + ( 7 + 5 + 6 ) = _');
+    // 52 − 27 shows the traded ten: (40 − 20) + (12 − 7).
+    expect(
+      groupedTokens(52, 27, false)
+        .map((x) => ('v' in x ? x.v : '_'))
+        .join(' '),
+    ).toBe('( 40 - 20 ) + ( 12 - 7 ) = _');
+  });
+
+  it('counts up on the open line: from b to a for count-up, from a to the result for a change', () => {
+    const n = (value: number | string): ParamSpec => ({ kind: 'const', value });
+    const up = generateItem(
+      tpl('number-line-jump', 'pictorial', 'open-number-line', {
+        a: n(62),
+        b: n(48),
+        op: n('-'),
+        strategy: n('count-up'),
+      }),
+      1,
+    );
+    expect(up.widget).toMatchObject({
+      start: 48,
+      target: 62,
+      goal: 'difference',
+      thenAsk: 'total-jump',
     });
-    fails('expanded-form', {
-      a: { kind: 'const', value: 52 },
-      b: { kind: 'const', value: 27 },
-      op: { kind: 'const', value: '-' },
-    });
+    expect(up.answer).toMatchObject({ target: { start: 48, target: 62, value: 14 } });
+    const change = generateItem(
+      tpl('number-line-jump', 'pictorial', 'open-number-line', {
+        a: n(36),
+        b: n(44),
+        unknown: n('change'),
+      }),
+      1,
+    );
+    expect(change.widget).toMatchObject({ start: 36, target: 80, goal: 'difference' });
+    expect(change.answer).toMatchObject({ target: { value: 44 } });
+    const back = generateItem(
+      tpl('number-line-jump', 'pictorial', 'open-number-line', {
+        a: n(80),
+        b: n(44),
+        op: n('-'),
+        unknown: n('change'),
+      }),
+      1,
+    );
+    expect(back.widget).toMatchObject({ start: 36, target: 80, goal: 'difference' });
+    expect(back.answer).toMatchObject({ target: { value: 44 } });
   });
 });
 

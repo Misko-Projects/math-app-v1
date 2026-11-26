@@ -1,0 +1,39 @@
+# Authored lessons (03 §4.5, §6) for the MDA gateways (K02 slice 2a: MDA.03, MDA.12). The worked
+# steps are the generator's solution on the place-value mat; the faded examples move to the open
+# number line, a second representation (03 §6.4). Other MDA skills get an auto lesson.
+strand: MDA
+lessons:
+  # MDA.03 (gateway): 47 + 38 on the mat. 7 + 8 ones make 15, ten of them are bundled into a new
+  # ten, and the tens make 8. The test-out spans the numeral, the open line and expanded form.
+  - skillId: MDA.03
+    mode: authored
+    templateId: MDA.03.t1
+    worked:
+      - params: { a: 47, b: 38, op: "+", digitsB: 2 }
+    faded:
+      - templateId: MDA.03.t2
+        params: { a: 36, b: 27, op: "+", digitsB: 2, strategy: tens-ones }
+        childSteps: 1
+      - params: { a: 58, b: 25, op: "+", digitsB: 2 }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MDA.03.t4, MDA.03.t2, MDA.03.t3] }
+    outro: ls.MDA.03.outro
+
+  # MDA.12 (gateway): 52 − 27 on the mat. 2 ones are not enough to take 7, so one ten is split
+  # into ten ones (4 tens 12 ones); then 7 ones and 2 tens go. The test-out spans the numeral, the
+  # open line and expanded form.
+  - skillId: MDA.12
+    mode: authored
+    templateId: MDA.12.t1
+    worked:
+      - params: { a: 52, b: 27, op: "-", digitsB: 2 }
+    faded:
+      - templateId: MDA.12.t2
+        params: { a: 63, b: 28, op: "-", digitsB: 2, strategy: tens-ones }
+        childSteps: 1
+      - params: { a: 81, b: 46, op: "-", digitsB: 2 }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MDA.12.t4, MDA.12.t2, MDA.12.t3] }
+    outro: ls.MDA.12.outro
