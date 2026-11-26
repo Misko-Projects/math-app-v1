@@ -180,12 +180,12 @@ describe('the first plan of a new child', () => {
     expect(plan).toMatchInlineSnapshot(`
       [
         [
-          "PV.09",
-          "ADD.02",
-        ],
-        [
           "CNT.10",
           "ADD.15",
+        ],
+        [
+          "PV.09",
+          "ADD.01",
         ],
       ]
     `);
@@ -197,12 +197,12 @@ describe('the first plan of a new child', () => {
     expect(plan).toMatchInlineSnapshot(`
       [
         [
-          "PV.09",
-          "ADD.02",
-        ],
-        [
           "CNT.10",
           "ADD.15",
+        ],
+        [
+          "PV.09",
+          "ADD.01",
         ],
         [
           "ADD.03",
@@ -218,12 +218,12 @@ describe('the first plan of a new child', () => {
     expect(plan).toMatchInlineSnapshot(`
       [
         [
-          "PV.04",
+          "ADD.06",
+          "ADD.02",
           "ADD.01",
         ],
         [
-          "ADD.06",
-          "ADD.02",
+          "PV.04",
           "ADD.01",
         ],
         [
@@ -247,29 +247,30 @@ describe('the first plan of a new child', () => {
       [
         [
           "ADD.06",
-          "PV.17",
-          "CMP.10",
-          "CNT.12",
+          "MDA.22",
+          "MDA.04",
+          "MDA.14",
           "ADD.01",
         ],
         [
           "ADD.02",
-          "PV.17",
-          "CMP.10",
-          "CNT.12",
+          "MDA.22",
+          "MDA.04",
+          "MDA.14",
           "ADD.01",
         ],
         [
           "ADD.14",
-          "PV.17",
-          "CMP.10",
-          "CNT.12",
+          "MDA.22",
+          "MDA.04",
+          "MDA.14",
           "ADD.01",
           "ADD.02",
         ],
       ]
     `);
-    expect(all(later).some((s) => s.startsWith('PV.') && gradeOf(s) === '2')).toBe(true);
+    // Grade 2's verification reviews (place value before #17 slice 2a, two-digit adding since).
+    expect(all(later).some((s) => gradeOf(s) === '2' && !facts.has(s))).toBe(true);
     expect(plan).toMatchInlineSnapshot(`
       [
         [

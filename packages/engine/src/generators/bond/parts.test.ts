@@ -281,3 +281,14 @@ describe('partners of 100 on the mat (CPS.10, PR #124 review)', () => {
     expect(steps.some((s) => s.action?.op === 'fuse')).toBe(true);
   });
 });
+
+describe('bond.parts hint overlay above twenty (PR #125 review)', () => {
+  const overlayOf = (item: { hints: unknown[] }) =>
+    (item.hints as { overlay?: unknown }[]).find((h) => h.overlay)?.overlay;
+  it('pictures a whole above 20 as base-ten pieces, not a 20-counter frame', () => {
+    const { item } = build(tpl('number-bond'), { whole: 52, part: 27, unknown: 'part' });
+    expect(overlayOf(item)).toEqual({ kind: 'base-ten', hundreds: 0, tens: 5, ones: 2 });
+    const { item: small } = build(tpl('number-bond'), { whole: 14, part: 6, unknown: 'part' });
+    expect(overlayOf(small)).toMatchObject({ kind: 'ten-frame', frames: 2, filled: [10, 4] });
+  });
+});

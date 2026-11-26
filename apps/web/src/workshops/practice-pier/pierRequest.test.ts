@@ -68,6 +68,8 @@ describe('what the Practice Pier plays', () => {
       'ALG.05.t3',
       'ALG.05.t4',
       'CMP.08.t1',
+      'MDA.15.t3',
+      'MDA.22.t2',
       'MEA.16.t1',
     ]);
     for (const t of templates) {
