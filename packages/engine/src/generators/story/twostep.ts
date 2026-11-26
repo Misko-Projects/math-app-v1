@@ -82,6 +82,8 @@ function valid(p: ParamValues): boolean {
   if (s.r1 < 1 || s.result < 1 || Math.max(s.a, s.b, s.c, s.r1, s.result) > maxN) return false;
   // The answer is never a told number, so the story cannot give it away.
   if ([s.a, s.b, s.c].includes(s.result)) return false;
+  // Nor the first step's result, so answering it (MC.first-step-only) is never copying a number.
+  if ([s.a, s.b, s.c].includes(s.r1)) return false;
   const context = asStr(p.context, 'beach-shells');
   if (!(TWOSTEP_CONTEXTS as readonly string[]).includes(context)) return false;
   const measure = STORY_CONTEXTS[context]?.measure;
@@ -130,9 +132,7 @@ export function twoStepLines(s: TwoStep, context: string, unit: string): Line[] 
 /** The two bars: the first step over the second, sharing the first step's result (null). */
 export function twoStepBar(s: TwoStep): StimulusSpec {
   const top =
-    s.ops[0] === '+'
-      ? { parts: [s.a, s.b], whole: null }
-      : { parts: [s.b, null], whole: s.a };
+    s.ops[0] === '+' ? { parts: [s.a, s.b], whole: null } : { parts: [s.b, null], whole: s.a };
   const lower =
     s.ops[1] === '+'
       ? { parts: [null, s.c], whole: '?' as const }
@@ -141,14 +141,20 @@ export function twoStepBar(s: TwoStep): StimulusSpec {
 }
 
 const say = (key: string, vars: Record<string, string | number>, action?: LessonStep['action']) =>
-  (action ? { actor: 'demo', say: key, vars, action } : { actor: 'demo', say: key, vars }) as LessonStep;
+  (action
+    ? { actor: 'demo', say: key, vars, action }
+    : { actor: 'demo', say: key, vars }) as LessonStep;
 
 /** A step's line: "34 and 18 make 52." or "52 take away 25 leaves 27." */
 const stepLine = (x: number, op: string, y: number, n: number, parts: number[]) =>
-  say(op === '+' ? 'gen.story.twostep.join' : 'gen.story.twostep.take', { x, y, n }, {
-    op: 'draw-bar',
-    args: { parts },
-  });
+  say(
+    op === '+' ? 'gen.story.twostep.join' : 'gen.story.twostep.take',
+    { x, y, n },
+    {
+      op: 'draw-bar',
+      args: { parts },
+    },
+  );
 
 export const storyTwostep: GeneratorDef = {
   id: 'story.twostep',
@@ -207,7 +213,12 @@ export const storyTwostep: GeneratorDef = {
       // number-pad: the template's prompt tells the story (it fixes ops and context).
       widget:
         t.format === 'number-pad'
-          ? { format: 'number-pad', stimulus: picture, blanks: [{ id: 'x', maxDigits: digits }], unit: null }
+          ? {
+              format: 'number-pad',
+              stimulus: picture,
+              blanks: [{ id: 'x', maxDigits: digits }],
+              unit: null,
+            }
           : {
               format: 'story-problem',
               context,
@@ -246,11 +257,7 @@ export const storyTwostep: GeneratorDef = {
     return [
       say('gen.story.twostep.listen', {}, { op: 'highlight-line', args: { index: lines - 1 } }),
       ...steps,
-      say(
-        'gen.story.twostep.answer',
-        { n: s.result },
-        { op: 'answer', args: { value: s.result } },
-      ),
+      say('gen.story.twostep.answer', { n: s.result }, { op: 'answer', args: { value: s.result } }),
     ];
   },
 };

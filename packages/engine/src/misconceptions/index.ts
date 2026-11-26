@@ -16,16 +16,16 @@ import { compareFirstDigit } from './rules/compareFirstDigit';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
+import { dollarAsOne } from './rules/dollarAsOne';
 import { equalsAddAll } from './rules/equalsAddAll';
 import { equalsMeansAnswer } from './rules/equalsMeansAnswer';
 import { faceValue } from './rules/faceValue';
+import { firstStepOnly } from './rules/firstStepOnly';
 import { forgotTheTen } from './rules/forgotTheTen';
 import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
-import { dollarAsOne } from './rules/dollarAsOne';
-import { firstStepOnly } from './rules/firstStepOnly';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { minuteHandAsMinutes } from './rules/minuteHandNumber';
 import {

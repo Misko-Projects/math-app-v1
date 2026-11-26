@@ -376,7 +376,12 @@ export function storyLines(s: Story, context: string, unit = 'in', dollar = 0): 
  * the unit, so the answer box needs none. Compare stories set a first plank against a second one,
  * or a kite against an apple; the bigger is the first plank and the kite.
  */
-function measuredLines(s: Story, measure: 'length' | 'money', unit: string, dollar: number): Line[] {
+function measuredLines(
+  s: Story,
+  measure: 'length' | 'money',
+  unit: string,
+  dollar: number,
+): Line[] {
   const p = measure === 'length' ? 'p.story.len' : 'p.story.money';
   const L = (k: string, vars: Record<string, string | number> = {}): Line => ({
     key: `${p}.${k}`,
@@ -895,10 +900,14 @@ export const storyAddsub: GeneratorDef = {
           const parts = bar.parts.map((v) => (typeof v === 'number' ? v : s.result));
           const think =
             s.family === 'compare' && s.op === '-'
-              ? say('gen.story.addsub.count-up', { x: s.b, y: s.a }, {
-                  op: 'draw-bar',
-                  args: { parts },
-                })
+              ? say(
+                  'gen.story.addsub.count-up',
+                  { x: s.b, y: s.a },
+                  {
+                    op: 'draw-bar',
+                    args: { parts },
+                  },
+                )
               : thinkLine(s, { op: 'draw-bar', args: { parts } });
           return [first, think, answer];
         }

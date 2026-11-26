@@ -43,8 +43,8 @@ import {
   useTwoStep,
   useWidgetRoom,
 } from '../kit';
-import { layoutBarModel } from '../kit/barModel';
 import { BoxEntry, enteredValues } from '../kit/BoxEntry';
+import { layoutBarModel } from '../kit/barModel';
 import { StimulusView } from '../kit/StimulusView';
 import type { ConfigFor, WidgetProps } from '../types';
 import {
