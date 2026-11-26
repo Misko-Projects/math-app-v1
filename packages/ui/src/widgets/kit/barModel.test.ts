@@ -81,6 +81,22 @@ describe('bar model layout (#17 slice 4d)', () => {
     expect(extra?.kind).toBe('unknown');
   });
 
+  it('a comparison never draws a smaller amount wider (review #134: 30 and 32 more)', () => {
+    const spec: BarSpec = {
+      kind: 'bar-model',
+      parts: [30, 32],
+      whole: '?',
+      compare: { bigger: '?', smaller: 30 },
+    };
+    const [, small, extra] = layoutBarModel(spec, 400).pieces;
+    expect(small?.label).toBe('30');
+    expect(extra?.label).toBe('32');
+    expect(small?.w ?? 0).toBeLessThanOrEqual(extra?.w ?? 0);
+    // And a clearly bigger extra piece is drawn wider (72 vs 45 + 27: 45 wider than 27).
+    const [, s2, e2] = layoutBarModel(COMPARE, 400).pieces;
+    expect(s2?.w ?? 0).toBeGreaterThan(e2?.w ?? 0);
+  });
+
   it('two steps: the first step result sits at the same place and width in both bars', () => {
     // +−: the whole first bar is the whole second bar.
     const pm = layoutBarModel(PLUS_MINUS, 500);

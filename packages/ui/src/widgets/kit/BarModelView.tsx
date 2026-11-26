@@ -35,7 +35,7 @@ export function BarModelView({
         <span
           // biome-ignore lint/suspicious/noArrayIndexKey: the pieces are positional
           key={i}
-          className="ni-bar__piece ni-number"
+          className="ni-bar__piece"
           data-kind={p.kind}
           data-tone={p.tone}
           style={{ left: p.x, top: p.y, width: p.w }}
@@ -51,10 +51,7 @@ export function BarModelView({
           data-side={b.side}
           style={{ left: b.x, top: b.y, width: b.w }}
         >
-          <span
-            className="ni-bar__whole ni-number"
-            data-kind={b.label === '?' ? 'unknown' : 'known'}
-          >
+          <span className="ni-bar__whole" data-kind={b.label === '?' ? 'unknown' : 'known'}>
             {b.label}
           </span>
         </span>

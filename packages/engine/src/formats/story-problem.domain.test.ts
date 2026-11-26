@@ -126,6 +126,15 @@ describe('story-problem: the bounds of what the widget draws', () => {
       'bar model',
     );
     expect(bar({ kind: 'bar-model', parts: [null, '?'], whole: 72 }).join()).toContain('bar model');
+    // Review #134: both first-result markers in one bar leave the second bar unlinked.
+    expect(
+      bar({
+        kind: 'bar-model',
+        parts: [null, 15],
+        whole: null,
+        lower: { parts: [22, '?'], whole: 60 },
+      }).join(),
+    ).toContain('bar model');
   });
 
   it(`an answer box takes 1 to ${STORY_DIGITS_MAX} digits`, () => {

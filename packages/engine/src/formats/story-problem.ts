@@ -233,12 +233,17 @@ const configSchema = storyProblemConfigSchema.superRefine((c, ctx) => {
       ...(bar.compare ? [bar.compare.bigger, bar.compare.smaller] : []),
     ];
     const firsts = amounts.filter((v) => v === null).length;
+    // A two-step model's first result is in each bar exactly once (review #134).
+    const nulls = (vs: readonly unknown[]) => vs.filter((v) => v === null).length;
+    const shared = bar.lower
+      ? nulls([...bar.parts, bar.whole]) === 1 && nulls([...bar.lower.parts, bar.lower.whole]) === 1
+      : firsts === 0;
     if (
       rows.some((r) => r.length < 1 || r.length > STORY_BAR_PARTS_MAX) ||
       amounts.some((v) => typeof v === 'number' && !whole(v, 1, STORY_BAR_PART_MAX)) ||
       !amounts.includes('?') ||
       (bar.compare !== undefined && bar.lower !== undefined) ||
-      (bar.lower === undefined ? firsts > 0 : firsts !== 2)
+      !shared
     ) {
       ctx.addIssue({
         code: 'custom',

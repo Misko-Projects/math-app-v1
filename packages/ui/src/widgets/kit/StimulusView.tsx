@@ -307,7 +307,8 @@ export function StimulusView({
           <BarModelView
             spec={spec}
             maxWidth={maxWidth}
-            label={label ?? describeBarModel(spec, t)}
+            // The structure is the picture: a caller's label (a hint card's title) comes first, never instead.
+            label={label ? `${label}: ${describeBarModel(spec, t)}` : describeBarModel(spec, t)}
           />
         </div>
       );

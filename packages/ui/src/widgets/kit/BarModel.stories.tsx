@@ -1,7 +1,7 @@
 import type { StimulusSpec } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
-import { pieceNeed } from './barModel';
+import { BAR_H, pieceNeed, ROW_GAP } from './barModel';
 import { StimulusView } from './StimulusView';
 
 /**
@@ -27,6 +27,10 @@ async function check(root: HTMLElement, unknown: number, pieces: number) {
   const ps = [...root.querySelectorAll<HTMLElement>('.ni-bar__piece')];
   await expect(ps).toHaveLength(pieces);
   for (const p of ps) {
+    // Review #134: each piece is drawn at exactly its layout size (no shared numeral style grows it).
+    const r = p.getBoundingClientRect();
+    await expect(Math.abs(r.height - BAR_H)).toBeLessThanOrEqual(1);
+    await expect(Math.abs(r.width - Number.parseFloat(p.style.width))).toBeLessThanOrEqual(1);
     await expect(p.getBoundingClientRect().width).toBeGreaterThanOrEqual(
       pieceNeed(p.textContent ?? '') - 1,
     );
@@ -67,6 +71,24 @@ export const Compare: Story = {
     const b = big?.getBoundingClientRect();
     const e = extra?.getBoundingClientRect();
     await expect(Math.abs((b?.right ?? 0) - (e?.right ?? 0))).toBeLessThanOrEqual(2);
+    // The rows do not overlap: the gap between them is ROW_GAP.
+    await expect(Math.abs((e?.top ?? 0) - (b?.bottom ?? 0) - ROW_GAP)).toBeLessThanOrEqual(1);
+  },
+};
+
+/**
+ * In a hint card (HintPicture passes its title as the label), the name keeps the bar's structure
+ * after the title (review #134).
+ */
+export const HintLabelKeepsStructure: Story = {
+  render: () => <StimulusView spec={twoStep} maxWidth={420} label="A picture to help you" />,
+  play: async ({ canvasElement }) => {
+    const name = canvasElement.querySelector('.ni-bar')?.getAttribute('aria-label') ?? '';
+    await expect(name).toMatch(/^A picture to help you: /);
+    await expect(name).toContain('Bar 1');
+    await expect(name).toContain('Bar 2');
+    await expect(name).toContain('?');
+    await expect(name).not.toMatch(/\b67\b/);
   },
 };
 

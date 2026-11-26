@@ -37,12 +37,6 @@ export const pieceNeed = (label: string): number =>
   label === '' ? BLANK_PIECE : Math.max(MIN_PIECE, 19 * label.length + 20);
 /** The step number left of each bar of a two-step model. */
 export const BADGE_W = 44;
-/** A comparison's smaller bar, as a share of the bigger, by the ratio of the two amounts. */
-const COMPARE_BUCKETS: readonly [number, number][] = [
-  [0.7, 0.75],
-  [0.45, 0.6],
-  [0, 0.45],
-];
 /** A piece's weight by its ratio to the biggest amount of the model. */
 const BUCKETS: readonly [number, number][] = [
   [0.67, 1],
@@ -206,8 +200,11 @@ function layoutCompare(spec: BarSpec, maxWidth: number): BarLayout {
   if (big === undefined) big = (small ?? 0) + (gap ?? 0);
   if (small === undefined) small = big - (gap ?? 0);
   if (gap === undefined) gap = big - small;
-  const ratio = big > 0 ? small / big : 1;
-  const share = (COMPARE_BUCKETS.find(([at]) => ratio >= at) as [number, number])[1];
+  // The smaller bar and the extra piece share the lower row by their own buckets (the bigger of
+  // the two wider, equal within 1.5x), so the row never draws a smaller amount wider (review #134).
+  const ws = pieceWeight(small, Math.max(small, gap));
+  const wg = pieceWeight(gap, Math.max(small, gap));
+  const share = ws / (ws + wg);
   const minWidth = Math.ceil(
     Math.max(
       pieceNeed(labelOf(c.bigger)),
