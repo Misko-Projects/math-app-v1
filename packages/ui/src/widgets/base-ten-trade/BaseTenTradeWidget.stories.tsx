@@ -265,10 +265,12 @@ async function expectCountable(root: HTMLElement, minU = U) {
   const unit = root.querySelector('.ni-btt__mat [data-piece^="ones-"]');
   if (unit) await expect(unit.getBoundingClientRect().width).toBeGreaterThanOrEqual(minU);
   // The mat fills its area once the widget has measured it (a frame or two after a change; on a
-  // busy runner the first read can come before that).
+  // busy runner the first read can come before that). In a short room's steps its area is the
+  // grid cell beside the problem.
+  const area = root.dataset.arrange === 'steps' ? '.ni-btt__stepsmat' : '.ni-btt__main';
   await waitFor(() =>
     expect(q(root, '.ni-btt__mat').getBoundingClientRect().width).toBeGreaterThanOrEqual(
-      q(root, '.ni-btt__main').getBoundingClientRect().width - 2,
+      q(root, area).getBoundingClientRect().width - 2,
     ),
   );
 }
@@ -2058,10 +2060,9 @@ export const PierThreeQuartersRegroup: Story = {
 };
 
 /**
- * Add with a trade where the room is too small for it at countable sizes (960 × 600: the
- * three-column mat is 645 × 256 px at 18 px pieces, with the tray, the equation, the pad and
- * Check to place): the widget keeps countable pieces and its design height, and the room scrolls
- * (the pier fit check lists MDA.08.t1 at this viewport). It never squeezes the pieces.
+ * Add with a trade in rooms between the viewports: it fits (in two steps where the usual layout
+ * would need pieces under 18 px), or keeps countable pieces and its design height and the room
+ * scrolls. It never squeezes the pieces.
  */
 const pierAddIn = (room: PierRoom): Story => ({
   args: { config: pierAdd, tier: 'concrete' },
@@ -2080,13 +2081,136 @@ const pierAddIn = (room: PierRoom): Story => ({
     }
   },
 });
-export const PierSmallAddScrolls: Story = {
-  ...pierAddIn('small'),
+// ---------- 960 × 600: the pieces, then the answer (#35, layout.ts planSteps) ----------
+
+/** MDA.12.t1 at its fullest mat: 98 − 19, one ten split, 8 tens and 18 ones. */
+const pierTake: Config = {
+  format: 'base-ten-trade',
+  start: { hundreds: 0, tens: 9, ones: 8 },
+  operation: { op: '-', operand: { hundreds: 0, tens: 1, ones: 9 } },
+  goal: 'compute',
+  showAlgorithm: false,
+  thenAsk: true,
+};
+const stepCue = (root: HTMLElement, cue: 'next' | 'back') =>
+  q<HTMLButtonElement>(root, `[data-cue="${cue}"] button`);
+const padKeys = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
+
+/** The answer step: the pad in one row of full keys, 12 px apart, 1–9, 0, back; Next's place is Check's. */
+async function expectAnswerStep(canvasElement: HTMLElement, root: HTMLElement) {
+  await expect(root).toHaveAttribute('data-step', 'answer');
+  await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+  const keys = padKeys(root);
+  await expect(keys.map((k) => k.dataset.key)).toEqual([...'1234567890'.split(''), 'back']);
+  const boxes = keys.map((k) => k.getBoundingClientRect());
+  for (const [i, r] of boxes.entries()) {
+    await expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(64 - 0.5);
+    await expect(Math.round(r.top)).toBe(Math.round(boxes[0]?.top ?? -1));
+    const next = boxes[i + 1];
+    if (next) await expect(next.left - r.right).toBeGreaterThanOrEqual(12 - 0.5);
+  }
+  const digit = keys[0]?.querySelector('.ni-pad__digit') as HTMLElement;
+  await expect(Number.parseFloat(getComputedStyle(digit).fontSize)).toBeGreaterThanOrEqual(32);
+}
+
+/**
+ * 960 × 600, add with a trade (MDA.08.t1): the mat with no Hundreds column, the tray beside it and
+ * Next where Check will be. The child adds, trades, goes on, types the answer, goes back and on
+ * (the answer stays), and checks: one response, as in the large room, and Next and Back trace
+ * nothing.
+ */
+export const PierSmallAddSteps: Story = {
+  args: { config: pierAdd, tier: 'concrete' },
   tags: ['!visual'],
-  play: async (ctx) => {
-    await pierAddIn('small').play?.(ctx);
-    const root = await findWidget(ctx.canvasElement, ROOT);
-    await expect(root).toHaveAttribute('data-arrange', 'tall');
+  render: inRoom('small'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root).toHaveAttribute('data-arrange', 'steps');
+    await expect(root).toHaveAttribute('data-step', 'pieces');
+    await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+    await expectCountable(root, 18);
+    await expect(root.querySelector('.ni-btt__mat [data-col="hundreds"]')).toBeNull();
+    await expect(padKeys(root)).toHaveLength(0);
+    // The button's slot (its layout box: a disabled button is drawn 4 px lower).
+    const nextBox = q(root, '[data-cue="next"]').getBoundingClientRect();
+    await userEvent.click(pending(root, 'ones'));
+    await userEvent.click(columnPad(root, 'ones'));
+    await settled(root);
+    await userEvent.click(trade(root, 'ones', 'tens'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 7, ones: 7 });
+    await userEvent.click(stepCue(root, 'next'));
+    await expectAnswerStep(canvasElement, root);
+    await expect(root.querySelector('.ni-btt__answer')).toHaveFocus();
+    await userEvent.keyboard('7');
+    await userEvent.click(q(root, '.ni-pad__key[data-key="7"]'));
+    // Check stands where Next stood.
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeEnabled();
+    const slot = q(root, '.ni-btt__stepside .ni-btt__checkwrap').getBoundingClientRect();
+    await expect(Math.round(slot.left)).toBe(Math.round(nextBox.left));
+    await expect(Math.round(slot.top)).toBe(Math.round(nextBox.top));
+    await userEvent.click(stepCue(root, 'back'));
+    await expect(root).toHaveAttribute('data-step', 'pieces');
+    await expect(root.querySelector('.ni-btt__mat')).toHaveFocus();
+    await userEvent.click(stepCue(root, 'next'));
+    await expect(root.querySelector('.ni-btt__answer')).toHaveTextContent('77');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'state', value: expect.objectContaining({ value: 77 }) }),
+    );
+    const targets = traceOf(args.onInteract).map((e) => e.target);
+    await expect(targets).not.toContain('next');
+    await expect(targets).not.toContain('back');
+  },
+};
+
+/**
+ * 960 × 600, take away (MDA.12.t1 at its fullest): split a ten, take 1 ten and 9 ones into the
+ * take-away box beside the mat (pieces standing, as on the mat), put one back, take it again; the
+ * answer step by keyboard alone.
+ */
+export const PierSmallTakeSteps: Story = {
+  args: { config: pierTake, tier: 'concrete' },
+  tags: ['!visual'],
+  render: inRoom('small'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root).toHaveAttribute('data-arrange', 'steps');
+    await userEvent.click(trade(root, 'tens', 'ones'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 8, ones: 18 });
+    await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+    await expectCountable(root, 18);
+    for (const [c, n] of [
+      ['tens', 1],
+      ['ones', 9],
+    ] as const) {
+      for (let i = 0; i < n; i++) {
+        await userEvent.click(grabItem(root, c));
+        await userEvent.click(nest(root));
+        await settled(root);
+      }
+    }
+    await expect(takenPieces(root, 'ones')).toBe(9);
+    await userEvent.click(backButton(root, 'ones') as HTMLButtonElement);
+    await settled(root);
+    await expect(takenPieces(root, 'ones')).toBe(8);
+    await userEvent.click(grabItem(root, 'ones'));
+    await userEvent.click(nest(root));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 7, ones: 9 });
+    await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+    // Keyboard: Next by Enter, the answer typed, Check by Enter.
+    stepCue(root, 'next').focus();
+    await userEvent.keyboard('{Enter}');
+    await expectAnswerStep(canvasElement, root);
+    await expect(root.querySelector('.ni-btt__answer')).toHaveFocus();
+    await expect(root.querySelector('[role="status"]')).toHaveTextContent('Your answer');
+    await userEvent.keyboard('79{Enter}');
+    await waitFor(() => expect(args.onResponse).toHaveBeenCalledTimes(1));
   },
 };
 export const PierQuarterAdd: Story = { ...pierAddIn('quarter'), tags: ['!visual'] };
@@ -2097,7 +2221,7 @@ const pierResized = (
   config: Config,
   from: PierRoom,
   to: PierRoom,
-  after: 'usual' | 'in-side' | 'tall',
+  after: 'usual' | 'in-side' | 'steps' | 'tall',
 ): Story => ({
   args: { config, tier: config.goal === 'compute' ? 'concrete' : 'pictorial' },
   // A fit check in a pier-sized room, not a look to keep a baseline of.
@@ -2136,11 +2260,11 @@ export const PierResizeRegroupShrinks: Story = {
  * 960 × 600, where it scrolls, and grown to 1280 × 800, it fits the room.
  */
 export const PierResizeAddShrinks: Story = {
-  ...pierResized(pierAdd, 'tablet', 'small', 'tall'),
+  ...pierResized(pierAdd, 'tablet', 'small', 'steps'),
   tags: ['!visual'],
 };
 export const PierResizeAddGrows: Story = {
-  ...pierResized(pierAdd, 'small', 'tablet', 'usual'),
+  ...pierResized(pierAdd, 'small', 'tablet', 'steps'),
   tags: ['!visual'],
 };
 
@@ -2316,6 +2440,42 @@ export const PierTabletDisksFullest: Story = {
   ...pierDisks(disksFullest, 'tablet', DISK_MAX),
   tags: ['!visual'],
 };
+/**
+ * 960 × 600, a three-digit compute item with disks (MDA.05 / MDA.17 to come), fullest: 990 − 15
+ * with two tens split, a column of 20 ones. Its three columns at the disks' floor (26 px) are a
+ * 634 × 208 px mat, and the take-away beside it does not fit (276 px too wide; layout.steps.test.ts):
+ * the widget keeps the usual layout and the room scrolls. Measured: beside the side panel its
+ * disks are 25 px, one under DISK_FLOOR (no shipped item draws this; the three-digit compute
+ * slice must solve it before it ships).
+ */
+export const PierSmallDisksCompute: Story = {
+  args: {
+    config: {
+      format: 'base-ten-trade',
+      start: { hundreds: 9, tens: 9, ones: 0 },
+      operation: { op: '-', operand: { hundreds: 0, tens: 1, ones: 5 } },
+      goal: 'compute',
+      showAlgorithm: false,
+      thenAsk: true,
+    },
+    tier: 'concrete',
+  },
+  tags: ['!visual'],
+  render: inRoom('small'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root).toHaveAttribute('data-arrange', 'tall');
+    await expectTradeDisks(root, DISK_FLOOR - 1);
+    for (let i = 0; i < 2; i++) {
+      await userEvent.click(trade(root, 'tens', 'ones'));
+      await settled(root);
+    }
+    await expect(mat(root)).toEqual({ hundreds: 9, tens: 7, ones: 20 });
+    await expectTradeDisks(root, DISK_FLOOR - 1);
+  },
+};
+
 /** A two-digit regroup keeps its proportional rods and cubes (no K–1 item changes). */
 export const TwoDigitMatsKeepTheirBlocks: Story = {
   args: { config: pierRegroup99, tier: 'pictorial' },

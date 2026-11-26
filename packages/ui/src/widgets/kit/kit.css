@@ -539,6 +539,15 @@
 .ni-pad[data-shape="4x3"] {
   grid-template-columns: repeat(4, var(--pad-key, var(--target-big)));
 }
+/* One row (a short, wide room): 1–9, 0, backspace; every key a full key wide. */
+.ni-pad[data-shape="row"] {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--pad-key, var(--target-big));
+}
+.ni-pad[data-keys="compact"][data-shape="row"] {
+  grid-auto-columns: var(--target-min);
+}
 .ni-pad__key {
   display: grid;
   place-items: center;
