@@ -249,8 +249,11 @@ export function groupedTokens(
   if (plus && Math.max(a, b, ...more) >= 100) {
     // Three-digit sums: every hundred, then every ten, then every one, a zero term dropped.
     const nums = [a, b, ...more];
-    const terms = [100, 10, 1]
-      .flatMap((u) => nums.map((x) => (Math.floor(x / u) % 10) * u))
+    // The leading term keeps every place above the hundreds (1234: 1000), as the tens did.
+    const part = (x: number, u: number) =>
+      u === 1000 ? Math.floor(x / 1000) * 1000 : (Math.floor(x / u) % 10) * u;
+    const terms = [1000, 100, 10, 1]
+      .flatMap((u) => nums.map((x) => part(x, u)))
       .filter((v) => v > 0);
     return [
       ...terms.flatMap((v, i): ExpressionToken[] =>

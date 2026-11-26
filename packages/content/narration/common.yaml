@@ -2082,7 +2082,7 @@ h.mda.add-all-tens:
 h.mda.all-ones:
   text: "Then add all the ones. Do they make a new ten?"
 fb.mc.forgot-to-regroup-add:
-  text: "Did a place make ten or more? That is one more for the next place."
+  text: "Did a place make ten or more? Each ten makes one more in the next place."
 fb.mc.smaller-from-larger:
   text: "Need more to take away in a place? Split one from the next place first."
 fb.mc.borrow-no-decrement:

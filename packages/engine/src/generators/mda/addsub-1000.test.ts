@@ -121,6 +121,22 @@ describe('three-digit sums', () => {
     ]);
     expect(words(305, 201)).toEqual([300, '+', 200, '+', 5, '+', 1, '=', 'blank']);
     expect(words(456, 78)).toEqual([400, '+', 50, '+', 70, '+', 6, '+', 8, '=', 'blank']);
+    // Review round 1: a thousands place is kept, so the terms always sum to the answer.
+    expect(words(1234, 56)).toEqual([
+      1000,
+      '+',
+      200,
+      '+',
+      30,
+      '+',
+      50,
+      '+',
+      4,
+      '+',
+      6,
+      '=',
+      'blank',
+    ]);
   });
 
   it('the worked solutions go place by place and name only places on the card', () => {

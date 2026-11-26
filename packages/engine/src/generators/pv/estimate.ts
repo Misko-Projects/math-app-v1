@@ -60,19 +60,23 @@ export function estimateParts(p: ParamValues): {
   };
 }
 
-/** The estimate with both numbers cut down to the place, or null when that is the estimate or 0. */
-export function roundedDownEstimate(p: ParamValues): number | null {
+/**
+ * The estimate with both numbers cut down to the place, or null when that is the estimate. A
+ * typed 0 (180 − 120 cut down to 100 − 100) is a slip MC.round-down-always reads; as an option
+ * (`positive`) it is left out.
+ */
+export function roundedDownEstimate(p: ParamValues, positive = false): number | null {
   const { a, b, plus, place, estimate } = estimateParts(p);
   const ta = Math.floor(a / place) * place;
   const tb = Math.floor(b / place) * place;
   const r = plus ? ta + tb : ta - tb;
-  return r !== estimate && r > 0 ? r : null;
+  return r !== estimate && r >= (positive ? 1 : 0) ? r : null;
 }
 
 /** The three numeral-pick values: the estimate first (see the header). */
 export function estimateOptions(p: ParamValues): number[] {
   const { place, estimate } = estimateParts(p);
-  const down = roundedDownEstimate(p);
+  const down = roundedDownEstimate(p, true);
   const out = [estimate];
   if (down !== null) out.push(down);
   // One place off, away from the cut-down distractor where there is one.

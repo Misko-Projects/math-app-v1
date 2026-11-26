@@ -87,6 +87,11 @@ describe('pv.estimate', () => {
     const item = generateItemFromParams(t, { a: 470, b: 250, op: '+', place: 100 });
     expect(roundDownAlways.match(item, { kind: 'number', value: 600 })).toBe(true);
     expect(roundDownAlways.match(item, { kind: 'number', value: 800 })).toBe(false);
+    // A typed 0 is read too (180 − 120: 100 − 100), though no option offers it.
+    const zero = generateItemFromParams(t, { a: 180, b: 120, op: '-', place: 100 });
+    expect(roundDownAlways.match(zero, { kind: 'number', value: 0 })).toBe(true);
+    expect(roundDownAlways.match(zero, { kind: 'number', value: 100 })).toBe(false);
+    expect(estimateOptions(zero.params)).not.toContain(0);
     const down = generateItemFromParams(t, { a: 420, b: 230, op: '+', place: 100 });
     expect(roundDownAlways.predict?.(down)).toBeNull();
   });
