@@ -2905,10 +2905,15 @@ const disksFuseFullest: Config = {
  * Ten of fifteen tens are joined into one hundred, then split again (a trade can be undone), then
  * joined for good: ten disks leave the tens, one arrives in the hundreds. The tray offers only
  * tens (the kind the trade uses up), and the mat still has its hundreds and ones columns.
+ *
+ * Reduced motion, as PierSmallDisksFullest (#123): each trade happens at once, so the three
+ * trades never race `pressTrade`'s wait for the pieces to settle (animated, a trade's ~0.9 s of
+ * moves sometimes outran it on a slow CI runner). The story checks the mat after each trade.
  */
 export const DisksMakeAHundred: Story = {
   args: { config: disksFuse },
   render: renderTablet,
+  globals: { motion: 'reduced' },
   play: async ({ canvasElement, args }) => {
     await expect(btbModel().configSchema.safeParse(disksFuse).success).toBe(true);
     const root = await findWidget(canvasElement, ROOT);
@@ -2980,9 +2985,9 @@ const pierDisks = (config: Config, room: PierRoom): Story => ({
  * 9 ones beside the goal, its chips, the tray and Check. The disks stay countable (their fives
  * stand upright here, which keeps them larger), and the trade leaves them the same size.
  *
- * Reduced motion: the trade happens at once. This story checks the mat after it, not the move
- * (DisksMakeAHundred does); animated, the trade's ~0.9 s of moves met `pressTrade`'s wait for
- * the pieces to settle, and a slow CI runner sometimes ran past it (#35).
+ * Reduced motion: the trade happens at once. This story checks the mat after it, not the move;
+ * animated, the trade's ~0.9 s of moves met `pressTrade`'s wait for the pieces to settle, and a
+ * slow CI runner sometimes ran past it (#35).
  */
 export const PierSmallDisksFullest: Story = {
   ...pierDisks(disksFuseFullest, 'small'),
