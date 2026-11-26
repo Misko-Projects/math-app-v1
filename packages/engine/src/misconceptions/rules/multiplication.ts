@@ -128,7 +128,19 @@ function doubled(item: GeneratedItem): { t: Product; short: number[] } | null {
   const four = t.g === 4 || t.p === 4;
   const eight = t.g === 8 || t.p === 8;
   if (!four && !eight) return null;
-  return { t, short: eight && !four ? [t.v / 2, t.v / 4] : [t.v / 2] };
+  // The factor doubled is the generator's family factor (4 × 8 in family x8 doubles from 4 three
+  // times, PR #131 R2); without a family, an 8 is doubled unless the other factor is 4.
+  const family = item.params.family;
+  const doubledFactor =
+    family === 'x8' && eight ? 8 : family === 'x4' && four ? 4 : eight && !four ? 8 : 4;
+  return { t, short: doubledFactor === 8 ? [t.v / 2, t.v / 4] : [t.v / 2] };
+}
+
+/** A split array must have its line in the middle before a too-short total says "double again". */
+function splitInMiddle(item: GeneratedItem, r: ResponseValue): boolean {
+  if (item.widget.format !== 'array-build' || item.answer.kind !== 'state') return true;
+  const at = item.answer.target.splitAt;
+  return typeof at !== 'number' || (r.kind === 'state' && r.value.split === at);
 }
 
 export const doubleOnce: MisconceptionRule = {
@@ -141,7 +153,7 @@ export const doubleOnce: MisconceptionRule = {
   },
   match(item, r) {
     const d = doubled(item);
-    return d !== null && totalIs(item, d.t, r, d.short);
+    return d !== null && splitInMiddle(item, r) && totalIs(item, d.t, r, d.short);
   },
 };
 

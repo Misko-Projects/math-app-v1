@@ -1753,7 +1753,7 @@ h.mul.add-or-take-any:
 h.mul.easy-pair:
   text: "Look at the number next to the first box. Times the other two numbers first."
 h.mul.pair-first:
-  text: "Times {x} and {y} first. That makes one group."
+  text: "Do {x} times {y} first. That makes one group."
 h.mul.then-last:
   text: "Then times that by the number left."
 h.mul.break-five:
@@ -1864,7 +1864,7 @@ gen.mul.facts.split-half:
   text: "Draw a line down the middle."
   level: "2"
 gen.mul.facts.pair:
-  text: "Times {x} and {y} first. That makes {part}."
+  text: "Do {x} times {y} first. That makes {part}."
   level: "2"
 gen.mul.tens.tens:
   text: "{a} times {t} tens is {tens} tens."

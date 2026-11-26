@@ -383,6 +383,10 @@ describe('PR #131 review round 1', () => {
     const dbl = solved(split, { a: 8, b: 10, family: 'x8', strategy: 'double', mode: 'split' });
     expect(doubleOnce.match(dbl, st({ rows: 10, cols: 8, split: 4, value: 40 }))).toBe(true);
     expect(doubleOnce.predict?.(dbl)).toEqual(st({ rows: 10, cols: 8, split: 4, value: 40 }));
+    // R2: an uneven split's smaller part is not "double again".
+    const six = solved(split, { a: 8, b: 6, family: 'x8', strategy: 'double', mode: 'split' });
+    expect(doubleOnce.match(six, st({ rows: 6, cols: 8, split: 2, value: 12 }))).toBe(false);
+    expect(doubleOnce.match(six, st({ rows: 6, cols: 8, split: 4, value: 24 }))).toBe(true);
     const brk = solved(split, { a: 7, b: 6, strategy: 'break-apart', mode: 'split' });
     expect(partialProductDropped.match(brk, st({ rows: 6, cols: 7, split: 5, value: 30 }))).toBe(
       true,
@@ -408,6 +412,10 @@ describe('PR #131 review round 1', () => {
     const four = solved(pad, { a: 4, b: 8, family: 'x4' });
     expect(doubleOnce.match(four, n(16))).toBe(true);
     expect(doubleOnce.match(four, n(8))).toBe(false);
+    // R2: 4 × 8 in family x8 doubles the 4 three times: 8 and 16 both stop short.
+    const asEight = solved(pad, { a: 4, b: 8, family: 'x8' });
+    expect(doubleOnce.match(asEight, n(8))).toBe(true);
+    expect(doubleOnce.match(asEight, n(16))).toBe(true);
   });
 
   it('a fact in a strategy skill shows that strategy in its worked solution', () => {
