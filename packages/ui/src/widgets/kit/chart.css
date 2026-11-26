@@ -150,6 +150,12 @@
   display: flex;
   box-sizing: border-box;
 }
+/* A read line plot's named stacks (DAT.03): invisible, for screen readers; the svg draws the Xs. */
+.ni-chart__stack,
+.ni-chart__stackx {
+  position: absolute;
+  pointer-events: none;
+}
 .ni-chart__label > * {
   flex: 1 1 auto;
   min-width: 0;

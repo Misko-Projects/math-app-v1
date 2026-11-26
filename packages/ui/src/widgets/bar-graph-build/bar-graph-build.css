@@ -70,6 +70,8 @@
   transform: rotate(var(--tilt, 0deg));
 }
 .ni-bgb__lengths {
+  margin: 0;
+  list-style: none;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;

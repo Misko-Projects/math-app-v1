@@ -62,7 +62,7 @@ export {
   describeCoins,
   pictureQuarterPx,
 } from './CoinsView';
-export { type ChartGeometry, chartGeometry, type SlotGeometry } from './chartLayout';
+export { type ChartGeometry, chartGeometry, formatLength, type SlotGeometry } from './chartLayout';
 export { useCommitBarrier } from './commit';
 export {
   applyPadKey,

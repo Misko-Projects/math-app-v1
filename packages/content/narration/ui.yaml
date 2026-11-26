@@ -1283,6 +1283,9 @@ ui.widget.chart.mark.x:
 ui.widget.chart.data-title:
   text: "Count them"
   level: K
+ui.widget.chart.lengths:
+  text: "The lengths"
+  level: "2"
 ui.widget.chart.build-title:
   text: "Your graph"
   level: K

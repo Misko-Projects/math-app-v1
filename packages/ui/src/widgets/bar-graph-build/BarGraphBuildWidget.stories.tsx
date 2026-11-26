@@ -955,3 +955,53 @@ export const RestLandscapeMin: Story = {
     await expectChartShows(built(root), { fish: 0, shell: 0, crab: 0 });
   },
 };
+
+/** DAT.03's build bound: four whole-inch marks, a stack of 5 (the templates' cap), ten lengths. */
+const dat03Lengths = [18, 18, 19, 18, 17, 18, 19, 20, 17, 19];
+const dat03Build: Config = {
+  ...xsAtBound,
+  chart: { ...xsAtBound.chart, axisMax: 5, lineScale: { min: 17, max: 20, step: 1 } },
+  data: { kind: 'measurements', values: dat03Lengths },
+};
+
+/**
+ * DAT.03: the lengths are one list item each, in reading order; each lane speaks its place and
+ * the child's own count; built Xs are at least 22 px at 960 × 600 and 1280 × 800.
+ */
+async function dat03BuildPlay({ canvasElement }: { canvasElement: HTMLElement }) {
+  const root = await findWidget(canvasElement, ROOT);
+  const list = within(root).getByRole('list', { name: 'The lengths' });
+  const items = within(list).getAllByRole('listitem');
+  await expect(items.map((i) => i.textContent)).toEqual(dat03Lengths.map(String));
+  await expect(lane(root, '18')).toHaveAccessibleName('Above 18: 0');
+  await userEvent.click(chip(root));
+  for (const at of dat03Lengths) await userEvent.click(lane(root, String(at)));
+  await expectChartShows(built(root), { '17': 2, '18': 4, '19': 3, '20': 1 });
+  await expect(lane(root, '18')).toHaveAccessibleName('Above 18: 4');
+  // Fill the tallest stack to the cap, then measure the Xs.
+  await userEvent.click(lane(root, '18'));
+  for (const x of built(root).querySelectorAll('.ni-chart__x')) {
+    await expect(x.getBoundingClientRect().width, 'an X is at least 22 px').toBeGreaterThanOrEqual(
+      22,
+    );
+  }
+  await expectNumeralsReadable(root);
+  await expectFitsArea(
+    areaBox(canvasElement),
+    [...lanes(root), chip(root), back(root), check(root)],
+    'g1-up',
+    boards(root),
+  );
+}
+
+export const Dat03BuildLandscapeMin: Story = {
+  args: { config: dat03Build, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: dat03BuildPlay,
+};
+
+export const Dat03BuildTablet: Story = {
+  args: { config: dat03Build, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: dat03BuildPlay,
+};
