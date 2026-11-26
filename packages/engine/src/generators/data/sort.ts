@@ -244,6 +244,10 @@ export const dataSort: GeneratorDef = {
           cards: cards.map((c) => ({ id: c.id, card: c.card })),
           bins: rules,
           mode: 'sort',
+          // Sorting into given categories the child sees: the names and the bin pictures are
+          // not what is asked.
+          namesGiven: true,
+          binPicturesGiven: true,
         },
         answer: {
           kind: 'state',

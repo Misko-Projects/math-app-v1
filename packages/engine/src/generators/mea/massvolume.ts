@@ -321,6 +321,8 @@ export const meaMassVolume: GeneratorDef = {
           })),
           bins,
           mode: 'sort',
+          // An object's name is what the child sees; the bins ask its weight, length or capacity.
+          namesGiven: true,
         },
         answer: {
           kind: 'state',

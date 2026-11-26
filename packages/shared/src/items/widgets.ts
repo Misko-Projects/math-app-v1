@@ -1021,6 +1021,18 @@ export interface ShapeSortConfig extends WidgetBase {
   }[];
   bins: { id: string; label: NarrationKey; rule: SortRule }[] | null;
   mode: 'sort' | 'find-all' | 'odd-one-out';
+  /**
+   * The names of picture cards (shapes, objects, coins) are not what the item asks, so a card may
+   * say its name on tap and carry it in its accessible name. Absent: a picture card never names
+   * itself (on a kind sort or find, its name is the answer). Number and word cards always read
+   * what their face shows.
+   */
+  namesGiven?: boolean;
+  /**
+   * A bin may show a card it takes as its picture (the categories are what the child sees, as in a
+   * data sort). Absent: a bin shows its name only, never one of the item's cards.
+   */
+  binPicturesGiven?: boolean;
 }
 export const shapeSortConfigSchema = z.object({
   format: z.literal('shape-sort'),
@@ -1047,6 +1059,8 @@ export const shapeSortConfigSchema = z.object({
     .array(z.object({ id: z.string(), label: narrationKeySchema, rule: sortRuleSchema }))
     .nullable(),
   mode: z.enum(['sort', 'find-all', 'odd-one-out']),
+  namesGiven: z.boolean().optional(),
+  binPicturesGiven: z.boolean().optional(),
 });
 assertType<Equals<z.infer<typeof shapeSortConfigSchema>, ShapeSortConfig>>(true);
 

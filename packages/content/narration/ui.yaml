@@ -243,6 +243,12 @@ ui.widget.supply:
 ui.widget.picture:
   text: "Look at the picture"
   level: K
+ui.widget.jumps:
+  text: "A number line. From {start}, {count} jumps of {size}."
+  level: K
+ui.widget.jumps-mixed:
+  text: "A number line. From {start}, jumps of {sizes}."
+  level: K
 # A picture graph's key (ChartView), when one picture stands for more than one.
 ui.widget.chart.key:
   text: "Each picture is {n}"
@@ -502,6 +508,9 @@ ui.ssort.tray:
   level: K
 ui.ssort.find:
   text: "Cards"
+  level: K
+ui.ssort.shape:
+  text: "Shape {n}, {sides} sides, {corners} corners"
   level: K
 ui.clen.object:
   text: "{name} {n}"
@@ -973,6 +982,9 @@ ui.nlj.bigger:
   level: K
 ui.nlj.hopper:
   text: "Pebbling on {n}"
+  level: K
+ui.nlj.pebbling:
+  text: "Pebbling"
   level: K
 ui.nlj.start:
   text: "Start"

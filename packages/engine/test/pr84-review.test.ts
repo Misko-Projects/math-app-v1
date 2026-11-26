@@ -1092,6 +1092,9 @@ describe('PR #129 review round 2: GEO.03 asks by sides; a jumps picture names it
     const t = fixtureTemplate('GEO.03.t2');
     expect(t.params.rule).toEqual({ kind: 'const', value: 'sides' });
     expect(t.params.mode).toEqual({ kind: 'const', value: 'find-all' });
+    // PR #129 round 3: its prompt asks the side count (the shared find-every prompt names a kind).
+    expect(t.narration.prompt).toBe('tp.GEO.03.t2.prompt');
+    expect(fixture.narration[t.narration.prompt]?.text).toBe('Find every shape with {n} sides.');
   });
 
   it('every number-pad item that draws jumps on a number line says they start at 0', () => {

@@ -74,6 +74,25 @@ import './number-line-jump.css';
  */
 
 const OPS = ['hop', 'label-landing', 'highlight', 'bridge-to', 'answer'] as const;
+
+/** What the widget says: a number, or a narration line. */
+export type JumpSpeech = { number: number } | { key: string; vars?: Record<string, number> };
+
+/**
+ * What a child's hop says (Refs #35). Where the item asks the landing (`thenAsk: 'landing'`) the
+ * hop says itself ("Hop 10", "Hop back 1"), never where it landed: the landing is the answer.
+ * Elsewhere it says the landing number.
+ */
+export function hopSpeech(c: Config, by: number, landed: number): JumpSpeech {
+  if (c.thenAsk !== 'landing') return { number: landed };
+  return { key: by < 0 ? 'ui.nlj.hop-back' : 'ui.nlj.hop', vars: { n: Math.abs(by) } };
+}
+
+/** The hopper's accessible name: where it is, except where that is the landing asked. */
+export function hopperLabel(c: Config, position: number): JumpSpeech {
+  if (c.thenAsk === 'landing' && position !== c.start) return { key: 'ui.nlj.pebbling' };
+  return { key: 'ui.nlj.hopper', vars: { n: position } };
+}
 const MODEL = formatModel('number-line-jump');
 const HOP_MS = 460;
 const KEY_MS = 320;
@@ -841,7 +860,9 @@ export function NumberLineJumpWidget({
   demo,
 }: WidgetProps<Config>) {
   const t = useNarrationText();
-  const { sayNumber } = useSpeech();
+  const { say, sayNumber } = useSpeech();
+  const sayJump = (s: JumpSpeech) => ('number' in s ? sayNumber(s.number) : say(s.key, s.vars));
+  const textOf = (s: JumpSpeech) => ('number' in s ? String(s.number) : t(s.key, s.vars));
   const { speakOnTap, ageMode } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
@@ -921,7 +942,7 @@ export function NumberLineJumpWidget({
     trace('tap', target);
     setHighlight(null);
     const landed = hop(by);
-    if (speakOnTap) sayNumber(landed);
+    if (speakOnTap) sayJump(hopSpeech(c, by, landed));
   };
 
   const undo = () => {
@@ -1257,7 +1278,12 @@ export function NumberLineJumpWidget({
                   key={v}
                   type="button"
                   {...common}
-                  aria-label={v === position ? t('ui.nlj.hopper', { n: v }) : String(v)}
+                  // The hopper's stone: its own number (drawn on it) where the landing is asked.
+                  aria-label={
+                    v === position && c.thenAsk !== 'landing'
+                      ? t('ui.nlj.hopper', { n: v })
+                      : String(v)
+                  }
                   aria-current={v === position ? 'true' : undefined}
                   disabled={!interactive}
                   onClick={() => tapStone(v)}
@@ -1279,7 +1305,7 @@ export function NumberLineJumpWidget({
           className="ni-nlj__hopper"
           data-path="stones"
           role="img"
-          aria-label={t('ui.nlj.hopper', { n: position })}
+          aria-label={textOf(hopperLabel(c, position))}
           style={{ left: hopperX }}
         >
           <Hopper />
@@ -1420,7 +1446,7 @@ export function NumberLineJumpWidget({
           className="ni-nlj__hopper"
           data-path="line"
           role="img"
-          aria-label={t('ui.nlj.hopper', { n: position })}
+          aria-label={textOf(hopperLabel(c, position))}
           style={{ left: scale.x(u(position)), top: scale.lineY }}
         >
           <Hopper />

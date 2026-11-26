@@ -368,4 +368,7 @@
 .ni-ssort__bin[data-fixed="true"] .ni-ssort__label {
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Room inside the clip for descenders ("Triangles", "Trapezoids"): the name is often a bin's
+     only cue (Refs #35). */
+  padding-block: 0.12em;
 }

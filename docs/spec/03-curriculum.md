@@ -1440,6 +1440,7 @@ interface NumberLineJumpConfig extends WidgetBase { format: 'number-line-jump'; 
 - **Answer:** `state` / `jumps.reach` `{start, target, allowedJumps}` plus `value` when `thenAsk`. **Any** sequence of allowed signed jumps from `start` that lands on `target` is correct (strategy freedom), and `value` must equal the landing number (`add`, `subtract`) or the total jump (`difference`, elapsed time). `next` is one hop of ±1 with the landing typed. Response value: `{jumps: number[], value?: number}`.
 - **Features:** `jumps.min` (fewest jumps needed − 1; 0.2), `crossDecade` (0.4), `backward` (0.5), `path.open` (0.5), `magnitude` (digits − 1; 0.3), `mixedJumps` (tens and ones; 0.3).
 - **Tiers:** C (`stones`, a Pebbling hopping the Numbered Road), P (`line`, `open`, `timeline`). **Ops:** `hop {by}`, `label-landing`, `highlight {at}`, `bridge-to {at}`.
+- **Never the landing it asks (Refs #35).** With `thenAsk: 'landing'` a child's hop says the hop ("Hop 10", "Hop back 1"), not where it lands, and the Pebbling's accessible name drops its place; elsewhere a hop says its landing. A stimulus picture of jumps on a number line is described by its start, jump size and count, never its landing.
 
 #### `hundred-chart`
 ```ts
@@ -1666,11 +1667,13 @@ interface ShapeComposeConfig extends WidgetBase { format: 'shape-compose';
 interface ShapeSortConfig extends WidgetBase { format: 'shape-sort';
   cards: { id: string; card: ShapeCard | { kind: 'number'; value: number } | { kind: 'object'; sprite: SpriteId; props: Record<string, string | number | boolean> }
     | { kind: 'coin'; coin: CoinKind } | { kind: 'event'; event: string; isPm?: boolean } }[];
-  bins: { id: string; label: NarrationKey; rule: SortRule }[] | null; mode: 'sort' | 'find-all' | 'odd-one-out' }
+  bins: { id: string; label: NarrationKey; rule: SortRule }[] | null; mode: 'sort' | 'find-all' | 'odd-one-out';
+  namesGiven?: boolean; binPicturesGiven?: boolean }
 type SortRule = { prop: string; op: '==' | '>=' | '<=' | 'in'; value: string | number | boolean | (string | number)[] }
   | { all: SortRule[] } | { any: SortRule[] };
 ```
 - A general card sorter: shapes, solids, numbers (even/odd), objects (measurable attributes), coins, and daily events.
+- **Never the answer (Refs #35).** A picture card (shape, object, coin) says its name on tap and carries it as its accessible name only with `namesGiven`. The generator sets it where the name is not what is asked: side, corner or face counts, real objects, data sorts, measurable attributes. Otherwise a tap says nothing, and the accessible name (read on focus, standing in for the picture) is "Shape N, 6 sides, 6 corners" for a flat shape among flat shapes, and the name only for a flat shape whose counts another kind in the set shares (a square and a kite), a solid, any card among solids, an object or a coin, so a screen reader can always tell two kinds apart. Number and word cards always read their face. A bin shows one of the item's cards as its picture only with `binPicturesGiven` (data sorts into categories the child sees); otherwise it shows its name, which it says when tapped. A content-walk test over every shipped item holds both rules.
 - **Answer:** `sort` → `state` / `sort.byRule`: each card sits in a bin whose rule it satisfies. When a card satisfies several bins (a square in both "rectangles" and "rhombuses"), any of them is correct. A card that satisfies none must stay in the tray. `find-all` → `select.exactSet` `{ids}`. `odd-one-out` → `choice`.
 - **Features:** `cards` (count − 4; 0.1 each), `nonPrototypical` (rotated, skinny or scaled shapes; 0.6), `nearMiss` (open figures, curved sides; 0.6), `overlappingBins` (0.8), `bins.over2` (0.2 each).
 - **Tiers:** C, P. **Ops:** `drag-card {id, bin}`, `highlight-attribute {id, prop}`, `count-sides {id}`.
