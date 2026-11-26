@@ -255,14 +255,14 @@ function layoutTwoStep(
   const minUnit = Math.min(...r1.ws, ...ws2);
   const fit = fitScale(units, minUnit, maxWidth - BADGE_W);
   const k = fit.k;
-  const X = (u: number) => BADGE_W + (u - left) * k;
+  const toPx = (u: number) => BADGE_W + (u - left) * k;
   const topBrace = spec.whole !== null;
   const bottomBrace = lower.whole !== null;
   const y1 = topBrace ? BRACE_LABEL_H + BRACE_H : 0;
   const y2 = y1 + BAR_H + LINK_GAP;
   const pieces: BarPiece[] = [
     ...r1.values.map((v, i) => ({
-      x: X(r1.xs[i] as number),
+      x: toPx(r1.xs[i] as number),
       y: y1,
       w: (r1.ws[i] as number) * k,
       label: labelOf(v),
@@ -270,7 +270,7 @@ function layoutTwoStep(
       tone: i % 3,
     })),
     ...r2.values.map((v, i) => ({
-      x: X(xs2[i] as number),
+      x: toPx(xs2[i] as number),
       y: y2,
       w: (ws2[i] as number) * k,
       label: labelOf(v),
@@ -281,7 +281,7 @@ function layoutTwoStep(
   const braces: BarBrace[] = [];
   if (topBrace)
     braces.push({
-      x: X(0),
+      x: toPx(0),
       y: BRACE_LABEL_H,
       w: rowEnd(r1) * k,
       label: labelOf(spec.whole),
@@ -290,7 +290,7 @@ function layoutTwoStep(
   if (bottomBrace) {
     const x0 = Math.min(...xs2);
     braces.push({
-      x: X(x0),
+      x: toPx(x0),
       y: y2 + BAR_H + 4,
       w: (Math.max(...xs2.map((x, i) => x + (ws2[i] as number))) - x0) * k,
       label: labelOf(lower.whole),
@@ -302,7 +302,7 @@ function layoutTwoStep(
     h: y2 + BAR_H + (bottomBrace ? BRACE_H + BRACE_LABEL_H : 0),
     pieces,
     braces,
-    link: { x: X(s1[0]), y: y1 + BAR_H, w: (s1[1] - s1[0]) * k, h: LINK_GAP },
+    link: { x: toPx(s1[0]), y: y1 + BAR_H, w: (s1[1] - s1[0]) * k, h: LINK_GAP },
     badges: [
       { y: y1, label: '1' },
       { y: y2, label: '2' },
