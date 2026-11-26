@@ -88,9 +88,12 @@ misconceptions:
     name: Makes a ten, then leaves the ten out of the answer
     detect: { kind: answer, rule: forgotTheTen }
     appliesTo: { generators: [addsub.facts, addsub.three, mda.addsub] }
-    skills: [ADD.08, ADD.13, ADD.26, MDA.08]
+    skills: [ADD.08, ADD.13, ADD.26, MDA.08, ADD.14]
     remediation: [CPS.04, ADD.26]
     feedback: fb.mc.forgot-the-ten
+    # Above MC.wrong-operation: on ADD.14, 7 + 5 → 2 is both (a + b − 10 = |a − b| when the
+    # smaller addend is 5), and a sum within 20 is taught by making a ten.
+    priority: 55
     parentTip: >-
       After making a ten, point to the full ten-frame and say "ten" before counting the ones left.
     examples:
@@ -130,7 +133,7 @@ misconceptions:
     name: Adds when the fact takes away, or takes away when it adds
     detect: { kind: answer, rule: wrongOperation }
     appliesTo: { generators: [addsub.facts] }
-    skills: [ADD.06, ADD.09]
+    skills: [ADD.06, ADD.09, ADD.14, ADD.22]
     remediation: [ADD.09]
     feedback: fb.mc.wrong-operation
     parentTip: >-

@@ -83,6 +83,15 @@ skills:
     gateway: false
     representations: [base-ten, hundred-chart, number-bond]
 
+  - id: CPS.10
+    name: Partners of 100 (64 + 36)
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.NBT.B.5] }
+    prerequisites: [CPS.09, MDA.08]
+    gateway: false
+    representations: [base-ten, open-number-line, number-bond]
+
   - id: CPS.11
     name: "Split a number to finish a ten (8 + 5: give 2, keep 3)"
     kind: strategy

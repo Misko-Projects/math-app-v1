@@ -105,3 +105,32 @@ tp.CMP.13.t4.prompt:
   text: "About how many dots? Pick the line that shows it."
 tp.CMP.13.t5.prompt:
   text: "Here is a group of {b}. About how many dots are there in all?"
+# K02 (#17) slice 1b
+sk.CMP.10.intro:
+  text: "This line goes all the way to one thousand. Where do numbers go?"
+sk.CMP.11.intro:
+  text: "Some lines count by twos, fives or tens. Let's read them!"
+sk.CMP.12.intro:
+  text: "Which number is it closer to? Let's look on the line."
+tp.CMP.10.t1.prompt:
+  text: "Put {target} on the number line."
+tp.CMP.10.t2.prompt:
+  text: "The line shows the start and the end. Where does {target} go?"
+tp.CMP.10.t3.prompt:
+  text: "Which number is the arrow at?"
+tp.CMP.10.t4.prompt:
+  text: "Which arrow shows {target}?"
+tp.CMP.11.t1.prompt:
+  text: "What number is at the mark?"
+tp.CMP.11.t3.prompt:
+  text: "Read the ruler. What number is at the mark?"
+tp.CMP.11.t4.prompt:
+  text: "What number is the arrow at?"
+tp.CMP.12.t1.prompt:
+  text: "Is {target} closer to {b0} or to {b1}?"
+tp.CMP.12.t3.prompt:
+  text: "Which ten is closest to {n}?"
+tp.CMP.12.t5.prompt:
+  text: "Which hundred is closest to {n}?"
+tp.CMP.10.t5.prompt:
+  text: "What number is the arrow at? Make a good guess."

@@ -442,6 +442,56 @@ templates:
     narration:
       { prompt: tp.PV.07.t3.prompt, hints: [h.pv.one-place-changes, h.pv.tens-or-hundreds] }
 
+  # ---------- PV.08 round to the nearest ten ----------
+  # pv.round first: MC.round-down-always examples run on PV.08's first template. A number in the
+  # middle rounds up (45 → 50); the line (closer) never draws the middle.
+  - id: PV.08.t1
+    skillId: PV.08
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: pv.round
+    params: { n: { int: [11, 99] }, place: 10 }
+    difficulty: { base: -0.9 }
+    narration: { prompt: tp.PV.08.t1.prompt, hints: [h.round.ones-digit, h.closer.middle] }
+
+  - id: PV.08.t2
+    skillId: PV.08
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 100
+      target: { int: [1, 99] }
+      ticksEvery: 5
+      labelsEvery: 10
+      mode: closer
+      benchmarks: 10
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.PV.08.t2.prompt, hints: [h.closer.how-far, h.closer.middle] }
+
+  - id: PV.08.t3
+    skillId: PV.08
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: pv.round
+    params: { n: { int: [11, 99] }, place: 10 }
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.PV.08.t1.prompt, hints: [h.round.which-tens, h.round.ones-digit] }
+
+  - id: PV.08.t4
+    skillId: PV.08
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.round
+    params: { n: { int: [101, 999] }, place: 10 }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.08.t1.prompt, hints: [h.round.which-tens, h.round.ones-digit] }
+
   # ---------- PV.09 ten ones make one ten (gateway) ----------
   - id: PV.09.t1
     skillId: PV.09
@@ -853,6 +903,55 @@ templates:
       }
     difficulty: { base: -1.6, features: { closeness: 0.5 } }
     narration: { prompt: tp.PV.17.t3.prompt, hints: [h.order.greatest, h.compare.more-digits] }
+
+  # ---------- PV.18 round to the nearest hundred ----------
+  # pv.round first: MC.round-wrong-place examples run on PV.18's first template.
+  - id: PV.18.t1
+    skillId: PV.18
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: pv.round
+    params: { n: { int: [101, 999] }, place: 100 }
+    difficulty: { base: -1.6 }
+    narration: { prompt: tp.PV.18.t1.prompt, hints: [h.round.tens-digit, h.closer.middle] }
+
+  - id: PV.18.t2
+    skillId: PV.18
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 1000
+      target: { int: [1, 999] }
+      ticksEvery: 50
+      labelsEvery: 100
+      mode: closer
+      benchmarks: 100
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.PV.18.t2.prompt, hints: [h.closer.how-far, h.closer.middle] }
+
+  - id: PV.18.t3
+    skillId: PV.18
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: pv.round
+    params: { n: { int: [101, 999] }, place: 100 }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.18.t1.prompt, hints: [h.round.which-hundreds, h.round.tens-digit] }
+
+  - id: PV.18.t4
+    skillId: PV.18
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.round
+    params: { n: { int: [101, 999] }, place: 100 }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.18.t1.prompt, hints: [h.round.which-hundreds, h.round.tens-digit] }
 
   # ---------- PV.24 what a digit is worth (K02) ----------
   # The digits of n are all different, so "the 4 in 345" names one digit.

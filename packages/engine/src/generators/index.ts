@@ -30,6 +30,7 @@ import { patternRepeat } from './pattern/repeat';
 import { puzzleGrid } from './puzzle/grid';
 import { pvNumber } from './pv/number';
 import { pvRegroup } from './pv/regroup';
+import { pvRound } from './pv/round';
 import { pvTenMore } from './pv/tenmore';
 import { storyAddsub } from './story/addsub';
 import { subitizeFlash } from './subitize/flash';
@@ -71,6 +72,7 @@ const GENERATORS: GeneratorDef[] = [
   // K01 (#11): place value and two-digit addition and subtraction
   pvRegroup,
   pvTenMore,
+  pvRound, // K02 (#17) rounding (PV.08, PV.18, CMP.12)
   mdaAddSub,
   equalityEq,
   storyAddsub,

@@ -545,6 +545,214 @@ templates:
     difficulty: { base: -1.4 }
     narration: { prompt: tp.CMP.09.t4.prompt, hints: [h.numberline.near-end, h.numberline.middle] }
 
+  # ---------- CMP.10 place and estimate on a 0–1000 line ----------
+  - id: CMP.10.t1
+    skillId: CMP.10
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 1000
+      target: { int: [1, 999], exclude: [100, 200, 300, 400, 500, 600, 700, 800, 900] }
+      ticksEvery: 100
+      labelsEvery: 100
+      mode: place
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.CMP.10.t1.prompt, hints: [h.numberline.between-marks, h.numberline.ends] }
+
+  - id: CMP.10.t2
+    skillId: CMP.10
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 0, labelsEvery: 0, mode: place }
+    difficulty: { base: -1.8 }
+    narration: { prompt: tp.CMP.10.t2.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
+
+  - id: CMP.10.t3
+    skillId: CMP.10
+    format: numeral-pick
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 100, labelsEvery: 500 }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.CMP.10.t3.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }
+
+  # Read the arrow on a bare 0–1000 line; an estimate within 100 is right, and targets stay 100
+  # from both ends (the generator rejects closer ones), so no accepted answer is off the line.
+  - id: CMP.10.t4
+    skillId: CMP.10
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params: { min: 0, max: 1000, target: { int: [100, 900] }, ticksEvery: 0, labelsEvery: 0 }
+    difficulty: { base: -2.4 }
+    narration: { prompt: tp.CMP.10.t5.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
+
+  - id: CMP.10.t5
+    skillId: CMP.10
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: numberline.place
+    params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 100, labelsEvery: 500 }
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.CMP.10.t4.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }
+
+  # ---------- CMP.11 read a number line marked in 2s, 5s or 10s ----------
+  # Each template keeps one marking; the target is a tick without a label.
+  - id: CMP.11.t1
+    skillId: CMP.11
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 40
+      target: { int: [4, 38], step: 2, exclude: [10, 20, 30] }
+      ticksEvery: 2
+      labelsEvery: 10
+      mode: read
+    difficulty: { base: -0.84 }
+    narration: { prompt: tp.CMP.11.t1.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+
+  - id: CMP.11.t2
+    skillId: CMP.11
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 100
+      target: { int: [10, 95], step: 5, exclude: [20, 40, 60, 80] }
+      ticksEvery: 5
+      labelsEvery: 20
+      mode: read
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.CMP.11.t1.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+
+  - id: CMP.11.t3
+    skillId: CMP.11
+    format: number-line-place
+    tier: pictorial
+    representation: ruler
+    generator: numberline.place
+    params:
+      min: 0
+      max: 100
+      target: { int: [20, 90], step: 10, exclude: [50] }
+      ticksEvery: 10
+      labelsEvery: 50
+      mode: read
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.CMP.11.t3.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+
+  - id: CMP.11.t4
+    skillId: CMP.11
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 100
+      target: { int: [10, 95], step: 5, exclude: [20, 40, 60, 80] }
+      ticksEvery: 5
+      labelsEvery: 20
+    difficulty: { base: -1.1 }
+    narration: { prompt: tp.CMP.11.t4.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+
+  - id: CMP.11.t5
+    skillId: CMP.11
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 40
+      target: { int: [4, 38], step: 2, exclude: [10, 20, 30] }
+      ticksEvery: 2
+      labelsEvery: 10
+    difficulty: { base: -0.94 }
+    narration: { prompt: tp.CMP.11.t4.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+
+  # ---------- CMP.12 closer to which? two benchmarks ----------
+  # The generator never draws a benchmark or the exact middle, so one benchmark is always closer.
+  - id: CMP.12.t1
+    skillId: CMP.12
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 100
+      target: { int: [1, 99] }
+      ticksEvery: 10
+      labelsEvery: 10
+      mode: closer
+      benchmarks: 10
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.CMP.12.t1.prompt, hints: [h.closer.how-far, h.closer.middle] }
+
+  - id: CMP.12.t2
+    skillId: CMP.12
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      min: 0
+      max: 1000
+      target: { int: [1, 999] }
+      ticksEvery: 100
+      labelsEvery: 100
+      mode: closer
+      benchmarks: 100
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.CMP.12.t1.prompt, hints: [h.closer.how-far, h.closer.middle] }
+
+  - id: CMP.12.t3
+    skillId: CMP.12
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: pv.round
+    params: { n: { int: [11, 99] }, place: 10 }
+    constraints: ["n % 10 != 5"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: tp.CMP.12.t3.prompt, hints: [h.closer.how-far, h.closer.middle] }
+
+  - id: CMP.12.t4
+    skillId: CMP.12
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: pv.round
+    params: { n: { int: [11, 99] }, place: 10 }
+    constraints: ["n % 10 != 5"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.CMP.12.t3.prompt, hints: [h.closer.which-tens, h.closer.middle] }
+
+  - id: CMP.12.t5
+    skillId: CMP.12
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.round
+    params: { n: { int: [101, 999] }, place: 100 }
+    constraints: ["n % 100 != 50"]
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.CMP.12.t5.prompt, hints: [h.closer.which-hundreds, h.closer.middle] }
+
   # ---------- CMP.13 estimate how many in a big group ----------
   # dot-flash weighs each dot above 4 (n.over4); an estimate is not counted, so n.per50 sizes it.
   - id: CMP.13.t1

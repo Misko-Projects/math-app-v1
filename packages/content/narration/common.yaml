@@ -1940,3 +1940,65 @@ fb.mc.keyword-more-means-add:
   text: "Match them up. How many are left over?"
 fb.mc.start-unknown-reversed:
   text: "Put your number in the box. Is it true?"
+# K02 (#17) slice 1b: skip counting, counting across a hundred, number lines to 1000, closer to
+# which, partners of 100 and rounding. No line names a number an item asks for.
+p.count.skip-to:
+  text: "Start at {start}. Jump by {step} each time to {last}."
+p.count.skip-boxes:
+  text: "Count on by {step} each time. What number goes in each box?"
+h.skip.add-each:
+  text: "Each time, add {step} more."
+h.skip.chart-pattern:
+  text: "Find each number on the chart. The numbers you say make a pattern."
+h.skip.plates:
+  text: "Touch each plate. Count on by {step} as you go."
+h.skip.look-line:
+  text: "Look at the line. Each jump is the same size."
+h.skip.blocks:
+  text: "Each time, put in {step} more. Then say the new number."
+h.skip.say-it:
+  text: "Say the numbers out loud as you count by {step}."
+h.sequence.new-hundred:
+  text: "After a number that ends in ninety-nine, a new hundred starts."
+h.numberline.between-marks:
+  text: "Find the two marks it is between. Which one is it closer to?"
+h.numberline.count-hundreds:
+  text: "Count the marks by hundreds, starting at zero."
+h.numberline.skip-ticks:
+  text: "Each tick is {step} more than the one before."
+h.numberline.from-label:
+  text: "Find the closest number on the line. Count on by the ticks from there."
+h.closer.how-far:
+  text: "How far is it to each of the two numbers? Which one is closer?"
+h.closer.middle:
+  text: "Find the middle of the two numbers. Which side is it on?"
+h.closer.which-tens:
+  text: "Which two tens is it between?"
+h.closer.which-hundreds:
+  text: "Which two hundreds is it between?"
+h.round.which-tens:
+  text: "Find the two tens it is between."
+h.round.ones-digit:
+  text: "Look at the ones. Five or more goes up to the next ten."
+h.round.which-hundreds:
+  text: "Find the two hundreds it is between."
+h.round.tens-digit:
+  text: "Look at the tens. Five or more goes up to the next hundred."
+h.bond.next-ten:
+  text: "Fill up to the next ten first. Then count on by tens."
+h.bond.hundred-parts:
+  text: "The ones add up to ten, and the tens add up to ninety."
+fb.mc.round-down-always:
+  text: "Look at the next place. Five or more goes up."
+fb.mc.round-wrong-place:
+  text: "Round to the place you are asked. Look at the hundreds."
+gen.bond.parts.hop-to:
+  text: "Jump {by} to {n}."
+gen.pv.round.between:
+  text: "{n} is between {b0} and {b1}."
+gen.pv.round.middle:
+  text: "The middle is {mid}."
+gen.pv.round.closer:
+  text: "{n} is closer to {v}."
+gen.pv.round.half-up:
+  text: "{n} is right in the middle, so it goes up to {v}."

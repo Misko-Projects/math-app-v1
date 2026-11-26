@@ -88,3 +88,12 @@ ls.CPS.04.w1.s3:
   text: "Ten and {o} more make {n}!"
   voice: pip
   style: excited
+# K02 (#17) slice 1b
+sk.CPS.10.intro:
+  text: "Two numbers can be partners that make one hundred!"
+tp.CPS.10.t1.prompt:
+  text: "The blocks show {part}. Put in more to make {whole}."
+tp.CPS.10.t2.prompt:
+  text: "{part} and what number make {whole}?"
+tp.CPS.10.t3.prompt:
+  text: "Jump from {part} to {whole}. How far did you jump?"

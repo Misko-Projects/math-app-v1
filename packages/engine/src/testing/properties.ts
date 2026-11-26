@@ -495,6 +495,8 @@ export function choiceOptions(item: GeneratedItem): string[] {
     if (w.mode === 'judge') return ['true', 'false'];
     if (w.mode === 'which-heavier') return ['left', 'right', 'same'];
   }
+  // number-line-place `closer` (CMP.12, PV.08, PV.18): the benchmark below or the one above.
+  if (w.format === 'number-line-place' && w.mode === 'closer') return ['b0', 'b1'];
   if (w.format === 'compare-length') return w.objects.map((o) => o.id);
   if (w.format === 'shape-sort' && w.mode === 'odd-one-out') return w.cards.map((c) => c.id);
   // K01 conventions (engine README): fraction-pick `fair-or-not` answers `yes` | `no` (like
@@ -801,7 +803,10 @@ export function runTemplateProperties(
       const correct = ids.filter((id) => checkResponse(item, { kind: 'choice', id }).correct);
       const objects = item.widget.format === 'tap-count';
       // equal-share's choices are fixed pairs (yes/no, even/odd, 03 §5.5), so two is enough.
-      const pair = item.widget.format === 'equal-share';
+      // So are number-line-place `closer`'s two benchmarks.
+      const pair =
+        item.widget.format === 'equal-share' ||
+        (item.widget.format === 'number-line-place' && item.widget.mode === 'closer');
       if (
         ids.length < (pair ? 2 : min) ||
         (ids.length > 5 && !objects) ||

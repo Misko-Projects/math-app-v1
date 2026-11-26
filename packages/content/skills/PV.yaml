@@ -68,6 +68,15 @@ skills:
     gateway: false
     representations: [base-ten, open-number-line, symbols]
 
+  - id: PV.08
+    name: Round to the nearest ten
+    kind: procedure
+    grade: 3
+    standards: { ccss: [3.NBT.A.1] }
+    prerequisites: [PV.06, CMP.12]
+    gateway: false
+    representations: [number-line, symbols]
+
   - id: PV.09
     name: "Ten ones make one ten: bundle and unbundle"
     kind: concept
@@ -146,6 +155,16 @@ skills:
     grade: 2
     standards: { ccss: [], supports: [2.NBT.A.4] }
     prerequisites: [PV.06]
+    gateway: false
+    representations: [number-line, symbols]
+
+  - id: PV.18
+    name: Round to the nearest hundred
+    kind: procedure
+    grade: 3
+    standards: { ccss: [3.NBT.A.1] }
+    prerequisites: [PV.08, CMP.10]
+    encompasses: { PV.08: 0.6 }
     gateway: false
     representations: [number-line, symbols]
 

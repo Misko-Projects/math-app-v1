@@ -23,6 +23,7 @@ import { patternRestart } from './rules/patternRestart';
 import { perceptualSize } from './rules/perceptualSize';
 import { placeSwap } from './rules/placeSwap';
 import { recountFromOne } from './rules/recountFromOne';
+import { roundDownAlways, roundWrongPlace } from './rules/rounding';
 import { startUnknownReversed } from './rules/startUnknownReversed';
 import { symbolReversed } from './rules/symbolReversed';
 import { teenReversal } from './rules/teenReversal';
@@ -65,6 +66,9 @@ const RULES: Record<string, MisconceptionRule> = {
   // K02 (#17): place value to 1000
   zeroPlaceholder: zeroPlaceholder,
   compareFirstDigit: compareFirstDigit,
+  // K02 (#17): rounding
+  roundDownAlways: roundDownAlways,
+  roundWrongPlace: roundWrongPlace,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

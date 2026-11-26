@@ -130,6 +130,17 @@ skills:
     gateway: false
     representations: [ten-frame, number-bond, symbols]
 
+  - id: ADD.14
+    name: "Fluency: sums within 20"
+    kind: fact-fluency
+    grade: 2
+    standards: { ccss: [2.OA.B.2] }
+    prerequisites: [ADD.07, ADD.16, ADD.08, ADD.17]
+    encompasses: { ADD.06: 0.8, ADD.07: 0.3, ADD.08: 0.4, ADD.16: 0.3 }
+    gateway: false
+    representations: [double-ten-frame, symbols]
+    fluency: { medianLatencyMs: 3500 }
+
   - id: ADD.15
     name: Plus one, plus two, minus one, minus two
     kind: strategy
@@ -192,6 +203,17 @@ skills:
     prerequisites: [ADD.20, ADD.09, CMP.07]
     gateway: false
     representations: [objects, story, bar-model]
+
+  - id: ADD.22
+    name: "Fluency: differences within 20"
+    kind: fact-fluency
+    grade: 2
+    standards: { ccss: [2.OA.B.2] }
+    prerequisites: [ADD.14, ADD.18, ADD.19]
+    encompasses: { ADD.06: 0.6, ADD.18: 0.4, ADD.19: 0.4 }
+    gateway: false
+    representations: [double-ten-frame, symbols]
+    fluency: { medianLatencyMs: 4000 }
 
   - id: ADD.23
     name: Match an equation to a picture or story (3 + 2 = 5)

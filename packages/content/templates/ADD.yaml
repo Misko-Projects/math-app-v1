@@ -424,6 +424,73 @@ templates:
     difficulty: { base: -1.45 }
     narration: { prompt: tp.ADD.09.t4.prompt, hints: [h.sub.fact-family, h.bond.count-on] }
 
+  # ---------- ADD.14 fluency: sums within 20 ----------
+  # One template per fact strategy, so each hint names a strategy that works for every draw; the
+  # mixed facts come last. Latency is measured silently; nothing on screen is timed.
+  - id: ADD.14.t1
+    skillId: ADD.14
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: addsub.facts
+    params:
+      { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, maxSum: 20, family: make-ten }
+    difficulty: { base: -1.84, features: { size: 0.6 } }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.make-ten.nudge, h.addsub.picture] }
+
+  - id: ADD.14.t2
+    skillId: ADD.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, maxSum: 20, family: make-ten }
+    difficulty: { base: -1.84, features: { size: 0.6 } }
+    narration:
+      prompt: p.add.what-is
+      hints: [h.addsub.make-ten.nudge, h.addsub.make-ten.split, h.addsub.make-ten.ten-and]
+
+  - id: ADD.14.t3
+    skillId: ADD.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [6, 10] }, b: { int: [6, 10] }, op: "+", unknown: result, maxSum: 20, family: doubles }
+    difficulty: { base: -1.14 }
+    narration: { prompt: p.add.what-is, hints: [h.add.double-same, h.add.double-think] }
+
+  - id: ADD.14.t4
+    skillId: ADD.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      a: { int: [5, 10] }
+      b: { int: [5, 10] }
+      op: "+"
+      unknown: result
+      maxSum: 20
+      family: near-doubles
+    difficulty: { base: -1.26 }
+    narration: { prompt: p.add.what-is, hints: [h.add.near-double-smaller, h.add.near-double] }
+
+  - id: ADD.14.t5
+    skillId: ADD.14
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, maxSum: 20, family: make-ten }
+    difficulty: { base: -1.89, features: { size: 0.6 } }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.make-ten.nudge] }
+    distractors:
+      - { rule: MC.forgot-the-ten }
+
   # ---------- ADD.15: plus one, plus two, minus one, minus two (K) ----------
   - id: ADD.15.t1
     skillId: ADD.15
@@ -1219,6 +1286,67 @@ templates:
       b: { int: [1, 18] }
     difficulty: { base: -0.65 }
     narration: { prompt: tp.ADD.21.t3.prompt, hints: [h.story.extra-ones, h.bar.find-missing] }
+
+  # ---------- ADD.22 fluency: differences within 20 ----------
+  # One template per fact strategy (back to ten, count up, think addition), then mixed picks.
+  - id: ADD.22.t1
+    skillId: ADD.22
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, maxSum: 20, family: back-to-ten }
+    constraints: ["result <= 9"]
+    difficulty: { base: -1.59 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.back-to-ten, h.addsub.picture] }
+
+  - id: ADD.22.t2
+    skillId: ADD.22
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, maxSum: 20, family: back-to-ten }
+    constraints: ["result <= 9"]
+    difficulty: { base: -1.59 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.back-to-ten, h.sub.then-more] }
+
+  - id: ADD.22.t3
+    skillId: ADD.22
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 18] }, b: { int: [6, 9] }, op: "-", unknown: result, maxSum: 20, family: count-up }
+    difficulty: { base: -1.59 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.count-up, h.sub.count-up-ten] }
+
+  - id: ADD.22.t4
+    skillId: ADD.22
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 20] }, b: { int: [2, 10] }, op: "-", unknown: result, maxSum: 20, family: think-add }
+    difficulty: { base: -1.47 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.think-add, h.sub.fact-family] }
+
+  - id: ADD.22.t5
+    skillId: ADD.22
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, maxSum: 20, family: think-add }
+    difficulty: { base: -1.76 }
+    narration: { prompt: p.sub.what-is, hints: [h.addsub.check-sign, h.sub.think-add] }
+    distractors:
+      - { rule: MC.wrong-operation }
 
   # ---------- ADD.23: match an equation to a picture or story (K) ----------
   - id: ADD.23.t1

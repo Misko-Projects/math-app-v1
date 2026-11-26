@@ -377,6 +377,116 @@ templates:
     difficulty: { base: -1.3 }
     narration: { prompt: p.count.box-on, hints: [h.sequence.say-it, h.sequence.new-ten] }
 
+  # ---------- CNT.11 skip-count by 2s and 5s to 100 ----------
+  - id: CNT.11.t1
+    skillId: CNT.11
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [2, 90] }, step: { choice: [2, 5] }, dir: 1, length: { int: [2, 3] } }
+    constraints: ["start % step == 0", "last <= 100"]
+    difficulty: { base: -1.7 }
+    narration: { prompt: tp.CNT.11.t1.prompt, hints: [h.skip.add-each, h.skip.chart-pattern] }
+
+  - id: CNT.11.t2
+    skillId: CNT.11
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: count.sequence
+    params: { start: { int: [0, 90] }, step: { choice: [2, 5] }, dir: 1, length: { int: [2, 4] } }
+    constraints: ["start % step == 0", "last <= 100"]
+    difficulty: { base: -2.1 }
+    narration: { prompt: p.count.skip-to, hints: [h.skip.add-each, h.add.say-hops] }
+
+  # Plates of 2 or 5, counted from the first plate: the last term is how many in all.
+  - id: CNT.11.t3
+    skillId: CNT.11
+    format: number-pad
+    tier: pictorial
+    representation: groups
+    generator: count.sequence
+    params:
+      start: { choice: [2, 5] }
+      step: { choice: [2, 5] }
+      dir: 1
+      length: { int: [1, 5] }
+      hide: last
+    constraints: ["start == step"]
+    difficulty: { base: -1.2, features: { digits: 0.25, crossDecade: 0.25 } }
+    narration: { prompt: tp.CNT.11.t3.prompt, hints: [h.skip.plates, h.skip.add-each] }
+
+  - id: CNT.11.t4
+    skillId: CNT.11
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: count.sequence
+    params:
+      start: { int: [2, 95] }
+      step: { choice: [2, 5] }
+      dir: 1
+      length: { int: [1, 3] }
+      hide: all-after
+    constraints: ["start % step == 0", "last <= 100"]
+    difficulty: { base: -1.8 }
+    narration: { prompt: p.count.skip-boxes, hints: [h.skip.add-each, h.skip.look-line] }
+
+  # ---------- CNT.12 skip-count by 10s and 100s within 1000, from any number ----------
+  - id: CNT.12.t1
+    skillId: CNT.12
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: count.sequence
+    params: { start: { int: [1, 990] }, step: { choice: [10, 100] }, dir: 1, length: { int: [2, 3] } }
+    constraints: ["last <= 1000"]
+    difficulty: { base: -3.4 }
+    narration: { prompt: p.count.skip-to, hints: [h.skip.add-each, h.add.say-hops] }
+
+  - id: CNT.12.t2
+    skillId: CNT.12
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: count.sequence
+    params:
+      start: { int: [100, 980] }
+      step: { choice: [10, 100] }
+      dir: 1
+      length: { int: [1, 3] }
+      hide: all-after
+    constraints: ["last <= 1000"]
+    difficulty: { base: -3.2 }
+    narration: { prompt: p.count.skip-boxes, hints: [h.skip.add-each, h.skip.blocks] }
+
+  - id: CNT.12.t3
+    skillId: CNT.12
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: count.sequence
+    params:
+      start: { int: [1, 980] }
+      step: { choice: [10, 100] }
+      dir: 1
+      length: { int: [1, 3] }
+      hide: all-after
+    constraints: ["last <= 1000"]
+    difficulty: { base: -3.2 }
+    narration: { prompt: p.count.skip-boxes, hints: [h.skip.add-each, h.skip.say-it] }
+
+  - id: CNT.12.t4
+    skillId: CNT.12
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: count.sequence
+    params: { start: { int: [1, 980] }, step: { choice: [10, 100] }, dir: 1, length: { int: [2, 3] } }
+    constraints: ["last <= 1000"]
+    difficulty: { base: -3.2 }
+    narration: { prompt: p.count.order, hints: [h.order.smallest, h.skip.add-each] }
+
   # ---------- CNT.13 zero means none ----------
   # Half the items are empty, so the child decides between none and some.
   - id: CNT.13.t1
@@ -598,6 +708,74 @@ templates:
       cross: { choice: [any, decade] }
     difficulty: { base: -1.9 }
     narration: { prompt: p.count.box-back, hints: [h.sequence.count-back, h.sequence.back-ten] }
+
+  # ---------- CNT.17 count by ones within 1000, across hundreds ----------
+  # t1 and t3 start just below a hundred (x96–x99), so every item crosses one (199 → 200).
+  - id: CNT.17.t1
+    skillId: CNT.17
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: count.sequence
+    params:
+      start: { choice: [196, 197, 198, 199, 296, 297, 298, 299, 396, 397, 398, 399, 496, 497, 498, 499, 596, 597, 598, 599, 696, 697, 698, 699, 796, 797, 798, 799, 896, 897, 898, 899, 996, 997, 998, 999] }
+      step: 1
+      dir: 1
+      length: { int: [2, 4] }
+      cross: century
+    constraints: ["last <= 1000"]
+    difficulty: { base: -3.2 }
+    narration: { prompt: p.count.on-to, hints: [h.sequence.say-it, h.sequence.new-hundred] }
+
+  - id: CNT.17.t2
+    skillId: CNT.17
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: count.sequence
+    params:
+      start: { int: [100, 997] }
+      step: 1
+      dir: 1
+      length: { int: [1, 2] }
+      hide: all-after
+      cross: { choice: [any, decade] }
+    constraints: ["last <= 999"]
+    difficulty: { base: -1.9 }
+    narration: { prompt: p.count.box-on, hints: [h.sequence.say-it, h.sequence.new-ten] }
+
+  - id: CNT.17.t3
+    skillId: CNT.17
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: count.sequence
+    params:
+      start: { choice: [196, 197, 198, 199, 296, 297, 298, 299, 396, 397, 398, 399, 496, 497, 498, 499, 596, 597, 598, 599, 696, 697, 698, 699, 796, 797, 798, 799, 896, 897, 898, 899, 996, 997, 998, 999] }
+      step: 1
+      dir: 1
+      length: { int: [1, 3] }
+      hide: all-after
+      cross: century
+    constraints: ["last <= 1000"]
+    difficulty: { base: -3.4 }
+    narration: { prompt: p.count.box-on, hints: [h.sequence.say-it, h.sequence.new-hundred] }
+
+  - id: CNT.17.t4
+    skillId: CNT.17
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: count.sequence
+    params:
+      start: { int: [100, 997] }
+      step: 1
+      dir: 1
+      length: { int: [2, 3] }
+      cross: { choice: [any, decade] }
+    constraints: ["last <= 1000"]
+    difficulty: { base: -1.9 }
+    narration: { prompt: p.count.order, hints: [h.order.smallest, h.sequence.say-it] }
 
   # ---------- CNT.18 missing numbers on a path or chart ----------
   - id: CNT.18.t1

@@ -7,7 +7,9 @@
 // Formats: number-bond, tenframe-fill, rekenrek, number-pad, number-line-jump, make-set, and (part
 // unknown, CPS.09 tens partners of 100) base-ten-build and hundred-chart: the known part is built
 // on the mat and the child adds pieces until the mat is worth the whole (`baseten.value`), or taps
-// the missing part on a 1–100 chart.
+// the missing part on a 1–100 chart. K02: number-line-jump with the `open-number-line`
+// representation (CPS.10, partners of 100) has no ticks and hops of 1–10 from the part to the
+// whole; the total jump is typed (the demo goes to the next ten, then by tens).
 
 import type {
   LessonStep,
@@ -36,6 +38,23 @@ const UNKNOWNS = ['part', 'whole', 'split', 'new-way'];
  * own size feature (n.over10) only marks the second row, so it gets whole.over5 too.
  */
 const SIZED = new Set(['tenframe-fill', 'make-set']);
+
+/** Hops from `from` up to `to` on an open line: to the next ten first, then tens, then the rest. */
+export function tenHops(from: number, to: number): number[] {
+  const hops: number[] = [];
+  let at = from;
+  const first = Math.min(to - at, (10 - (at % 10)) % 10);
+  if (first > 0) {
+    hops.push(first);
+    at += first;
+  }
+  while (to - at >= 10) {
+    hops.push(10);
+    at += 10;
+  }
+  if (to > at) hops.push(to - at);
+  return hops;
+}
 
 /** Formats that can show an addend being finished to ten (number-bond and number-pad show the split). */
 const ADDEND_FORMATS = new Set(['tenframe-fill', 'rekenrek', 'number-bond', 'number-pad']);
@@ -191,6 +210,7 @@ export const bondParts: GeneratorDef = {
     'gen.bond.parts.left-over',
     'gen.bond.parts.ten-and',
     'gen.bond.parts.put-in',
+    'gen.bond.parts.hop-to',
   ],
   sample(spec, rng) {
     const p = sampleAll(spec, rng);
@@ -474,6 +494,35 @@ export const bondParts: GeneratorDef = {
       case 'number-line-jump': {
         if (isSplit)
           throw new RangeError('bond.parts: number-line-jump needs a part or whole unknown');
+        if (t.representation === 'open-number-line') {
+          // CPS.10: no ticks, hops of 1–10, so 64 → 70 → 80 → 90 → 100 (or any other way there).
+          const allowedJumps = Array.from({ length: 10 }, (_, i) => i + 1);
+          p = {
+            params,
+            vars,
+            math,
+            widget: {
+              format: 'number-line-jump',
+              min: Math.max(0, Math.floor(part / 10) * 10 - 10),
+              max: whole + 10,
+              ticksEvery: null,
+              labelsEvery: null,
+              start: part,
+              goal: 'land-on',
+              target: whole,
+              allowedJumps,
+              path: 'open',
+              thenAsk: 'total-jump',
+            },
+            answer: {
+              kind: 'state',
+              checker: 'jumps.reach',
+              target: { start: part, target: whole, allowedJumps, value: other },
+            },
+            highlight: [{ op: 'highlight', args: { at: whole } }],
+          };
+          break;
+        }
         const jump = scale;
         p = {
           params,
@@ -643,11 +692,12 @@ export const bondParts: GeneratorDef = {
       case 'jumps.reach': {
         const start = asNum(target.start as number);
         const goal = asNum(target.target as number);
-        const jump = (target.allowedJumps as number[])[0] as number;
+        const jumps = target.allowedJumps as number[];
+        const jump = jumps[0] as number;
         return {
           kind: 'state',
           value: {
-            jumps: new Array<number>((goal - start) / jump).fill(jump),
+            jumps: jumps.length > 1 ? tenHops(start, goal) : new Array<number>((goal - start) / jump).fill(jump),
             value: goal - start,
           },
         };
@@ -824,6 +874,16 @@ export const bondParts: GeneratorDef = {
         const steps: LessonStep[] = [
           say('gen.bond.parts.count-on', { part, whole }, { op: 'highlight', args: { at: part } }),
         ];
+        if (w.ticksEvery === null) {
+          // The open line (CPS.10): to the next ten, then by tens.
+          let at = part;
+          for (const by of tenHops(part, whole)) {
+            at += by;
+            steps.push(say('gen.bond.parts.hop-to', { by, n: at }, { op: 'hop', args: { by } }));
+          }
+          steps.push(say('gen.bond.parts.missing-is', { n: other }, { op: 'label-landing' }));
+          return steps;
+        }
         for (let v = part + scale; v <= whole; v += scale) {
           steps.push(
             say('gen.bond.parts.count-on', { part: v, whole }, { op: 'hop', args: { by: scale } }),

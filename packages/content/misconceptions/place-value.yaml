@@ -165,3 +165,54 @@ misconceptions:
       - params: { a: 89, b: 102, extra: 1, x1: 95, min: 60, max: 140, ask: fewer }
         response: { kind: numbers, values: [95, 89, 102] }
         match: false
+
+  # K02 (#17) slice 1b: rounding (PV.08, PV.18). The examples run on PV.08.t1 and PV.18.t1, the
+  # pv.round number pads (47 → 50, 347 → 300).
+  - id: MC.round-down-always
+    name: Always rounds down (47 to 40)
+    detect: { kind: answer, rule: roundDownAlways }
+    appliesTo: { generators: [pv.round] }
+    skills: [PV.08, PV.18]
+    remediation: [CMP.12]
+    feedback: fb.mc.round-down-always
+    priority: 50
+    parentTip: >-
+      Draw a short line from 40 to 50 and mark 45 in the middle. Numbers past the middle are
+      closer to 50, so they round up.
+    examples:
+      - params: { n: 47, place: 10 }
+        response: { kind: number, value: 40 }
+        match: true
+      - params: { n: 47, place: 10 }
+        response: { kind: number, value: 30 }
+        match: false
+      # 43 rounds down: the answer itself is 40.
+      - params: { n: 43, place: 10 }
+        response: { kind: number, value: 40 }
+        match: false
+      # In the middle rounds up too.
+      - params: { n: 45, place: 10 }
+        response: { kind: number, value: 40 }
+        match: true
+
+  - id: MC.round-wrong-place
+    name: Rounds to the wrong place (347 to the nearest hundred as 350)
+    detect: { kind: answer, rule: roundWrongPlace }
+    appliesTo: { generators: [pv.round] }
+    skills: [PV.18]
+    remediation: [PV.08, PV.18]
+    feedback: fb.mc.round-wrong-place
+    priority: 50
+    parentTip: >-
+      Say the two hundreds the number is between before rounding: 347 is between 300 and 400.
+    examples:
+      - params: { n: 347, place: 100 }
+        response: { kind: number, value: 350 }
+        match: true
+      - params: { n: 347, place: 100 }
+        response: { kind: number, value: 400 }
+        match: false
+      # 302 rounded to the ten is 300, the answer: nothing to tell apart.
+      - params: { n: 302, place: 100 }
+        response: { kind: number, value: 400 }
+        match: false

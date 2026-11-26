@@ -320,7 +320,7 @@ Derived fields are not in the tables: `templates` (from template files), `miscon
 | ADD.11 | Find the unknown anywhere in an equation (8 + ? = 11; ? − 3 = 5) | concept | 1 | 1.OA.D.8 | ADD.09, ADD.10 | Y | balance, number-bond, bar-model, symbols | balance, number-pad, number-bond | — |
 | ADD.12 | Story problems within 20 of every type (start unknown, compare) | problem-solving | 1 | 1.OA.A.1 | ADD.11, ADD.21 | N | story, bar-model, number-line | story-problem, number-pad | — |
 | ADD.13 | Add three numbers, making ten first when you can | strategy | 1 | 1.OA.B.3 | ADD.05, ADD.08 | N | ten-frame, number-bond, symbols | tenframe-fill, number-pad | — |
-| ADD.14 | Fluency: sums within 20 | fact-fluency | 2 | 2.OA.B.2 | ADD.07, ADD.16, ADD.08, ADD.17 | N | symbols | number-pad, numeral-pick | 3500 |
+| ADD.14 | Fluency: sums within 20 | fact-fluency | 2 | 2.OA.B.2 | ADD.07, ADD.16, ADD.08, ADD.17 | N | double-ten-frame, symbols | number-pad, numeral-pick | 3500 |
 | ADD.15 | Plus one, plus two, minus one, minus two | strategy | K | ~1.OA.C.5 | CMP.03, ADD.01 | N | number-path, ten-frame, symbols | number-line-jump, number-pad | — |
 | ADD.16 | Near doubles (6 + 7 = 6 + 6 + 1) | strategy | 1 | 1.OA.C.6 | ADD.07 | N | dots, double-ten-frame, open-number-line, symbols | tenframe-fill, number-pad, number-line-jump | — |
 | ADD.17 | Add 9 by adding 10 and taking 1 away | strategy | 1 | 1.OA.C.6 | ADD.08, ADD.26 | N | double-ten-frame, rekenrek, symbols | rekenrek, number-pad | — |
@@ -328,7 +328,7 @@ Derived fields are not in the tables: `templates` (from template files), `miscon
 | ADD.19 | Subtract by counting up through ten (13 − 8: 8 → 10 → 13) | strategy | 1 | 1.OA.C.6 | ADD.09, CPS.11 | N | double-ten-frame, open-number-line, symbols | number-line-jump, number-pad | — |
 | ADD.20 | Story problems within 10: join, separate, put together | problem-solving | K | K.OA.A.2 | ADD.01, ADD.24 | N | objects, story, symbols | story-problem, make-set, number-pad | — |
 | ADD.21 | Compare stories: how many more, how many fewer (to 20) | problem-solving | 1 | 1.OA.A.1 | ADD.20, ADD.09, CMP.07 | N | objects, story, bar-model | story-problem, number-pad | — |
-| ADD.22 | Fluency: differences within 20 | fact-fluency | 2 | 2.OA.B.2 | ADD.14, ADD.18, ADD.19 | N | symbols | number-pad, numeral-pick | 4000 |
+| ADD.22 | Fluency: differences within 20 | fact-fluency | 2 | 2.OA.B.2 | ADD.14, ADD.18, ADD.19 | N | double-ten-frame, symbols | number-pad, numeral-pick | 4000 |
 | ADD.23 | Match an equation to a picture or story (3 + 2 = 5) | concept | K | K.OA.A.1 | ADD.20, CNT.05 | N | objects, story, symbols | numeral-pick, number-pad | — |
 | ADD.24 | Separate: take-from and take-apart within 10 with objects | concept | K | K.OA.A.1 | CNT.04, CPS.01 | N | objects, fingers, ten-frame, symbols | make-set, tenframe-fill, number-pad | — |
 | ADD.25 | Story problems with three addends (sum to 20) | problem-solving | 1 | 1.OA.A.2 | ADD.13, ADD.20 | N | ten-frame, story, symbols | story-problem, number-pad | — |
@@ -763,7 +763,7 @@ skills:
     prerequisites: [ADD.07, ADD.16, ADD.08, ADD.17]
     encompasses: { ADD.06: 0.8, ADD.07: 0.3, ADD.08: 0.4, ADD.16: 0.3 }
     gateway: false
-    representations: [symbols]
+    representations: [double-ten-frame, symbols]   # the pictorial pad gives practiced its second tier (V27)
     fluency: { medianLatencyMs: 3500 }
 ```
 
@@ -2023,7 +2023,7 @@ Notation: `v` is the correct answer, `r` the response, digits of `a` are `a₀` 
 | `MC.symbol-reversed` | Writes 7 < 3 for "7 is greater than 3" | answer: symbol mode and r is the mirror of the correct symbol (it applies to the items that ask for the sign) | CMP.08, PV.02, PV.06, FRA.06 | CMP.08 |
 | `MC.round-down-always` | Rounds 47 to 40 | answer: the digit right of the rounding place is ≥ 5 and r = n truncated to that place | PV.08, PV.18, PV.19, PV.22 | CMP.12 |
 | `MC.round-wrong-place` | Rounds 347 to the nearest hundred as 350 | answer: r = n rounded to the next smaller place (≠ v) | PV.18, PV.22 | PV.08, PV.18 |
-| `MC.forgot-the-ten` | 8 + 5 → 3: makes the ten, then drops it | answer: v ≥ 11 and r = v − 10. On the place-value mat (base-ten-trade `compute`), only when the mat is worth the result: 37 + 5 left at 3 tens 7 ones with 32 typed is not tagged | ADD.08, ADD.13, ADD.14, ADD.26, MDA.08 | CPS.04, ADD.26 |
+| `MC.forgot-the-ten` | 8 + 5 → 3: makes the ten, then drops it | answer: v ≥ 11 and r = v − 10. On the place-value mat (base-ten-trade `compute`), only when the mat is worth the result: 37 + 5 left at 3 tens 7 ones with 32 typed is not tagged. Priority 55, above MC.wrong-operation, which shares 7 + 5 → 2 on ADD.14 | ADD.08, ADD.13, ADD.14, ADD.26, MDA.08 | CPS.04, ADD.26 |
 | `MC.wrong-operation` | 9 − 4 → 13, or 9 + 4 → 5 | answer: `-` and r = a + b; or `+` and r = abs(a − b), a ≠ b | ADD.06, ADD.09, ADD.14, ADD.22, MDA.11, MDA.12 | ADD.09 |
 | `MC.keyword-more-means-add` | "The crab has 3 more fish than Pip. The crab has 9. How many does Pip have?" → 12 | answer: story item with situation `compare/bigger-fewer`, `compare/smaller-more`, `compare/difference-*` or `inconsistentLanguage = 1`, the correct operation is `-`, and r = a + b | ADD.12, ADD.21, MDA.06, MDA.19 | ADD.21 |
 | `MC.start-unknown-reversed` | ? − 3 = 5 → 2 | answer: unknown = start, and r = abs(a − b) where v = a + b (or r = a + b where v = abs(a − b)), for the two numbers shown (K01: equality.eq `_ op b = c`, addsub.facts `unknown: start`, the start-unknown stories) | ADD.11, ADD.12, MDA.22 | ADD.09, ADD.11 |
