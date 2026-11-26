@@ -672,17 +672,15 @@ export function NumberBondWidget({
           onPointerDown={(e) => {
             // Review round 1: a drag carries the counter under the finger, wherever in the pool
             // the press began (the drop is measured from the dragged counter's centre).
-            const r = e.currentTarget.getBoundingClientRect();
-            const c = r.width > 0 ? PILE_CELL * zoom : 0;
-            const at = (v: number, max: number) => Math.max(0, Math.min(max, v - c / 2));
-            e.currentTarget.style.setProperty(
-              '--grab-x',
-              `${at(e.clientX - r.left, r.width - c)}px`,
-            );
-            e.currentTarget.style.setProperty(
-              '--grab-y',
-              `${at(e.clientY - r.top, r.height - c)}px`,
-            );
+            // Round 2: centred exactly on the press (not clamped into the pool, which moved it
+            // off the finger), and set only by the gesture's first pointer (a second finger
+            // never moves the anchor of a drag in progress).
+            if (e.isPrimary) {
+              const r = e.currentTarget.getBoundingClientRect();
+              const half = (PILE_CELL * zoom) / 2;
+              e.currentTarget.style.setProperty('--grab-x', `${e.clientX - r.left - half}px`);
+              e.currentTarget.style.setProperty('--grab-y', `${e.clientY - r.top - half}px`);
+            }
             props.onPointerDown(e);
           }}
         >

@@ -824,39 +824,55 @@ describe.each(FIT_VIEWPORTS)(
 describe('number-bond new-way as piles in a short room (#35)', () => {
   const pool = (slot: string) => `.ni-bondw [data-pool="${slot}"]`;
   const inPool = (slot: string) => count(`${pool(slot)} [data-counter]`);
-  /** A real pointer drag from a point of `el` (fractions of its box) to the centre of `to`. */
-  const dragFrom = async (el: Element, fx: number, fy: number, to: Element) => {
-    const a = el.getBoundingClientRect();
-    const b = to.getBoundingClientRect();
-    const from = { x: a.left + a.width * fx, y: a.top + a.height * fy };
-    const end = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
-    const init = (x: number, y: number, buttons: number): PointerEventInit => ({
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      pointerId: 7,
-      pointerType: 'touch',
-      isPrimary: true,
-      clientX: x,
-      clientY: y,
-      button: 0,
-      buttons,
-    });
-    el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
-    for (let i = 1; i <= 8; i += 1) {
-      const x = from.x + ((end.x - from.x) * i) / 8;
-      const y = from.y + ((end.y - from.y) * i) / 8;
-      window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
-      await frame();
+  type Pt = { x: number; y: number };
+  const at = (el: Element, fx: number, fy: number): Pt => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width * fx, y: r.top + r.height * fy };
+  };
+  const touch = (
+    pointerId: number,
+    primary: boolean,
+    p: Pt,
+    buttons: number,
+  ): PointerEventInit => ({
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: primary,
+    clientX: p.x,
+    clientY: p.y,
+    button: 0,
+    buttons,
+  });
+  /**
+   * A real touch drag of `el` from `from` to `end`, by way of `via` (clear of both parts); with
+   * `second`, another finger touches `el` there right after the press and stays still.
+   */
+  const drag = async (el: Element, from: Pt, end: Pt, via?: Pt, second?: Pt) => {
+    el.dispatchEvent(new PointerEvent('pointerdown', touch(7, true, from, 1)));
+    if (second) el.dispatchEvent(new PointerEvent('pointerdown', touch(8, false, second, 1)));
+    const path = via ? [via, end] : [end];
+    let prev = from;
+    for (const p of path) {
+      for (let i = 1; i <= 6; i += 1) {
+        const q = { x: prev.x + ((p.x - prev.x) * i) / 6, y: prev.y + ((p.y - prev.y) * i) / 6 };
+        window.dispatchEvent(new PointerEvent('pointermove', touch(7, true, q, 1)));
+        await frame();
+      }
+      prev = p;
     }
-    window.dispatchEvent(new PointerEvent('pointerup', init(end.x, end.y, 0)));
+    window.dispatchEvent(new PointerEvent('pointerup', touch(7, true, end, 0)));
+    if (second) window.dispatchEvent(new PointerEvent('pointerup', touch(8, false, second, 0)));
     await frame();
     await frame();
   };
+  const counts = () => [inPool('whole'), inPool('part-0'), inPool('part-1')];
 
-  // Review round 1 (#128): a fixed whole of 10 (four ways found) always piles, so CI's default
-  // shards exercise the piles' interaction too.
-  it('CPS.06.t1, whole 10: drags land where the finger lifts; Tab never reaches a send-home mid-move', async () => {
+  // Review rounds 1–2 (#128): a fixed whole of 10 (four ways found) always piles, so CI's default
+  // shards exercise every pile interaction.
+  it('CPS.06.t1, whole 10: drags land under the finger; taps, keyboard and send-home move one each', async () => {
     await page.viewport(960, 600);
     const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
     const item = engine.generateItemFromParams(template, {
@@ -868,25 +884,29 @@ describe('number-bond new-way as piles in a short room (#35)', () => {
     expect(await measure('CPS.06.t1')).toEqual([]);
     expect(document.querySelector<HTMLElement>('.ni-bondw')?.dataset.pile).toBe('true');
     const el = (sel: string) => document.querySelector(sel) as Element;
-    // Pressed near the whole's left edge, lifted over the left part: it lands there.
-    await dragFrom(
-      el(`${pool('whole')} .ni-bondw__grab`),
-      0.08,
-      0.5,
-      el(`${pool('part-0')} .ni-bondw__pad`),
-    );
-    expect([inPool('whole'), inPool('part-0'), inPool('part-1')]).toEqual([9, 1, 0]);
-    // Pressed near its right edge, lifted over the right part.
-    await dragFrom(
-      el(`${pool('whole')} .ni-bondw__grab`),
-      0.92,
-      0.5,
-      el(`${pool('part-1')} .ni-bondw__pad`),
-    );
-    expect([inPool('whole'), inPool('part-0'), inPool('part-1')]).toEqual([8, 1, 1]);
+    const whole = () => el(`${pool('whole')} .ni-bondw__grab`);
+    const pad = (slot: string) => el(`${pool(slot)} .ni-bondw__pad`);
+    const above = () => at(whole(), 0.5, -0.6);
+    // Pressed half a pixel inside the whole's left edge, lifted half a pixel inside the left
+    // part's right edge: it lands in the left part.
+    {
+      const r = whole().getBoundingClientRect();
+      const p = pad('part-0').getBoundingClientRect();
+      const from = { x: r.left + 0.5, y: r.top + r.height / 2 };
+      await drag(whole(), from, { x: p.right - 0.5, y: p.top + p.height / 2 }, above());
+    }
+    expect(counts()).toEqual([9, 1, 0]);
+    // Pressed near its right edge while a second finger rests near its left edge: the first
+    // finger's counter lands where it lifts, in the right part.
+    {
+      const p = pad('part-1').getBoundingClientRect();
+      const end = { x: p.left + 50, y: p.top + p.height / 2 };
+      await drag(whole(), at(whole(), 0.92, 0.5), end, above(), at(whole(), 0.08, 0.5));
+    }
+    expect(counts()).toEqual([8, 1, 1]);
     // Keyboard only: Enter on the whole, then Tab to a part. Holding a counter, no pool offers
     // a send-home; the counter goes where Enter is pressed.
-    (el(`${pool('whole')} .ni-bondw__grab`) as HTMLElement).focus();
+    (whole() as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
     expect(count('.ni-bondw button.ni-bondw__moved:not(:disabled)')).toBe(0);
     for (let i = 0; i < 8; i += 1) {
@@ -896,7 +916,18 @@ describe('number-bond new-way as piles in a short room (#35)', () => {
     }
     expect(document.activeElement?.closest(pool('part-1'))).not.toBeNull();
     await userEvent.keyboard('{Enter}');
-    expect([inPool('whole'), inPool('part-0'), inPool('part-1')]).toEqual([7, 1, 2]);
+    expect(counts()).toEqual([7, 1, 2]);
+    // Taps: the whole, then a part; the rest into the left part (the fullest pile a child makes).
+    while (inPool('whole') > 0) {
+      await tap(`${pool('whole')} .ni-bondw__grab`);
+      await tap(`${pool('part-0')} .ni-bondw__pad`);
+    }
+    expect(counts()).toEqual([0, 8, 2]);
+    expect(await measure('CPS.06.t1')).toEqual([]);
+    // A tap on a part's pool sends one counter home.
+    await tap(`${pool('part-0')} .ni-bondw__grab`);
+    expect(counts()).toEqual([1, 7, 2]);
+    expect(count('.ni-bondw [data-cue="check"] button')).toBe(1);
     expect(await measure('CPS.06.t1')).toEqual([]);
   });
   it('CPS.06.t1 on every seed: one counter per move, every state fits; none at 1280 × 800', async () => {
