@@ -19,11 +19,12 @@ coverageGrades: [K, 1]
 # Slice 3b authored MUL.06, MUL.07, MUL.11 and MUL.13–MUL.16 (mul.facts, mul.tens).
 # Slice 4a authored TIM.02, TIM.05, TIM.10, TIM.11, FRA.02 and MON.01, MON.02, MON.04–MON.06, MON.08
 # (money.coins), which adds MON.03 and MON.07 as gaps below MON.08.
-# Slice 4b authored MEA.03, MEA.10, DAT.03–DAT.05, GEO.12, GEO.15 and GEO.16, which adds GEO.13 and
-# GEO.14 as gaps below GEO.15 (MEA.08 and MEA.09 stay planned; FRA.16 waits too).
+# Slice 4b authored MEA.03, MEA.10, DAT.04, DAT.05, GEO.12, GEO.15 and GEO.16, which adds GEO.13 and
+# GEO.14 as gaps below GEO.15 (DAT.03, MEA.08, MEA.09 and FRA.16 stay planned).
 plannedIds:
   [
     ALG.03,
+    DAT.03,
     DAT.06,
     DAT.07,
     DAT.08,

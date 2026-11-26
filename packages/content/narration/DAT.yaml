@@ -38,23 +38,11 @@ tp.DAT.10.t2.prompt:
   text: "Which group has the {ask|word}?"
 tp.DAT.10.t3.prompt:
   text: "Put the groups in order. Start with the fewest."
-# K02 slice 4b (#17): DAT.03–DAT.05.
-sk.DAT.03.intro:
-  text: "Measure things, then show the lengths with Xs on a line plot!"
+# K02 slice 4b (#17): DAT.04 and DAT.05.
 sk.DAT.04.intro:
   text: "Let's make our own graphs!"
 sk.DAT.05.intro:
   text: "A graph can answer questions. How many in all? How many more?"
-tp.DAT.03.t1.prompt:
-  text: "Measure it with the ruler. How many inches long is it?"
-tp.DAT.03.t2.prompt:
-  text: "These are the lengths of some planks, in inches. Make a line plot with one X for each length."
-tp.DAT.03.t3.prompt:
-  text: "The line plot shows plank lengths in inches. How many planks are {at} inches long?"
-tp.DAT.03.t4.prompt:
-  text: "The line plot shows plank lengths in inches. How many planks were measured?"
-tp.DAT.03.t5.prompt:
-  text: "How many more planks are {at} inches long than {at2} inches long?"
 tp.DAT.04.t1.prompt:
   text: "Make a bar graph to match the tally marks."
 tp.DAT.04.t2.prompt:

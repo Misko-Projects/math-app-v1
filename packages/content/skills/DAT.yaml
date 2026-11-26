@@ -19,16 +19,8 @@ skills:
     gateway: false
     representations: [picture-graph, bar-graph]
 
-  # K02 slice 4b (#17): DAT.03–DAT.05 (grade 2).
-  - id: DAT.03
-    name: Make a line plot of measured lengths
-    kind: procedure
-    grade: 2
-    standards: { ccss: [2.MD.D.9] }
-    prerequisites: [MEA.03, DAT.04]
-    gateway: false
-    representations: [ruler, line-plot]
-
+  # K02 slice 4b (#17): DAT.04 and DAT.05 (grade 2). DAT.03 is planned: line plots have no
+  # accessible names yet.
   - id: DAT.04
     name: Build picture and bar graphs (up to 4 categories)
     kind: procedure

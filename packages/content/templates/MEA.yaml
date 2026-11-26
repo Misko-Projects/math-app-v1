@@ -423,7 +423,9 @@ templates:
 
   # ---------- K02 slice 4b (#17): MEA.03 measure with a ruler (inches, centimeters) ----------
   # Laid tiles first (the units representation), then the ruler from 0, then an object that does
-  # not start at 0 (MC.ruler-read-end), then the picture of a ruler and the pad.
+  # not start at 0 (MC.ruler-read-end), then the picture of a ruler and the pad. Rulers are
+  # pictorial (a concrete ruler slides, and its hints would go stale) and end by 9, so every mark
+  # has its numeral at 960 × 600.
   - id: MEA.03.t1
     skillId: MEA.03
     format: measure-length
@@ -443,13 +445,13 @@ templates:
   - id: MEA.03.t2
     skillId: MEA.03
     format: measure-length
-    tier: concrete
+    tier: pictorial
     representation: ruler
     generator: mea.length
     params:
       mode: read
       unit: { choice: [in, cm] }
-      length: { int: [1, 12] }
+      length: { int: [1, 8] }
     difficulty: { base: 0 }
     narration:
       prompt: tp.MEA.03.t2.prompt
@@ -464,8 +466,9 @@ templates:
     params:
       mode: read
       unit: { choice: [in, cm] }
-      length: { int: [2, 10] }
+      length: { int: [2, 7] }
       offset: { int: [1, 4] }
+    constraints: ["length + offset <= 8"]
     difficulty: { base: -0.8 }
     narration:
       prompt: tp.MEA.03.t3.prompt
@@ -480,7 +483,7 @@ templates:
     params:
       mode: read
       unit: { choice: [in, cm] }
-      length: { int: [2, 12] }
+      length: { int: [2, 8] }
     difficulty: { base: 0 }
     narration:
       prompt: tp.MEA.03.t4.prompt
@@ -500,7 +503,7 @@ templates:
       mode: difference
       unit: { choice: [in, cm] }
       length: { int: [3, 15] }
-    difficulty: { base: -0.96 }
+    difficulty: { base: -1 }
     narration:
       prompt: tp.MEA.10.t1.prompt
       hints: [h.length.diff-ruler, h.length.diff-count-on]
@@ -515,7 +518,7 @@ templates:
       mode: difference
       unit: { choice: [in, cm] }
       length: { int: [3, 15] }
-    difficulty: { base: -1.11 }
+    difficulty: { base: -1 }
     narration:
       prompt: tp.MEA.10.t2.prompt
       hints: [h.length.diff-ruler, h.length.diff-count-on, h.length.diff-take-away]

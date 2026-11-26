@@ -41,15 +41,3 @@ lessons:
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [DAT.10.t1, DAT.10.t3] }
 
-  # K02 slice 4b (#17): DAT.03 plays making the line plot (t2), not measuring one plank (t1, the
-  # first concrete template the auto lesson would pick).
-  - skillId: DAT.03
-    mode: authored
-    templateId: DAT.03.t2
-    worked:
-      - { seed: 3301, target: easy }
-    faded:
-      - { seed: 3302, target: typical, childSteps: 1 }
-      - { seed: 3303, target: typical, childSteps: 2 }
-    scaffolded: { count: 2, hintStart: 2 }
-    testOut: { items: 3, minCorrect: 3 }

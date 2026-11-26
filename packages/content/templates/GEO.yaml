@@ -890,7 +890,7 @@ templates:
     difficulty: { base: -0.5 }
     narration:
       prompt: tp.GEO.16.t2.prompt
-      hints: [h.geo.dots, h.geo.slant-side]
+      hints: [h.geo.dots, h.geo.not-square]
 
   - id: GEO.16.t3
     skillId: GEO.16

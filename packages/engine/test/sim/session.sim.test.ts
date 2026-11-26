@@ -170,17 +170,8 @@ const SLICE_4A = [
   'MON.06',
   'MON.08',
 ] as const;
-/** Slice 4b (#17): rulers, line plots, graphs, faces and corners, grade 2. */
-const SLICE_4B = [
-  'MEA.03',
-  'MEA.10',
-  'DAT.04',
-  'DAT.03',
-  'DAT.05',
-  'GEO.12',
-  'GEO.15',
-  'GEO.16',
-] as const;
+/** Slice 4b (#17): rulers, graphs, faces and corners, grade 2. */
+const SLICE_4B = ['MEA.03', 'MEA.10', 'DAT.04', 'DAT.05', 'GEO.12', 'GEO.15', 'GEO.16'] as const;
 
 /** The model's view at a session start. */
 interface Flags {

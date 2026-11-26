@@ -13,6 +13,13 @@
 //   READ_POSITIONS_MAX marks. A line plot's marks are not choices, so it never asks most or least.
 //
 // Every count is a param, so the item key follows from the params alone (03 §5.3).
+//
+// No shipped template uses it yet: DAT.03 stays planned until line plots have accessible names
+// (the measurement list, the positions and their stacks; PR #133 review), so the generator is
+// reachable only through its tests (lineplot.test.ts). Before content uses it, also fix the worked
+// solutions it gives today: the build ends on a step with no action after every `add-x` (a faded
+// lesson step then hands the child a finished plot), and the read counts the asked stack aloud
+// with `count-pictures` (the worked-step hint then speaks the answer).
 
 import type { ChartSpec, LessonStep, ResponseValue } from '@number-island/shared';
 import { chartPositionId } from '@number-island/shared';

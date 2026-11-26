@@ -150,7 +150,6 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.11',
       'DAT.01',
       'DAT.02',
-      'DAT.03',
       'DAT.04',
       'DAT.05',
       'DAT.09',
@@ -357,7 +356,6 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'time.sequence',
         'data.sort',
         'data.chart',
-        'data.lineplot',
         'pattern.repeat',
         'pattern.grow',
         'puzzle.grid',
@@ -1926,10 +1924,10 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // arrays (K02 slice 3a) added 9 skills, 33 templates, MC.add-instead-of-multiply and
       // MC.skip-count-slip; facts and strategies (K02 slice 3b) added 7 skills, 25 templates,
       // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped;
-      // rulers, line plots, graphs, faces and corners (K02 slice 4b) added 8 skills, 28 templates,
+      // rulers, graphs, faces and corners (K02 slice 4b) added 7 skills, 23 templates,
       // MC.ruler-count-ticks and MC.ruler-read-end.
-      skills: 189,
-      templates: 698,
+      skills: 188,
+      templates: 693,
       misconceptions: 44,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

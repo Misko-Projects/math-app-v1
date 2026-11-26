@@ -75,7 +75,7 @@ const GENERATORS: GeneratorDef[] = [
   timeSequence, // K01 time
   dataSort, // K01 data (DAT.01, DAT.10)
   dataChart, // K01 data (DAT.02, DAT.09); K02 builds and questions (DAT.04, DAT.05)
-  dataLineplot, // K02 line plots (DAT.03)
+  dataLineplot, // K02 line plots (DAT.03, planned: no shipped template yet)
   patternRepeat, // K01 patterns (ALG.01, ALG.04)
   patternGrow, // K01 patterns (ALG.02)
   puzzleGrid, // K01 puzzles (PUZ.01, PUZ.02, CPS.06)

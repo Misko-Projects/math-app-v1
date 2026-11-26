@@ -1650,7 +1650,7 @@ gen.frac.partition.grid-first:
   text: "Cut along the lines, right across."
   level: "2"
 gen.frac.partition.grid-other-way:
-  text: "Now cut just this part, a different way."
+  text: "Now cut just this one part."
   level: "2"
 gen.frac.partition.grid-same-size:
   text: "The parts look different, but each one has {n} squares. They are the same size."
@@ -2636,30 +2636,6 @@ h.length.diff-ruler:
 h.length.diff-take-away:
   text: "Take the short length away from the long length."
   level: "2"
-h.lineplot.find-each:
-  text: "Find each length on the number line."
-  level: "2"
-h.lineplot.one-x:
-  text: "Put one X above its length for each plank."
-  level: "2"
-h.lineplot.check-list:
-  text: "Count your Xs. There is one for each length on the list."
-  level: "2"
-h.lineplot.find-length:
-  text: "Find that length on the number line."
-  level: "2"
-h.lineplot.x-each:
-  text: "Each X is one plank."
-  level: "2"
-h.lineplot.count-above:
-  text: "Count the Xs above that number. No X means none."
-  level: "2"
-h.lineplot.count-all:
-  text: "Count every X on the line plot."
-  level: "2"
-h.lineplot.count-two:
-  text: "Count the Xs above each of the two lengths."
-  level: "2"
 h.data.bar-reach:
   text: "Make each bar as tall as its count."
   level: "2"
@@ -2705,6 +2681,6 @@ h.geo.grid-corner:
 h.geo.sides-corners:
   text: "A closed shape has as many corners as sides."
   level: "2"
-h.geo.slant-side:
-  text: "Make the sides slant, so no corner is square."
+h.geo.not-square:
+  text: "Make every corner wider or narrower than the corner of a page."
   level: "2"
