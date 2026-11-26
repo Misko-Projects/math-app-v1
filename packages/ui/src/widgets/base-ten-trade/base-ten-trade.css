@@ -104,6 +104,8 @@
   left: 0;
   z-index: -1;
   display: flex;
+  /* Three-digit cards side by side can be wider than a short room: never past its edge. */
+  flex-wrap: wrap;
   max-width: 100%;
   max-height: 100%;
   overflow: hidden;
@@ -950,4 +952,64 @@ button.ni-btt__box:focus-visible {
 }
 .ni-btt__takebox > .ni-btt__nestpad {
   inset: 0;
+}
+
+/* ---------- three columns of disks in a short room (layout.ts UnderPlan, #35) ---------- */
+
+/* Every disk's label 12 px at least (26 px disks: "100" would be 10.4 px). */
+.ni-btt[data-under="true"] .ni-btt__piece {
+  font-size: max(12px, calc(var(--u) * 0.4));
+}
+.ni-btt[data-under="true"] .ni-btt__piece--tens {
+  font-size: max(12px, calc(var(--u) * 0.46));
+}
+.ni-btt[data-under="true"] .ni-btt__piece--ones {
+  font-size: max(12px, calc(var(--u) * 0.5));
+}
+/* The pieces step: the tray's waiting groups or the take-away box, across the whole width. */
+.ni-btt__underbox {
+  display: flex;
+  grid-row: 2;
+  grid-column: 1 / span 2;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 100%;
+}
+.ni-btt__underbox > .ni-btt__tray--steps {
+  align-self: center;
+}
+/* The answer step: "check" and Back under the read-only columns, the pad row under all. */
+.ni-btt__underbtns {
+  grid-row: 2;
+  grid-column: 1;
+  justify-content: flex-start;
+  --target-big: var(--target-min);
+}
+.ni-btt__padline--under {
+  grid-row: 3;
+}
+.ni-btt__readmat {
+  display: grid;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border-style: solid;
+  border-color: var(--color-wood-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.ni-btt__readcol {
+  position: relative;
+  min-width: 0;
+}
+.ni-btt__readcol + .ni-btt__readcol {
+  box-shadow: inset 2px 0 0 var(--color-wood);
+}
+.ni-btt__readmat .ni-btt__pile {
+  /* READ_PAD (layout.ts). */
+  inset: 4px;
 }

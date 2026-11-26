@@ -531,6 +531,11 @@ describe.each(FIT_VIEWPORTS)(
       return { item: engine.generateItemFromParams(template, params), template };
     };
     const checkReachable = async () => {
+      // A short room's steps (#35): "check" is on the answer step, which must fit too.
+      if (document.querySelector('.ni-btt')?.getAttribute('data-step') === 'pieces') {
+        await userEvent.click(document.querySelector('[data-cue="next"] button') as Element);
+        expect(await measure('the answer step')).toEqual([]);
+      }
       const check = button('.ni-btt__checkwrap button');
       expect(check).not.toBeNull();
       check?.scrollIntoView({ block: 'nearest' });
@@ -812,6 +817,221 @@ describe.each(FIT_VIEWPORTS)(
   },
 );
 
+// #35: number-bond new-way (CPS.06.t1, every way but one found) at 960 × 600: where neither the
+// flat nor the folded bond fits, the counters are piles (34 px, plan.ts PILE_CELL) and each pool is
+// one grab, tap and keyboard area; the found ways two a row beside the bond. At 1280 × 800 nothing
+// changes (no piles).
+describe('number-bond new-way as piles in a short room (#35)', () => {
+  const pool = (slot: string) => `.ni-bondw [data-pool="${slot}"]`;
+  const inPool = (slot: string) => count(`${pool(slot)} [data-counter]`);
+  type Pt = { x: number; y: number };
+  const at = (el: Element, fx: number, fy: number): Pt => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width * fx, y: r.top + r.height * fy };
+  };
+  const touch = (
+    pointerId: number,
+    primary: boolean,
+    p: Pt,
+    buttons: number,
+  ): PointerEventInit => ({
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: primary,
+    clientX: p.x,
+    clientY: p.y,
+    button: 0,
+    buttons,
+  });
+  /**
+   * A real touch drag of `el` from `from` to `end`, by way of `via` (clear of both parts); with
+   * `second`, another finger touches `el` there right after the press and stays still.
+   */
+  const drag = async (el: Element, from: Pt, end: Pt, via?: Pt, second?: Pt) => {
+    el.dispatchEvent(new PointerEvent('pointerdown', touch(7, true, from, 1)));
+    if (second) el.dispatchEvent(new PointerEvent('pointerdown', touch(8, false, second, 1)));
+    const path = via ? [via, end] : [end];
+    let prev = from;
+    for (const p of path) {
+      for (let i = 1; i <= 6; i += 1) {
+        const q = { x: prev.x + ((p.x - prev.x) * i) / 6, y: prev.y + ((p.y - prev.y) * i) / 6 };
+        window.dispatchEvent(new PointerEvent('pointermove', touch(7, true, q, 1)));
+        await frame();
+      }
+      prev = p;
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', touch(7, true, end, 0)));
+    if (second) window.dispatchEvent(new PointerEvent('pointerup', touch(8, false, second, 0)));
+    await frame();
+    await frame();
+  };
+  const counts = () => [inPool('whole'), inPool('part-0'), inPool('part-1')];
+
+  // Review rounds 1–2 (#128): a fixed whole of 10 (four ways found) always piles, so CI's default
+  // shards exercise every pile interaction.
+  it('CPS.06.t1, whole 10: drags land under the finger; taps, keyboard and send-home move one each', async () => {
+    await page.viewport(960, 600);
+    const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
+    const item = engine.generateItemFromParams(template, {
+      whole: 10,
+      unknown: 'new-way',
+      gap: 4,
+    });
+    show(item, ageModeOf(template));
+    expect(await measure('CPS.06.t1')).toEqual([]);
+    expect(document.querySelector<HTMLElement>('.ni-bondw')?.dataset.pile).toBe('true');
+    const el = (sel: string) => document.querySelector(sel) as Element;
+    const whole = () => el(`${pool('whole')} .ni-bondw__grab`);
+    const pad = (slot: string) => el(`${pool(slot)} .ni-bondw__pad`);
+    const above = () => at(whole(), 0.5, -0.6);
+    // Pressed half a pixel inside the whole's left edge, lifted half a pixel inside the left
+    // part's right edge: it lands in the left part.
+    {
+      const r = whole().getBoundingClientRect();
+      const p = pad('part-0').getBoundingClientRect();
+      const from = { x: r.left + 0.5, y: r.top + r.height / 2 };
+      await drag(whole(), from, { x: p.right - 0.5, y: p.top + p.height / 2 }, above());
+    }
+    expect(counts()).toEqual([9, 1, 0]);
+    // Pressed near its right edge while a second finger rests near its left edge: the first
+    // finger's counter lands where it lifts, in the right part.
+    {
+      const p = pad('part-1').getBoundingClientRect();
+      const end = { x: p.left + 50, y: p.top + p.height / 2 };
+      await drag(whole(), at(whole(), 0.92, 0.5), end, above(), at(whole(), 0.08, 0.5));
+    }
+    expect(counts()).toEqual([8, 1, 1]);
+    // Keyboard only: Enter on the whole, then Tab to a part. Holding a counter, no pool offers
+    // a send-home; the counter goes where Enter is pressed.
+    (whole() as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(count('.ni-bondw button.ni-bondw__moved:not(:disabled)')).toBe(0);
+    for (let i = 0; i < 8; i += 1) {
+      if (document.activeElement?.closest(pool('part-1'))) break;
+      await userEvent.keyboard('{Tab}');
+      expect(document.activeElement?.classList.contains('ni-bondw__moved')).toBe(false);
+    }
+    expect(document.activeElement?.closest(pool('part-1'))).not.toBeNull();
+    await userEvent.keyboard('{Enter}');
+    expect(counts()).toEqual([7, 1, 2]);
+    // Taps: the whole, then a part; the rest into the left part (the fullest pile a child makes).
+    while (inPool('whole') > 0) {
+      await tap(`${pool('whole')} .ni-bondw__grab`);
+      await tap(`${pool('part-0')} .ni-bondw__pad`);
+    }
+    expect(counts()).toEqual([0, 8, 2]);
+    expect(await measure('CPS.06.t1')).toEqual([]);
+    // A tap on a part's pool sends one counter home.
+    await tap(`${pool('part-0')} .ni-bondw__grab`);
+    expect(counts()).toEqual([1, 7, 2]);
+    expect(count('.ni-bondw [data-cue="check"] button')).toBe(1);
+    expect(await measure('CPS.06.t1')).toEqual([]);
+  });
+  // Review round 3 (#128): a hand resting outside the pool, another finger dragging from the
+  // pool's right edge: the counter goes with the dragging finger (its anchor is set by the
+  // pointer the drag accepts, not by the primary one).
+  it('CPS.06.t1, whole 10: a resting hand and a dragging finger, the counter lands under the finger', async () => {
+    await page.viewport(960, 600);
+    const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
+    show(
+      engine.generateItemFromParams(template, { whole: 10, unknown: 'new-way', gap: 4 }),
+      ageModeOf(template),
+    );
+    expect(await measure('CPS.06.t1')).toEqual([]);
+    const whole = document.querySelector(`${pool('whole')} .ni-bondw__grab`) as Element;
+    const resting = document.querySelector('.ni-bondw__found') as Element;
+    const rest = at(resting, 0.5, 0.5);
+    resting.dispatchEvent(new PointerEvent('pointerdown', touch(9, true, rest, 1)));
+    const from = at(whole, 0.92, 0.5);
+    const p = (
+      document.querySelector(`${pool('part-1')} .ni-bondw__pad`) as Element
+    ).getBoundingClientRect();
+    const end = { x: p.left + 50, y: p.top + p.height / 2 };
+    const via = at(whole, 0.5, -0.6);
+    whole.dispatchEvent(new PointerEvent('pointerdown', touch(10, false, from, 1)));
+    let prev = from;
+    for (const q of [via, end]) {
+      for (let i = 1; i <= 6; i += 1) {
+        const m = { x: prev.x + ((q.x - prev.x) * i) / 6, y: prev.y + ((q.y - prev.y) * i) / 6 };
+        window.dispatchEvent(new PointerEvent('pointermove', touch(10, false, m, 1)));
+        await frame();
+      }
+      prev = q;
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', touch(10, false, end, 0)));
+    window.dispatchEvent(new PointerEvent('pointerup', touch(9, true, rest, 0)));
+    await frame();
+    await frame();
+    expect(counts()).toEqual([9, 0, 1]);
+  });
+
+  it('CPS.06.t1 on every seed: one counter per move, every state fits; none at 1280 × 800', async () => {
+    const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
+    const failing: string[] = [];
+    let piled = 0;
+    for (const seed of SEEDS) {
+      const item = engine.generateItem(template, seed);
+      await page.viewport(960, 600);
+      show(item, ageModeOf(template));
+      const at = async (state: string) => {
+        const misfit = await measure('CPS.06.t1');
+        if (misfit.length > 0) failing.push(`seed ${seed} ${state}: ${misfit.join('; ')}`);
+        if (SHOTS.includes('CPS.06.t1'))
+          await page.screenshot({ path: `__fit__/CPS.06.t1-s${seed}-${state}-960x600.png` });
+      };
+      await at('first');
+      const root = document.querySelector<HTMLElement>('.ni-bondw');
+      if (root?.dataset.pile !== 'true') continue;
+      piled += 1;
+      // Countable: every counter drawn 22 px or more, none overlapping its neighbour.
+      const sprites = [...document.querySelectorAll('.ni-bondw__counter > *')].map((e) =>
+        e.getBoundingClientRect(),
+      );
+      for (const r of sprites) expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(22);
+      // Each pool is one control a target wide, named with its count.
+      for (const slot of ['whole', 'part-0', 'part-1']) {
+        const r = document.querySelector(`${pool(slot)} .ni-bondw__pad`)?.getBoundingClientRect();
+        expect(Math.min(r?.width ?? 0, r?.height ?? 0)).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+        expect(
+          document.querySelector(`${pool(slot)} .ni-bondw__pad`)?.getAttribute('aria-label'),
+        ).toMatch(new RegExp(`: ${inPool(slot)}$`));
+      }
+      // A tap on the whole, a tap on a part: one counter moves.
+      const whole = inPool('whole');
+      await tap(`${pool('whole')} .ni-bondw__grab`);
+      await tap(`${pool('part-0')} .ni-bondw__pad`);
+      expect(inPool('part-0')).toBe(1);
+      expect(inPool('whole')).toBe(whole - 1);
+      await at('one-moved');
+      // From the keyboard: the whole's control, Enter; the other part's pool, Enter.
+      document.querySelector<HTMLElement>(`${pool('whole')} .ni-bondw__grab`)?.focus();
+      await userEvent.keyboard('{Enter}');
+      document.querySelector<HTMLElement>(`${pool('part-1')} .ni-bondw__pad`)?.focus();
+      await userEvent.keyboard('{Enter}');
+      expect(inPool('part-1')).toBe(1);
+      // The rest into the first part (the fullest pool a child makes), then one sent home.
+      while (inPool('whole') > 0) {
+        await tap(`${pool('whole')} .ni-bondw__grab`);
+        await tap(`${pool('part-0')} .ni-bondw__pad`);
+      }
+      await at('all-moved');
+      await tap(`${pool('part-0')} .ni-bondw__grab`);
+      expect(inPool('whole')).toBe(1);
+      expect(count('.ni-bondw [data-cue="check"] button')).toBe(1);
+      await page.viewport(1280, 800);
+      show(item, ageModeOf(template));
+      const big = await measure('CPS.06.t1');
+      if (big.length > 0) failing.push(`seed ${seed} at 1280 × 800: ${big.join('; ')}`);
+      expect(document.querySelector<HTMLElement>('.ni-bondw')?.dataset.pile).toBeUndefined();
+    }
+    expect(failing).toEqual([]);
+    if (SEEDS.length > 1) expect(piled).toBeGreaterThan(0);
+  }, 120_000);
+});
+
 // #35: regrouping with a typed answer in a short room (960 × 600) is played in two steps, the
 // pieces then the answer (base-ten-trade layout.ts planSteps). Every seed CI plays, operated as a
 // child would: the tray emptied or the take-away filled, the trade, Next, the one-row pad, Check, a
@@ -824,6 +1044,26 @@ const tap = async (sel: string) => {
   await userEvent.click(el);
 };
 const typedAnswer = () => document.querySelector('.ni-btt__stepside .ni-btt__answer')?.textContent;
+const DISK_TEMPLATES = [
+  'MDA.05.t1',
+  'MDA.07.t1',
+  'MDA.17.t1',
+  'MDA.18.t1',
+  'MDA.18.t2',
+  'MDA.21.t1',
+] as const;
+/** Disks drawn under 26 px (DISK_FLOOR) or labelled under 12 px, anywhere a child sees them. */
+const disksUnderFloor = () => {
+  const bad: string[] = [];
+  for (const el of document.querySelectorAll<HTMLElement>('.ni-btt [data-piece]')) {
+    if (el.closest('.ni-btt__measure') || el.dataset.arriving === 'true') continue;
+    const r = el.getBoundingClientRect();
+    const font = Number.parseFloat(getComputedStyle(el).fontSize);
+    if (r.width < 26 - SLACK_PX) bad.push(`${el.dataset.piece} ${Math.round(r.width)} px`);
+    if (font < 12) bad.push(`${el.dataset.piece} label ${font} px`);
+  }
+  return bad;
+};
 
 describe('regrouping in a short room: the pieces, then the answer (#35)', () => {
   const shot = async (id: string, state: string) => {
@@ -920,11 +1160,118 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
     expect(failing, `${id} steps that do not fit`).toEqual([]);
   });
 
-  // Principle 4 (#35): the three-digit compute slice (MDA.05, MDA.17) will draw disks in three
-  // columns. Its fullest, 990 − 15 with a column of 20 ones, does not fit the two steps at the
-  // disks' floor (276 px too wide, layout.steps.test.ts): it keeps the usual layout and scrolls,
-  // with disks of 25 px (one under DISK_FLOOR). Measured here so the slice starts from the number.
-  it('a three-column compute mat of disks (no shipped item) keeps the usual layout', async () => {
+  // Three columns of disks (#35, layout.ts UnderPlan): the tray or the take-away box under the mat,
+  // then the answer beside the read-only columns. Every seed CI plays, operated as a child would.
+  it.each(DISK_TEMPLATES)(
+    '%s (three columns of disks) on every seed, in both steps',
+    async (id) => {
+      await page.viewport(960, 600);
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      const failing: string[] = [];
+      const check = async (seed: number, state: string) => {
+        const misfit = [...(await measure(id)), ...disksUnderFloor()];
+        if (misfit.length > 0)
+          failing.push(`seed ${seed} ${state}: ${misfit.join('; ')} [${describeParts()}]`);
+        await shot(id, `s${seed}-${state}`);
+      };
+      const work = id === 'MDA.07.t1' || id === 'MDA.18.t2' || id === 'MDA.21.t1';
+      for (const seed of SEEDS) {
+        const item = engine.generateItem(template, seed);
+        const plus = item.params.op === '+';
+        show(item, ageModeOf(template));
+        await check(seed, 'first');
+        expect(stepsRoot()?.dataset.arrange, `${id} seed ${seed}`).toBe('steps');
+        expect(stepsRoot()?.dataset.under).toBe('true');
+        expect(stepsRoot()?.dataset.step).toBe('pieces');
+        expect(count('.ni-pad__key')).toBe(0);
+        if (plus) {
+          for (const c of ['hundreds', 'tens', 'ones'] as const) {
+            if (document.querySelector(`[data-place-item="pending-${c}"]`)) {
+              await tap(`[data-place-item="pending-${c}"]`);
+              await tap(`[data-place-target="col-${c}"]`);
+            }
+          }
+          await check(seed, 'joined');
+        } else {
+          // A one taken by tapping it and then the box (its put-back controls let the tap through).
+          if (document.querySelector('[data-place-item^="mat-ones-"]')) {
+            await tap('[data-place-item^="mat-ones-"]');
+            await tap('[data-place-target="take"]');
+            expect(count('.ni-btt__takebox [data-piece^="taken-"]')).toBe(1);
+          }
+          await check(seed, 'taken');
+        }
+        await tap('[data-cue="next"] button');
+        await check(seed, 'answer');
+        expect(stepsRoot()?.dataset.step).toBe('answer');
+        // The answer place has the focus; the read-only columns are named and hold no control.
+        expect(
+          document.activeElement?.matches(work ? '.ni-btt__box' : '.ni-btt__answer'),
+          `${id} seed ${seed} focus`,
+        ).toBe(true);
+        const read = document.querySelector('.ni-btt__readmat');
+        expect(read?.getAttribute('aria-label')).toBeTruthy();
+        expect(read?.querySelectorAll('button, [tabindex]').length).toBe(0);
+        expect(read?.textContent).toMatch(/Hundreds: \d+.*Tens: \d+.*Ones: \d+/);
+        expect(count('.ni-btt__mat')).toBe(0);
+        const said = document.querySelector('.ni-btt [role="status"]')?.textContent ?? '';
+        expect(said).not.toBe('');
+        expect(said.includes('Your work')).toBe(work);
+        // A wrong answer typed and checked: the look-again cue, still the answer step.
+        const a = Number(item.params.a);
+        const b = Number(item.params.b);
+        const wrong = String((plus ? a + b : a - b) + 1);
+        await userEvent.keyboard(wrong);
+        expect(button('.ni-btt__checkwrap button')?.disabled).toBe(false);
+        await tap('.ni-btt__checkwrap button');
+        show(item, ageModeOf(template), { line: longestLine(item) }, undefined, true);
+        await check(seed, 'look-again');
+        expect(stepsRoot()?.dataset.step).toBe('answer');
+        // Back to the mat (focus on it); Next again, the answer kept.
+        const typed = () =>
+          work
+            ? [...document.querySelectorAll('.ni-btt__work .ni-btt__box')].map((e) => e.textContent)
+            : typedAnswer();
+        const before = JSON.stringify(typed());
+        await tap('[data-cue="back"] button');
+        await check(seed, 'back');
+        expect(document.activeElement?.classList.contains('ni-btt__mat')).toBe(true);
+        await tap('[data-cue="next"] button');
+        expect(JSON.stringify(typed())).toBe(before);
+        // Said once: the second Next does not repeat it.
+        if (work) {
+          expect(
+            document.querySelector('.ni-btt [role="status"]')?.textContent?.includes('Your work'),
+          ).toBe(false);
+        }
+      }
+      expect(failing, `${id} steps that do not fit`).toEqual([]);
+    },
+    120_000,
+  );
+
+  it('three columns of disks: a resize between the steps keeps them, Back and Next work', async () => {
+    await page.viewport(960, 600);
+    const template = content.store.graph.templates['MDA.17.t1'] as ItemTemplate;
+    show(engine.generateItemFromParams(template, { a: 990, b: 115, op: '-' }), 'g1-up');
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    button('[data-trade="trade-tens-ones"]')?.click();
+    button('[data-trade="trade-tens-ones"]')?.click();
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    expect(tradeMat()).toEqual([9, 7, 20]);
+    await tap('[data-cue="next"] button');
+    await page.viewport(1280, 800);
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    await page.viewport(960, 600);
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    expect(stepsRoot()?.dataset.arrange).toBe('steps');
+    expect(disksUnderFloor()).toEqual([]);
+    if (stepsRoot()?.dataset.step === 'answer') await tap('[data-cue="back"] button');
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    expect(tradeMat()).toEqual([9, 7, 20]);
+  });
+
+  it('a three-column compute mat of disks plays in steps, disks 26 px, labels 12 px', async () => {
     await page.viewport(960, 600);
     const base = engine.generateItem(content.store.graph.templates['MDA.12.t1'] as ItemTemplate, 1);
     const item = {
@@ -939,15 +1286,18 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
       },
     } as GeneratedItem;
     show(item, 'g1-up');
-    await measure('990 − 15');
-    expect(stepsRoot()?.dataset.arrange).toBe('tall');
+    expect(await measure('990 − 15')).toEqual([]);
+    expect(stepsRoot()?.dataset.arrange).toBe('steps');
     button('[data-trade="trade-tens-ones"]')?.click();
-    await measure('990 − 15');
+    expect(await measure('990 − 15')).toEqual([]);
     button('[data-trade="trade-tens-ones"]')?.click();
-    await measure('990 − 15');
+    expect(await measure('990 − 15')).toEqual([]);
     expect(tradeMat()).toEqual([9, 7, 20]);
-    const disk = document.querySelector('.ni-btt__mat [data-piece^="ones-"]');
-    expect(Math.round(disk?.getBoundingClientRect().width ?? 0)).toBe(25);
+    const disk = document.querySelector('.ni-btt__mat [data-piece^="hundreds-"]') as Element;
+    // The largest unit the steps fit, the floor at least ("990 − 15" leaves the mat a little more).
+    expect(Math.round(disk.getBoundingClientRect().width)).toBeGreaterThanOrEqual(26);
+    expect(Number.parseFloat(getComputedStyle(disk).fontSize)).toBeGreaterThanOrEqual(12);
+    expect(disksUnderFloor()).toEqual([]);
     await shot('disks-990-15', 'column-of-20');
   });
 

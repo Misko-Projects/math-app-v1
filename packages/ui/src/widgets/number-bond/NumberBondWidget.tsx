@@ -1,5 +1,12 @@
 import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
@@ -49,6 +56,8 @@ import {
   circleFont,
   FOUND_C,
   miniC,
+  PILE_CELL,
+  PILE_GAP,
   POOL_BORDER,
   planBond,
   poolsBox,
@@ -258,6 +267,9 @@ export function NumberBondWidget({
       speakMove(target, next);
     },
   });
+
+  /** Piles: the pointer whose press set the dragged counter's anchor (null: none down). */
+  const pileGrab = useRef<number | null>(null);
 
   const sendHome = (id: number) => {
     if (!interactive) return;
@@ -618,8 +630,113 @@ export function NumberBondWidget({
 
   // ---------- render: the concrete bond (pools of counters) ----------
 
+  /**
+   * A pool as a pile (plan.ts PILE_CELL): its counters drawn, not reached one by one; the pool is
+   * one control over them. Where it holds counters at home, dragging or tapping it takes the last
+   * of them (one per move, as a counter is moved now); else tapping it sends its last moved counter
+   * home. While a counter is held, a tap on any pool goes to the pool's drop target beneath.
+   */
+  const pileOf = (slot: Slot, ids: readonly number[], cols: number, pitch: number) => {
+    const atHome = ids.filter((id) => home[id] === slot);
+    const moved = ids.filter((id) => home[id] !== slot);
+    const grabId = atHome[atHome.length - 1];
+    const backId = moved[moved.length - 1];
+    const k = grabId === undefined ? -1 : ids.indexOf(grabId);
+    const holding = dnd.selected !== null;
+    const counter = (id: number, extra = '') => (
+      <span
+        key={id}
+        className={['ni-bondw__counter', extra, cueOf(`counter:${id}`)].filter(Boolean).join(' ')}
+        data-counter={id}
+        data-cue={`counter:${id}`}
+        data-flying={flying === id ? 'true' : undefined}
+        aria-hidden="true"
+      >
+        <ObjectSprite sprite="counter" />
+      </span>
+    );
+    let control: ReactNode = null;
+    if (grabId !== undefined) {
+      const props = dnd.itemProps(counterId(grabId) as ItemId, {
+        label: `${counterName}: ${slotName(slot)}, ${ids.length}`,
+      });
+      const selfHeld = dnd.selected === counterId(grabId);
+      control = (
+        <div
+          {...props}
+          className={`${props.className} ni-bondw__grab`}
+          style={
+            {
+              '--pile-x': `${(k % cols) * pitch}px`,
+              '--pile-y': `${Math.floor(k / cols) * pitch}px`,
+              pointerEvents: holding && !selfHeld ? 'none' : undefined,
+            } as CSSProperties
+          }
+          onPointerDown={(e) => {
+            // Review round 1: a drag carries the counter under the finger, wherever in the pool
+            // the press began (the drop is measured from the dragged counter's centre).
+            // Round 2: centred exactly on the press (not clamped into the pool, which moved it
+            // off the finger). Round 3: set by exactly the pointer the drag hook accepts (the
+            // first press while no drag is active, as useDragToTarget decides), whichever finger
+            // that is; a press it rejects never moves the anchor of a drag in progress.
+            const accepted =
+              pileGrab.current === null &&
+              interactive &&
+              !(e.pointerType === 'mouse' && e.button !== 0);
+            if (accepted) {
+              const id = e.pointerId;
+              pileGrab.current = id;
+              const end = (ev: PointerEvent) => {
+                if (ev.pointerId !== id) return;
+                pileGrab.current = null;
+                window.removeEventListener('pointerup', end);
+                window.removeEventListener('pointercancel', end);
+              };
+              window.addEventListener('pointerup', end);
+              window.addEventListener('pointercancel', end);
+              const r = e.currentTarget.getBoundingClientRect();
+              const half = (PILE_CELL * zoom) / 2;
+              e.currentTarget.style.setProperty('--grab-x', `${e.clientX - r.left - half}px`);
+              e.currentTarget.style.setProperty('--grab-y', `${e.clientY - r.top - half}px`);
+            }
+            props.onPointerDown(e);
+          }}
+        >
+          {counter(grabId, 'ni-bondw__held')}
+        </div>
+      );
+    } else if (backId !== undefined) {
+      control = (
+        <button
+          type="button"
+          className="ni-bondw__grab ni-bondw__moved"
+          aria-label={`${counterName} ${backId + 1}: ${slotName(slot)}, ${ids.length}`}
+          // While a counter is held this pool is only its drop target (review round 1: no
+          // send-home in the tab order mid-placement).
+          disabled={!interactive || holding}
+          style={{ pointerEvents: holding ? 'none' : undefined }}
+          onClick={() => sendHome(backId)}
+        />
+      );
+    }
+    return (
+      <>
+        <div className="ni-bondw__counters">
+          {ids.map((id) =>
+            id === grabId ? (
+              <span key={id} className="ni-bondw__counter" aria-hidden="true" />
+            ) : (
+              counter(id)
+            ),
+          )}
+        </div>
+        {control}
+      </>
+    );
+  };
+
   const renderPools = () => {
-    const box = scalePools(poolsBox(input, plan.edge, plan.fold), zoom);
+    const box = scalePools(poolsBox(input, plan.edge, plan.fold, plan.pile), zoom);
     const centre = (slot: Slot) => box.pools[slot].x + box.pools[slot].w / 2;
     const badgeOf = (slot: Slot) => {
       const known = given(config, slot);
@@ -631,15 +748,21 @@ export function NumberBondWidget({
           ? known
           : countIn(slot);
     };
+    // Piles (plan.ts PILE_CELL): smaller counters, and each pool is the one grab or tap area.
+    const pile = plan.pile;
+    const cell = PILE_CELL * zoom;
+    const cellGap = PILE_GAP * zoom;
     return (
       <fieldset
         className="ni-bondw__cbond"
         aria-label={t('ui.widget.picture')}
+        data-pile={pile ? 'true' : undefined}
         style={
           {
             width: box.size.w,
             height: box.size.h,
             '--pool-pad': `${plan.edge - POOL_BORDER}px`,
+            ...(pile ? { '--bond-cell': `${cell}px`, '--pile-gap': `${cellGap}px` } : {}),
           } as CSSProperties
         }
       >
@@ -661,9 +784,13 @@ export function NumberBondWidget({
         </svg>
         {SLOTS.map((slot) => {
           const ids = where.flatMap((s, i) => (s === slot ? [i] : []));
-          const targetProps = dnd.targetProps(slot, { label: slotName(slot) });
+          // A pile's pool says how many it holds (its counters are not reached one by one).
+          const targetProps = dnd.targetProps(slot, {
+            label: pile ? `${slotName(slot)}: ${ids.length}` : slotName(slot),
+          });
           const cap = slot === 'whole' ? input.caps[0] : Math.max(input.caps[1], input.caps[2]);
           const pool = box.pools[slot];
+          const cols = slot === 'whole' ? poolColumns(cap) : partColumns(cap, plan.fold);
           return (
             <div
               key={slot}
@@ -677,53 +804,57 @@ export function NumberBondWidget({
                   top: pool.y,
                   width: pool.w,
                   height: pool.h,
-                  '--pool-cols': slot === 'whole' ? poolColumns(cap) : partColumns(cap, plan.fold),
+                  '--pool-cols': cols,
                 } as CSSProperties
               }
             >
               <div {...targetProps} className={`${targetProps.className} ni-bondw__pad`} />
-              <div className="ni-bondw__counters">
-                {ids.map((id) => {
-                  const atHome = home[id] === slot;
-                  const common = {
-                    'data-counter': id,
-                    'data-cue': `counter:${id}`,
-                    'data-flying': flying === id ? 'true' : undefined,
-                  } as const;
-                  if (atHome) {
-                    const props = dnd.itemProps(counterId(id) as ItemId, {
-                      label: `${counterName} ${id + 1}`,
-                    });
+              {pile ? (
+                pileOf(slot, ids, cols, cell + cellGap)
+              ) : (
+                <div className="ni-bondw__counters">
+                  {ids.map((id) => {
+                    const atHome = home[id] === slot;
+                    const common = {
+                      'data-counter': id,
+                      'data-cue': `counter:${id}`,
+                      'data-flying': flying === id ? 'true' : undefined,
+                    } as const;
+                    if (atHome) {
+                      const props = dnd.itemProps(counterId(id) as ItemId, {
+                        label: `${counterName} ${id + 1}`,
+                      });
+                      return (
+                        <div
+                          key={id}
+                          {...props}
+                          {...common}
+                          className={[props.className, 'ni-bondw__counter', cueOf(`counter:${id}`)]
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          <ObjectSprite sprite="counter" />
+                        </div>
+                      );
+                    }
                     return (
-                      <div
+                      <button
                         key={id}
-                        {...props}
+                        type="button"
                         {...common}
-                        className={[props.className, 'ni-bondw__counter', cueOf(`counter:${id}`)]
+                        className={['ni-bondw__counter', 'ni-bondw__moved', cueOf(`counter:${id}`)]
                           .filter(Boolean)
                           .join(' ')}
+                        aria-label={`${counterName} ${id + 1}`}
+                        disabled={!interactive}
+                        onClick={() => sendHome(id)}
                       >
                         <ObjectSprite sprite="counter" />
-                      </div>
+                      </button>
                     );
-                  }
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      {...common}
-                      className={['ni-bondw__counter', 'ni-bondw__moved', cueOf(`counter:${id}`)]
-                        .filter(Boolean)
-                        .join(' ')}
-                      aria-label={`${counterName} ${id + 1}`}
-                      disabled={!interactive}
-                      onClick={() => sendHome(id)}
-                    >
-                      <ObjectSprite sprite="counter" />
-                    </button>
-                  );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -873,6 +1004,7 @@ export function NumberBondWidget({
       data-tier={tier}
       data-mode={config.mode}
       data-layout={layout}
+      data-pile={plan.pile ? 'true' : undefined}
       data-step={steps ? shownStep : undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={

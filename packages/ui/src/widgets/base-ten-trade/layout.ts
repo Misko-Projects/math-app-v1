@@ -2,7 +2,13 @@
 // each column plans room for, how big one unit is drawn so the whole widget fills (and fits) its
 // area, and where each piece sits in its column. Pieces never overlap: every one stays separately
 // countable, so when more must fit, the unit shrinks. DOM-free, so it is unit-tested.
-import { type Column, type Hto, htoValue, tradeShowsDisks } from '@number-island/engine';
+import {
+  type Column,
+  DISK_COLUMN_MAX,
+  type Hto,
+  htoValue,
+  tradeShowsDisks,
+} from '@number-island/engine';
 import type { WidgetConfigOf } from '@number-island/shared';
 
 type Config = WidgetConfigOf<'base-ten-trade'>;
@@ -136,6 +142,16 @@ export const ROOT_PAD_Y = 6;
 export const PAD_KEY_SHADOW = 4;
 /** The algorithm card's height (.ni-btt__work in the stylesheet; K is 16 px taller). */
 export const WORK_H = 226;
+/**
+ * The algorithm card's outer size for `places` places (.ni-btt__work: a 24 px sign column and a
+ * target per place, GAP apart, 16 px padding and a 3 px border a side).
+ */
+export const workCardSize = (places: number, age: AgeMode) => ({
+  w: 24 + places * (ageSizes(age).target + GAP) + 2 * (CARD_PAD + 3),
+  h: WORK_H + (age === 'k' ? 16 : 0),
+});
+/** Around the disks of the answer step's read-only columns (UnderPlan): no hit pads there. */
+export const READ_PAD = 4;
 export const SIDE_GAP = 12;
 
 export interface SideLayout {
@@ -1306,6 +1322,30 @@ export interface StepsPlan {
   rowH: number;
   /** How far the tightest step overflows, px (0 × 0 when it fits): for reports and tests. */
   over: { w: number; h: number };
+  /** Three columns of disks: the tray or the take-away box under the mat (planUnder). */
+  under?: UnderPlan;
+}
+
+/**
+ * Three columns of place-value disks in a short room (#35). They are too wide for anything but a
+ * narrow column to stand beside them, so:
+ * - the pieces step: the mat (planned for a column of DISK_COLUMN_MAX disks in every place, so it
+ *   never changes size), the bare problem over Next beside it, and under both, across the whole
+ *   width, the tray's waiting groups or the take-away box (`boxH` tall, `boxW` wide);
+ * - the answer step: the same columns read-only, without the trade strips or headers (the disks
+ *   say their values), "check" and Back under them, the problem with its answer box (or the
+ *   algorithm with its result row) beside them, and the pad row under everything.
+ */
+export interface UnderPlan {
+  boxW: number;
+  /** The answer step's read-only mat: its columns, its outer size and the side beside it. */
+  colW: Record<Column, number>;
+  matW: number;
+  matH: number;
+  bodyH: number;
+  sideW: number;
+  /** The answer step's first rows (the read-only mat, its buttons and the side), over the pad. */
+  roomH: number;
 }
 
 /**
@@ -1317,6 +1357,13 @@ export interface StepsPlan {
  */
 export function stepsHold(o: { age: AgeMode; plan: StepsPlan; base: MatCaps; all: Hto }): boolean {
   const { age, plan, base, all } = o;
+  if (plan.under) {
+    // The mat holds a full column of disks in every place (no split past it is offered); the
+    // take-away box must hold every piece taken.
+    if (!base.taken) return true;
+    const box = underTakeSize(all, plan.unit, age);
+    return box.w <= plan.under.boxW && box.h <= plan.boxH;
+  }
   const caps = stateCaps(stepsCaps(base), all, null, null);
   if (!firstFit({ age, width: plan.matW, height: plan.matH, caps }, plan.unit)) return false;
   if (!base.taken) return true;
@@ -1338,6 +1385,7 @@ export function planSteps(o: {
   path: readonly MatState[];
   parts: StepsParts;
 }): StepsPlan {
+  if (o.base.disks) return planUnder(o);
   const { age, width, height, parts } = o;
   const caps = stepsCaps(o.base);
   const disks = caps.disks === true;
@@ -1380,6 +1428,119 @@ export function planSteps(o: {
       boxH,
       rowH: bareH,
       over: { w: Math.ceil(overW), h: Math.ceil(overH) },
+    };
+    if (p.fits) return p;
+    if (!best || p.over.w + p.over.h < best.over.w + best.over.h) best = p;
+  }
+  return best as StepsPlan;
+}
+
+/**
+ * A kind's disks in the take-away box under the mat: ten-frames (five a row, two rows) side by
+ * side, so a kind of up to twenty stays two rows tall.
+ */
+export function underLayout(n: number, u: number): Box[] {
+  const s = spacing(u, true);
+  const frameW = extent(naturalLayout('ones', 10, u, 10, true)).w + s.ten;
+  const out: Box[] = [];
+  for (let k = 0; k * 10 < n; k++) {
+    const frame = naturalLayout('ones', Math.min(10, n - k * 10), u, 10, true);
+    for (const b of frame) out.push({ ...b, x: b.x + k * frameW });
+  }
+  return out;
+}
+
+/** The kinds side by side in their ten-frames, each in a slot a target wide at least. */
+export function underGroups(t: Hto, u: number, minSlot: number): StandingArrangement {
+  const groups: Record<Column, Box[]> = { hundreds: [], tens: [], ones: [] };
+  const slots: Partial<Record<Column, { x: number; w: number }>> = {};
+  let x = 0;
+  let h = 0;
+  for (const c of KINDS) {
+    if (t[c] <= 0) continue;
+    const g = underLayout(t[c], u);
+    const ext = extent(g);
+    const slot = Math.max(ext.w, minSlot);
+    const pad = Math.floor((slot - ext.w) / 2);
+    groups[c] = g.map((b) => ({ ...b, x: b.x + x + pad }));
+    slots[c] = { x, w: slot };
+    x += slot + GAP;
+    h = Math.max(h, ext.h);
+  }
+  return { groups, slots, w: Math.max(0, x - GAP), h };
+}
+
+/** The take-away box under the mat holding `taken`: a target and 2 GAP tall at least. */
+export function underTakeSize(taken: Hto, u: number, age: AgeMode) {
+  const a = underGroups(taken, u, ageSizes(age).target);
+  return {
+    w: a.w + 2 * BOX_PAD,
+    h: Math.max(ageSizes(age).target + 2 * GAP, a.h + 2 * BOX_PAD),
+  };
+}
+
+/** planSteps for three columns of disks (UnderPlan): the largest unit, down to the floor, that fits. */
+function planUnder(o: {
+  age: AgeMode;
+  width: number;
+  height: number;
+  base: MatCaps;
+  path: readonly MatState[];
+  parts: StepsParts;
+}): StepsPlan {
+  const { age, width, height, parts } = o;
+  const caps = stepsCaps(o.base);
+  const range = unitRange(true);
+  const btnH = stepButtonHeight(age);
+  const roomH = height - ROW_GAP - padRowHeight(age);
+  const full: MatCaps = {
+    ...caps,
+    mat: { hundreds: DISK_COLUMN_MAX, tens: DISK_COLUMN_MAX, ones: DISK_COLUMN_MAX },
+  };
+  // The pieces step's side: the bare problem over Next.
+  const sideW = Math.ceil(Math.max(parts.bare.w, parts.button));
+  const sideH = parts.bare.h + SIDE_GAP + btnH;
+  const pending = o.path[0]?.pending ?? null;
+  const taken = o.base.taken ? o.base.mat : null;
+  let best: StepsPlan | null = null;
+  for (let u = range.max; u >= range.floor; u--) {
+    const m = measurePlan({ age, width, height, caps: full }, u, 10, 2);
+    const matW = width - GAP - sideW;
+    const matH = Math.max(m.totalH, sideH);
+    const boxH = height - ROW_GAP - matH;
+    const box = pending
+      ? stepsTraySize(pending, u, age, true)
+      : taken
+        ? underTakeSize(taken, u, age)
+        : { w: 0, h: 0 };
+    // The answer step: the columns without their strips and headers.
+    // No hit pads there, so READ_PAD around the disks instead of COL_PAD.
+    const colA =
+      Math.ceil(extent(naturalLayout('ones', ONES_PER_ROW, u, 10, true)).w) + 2 * READ_PAD;
+    const colW = { hundreds: colA, tens: colA, ones: colA };
+    const bodyH = Math.ceil(m.piecesH + 2 * READ_PAD);
+    const ansW = 2 * MAT_BORDER + caps.columns.length * colA;
+    const ansH = 2 * MAT_BORDER + bodyH;
+    const ansSide = width - GAP - ansW;
+    const overW = Math.max(
+      0,
+      m.matW - matW,
+      box.w - width,
+      parts.card.w - ansSide,
+      padRowWidth(age) - width,
+      2 * parts.button + SIDE_GAP - ansW,
+    );
+    const overH = Math.max(0, box.h - boxH, parts.card.h - roomH, ansH + SIDE_GAP + btnH - roomH);
+    const p: StepsPlan = {
+      fits: overW === 0 && overH === 0,
+      unit: u,
+      matW,
+      matH,
+      sideW,
+      boxH,
+      rowH: parts.bare.h,
+      over: { w: Math.ceil(overW), h: Math.ceil(overH) },
+      under: { boxW: width, colW, matW: ansW, matH: ansH, bodyH, sideW: ansSide, roomH },
     };
     if (p.fits) return p;
     if (!best || p.over.w + p.over.h < best.over.w + best.over.h) best = p;

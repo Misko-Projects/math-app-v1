@@ -351,3 +351,60 @@ button.ni-bondw__badge:disabled {
 [data-reduced-motion="true"] .ni-bondw__moved {
   animation: none;
 }
+
+/* ---------- piles in a short area (plan.ts PILE_CELL, #35) ---------- */
+
+/* Smaller counters, closer, drawn 28 px inside their 34 px cells; the pool is the control. */
+.ni-bondw__cbond[data-pile] .ni-bondw__counters {
+  gap: var(--pile-gap);
+}
+.ni-bondw__cbond[data-pile] .ni-bondw__counter {
+  padding: calc(3px * var(--bond-s));
+  pointer-events: none;
+  cursor: default;
+}
+.ni-bondw__grab {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The counter a drag takes, where it is drawn in the pile (the pool's padding, then its cell). */
+.ni-bondw__cbond .ni-bondw__grab > .ni-bondw__counter {
+  position: absolute;
+  left: calc(var(--pool-pad, 8px) * var(--bond-s) + var(--pile-x));
+  top: calc(var(--pool-pad, 8px) * var(--bond-s) + var(--pile-y));
+}
+/* While dragged the control is just that counter (the drop test uses the counter's centre). */
+.ni-bondw__grab[data-dragging="true"] {
+  inset: auto;
+  /* Under the finger: where the press began (set on pointerdown). */
+  left: var(--grab-x, 0px);
+  top: var(--grab-y, 0px);
+  width: var(--bond-cell);
+  height: var(--bond-cell);
+  border-radius: 50%;
+}
+.ni-bondw__cbond .ni-bondw__grab[data-dragging="true"] > .ni-bondw__counter {
+  left: 0;
+  top: 0;
+}
+.ni-bondw__grab:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: -6px;
+}
+/* The ways already found, two a row, on the left of the bond and "check". */
+.ni-bondw[data-pile] .ni-bondw__found {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+}
+.ni-bondw[data-layout="split"] .ni-bondw__found {
+  grid-area: entry;
+}

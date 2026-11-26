@@ -23,14 +23,6 @@ const SMALL = ['960x600'] as const;
 
 /** Templates whose widget is taller or wider than the area, by widget. */
 export const FIT_EXCEPTIONS: Readonly<Partial<Record<ItemFormat, readonly FitException[]>>> = {
-  'base-ten-trade': [
-    {
-      reason:
-        'Three-column disk compute (K02 slice 2b, #17): the mat of disks beside the tray or take-away box, the answer card and Check is 278 px taller than the 358 px area at 960 × 600; the two-step layout (#35) cannot hold three disk columns either (276 px too wide at the 26 px floor), so these keep the usual layout and scroll, with Check reachable by scrolling (decided on PR #126; they fit at 1280 × 800). Fix: the follow-up "base-ten-trade: three-column disk compute at 960×600".',
-      at: SMALL,
-      templates: ['MDA.05.t1', 'MDA.07.t1', 'MDA.17.t1', 'MDA.18.t1', 'MDA.18.t2', 'MDA.21.t1'],
-    },
-  ],
   'make-set': [
     {
       reason:
@@ -57,18 +49,13 @@ export interface FitSeedException {
   reason: string;
 }
 
-const BOND_NEW_WAY =
-  'number-bond, concrete new-way, whole 6 to 10 (the first seed draws a smaller whole and fits): every pool holds the whole, so each is two rows of five 64 px counters and the bond alone is 364 px tall in the 358 px area at 960 × 600, before the found ways (186 px) and Check: 58–298 px too tall, Check up to 292 px below (it fits at 1280 × 800). Each counter is its own drag target, so drawing counters smaller saves no room; the area scrolls with Check reachable. Fix: a short-area design (the found ways as a step of their own, or the pool as the drag handle), which changes how the item is played.';
-
 /**
  * Templates that fit on the first seed but not on some others: other seeds draw other numbers and
  * layouts. CI plays every template on seeds 1 to 9 (`VITE_FIT_SEEDS`, ci.yml `stories`); a seed
  * listed here is not a failure there, and every job plays each listed seed and fails when it fits,
  * so these stay known instead of silently green (#12, #35).
  */
-export const FIT_SEED_EXCEPTIONS: readonly FitSeedException[] = [2, 3, 4, 5, 6, 7, 8, 9].map(
-  (seed) => ({ template: 'CPS.06.t1', seed, at: SMALL, reason: BOND_NEW_WAY }),
-);
+export const FIT_SEED_EXCEPTIONS: readonly FitSeedException[] = [];
 
 const registered = new Set<ItemFormat>(registeredFormats());
 
@@ -110,16 +97,4 @@ export interface LessonFitException {
  * The examples are the ones every build shows: seeded examples aim at the template stats that
  * `pnpm content:build` writes (03 §6.1).
  */
-export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [
-  {
-    example: 'CPS.06:faded:0',
-    at: SMALL,
-    reason:
-      'number-bond, new-way with three ways already found (whole 8): the bond with its counters is 364 px tall and the row of found ways 186 px, stacked to 574 px in a 358 px area at 960 × 600, so the area scrolls with Check below (it fits at 1280 × 800); fix: the found ways beside the bond in short areas.',
-  },
-  {
-    example: 'CPS.06:faded:1',
-    at: SMALL,
-    reason: 'As CPS.06:faded:0 (number-bond new-way, the found ways stacked under the bond).',
-  },
-];
+export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [];
