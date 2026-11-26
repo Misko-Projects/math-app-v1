@@ -824,6 +824,81 @@ describe.each(FIT_VIEWPORTS)(
 describe('number-bond new-way as piles in a short room (#35)', () => {
   const pool = (slot: string) => `.ni-bondw [data-pool="${slot}"]`;
   const inPool = (slot: string) => count(`${pool(slot)} [data-counter]`);
+  /** A real pointer drag from a point of `el` (fractions of its box) to the centre of `to`. */
+  const dragFrom = async (el: Element, fx: number, fy: number, to: Element) => {
+    const a = el.getBoundingClientRect();
+    const b = to.getBoundingClientRect();
+    const from = { x: a.left + a.width * fx, y: a.top + a.height * fy };
+    const end = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    const init = (x: number, y: number, buttons: number): PointerEventInit => ({
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: 7,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+      buttons,
+    });
+    el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+    for (let i = 1; i <= 8; i += 1) {
+      const x = from.x + ((end.x - from.x) * i) / 8;
+      const y = from.y + ((end.y - from.y) * i) / 8;
+      window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
+      await frame();
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', init(end.x, end.y, 0)));
+    await frame();
+    await frame();
+  };
+
+  // Review round 1 (#128): a fixed whole of 10 (four ways found) always piles, so CI's default
+  // shards exercise the piles' interaction too.
+  it('CPS.06.t1, whole 10: drags land where the finger lifts; Tab never reaches a send-home mid-move', async () => {
+    await page.viewport(960, 600);
+    const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
+    const item = engine.generateItemFromParams(template, {
+      whole: 10,
+      unknown: 'new-way',
+      gap: 4,
+    });
+    show(item, ageModeOf(template));
+    expect(await measure('CPS.06.t1')).toEqual([]);
+    expect(document.querySelector<HTMLElement>('.ni-bondw')?.dataset.pile).toBe('true');
+    const el = (sel: string) => document.querySelector(sel) as Element;
+    // Pressed near the whole's left edge, lifted over the left part: it lands there.
+    await dragFrom(
+      el(`${pool('whole')} .ni-bondw__grab`),
+      0.08,
+      0.5,
+      el(`${pool('part-0')} .ni-bondw__pad`),
+    );
+    expect([inPool('whole'), inPool('part-0'), inPool('part-1')]).toEqual([9, 1, 0]);
+    // Pressed near its right edge, lifted over the right part.
+    await dragFrom(
+      el(`${pool('whole')} .ni-bondw__grab`),
+      0.92,
+      0.5,
+      el(`${pool('part-1')} .ni-bondw__pad`),
+    );
+    expect([inPool('whole'), inPool('part-0'), inPool('part-1')]).toEqual([8, 1, 1]);
+    // Keyboard only: Enter on the whole, then Tab to a part. Holding a counter, no pool offers
+    // a send-home; the counter goes where Enter is pressed.
+    (el(`${pool('whole')} .ni-bondw__grab`) as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(count('.ni-bondw button.ni-bondw__moved:not(:disabled)')).toBe(0);
+    for (let i = 0; i < 8; i += 1) {
+      if (document.activeElement?.closest(pool('part-1'))) break;
+      await userEvent.keyboard('{Tab}');
+      expect(document.activeElement?.classList.contains('ni-bondw__moved')).toBe(false);
+    }
+    expect(document.activeElement?.closest(pool('part-1'))).not.toBeNull();
+    await userEvent.keyboard('{Enter}');
+    expect([inPool('whole'), inPool('part-0'), inPool('part-1')]).toEqual([7, 1, 2]);
+    expect(await measure('CPS.06.t1')).toEqual([]);
+  });
   it('CPS.06.t1 on every seed: one counter per move, every state fits; none at 1280 × 800', async () => {
     const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
     const failing: string[] = [];

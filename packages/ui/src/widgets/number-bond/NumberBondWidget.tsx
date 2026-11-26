@@ -669,6 +669,22 @@ export function NumberBondWidget({
               pointerEvents: holding && !selfHeld ? 'none' : undefined,
             } as CSSProperties
           }
+          onPointerDown={(e) => {
+            // Review round 1: a drag carries the counter under the finger, wherever in the pool
+            // the press began (the drop is measured from the dragged counter's centre).
+            const r = e.currentTarget.getBoundingClientRect();
+            const c = r.width > 0 ? PILE_CELL * zoom : 0;
+            const at = (v: number, max: number) => Math.max(0, Math.min(max, v - c / 2));
+            e.currentTarget.style.setProperty(
+              '--grab-x',
+              `${at(e.clientX - r.left, r.width - c)}px`,
+            );
+            e.currentTarget.style.setProperty(
+              '--grab-y',
+              `${at(e.clientY - r.top, r.height - c)}px`,
+            );
+            props.onPointerDown(e);
+          }}
         >
           {counter(grabId, 'ni-bondw__held')}
         </div>
@@ -679,7 +695,9 @@ export function NumberBondWidget({
           type="button"
           className="ni-bondw__grab ni-bondw__moved"
           aria-label={`${counterName} ${backId + 1}: ${slotName(slot)}, ${ids.length}`}
-          disabled={!interactive}
+          // While a counter is held this pool is only its drop target (review round 1: no
+          // send-home in the tab order mid-placement).
+          disabled={!interactive || holding}
           style={{ pointerEvents: holding ? 'none' : undefined }}
           onClick={() => sendHome(backId)}
         />

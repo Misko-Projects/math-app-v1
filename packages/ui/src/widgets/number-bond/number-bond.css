@@ -385,8 +385,9 @@ button.ni-bondw__badge:disabled {
 /* While dragged the control is just that counter (the drop test uses the counter's centre). */
 .ni-bondw__grab[data-dragging="true"] {
   inset: auto;
-  left: calc(var(--pool-pad, 8px) * var(--bond-s) + var(--pile-x));
-  top: calc(var(--pool-pad, 8px) * var(--bond-s) + var(--pile-y));
+  /* Under the finger: where the press began (set on pointerdown). */
+  left: var(--grab-x, 0px);
+  top: var(--grab-y, 0px);
   width: var(--bond-cell);
   height: var(--bond-cell);
   border-radius: 50%;
