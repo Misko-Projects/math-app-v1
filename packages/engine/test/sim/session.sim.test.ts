@@ -122,6 +122,18 @@ const PV_TO_1000 = [
   'PV.17',
   'PV.24',
 ] as const;
+/** K02 slice 1b (#17): counting, number lines and partners of 100 to grade 2. */
+const SLICE_1B = ['CNT.11', 'CNT.12', 'CNT.17', 'CMP.10', 'CMP.11', 'CMP.12', 'CPS.10'] as const;
+/**
+ * Slice 1b's fact-fluency skills. `mastered` needs `fluent` first (04 §3): the median latency of
+ * the last 10 correct ≤ 3,500 ms (ADD.14) or 4,000 ms (ADD.22). The sim's latency is the template's
+ * expected latency (8,000 ms for an abstract template) times a draw around 1, so no simulated
+ * child turns fluent on any fact-fluency skill (ADD.02 and ADD.06 alike); the run checks that the
+ * planner reaches them and that practice makes them practiced.
+ */
+const SLICE_1B_FLUENCY = ['ADD.14', 'ADD.22'] as const;
+/** Slice 1b's rounding skills (grade 3): a grade-3 learner reaches and masters them. */
+const SLICE_1B_ROUNDING = ['PV.08', 'PV.18'] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -605,7 +617,7 @@ describe('session simulation (04 §8)', () => {
         known: { ...PROFILES.G2.known, wellBelow: 1, below: 1, at: 1 },
       });
       const r = simulateProfile(graph, ready, SENSITIVITY_CHILDREN);
-      const count = (s: string, field: 'masteredAt' | 'practicedAt') =>
+      const count = (s: string, field: 'masteredAt' | 'practicedAt' | 'fluentAt') =>
         r.runs.filter((x) => (x.sim.state.skills[s]?.[field] ?? null) !== null).length;
       const attempted = (s: string) =>
         r.runs.filter((x) => (x.sim.state.skills[s]?.n ?? 0) > 0).length;
@@ -615,7 +627,47 @@ describe('session simulation (04 §8)', () => {
             (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
           ).join(', ')}`,
       );
-      for (const s of PV_TO_1000) {
+      console.log(
+        `session sim ${ready.name}, slice 1b: children who met / practised / mastered each skill: ${[
+          ...SLICE_1B,
+          ...SLICE_1B_FLUENCY,
+        ]
+          .map((s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`)
+          .join(', ')}; children fluent on ${['ADD.06', ...SLICE_1B_FLUENCY]
+          .map((s) => `${s} ${count(s, 'fluentAt')}`)
+          .join(', ')}`,
+      );
+      for (const s of [...PV_TO_1000, ...SLICE_1B]) {
+        expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
+        expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
+      }
+      for (const s of SLICE_1B_FLUENCY) {
+        expect(count(s, 'practicedAt'), `${s} practiced`).toBeGreaterThanOrEqual(1);
+      }
+    },
+    SIM_TIMEOUT,
+  );
+
+  // K02 slice 1b (#17): rounding is grade 3, so a learner who has the grade-3 content shows the
+  // planner reaching PV.08 and PV.18 behind CMP.12, PV.06 and CMP.10, and their mastery.
+  it(
+    'grade-3 learners reach the rounding skills, and each is mastered',
+    () => {
+      const ready = learnerProfile('G3 (has grade 3)', '3', {
+        ...PROFILES.G2,
+        known: { ...PROFILES.G2.known, wellBelow: 1, below: 1, at: 1 },
+      });
+      const r = simulateProfile(graph, ready, SENSITIVITY_CHILDREN);
+      const count = (s: string, field: 'masteredAt' | 'practicedAt') =>
+        r.runs.filter((x) => (x.sim.state.skills[s]?.[field] ?? null) !== null).length;
+      const attempted = (s: string) =>
+        r.runs.filter((x) => (x.sim.state.skills[s]?.n ?? 0) > 0).length;
+      console.log(
+        `session sim ${ready.name}: children who met / practised / mastered each skill: ${SLICE_1B_ROUNDING.map(
+          (s) => `${s} ${attempted(s)}/${count(s, 'practicedAt')}/${count(s, 'masteredAt')}`,
+        ).join(', ')}`,
+      );
+      for (const s of SLICE_1B_ROUNDING) {
         expect(attempted(s), `${s} reached`).toBeGreaterThanOrEqual(1);
         expect(count(s, 'masteredAt'), `${s} mastered`).toBeGreaterThanOrEqual(1);
       }
