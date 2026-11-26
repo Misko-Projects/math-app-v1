@@ -891,6 +891,10 @@ ui.widget.btt.back.ones:
 ui.widget.btt.work:
   text: "Your work"
   level: K
+# Said once on Next in a short room, where the algorithm waits for the answer step (#35).
+ui.widget.btt.written:
+  text: "Each trade is written in the columns."
+  level: K
 ui.widget.btt.goal:
   text: "Make it look like this"
   level: K

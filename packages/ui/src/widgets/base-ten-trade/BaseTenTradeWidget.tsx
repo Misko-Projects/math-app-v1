@@ -78,6 +78,7 @@ import {
   planCaps,
   planMat,
   planSteps,
+  READ_PAD,
   ROOT_PAD_Y,
   ROW_GAP,
   SIDE_GAP,
@@ -87,7 +88,9 @@ import {
   stepsCaps,
   stepsHold,
   stripWidth,
+  underGroups,
   unitRange,
+  workCardSize,
 } from './layout';
 import './base-ten-trade.css';
 
@@ -706,6 +709,8 @@ function TradeMat({
   /** What the live region says after the child's Next or Back (once per change). */
   const [stepSaid, setStepSaid] = useState('');
   const stepFocus = useRef<'answer' | 'mat' | null>(null);
+  /** The algorithm's trades are written in its columns: said on the first Next only. */
+  const saidWritten = useRef(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
@@ -830,9 +835,11 @@ function TradeMat({
   // `steps`: a compute item with a typed answer that fits neither way is played in two steps
   // (layout.ts planSteps) when they fit at the floor; else `tall`.
   const arranged = useRef<'usual' | 'in-side' | 'steps' | 'tall' | null>(null);
-  const canStep = config.goal === 'compute' && Boolean(op) && config.thenAsk === true && !showWork;
+  // Three columns of disks may step with the algorithm too: it is the answer step's card (#35).
+  const canStep =
+    config.goal === 'compute' && Boolean(op) && config.thenAsk === true && (!showWork || disks);
   const stepsFor = (budgetH: number, contentW: number): StepsPlan | null =>
-    canStep && box.bareW > 0 && box.widestW > 0 && box.checkIcon > 0 && contentW > 0
+    canStep && box.bareW > 0 && (showWork || box.widestW > 0) && box.checkIcon > 0 && contentW > 0
       ? planSteps({
           age,
           width: contentW,
@@ -841,8 +848,9 @@ function TradeMat({
           path,
           parts: {
             bare: { w: box.bareW, h: box.bareH },
-            // The answer step's card with its longest answer typed (answerPlaces digits).
-            card: { w: box.widestW, h: box.widestH },
+            // The answer step's card with its longest answer typed (answerPlaces digits), or the
+            // algorithm with its result row.
+            card: showWork ? workCardSize(places, age) : { w: box.widestW, h: box.widestH },
             button: box.checkIcon,
           },
         })
@@ -967,7 +975,11 @@ function TradeMat({
     if (!want) return;
     rootRef.current
       ?.querySelector<HTMLElement>(
-        want === 'answer' ? '.ni-btt__stepside .ni-btt__answer' : '.ni-btt__mat',
+        want === 'answer'
+          ? showWork
+            ? '.ni-btt__stepside .ni-btt__box[aria-current="true"]'
+            : '.ni-btt__stepside .ni-btt__answer'
+          : '.ni-btt__mat',
       )
       ?.focus({ preventScroll: true });
   }, [step]);
@@ -2054,24 +2066,33 @@ function TradeMat({
     </fieldset>
   );
 
-  const measureCopies = showWork ? null : (
-    // The problem card as the side panel would hold it: hidden, inert, measured (chooseSide); in
-    // a short room also without its answer box (planSteps).
-    <div className="ni-btt__measure" aria-hidden="true" inert>
-      {problemCard(true, true)}
-      {canStep ? problemCard(true, true, 'bare') : null}
-      {canStep ? problemCard(true, true, 'widest') : null}
-      <span className="ni-btt__checkcopy">
-        <CheckButton onPress={() => undefined} disabled compact />
-      </span>
-    </div>
-  );
+  const measureCopies =
+    showWork && !canStep ? null : (
+      // The problem card as the side panel would hold it: hidden, inert, measured (chooseSide); in
+      // a short room also without its answer box (planSteps).
+      <div className="ni-btt__measure" aria-hidden="true" inert>
+        {problemCard(true, true)}
+        {canStep ? problemCard(true, true, 'bare') : null}
+        {canStep && !showWork ? problemCard(true, true, 'widest') : null}
+        <span className="ni-btt__checkcopy">
+          <CheckButton onPress={() => undefined} disabled compact />
+        </span>
+      </div>
+    );
 
   // Next and Back: no trace and nothing recorded; the live region says the step once.
   const stepTo = (to: 'pieces' | 'answer') => {
     if (!interactive || to === step) return;
     stepFocus.current = to === 'answer' ? 'answer' : 'mat';
-    setStepSaid(to === 'answer' ? t('ui.widget.answer') : matLabel);
+    const written = to === 'answer' && showWork && !saidWritten.current;
+    if (written) saidWritten.current = true;
+    setStepSaid(
+      to === 'answer'
+        ? written
+          ? `${t('ui.widget.answer')}. ${t('ui.widget.btt.written')}`
+          : t('ui.widget.answer')
+        : matLabel,
+    );
     setInvite(null);
     setStep(to);
   };
@@ -2109,10 +2130,12 @@ function TradeMat({
     const stepsTake = isMinus
       ? (() => {
           const p = dnd.targetProps('take', { label: t('ui.widget.btt.nest') });
-          const w = stepsPlan.sideW;
+          const w = stepsPlan.under ? stepsPlan.under.boxW : stepsPlan.sideW;
           const h = stepsPlan.boxH;
           const inner = { w: w - 2 * BOX_PAD, h: h - 2 * BOX_PAD };
-          const a = standingGroups(state.taken, u, sizes.target, disks);
+          const a = stepsPlan.under
+            ? underGroups(state.taken, u, sizes.target)
+            : standingGroups(state.taken, u, sizes.target, disks);
           // Positions start inside the box's 3 px border; the pieces keep GUTTER clear of it.
           const edge = BOX_PAD - 3;
           const ox = edge + Math.max(0, Math.floor((inner.w - a.w) / 2));
@@ -2174,6 +2197,123 @@ function TradeMat({
           );
         })()
       : null;
+    if (stepsPlan.under) {
+      // Three columns of disks (layout.ts UnderPlan): the tray or the take-away box under the
+      // mat; the answer step's columns read-only beside the problem or the algorithm.
+      const under = stepsPlan.under;
+      const readMat = (
+        <fieldset
+          className="ni-btt__readmat"
+          aria-label={matLabel}
+          style={{
+            width: under.matW,
+            height: under.matH,
+            gridTemplateColumns: columns.map((c) => `${under.colW[c]}px`).join(' '),
+            borderWidth: MAT_BORDER,
+          }}
+        >
+          {columns.map((c) => {
+            const boxes = placePieces(
+              c,
+              state.mat[c],
+              u,
+              { w: under.colW[c] - 2 * READ_PAD, h: under.bodyH - 2 * READ_PAD },
+              Math.max(caps.mat[c], state.mat[c]),
+              plan.rodsPerRow,
+              disks,
+            );
+            return (
+              <div key={c} className="ni-btt__readcol" data-col={c}>
+                {/* The places are named here (the headers are not drawn): "Tens: 17". */}
+                <span className="ni-visually-hidden">{`${t(COL_KEY[c])}: ${state.mat[c]}`}</span>
+                <div className="ni-btt__pile" aria-hidden="true">
+                  {boxes.map((b, i) => (
+                    <Piece
+                      // biome-ignore lint/suspicious/noArrayIndexKey: pieces of a column are positional
+                      key={i}
+                      kind={c}
+                      box={b}
+                      u={u}
+                      id={`read-${c}-${i}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </fieldset>
+      );
+      return (
+        <div
+          ref={rootRef}
+          className="ni-btt"
+          data-pieces="disks"
+          data-tier={pictorial ? 'pictorial' : 'concrete'}
+          data-disabled={disabled ? 'true' : undefined}
+          data-goal={config.goal}
+          data-op={op?.op}
+          data-arrange="steps"
+          data-under="true"
+          data-step={step}
+          style={handRootStyle}
+        >
+          {answering ? (
+            <div
+              ref={mainRef}
+              className="ni-btt__main ni-btt__steps"
+              style={{
+                gridTemplateColumns: `${under.matW}px ${under.sideW}px`,
+                gridTemplateRows: `${under.matH}px ${under.roomH - under.matH - ROW_GAP}px ${padRowHeight(age)}px`,
+              }}
+            >
+              <div className="ni-btt__stepsmat">{readMat}</div>
+              <div className="ni-btt__stepside ni-btt__stepside--tall" data-step="answer">
+                {showWork ? work : problemCard(true)}
+              </div>
+              <div className="ni-btt__steprow ni-btt__underbtns">
+                {check}
+                {stepButton('pieces')}
+              </div>
+              <div className="ni-btt__padline ni-btt__padline--under">
+                <NumberPadKeys
+                  onKey={onKey}
+                  onEnter={submit}
+                  disabled={!interactive}
+                  highlighted={pressedKey}
+                  shape="row"
+                  compact
+                />
+              </div>
+            </div>
+          ) : (
+            <div
+              ref={mainRef}
+              className="ni-btt__main ni-btt__steps"
+              style={{
+                gridTemplateColumns: `${stepsPlan.matW}px ${stepsPlan.sideW}px`,
+                gridTemplateRows: `${stepsPlan.matH}px ${stepsPlan.boxH}px`,
+              }}
+            >
+              <div className="ni-btt__stepsmat">{matEl}</div>
+              <div className="ni-btt__stepside" data-step="pieces">
+                {problemCard(true, false, 'bare')}
+                <div className="ni-btt__steprow ni-btt__steprow--end">{stepButton('answer')}</div>
+              </div>
+              <div className="ni-btt__underbox">
+                {stepsTray}
+                {stepsTake}
+              </div>
+            </div>
+          )}
+          <p className="ni-visually-hidden" role="status">
+            {stepSaid}
+          </p>
+          <div ref={fxRef} className="ni-btt__fx" aria-hidden="true" />
+          {inviteHand}
+          {measureCopies}
+        </div>
+      );
+    }
     return (
       <div
         ref={rootRef}

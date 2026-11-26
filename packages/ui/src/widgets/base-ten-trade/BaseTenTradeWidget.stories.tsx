@@ -2554,14 +2554,39 @@ export const PierSmallDisksCompute: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await stableLayout(root);
-    await expect(root).toHaveAttribute('data-arrange', 'tall');
-    await expectTradeDisks(root, DISK_FLOOR - 1);
+    // #35: three columns of disks play in two steps (layout.ts UnderPlan), never under the floor.
+    await expect(root).toHaveAttribute('data-arrange', 'steps');
+    await expect(root).toHaveAttribute('data-under', 'true');
+    await expectTradeDisks(root, DISK_FLOOR);
     for (let i = 0; i < 2; i++) {
       await userEvent.click(trade(root, 'tens', 'ones'));
       await settled(root);
     }
     await expect(mat(root)).toEqual({ hundreds: 9, tens: 7, ones: 20 });
-    await expectTradeDisks(root, DISK_FLOOR - 1);
+    await expectTradeDisks(root, DISK_FLOOR);
+    // Every label 12 px at least (a 26 px "100" would be 10.4 px).
+    for (const p of root.querySelectorAll<HTMLElement>('.ni-btt__mat [data-piece]')) {
+      await expect(Number.parseFloat(getComputedStyle(p).fontSize)).toBeGreaterThanOrEqual(12);
+    }
+    // From the keyboard: Next (Enter) to the answer; the read-only columns hold no control.
+    const next = root.querySelector<HTMLElement>('[data-cue="next"] button') as HTMLElement;
+    next.focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'answer'));
+    const read = root.querySelector('.ni-btt__readmat') as HTMLElement;
+    await expect(read.querySelectorAll('button, [tabindex]').length).toBe(0);
+    await expect(read).toHaveTextContent('Ones: 20');
+    await expect(document.activeElement).toHaveClass('ni-btt__answer');
+    await userEvent.keyboard('9');
+    // Back and Next keep the typed answer.
+    const back = root.querySelector<HTMLElement>('[data-cue="back"] button') as HTMLElement;
+    back.focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'pieces'));
+    await expect(document.activeElement).toHaveClass('ni-btt__mat');
+    await expect(mat(root)).toEqual({ hundreds: 9, tens: 7, ones: 20 });
+    await userEvent.click(root.querySelector('[data-cue="next"] button') as HTMLElement);
+    await waitFor(() => expect(root.querySelector('.ni-btt__answer')).toHaveTextContent('9'));
   },
 };
 

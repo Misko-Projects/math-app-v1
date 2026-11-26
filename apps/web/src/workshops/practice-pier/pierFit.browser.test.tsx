@@ -531,6 +531,11 @@ describe.each(FIT_VIEWPORTS)(
       return { item: engine.generateItemFromParams(template, params), template };
     };
     const checkReachable = async () => {
+      // A short room's steps (#35): "check" is on the answer step, which must fit too.
+      if (document.querySelector('.ni-btt')?.getAttribute('data-step') === 'pieces') {
+        await userEvent.click(document.querySelector('[data-cue="next"] button') as Element);
+        expect(await measure('the answer step')).toEqual([]);
+      }
       const check = button('.ni-btt__checkwrap button');
       expect(check).not.toBeNull();
       check?.scrollIntoView({ block: 'nearest' });
@@ -824,6 +829,26 @@ const tap = async (sel: string) => {
   await userEvent.click(el);
 };
 const typedAnswer = () => document.querySelector('.ni-btt__stepside .ni-btt__answer')?.textContent;
+const DISK_TEMPLATES = [
+  'MDA.05.t1',
+  'MDA.07.t1',
+  'MDA.17.t1',
+  'MDA.18.t1',
+  'MDA.18.t2',
+  'MDA.21.t1',
+] as const;
+/** Disks drawn under 26 px (DISK_FLOOR) or labelled under 12 px, anywhere a child sees them. */
+const disksUnderFloor = () => {
+  const bad: string[] = [];
+  for (const el of document.querySelectorAll<HTMLElement>('.ni-btt [data-piece]')) {
+    if (el.closest('.ni-btt__measure') || el.dataset.arriving === 'true') continue;
+    const r = el.getBoundingClientRect();
+    const font = Number.parseFloat(getComputedStyle(el).fontSize);
+    if (r.width < 26 - SLACK_PX) bad.push(`${el.dataset.piece} ${Math.round(r.width)} px`);
+    if (font < 12) bad.push(`${el.dataset.piece} label ${font} px`);
+  }
+  return bad;
+};
 
 describe('regrouping in a short room: the pieces, then the answer (#35)', () => {
   const shot = async (id: string, state: string) => {
@@ -920,11 +945,118 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
     expect(failing, `${id} steps that do not fit`).toEqual([]);
   });
 
-  // Principle 4 (#35): the three-digit compute slice (MDA.05, MDA.17) will draw disks in three
-  // columns. Its fullest, 990 − 15 with a column of 20 ones, does not fit the two steps at the
-  // disks' floor (276 px too wide, layout.steps.test.ts): it keeps the usual layout and scrolls,
-  // with disks of 25 px (one under DISK_FLOOR). Measured here so the slice starts from the number.
-  it('a three-column compute mat of disks (no shipped item) keeps the usual layout', async () => {
+  // Three columns of disks (#35, layout.ts UnderPlan): the tray or the take-away box under the mat,
+  // then the answer beside the read-only columns. Every seed CI plays, operated as a child would.
+  it.each(DISK_TEMPLATES)(
+    '%s (three columns of disks) on every seed, in both steps',
+    async (id) => {
+      await page.viewport(960, 600);
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      const failing: string[] = [];
+      const check = async (seed: number, state: string) => {
+        const misfit = [...(await measure(id)), ...disksUnderFloor()];
+        if (misfit.length > 0)
+          failing.push(`seed ${seed} ${state}: ${misfit.join('; ')} [${describeParts()}]`);
+        await shot(id, `s${seed}-${state}`);
+      };
+      const work = id === 'MDA.07.t1' || id === 'MDA.18.t2' || id === 'MDA.21.t1';
+      for (const seed of SEEDS) {
+        const item = engine.generateItem(template, seed);
+        const plus = item.params.op === '+';
+        show(item, ageModeOf(template));
+        await check(seed, 'first');
+        expect(stepsRoot()?.dataset.arrange, `${id} seed ${seed}`).toBe('steps');
+        expect(stepsRoot()?.dataset.under).toBe('true');
+        expect(stepsRoot()?.dataset.step).toBe('pieces');
+        expect(count('.ni-pad__key')).toBe(0);
+        if (plus) {
+          for (const c of ['hundreds', 'tens', 'ones'] as const) {
+            if (document.querySelector(`[data-place-item="pending-${c}"]`)) {
+              await tap(`[data-place-item="pending-${c}"]`);
+              await tap(`[data-place-target="col-${c}"]`);
+            }
+          }
+          await check(seed, 'joined');
+        } else {
+          // A one taken by tapping it and then the box (its put-back controls let the tap through).
+          if (document.querySelector('[data-place-item^="mat-ones-"]')) {
+            await tap('[data-place-item^="mat-ones-"]');
+            await tap('[data-place-target="take"]');
+            expect(count('.ni-btt__takebox [data-piece^="taken-"]')).toBe(1);
+          }
+          await check(seed, 'taken');
+        }
+        await tap('[data-cue="next"] button');
+        await check(seed, 'answer');
+        expect(stepsRoot()?.dataset.step).toBe('answer');
+        // The answer place has the focus; the read-only columns are named and hold no control.
+        expect(
+          document.activeElement?.matches(work ? '.ni-btt__box' : '.ni-btt__answer'),
+          `${id} seed ${seed} focus`,
+        ).toBe(true);
+        const read = document.querySelector('.ni-btt__readmat');
+        expect(read?.getAttribute('aria-label')).toBeTruthy();
+        expect(read?.querySelectorAll('button, [tabindex]').length).toBe(0);
+        expect(read?.textContent).toMatch(/Hundreds: \d+.*Tens: \d+.*Ones: \d+/);
+        expect(count('.ni-btt__mat')).toBe(0);
+        const said = document.querySelector('.ni-btt [role="status"]')?.textContent ?? '';
+        expect(said).not.toBe('');
+        expect(said.includes('written in the columns')).toBe(work);
+        // A wrong answer typed and checked: the look-again cue, still the answer step.
+        const a = Number(item.params.a);
+        const b = Number(item.params.b);
+        const wrong = String((plus ? a + b : a - b) + 1);
+        await userEvent.keyboard(wrong);
+        expect(button('.ni-btt__checkwrap button')?.disabled).toBe(false);
+        await tap('.ni-btt__checkwrap button');
+        show(item, ageModeOf(template), { line: longestLine(item) }, undefined, true);
+        await check(seed, 'look-again');
+        expect(stepsRoot()?.dataset.step).toBe('answer');
+        // Back to the mat (focus on it); Next again, the answer kept.
+        const typed = () =>
+          work
+            ? [...document.querySelectorAll('.ni-btt__work .ni-btt__box')].map((e) => e.textContent)
+            : typedAnswer();
+        const before = JSON.stringify(typed());
+        await tap('[data-cue="back"] button');
+        await check(seed, 'back');
+        expect(document.activeElement?.classList.contains('ni-btt__mat')).toBe(true);
+        await tap('[data-cue="next"] button');
+        expect(JSON.stringify(typed())).toBe(before);
+        // Said once: the second Next does not repeat it.
+        if (work) {
+          expect(
+            document.querySelector('.ni-btt [role="status"]')?.textContent?.includes('written'),
+          ).toBe(false);
+        }
+      }
+      expect(failing, `${id} steps that do not fit`).toEqual([]);
+    },
+    120_000,
+  );
+
+  it('three columns of disks: a resize between the steps keeps them, Back and Next work', async () => {
+    await page.viewport(960, 600);
+    const template = content.store.graph.templates['MDA.17.t1'] as ItemTemplate;
+    show(engine.generateItemFromParams(template, { a: 990, b: 115, op: '-' }), 'g1-up');
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    button('[data-trade="trade-tens-ones"]')?.click();
+    button('[data-trade="trade-tens-ones"]')?.click();
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    expect(tradeMat()).toEqual([9, 7, 20]);
+    await tap('[data-cue="next"] button');
+    await page.viewport(1280, 800);
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    await page.viewport(960, 600);
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    expect(stepsRoot()?.dataset.arrange).toBe('steps');
+    expect(disksUnderFloor()).toEqual([]);
+    if (stepsRoot()?.dataset.step === 'answer') await tap('[data-cue="back"] button');
+    expect(await measure('MDA.17.t1')).toEqual([]);
+    expect(tradeMat()).toEqual([9, 7, 20]);
+  });
+
+  it('a three-column compute mat of disks plays in steps, disks 26 px, labels 12 px', async () => {
     await page.viewport(960, 600);
     const base = engine.generateItem(content.store.graph.templates['MDA.12.t1'] as ItemTemplate, 1);
     const item = {
@@ -939,15 +1071,18 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
       },
     } as GeneratedItem;
     show(item, 'g1-up');
-    await measure('990 − 15');
-    expect(stepsRoot()?.dataset.arrange).toBe('tall');
+    expect(await measure('990 − 15')).toEqual([]);
+    expect(stepsRoot()?.dataset.arrange).toBe('steps');
     button('[data-trade="trade-tens-ones"]')?.click();
-    await measure('990 − 15');
+    expect(await measure('990 − 15')).toEqual([]);
     button('[data-trade="trade-tens-ones"]')?.click();
-    await measure('990 − 15');
+    expect(await measure('990 − 15')).toEqual([]);
     expect(tradeMat()).toEqual([9, 7, 20]);
-    const disk = document.querySelector('.ni-btt__mat [data-piece^="ones-"]');
-    expect(Math.round(disk?.getBoundingClientRect().width ?? 0)).toBe(25);
+    const disk = document.querySelector('.ni-btt__mat [data-piece^="hundreds-"]') as Element;
+    // The largest unit the steps fit, the floor at least ("990 − 15" leaves the mat a little more).
+    expect(Math.round(disk.getBoundingClientRect().width)).toBeGreaterThanOrEqual(26);
+    expect(Number.parseFloat(getComputedStyle(disk).fontSize)).toBeGreaterThanOrEqual(12);
+    expect(disksUnderFloor()).toEqual([]);
     await shot('disks-990-15', 'column-of-20');
   });
 
