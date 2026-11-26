@@ -297,7 +297,8 @@ export interface NumberPadKeysProps {
    * key size is `--pad-key` (default `--target-big`); a short room may set it down to
    * `--target-min`, never below.
    */
-  shape?: '3x4' | '4x3';
+  /** `row`: every key in one row, 1–9 then 0 then backspace (a short, wide room). */
+  shape?: '3x4' | '4x3' | 'row';
   /** Keys of the age mode's minimum target instead of --target-big (short rooms). */
   compact?: boolean;
 }
@@ -380,6 +381,9 @@ export function NumberPadKeys({
       } else if (e.key === 'Enter' && l.onEnter) {
         // Enter on a focused button activates that button instead.
         if (el?.closest('button')) return;
+        // A held Enter is one press: its repeats never submit (a held Enter on a step's Next
+        // lands here once the pad mounts, #35).
+        if (e.repeat) return;
         e.preventDefault();
         l.onEnter();
       }
@@ -400,7 +404,7 @@ export function NumberPadKeys({
         // Without a decimal key the bottom row is a wide 0 (two columns) and backspace: the grid
         // stays 3 × 4 with no empty cell (an empty cell reads as a missing key).
         if (key === null || (key === '.' && !allowDecimal)) return null;
-        const wide = key === '0' && !allowDecimal;
+        const wide = key === '0' && !allowDecimal && shape !== 'row';
         const label =
           key === 'back' ? t('ui.widget.key.back') : key === '.' ? t('ui.widget.key.point') : key;
         return (

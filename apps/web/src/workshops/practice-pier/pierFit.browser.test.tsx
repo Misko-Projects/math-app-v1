@@ -124,9 +124,11 @@ function show(
   feedback: FeedbackState = {},
   /** In Road Crew's screen, with this many stones made. */
   roadCrewStones?: number,
+  /** The same item on screen again (the feedback flow after a Check): the widget keeps its state. */
+  again = false,
 ) {
   const { answer: _answer, ...presented } = item;
-  shown += 1;
+  if (!again) shown += 1;
   root.render(
     <UiProvider
       ageMode={ageMode}
@@ -634,6 +636,217 @@ describe.each(FIT_VIEWPORTS)(
     });
   },
 );
+
+// #35: regrouping with a typed answer in a short room (960 × 600) is played in two steps, the
+// pieces then the answer (base-ten-trade layout.ts planSteps). Every seed CI plays, operated as a
+// child would: the tray emptied or the take-away filled, the trade, Next, the one-row pad, Check, a
+// wrong answer's look-again cue, Back and Next. At 1280 × 800 the usual layout stays.
+const STEP_TEMPLATES = ['MDA.08.t1', 'MDA.03.t1', 'MDA.10.t1', 'MDA.12.t1'] as const;
+const stepsRoot = () => document.querySelector<HTMLElement>('.ni-btt');
+const tap = async (sel: string) => {
+  const el = document.querySelector(sel);
+  if (!el) throw new Error(`nothing at ${sel}`);
+  await userEvent.click(el);
+};
+const typedAnswer = () => document.querySelector('.ni-btt__stepside .ni-btt__answer')?.textContent;
+
+describe('regrouping in a short room: the pieces, then the answer (#35)', () => {
+  const shot = async (id: string, state: string) => {
+    if (SHOTS.includes(id)) await page.screenshot({ path: `__fit__/${id}-${state}-960x600.png` });
+  };
+
+  it.each(STEP_TEMPLATES)('%s on every seed, in every step a child reaches', async (id) => {
+    await page.viewport(960, 600);
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const failing: string[] = [];
+    const check = async (seed: number, state: string) => {
+      const misfit = await measure(id);
+      if (misfit.length > 0)
+        failing.push(`seed ${seed} ${state}: ${misfit.join('; ')} [${describeParts()}]`);
+      await shot(id, `s${seed}-${state}`);
+    };
+    for (const seed of SEEDS) {
+      const item = engine.generateItem(template, seed);
+      const a = Number(item.params.a);
+      const b = Number(item.params.b);
+      const plus = item.params.op === '+';
+      const result = plus ? a + b : a - b;
+      show(item, ageModeOf(template));
+      await check(seed, 'first');
+      expect(stepsRoot()?.dataset.arrange, `${id} seed ${seed}`).toBe('steps');
+      expect(stepsRoot()?.dataset.step).toBe('pieces');
+      // Neither the numbers nor the result reach 100: no Hundreds column, and no pad yet.
+      expect(count('.ni-btt__mat [data-col="hundreds"]')).toBe(0);
+      expect(count('.ni-pad__key')).toBe(0);
+      if (plus) {
+        for (const c of ['tens', 'ones'] as const) {
+          if (document.querySelector(`[data-place-item="pending-${c}"]`)) {
+            await tap(`[data-place-item="pending-${c}"]`);
+            await tap(`[data-place-target="col-${c}"]`);
+          }
+        }
+        await check(seed, 'joined');
+        expect(tradeMat()).toEqual([
+          0,
+          Math.floor(a / 10) + Math.floor(b / 10),
+          (a % 10) + (b % 10),
+        ]);
+        button('[data-trade="trade-ones-tens"]')?.click();
+        await check(seed, 'traded');
+      } else {
+        button('[data-trade="trade-tens-ones"]')?.click();
+        await check(seed, 'split');
+        for (const c of ['tens', 'ones'] as const) {
+          const n = c === 'tens' ? Math.floor(b / 10) : b % 10;
+          for (let i = 0; i < n; i += 1) {
+            await tap(`[data-place-item^="mat-${c}-"]`);
+            await tap('[data-place-target="take"]');
+          }
+        }
+        await check(seed, 'taken');
+        expect(count('.ni-btt__takebox [data-piece^="taken-"]')).toBe(
+          Math.floor(b / 10) + (b % 10),
+        );
+      }
+      // Next stands where "check" will: the answer step, focus on the answer box.
+      await tap('[data-cue="next"] button');
+      await check(seed, 'answer');
+      expect(stepsRoot()?.dataset.step).toBe('answer');
+      expect(document.activeElement?.classList.contains('ni-btt__answer')).toBe(true);
+      expect(document.querySelector('.ni-btt [role="status"]')?.textContent).not.toBe('');
+      const keys = [...document.querySelectorAll<HTMLElement>('.ni-pad__key')];
+      expect(keys.map((k) => k.dataset.key)).toEqual([...'1234567890'.split(''), 'back']);
+      for (const [i, k] of keys.entries()) {
+        const r = k.getBoundingClientRect();
+        expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(MIN_TARGET_PX - SLACK_PX);
+        const next = keys[i + 1]?.getBoundingClientRect();
+        if (next) expect(next.left - r.right).toBeGreaterThanOrEqual(12 - SLACK_PX);
+      }
+      // A wrong answer typed on the keyboard and the pad, checked: the look-again cue and a line,
+      // the item on screen again with its state.
+      const wrong = String(result + 1);
+      await userEvent.keyboard(wrong.slice(0, 1));
+      for (const d of wrong.slice(1)) await tap(`.ni-pad__key[data-key="${d}"]`);
+      expect(typedAnswer()).toBe(wrong);
+      expect(button('.ni-btt__stepside .ni-btt__checkwrap button')?.disabled).toBe(false);
+      await tap('.ni-btt__stepside .ni-btt__checkwrap button');
+      show(item, ageModeOf(template), { line: longestLine(item) }, undefined, true);
+      await check(seed, 'look-again');
+      expect(stepsRoot()?.dataset.step).toBe('answer');
+      expect(typedAnswer()).toBe(wrong);
+      // Back to the mat (focus on it), the pieces as they were; Next again keeps the answer.
+      await tap('[data-cue="back"] button');
+      await check(seed, 'back');
+      expect(document.activeElement?.classList.contains('ni-btt__mat')).toBe(true);
+      expect(count('.ni-pad__key')).toBe(0);
+      await tap('[data-cue="next"] button');
+      expect(typedAnswer()).toBe(wrong);
+    }
+    expect(failing, `${id} steps that do not fit`).toEqual([]);
+  });
+
+  // Principle 4 (#35): the three-digit compute slice (MDA.05, MDA.17) will draw disks in three
+  // columns. Its fullest, 990 − 15 with a column of 20 ones, does not fit the two steps at the
+  // disks' floor (276 px too wide, layout.steps.test.ts): it keeps the usual layout and scrolls,
+  // with disks of 25 px (one under DISK_FLOOR). Measured here so the slice starts from the number.
+  it('a three-column compute mat of disks (no shipped item) keeps the usual layout', async () => {
+    await page.viewport(960, 600);
+    const base = engine.generateItem(content.store.graph.templates['MDA.12.t1'] as ItemTemplate, 1);
+    const item = {
+      ...base,
+      widget: {
+        format: 'base-ten-trade',
+        start: { hundreds: 9, tens: 9, ones: 0 },
+        operation: { op: '-', operand: { hundreds: 0, tens: 1, ones: 5 } },
+        goal: 'compute',
+        showAlgorithm: false,
+        thenAsk: true,
+      },
+    } as GeneratedItem;
+    show(item, 'g1-up');
+    await measure('990 − 15');
+    expect(stepsRoot()?.dataset.arrange).toBe('tall');
+    button('[data-trade="trade-tens-ones"]')?.click();
+    await measure('990 − 15');
+    button('[data-trade="trade-tens-ones"]')?.click();
+    await measure('990 − 15');
+    expect(tradeMat()).toEqual([9, 7, 20]);
+    const disk = document.querySelector('.ni-btt__mat [data-piece^="ones-"]');
+    expect(Math.round(disk?.getBoundingClientRect().width ?? 0)).toBe(25);
+    await shot('disks-990-15', 'column-of-20');
+  });
+
+  it('the usual layout stays at 1280 × 800', async () => {
+    await page.viewport(1280, 800);
+    for (const id of STEP_TEMPLATES) {
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      show(engine.generateItem(template, 1), ageModeOf(template));
+      expect(await measure(id)).toEqual([]);
+      expect(stepsRoot()?.dataset.arrange, id).not.toBe('steps');
+      expect(count('.ni-btt__mat [data-col="hundreds"]')).toBe(1);
+    }
+  });
+
+  // Review round 1 (#126): these templates are concrete, and the hint builder draws no picture
+  // overlay for a concrete tier, so their hints are lines only: measured on every seed with the
+  // look-again cue above. Should one ever draw a picture, this fails and its fit is to be checked.
+  it('these concrete templates show no hint picture on any seed (their hints are lines)', () => {
+    const pictures: string[] = [];
+    for (const id of STEP_TEMPLATES) {
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      for (const seed of SEEDS) {
+        const item = engine.generateItem(template, seed);
+        const picture = item.hints.find((h) => h.overlay && h.overlay.kind !== 'none')?.overlay;
+        if (picture) pictures.push(`${id} seed ${seed}: ${picture.kind}`);
+      }
+    }
+    expect(pictures).toEqual([]);
+  });
+
+  it.each(['MDA.03', 'MDA.12'])('the %s lesson, step by step, fits', async (skillId) => {
+    await page.viewport(960, 600);
+    const { graph } = content.store;
+    const skill = graph.skills[skillId];
+    const lesson = skill ? buildLesson(engine, graph, skill, pierPlayable) : null;
+    if (!lesson) throw new Error(`no lesson for ${skillId}`);
+    const failing: string[] = [];
+    let steps = 0;
+    for (const example of lesson.examples) {
+      if (example.template.format !== 'base-ten-trade') continue;
+      const demo = createDemoController({ strict: false, warn: () => {} });
+      const line = example.steps[0]
+        ? { say: example.steps[0].say, vars: example.steps[0].vars }
+        : { say: lesson.intro };
+      showLesson(example, 'g1-up', line, demo);
+      const name = `${skillId} ${example.phase} ${example.example + 1}`;
+      const first = await measure(name);
+      if (first.length > 0) failing.push(`${name} first: ${first.join('; ')}`);
+      for (const [i, step] of example.steps.entries()) {
+        if (!step.action) continue;
+        // Worked: the demo plays it; faded: the child is invited to it.
+        if (example.phase === 'worked') await demo.play(step.action);
+        else demo.invite(step.action);
+        const misfit = await measure(name);
+        steps += 1;
+        if (misfit.length > 0)
+          failing.push(
+            `${name} step ${i + 1} (${step.action.op}): ${misfit.join('; ')} [${describeParts()}]`,
+          );
+        if (example.phase !== 'worked') {
+          // The invited control is on screen (its step shown).
+          const want =
+            step.action.op === 'answer' || step.action.op === 'write-digit' ? 'answer' : 'pieces';
+          expect(stepsRoot()?.dataset.step, `${name} step ${i + 1}`).toBe(want);
+          demo.invite(null);
+          await demo.play(step.action);
+        }
+      }
+    }
+    console.info(`${skillId} lesson at 960x600: ${steps} steps played`);
+    expect(steps).toBeGreaterThan(3);
+    expect(failing).toEqual([]);
+  });
+});
 
 describe.each(FIT_VIEWPORTS)('Road Crew fits its formats at %s (#27)', (viewport: FitViewport) => {
   /** More stones than a request makes (one per item). */

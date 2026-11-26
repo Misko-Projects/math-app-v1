@@ -27,6 +27,8 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
+import { BigButton } from '../../primitives/BigButton';
+import { ArrowIcon, BackIcon } from '../../primitives/icons';
 import { usePress } from '../../primitives/usePress';
 import { useWidgetDemo } from '../demo';
 import {
@@ -49,6 +51,7 @@ import { breakGhosts, bundleGhosts, EASE, type Ghost, moveGhosts } from './fx';
 import {
   ageSizes,
   answerPlaces,
+  BOX_PAD,
   type Box,
   BUDGET,
   COL_PAD,
@@ -67,16 +70,22 @@ import {
   naturalLayout,
   nestInner,
   nestSlots,
+  padRowHeight,
   pathStates,
   placeDigits,
   placePieces,
   placeTaken,
   planCaps,
   planMat,
+  planSteps,
   ROOT_PAD_Y,
   ROW_GAP,
   SIDE_GAP,
+  type StepsPlan,
+  standingGroups,
   stateCaps,
+  stepsCaps,
+  stepsHold,
   stripWidth,
   unitRange,
 } from './layout';
@@ -103,6 +112,12 @@ import './base-ten-trade.css';
 const OPS = ['trade', 'combine', 'take', 'write-digit', 'answer'] as const;
 const budgetIn = (room: WidgetRoom | null) =>
   room && Number.isFinite(room.height) ? Math.min(BUDGET, room.height) : BUDGET;
+
+/** The demo ops played on the answer step of a short room (the rest are on the pieces step). */
+const answerOp = (op: string) => op === 'answer' || op === 'write-digit';
+
+/** How far Pip's hand may hang below the widget in a short room's steps (the card's padding). */
+const STEPS_HAND_OVERHANG = 30;
 
 const KEY_MS = 340;
 const FLASH_MS = 900;
@@ -681,7 +696,16 @@ function TradeMat({
     problemW: 0,
     problemH: 0,
     checkIcon: 0,
+    bareW: 0,
+    bareH: 0,
+    widestW: 0,
+    widestH: 0,
   });
+  /** The short room's step (layout.ts planSteps): the pieces, then the answer. */
+  const [step, setStep] = useState<'pieces' | 'answer'>('pieces');
+  /** What the live region says after the child's Next or Back (once per change). */
+  const [stepSaid, setStepSaid] = useState('');
+  const stepFocus = useRef<'answer' | 'mat' | null>(null);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
@@ -726,7 +750,13 @@ function TradeMat({
     const width = (sel: string) => root.querySelector(sel)?.getBoundingClientRect().width ?? 0;
     const measure = () => {
       const inSide = root
-        .querySelector('.ni-btt__measure .ni-btt__problem')
+        .querySelector('.ni-btt__measure .ni-btt__problem:not([data-variant])')
+        ?.getBoundingClientRect();
+      const bare = root
+        .querySelector('.ni-btt__measure .ni-btt__problem[data-variant="bare"]')
+        ?.getBoundingClientRect();
+      const widest = root
+        .querySelector('.ni-btt__measure .ni-btt__problem[data-variant="widest"]')
         ?.getBoundingClientRect();
       const next = {
         main: el.getBoundingClientRect().width,
@@ -737,8 +767,16 @@ function TradeMat({
         problemW: Math.ceil(inSide?.width ?? 0),
         problemH: Math.ceil(inSide?.height ?? 0),
         checkIcon: Math.ceil(width('.ni-btt__measure .ni-btt__checkcopy')),
+        bareW: Math.ceil(bare?.width ?? 0),
+        bareH: Math.ceil(bare?.height ?? 0),
+        widestW: Math.ceil(widest?.width ?? 0),
+        widestH: Math.ceil(widest?.height ?? 0),
       };
       setBox((prev) =>
+        prev.bareW === next.bareW &&
+        prev.bareH === next.bareH &&
+        prev.widestW === next.widestW &&
+        prev.widestH === next.widestH &&
         prev.main === next.main &&
         prev.side === next.side &&
         prev.pad === next.pad &&
@@ -789,13 +827,33 @@ function TradeMat({
   // a child can count (U_FLOOR), so it keeps its design height and its host scrolls; that is no
   // arrangement to keep, so it is chosen again in whatever room comes next.
   const room = useWidgetRoom(rootRef);
-  const arranged = useRef<'usual' | 'in-side' | 'tall' | null>(null);
+  // `steps`: a compute item with a typed answer that fits neither way is played in two steps
+  // (layout.ts planSteps) when they fit at the floor; else `tall`.
+  const arranged = useRef<'usual' | 'in-side' | 'steps' | 'tall' | null>(null);
+  const canStep = config.goal === 'compute' && Boolean(op) && config.thenAsk === true && !showWork;
+  const stepsFor = (budgetH: number, contentW: number): StepsPlan | null =>
+    canStep && box.bareW > 0 && box.widestW > 0 && box.checkIcon > 0 && contentW > 0
+      ? planSteps({
+          age,
+          width: contentW,
+          height: budgetH - 2 * ROOT_PAD_Y,
+          base: baseCaps,
+          path,
+          parts: {
+            bare: { w: box.bareW, h: box.bareH },
+            // The answer step's card with its longest answer typed (answerPlaces digits).
+            card: { w: box.widestW, h: box.widestH },
+            button: box.checkIcon,
+          },
+        })
+      : null;
   const planRoom = useSmallestRoom(room, rootRef, arranged.current === 'tall');
   const arrangedFor = useRef(planRoom);
   if (arrangedFor.current !== planRoom) arranged.current = null;
   const budget = arranged.current === 'tall' ? BUDGET : budgetIn(room);
   // Where the algorithm, the pad and "check" go, and the height left for the mat (layout.ts):
   // when K's side can't stack them, the arrangement at which every step of the item fits.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stepsFor reads box, baseCaps, path and age
   const { side } = useMemo(() => {
     const measured = planRoom !== null && box.main > 0;
     const chosen = chooseSide({
@@ -807,7 +865,10 @@ function TradeMat({
       answerInWork,
       places,
       budget: arranged.current ? budget : budgetIn(planRoom),
-      arrange: arranged.current === 'tall' ? 'usual' : (arranged.current ?? undefined),
+      arrange:
+        arranged.current === 'tall' || arranged.current === 'steps'
+          ? 'usual'
+          : (arranged.current ?? undefined),
       // The mat's area and the side panel together, with the grid gap between them (without a
       // side panel, the mat's area alone).
       contentW: box.main <= 0 ? 0 : checkInRow ? box.main : box.main + GAP + box.side,
@@ -831,8 +892,18 @@ function TradeMat({
       fit.fits &&
       fit.unit >= unitRange(baseCaps.disks).floor &&
       chosen.side.sideH <= budgetIn(planRoom) - 2 * ROOT_PAD_Y;
-    arranged.current = !fitsRoom ? 'tall' : chosen.side.problemInSide ? 'in-side' : 'usual';
     arrangedFor.current = planRoom;
+    const steps = !fitsRoom ? stepsFor(budgetIn(planRoom), box.main + GAP + box.side) : null;
+    // The steps are planned for the item; only a mat that has already outgrown them (splits made
+    // in a larger room before it shrank, review round 2) keeps the scrolling layout instead.
+    const now = stateRef.current;
+    const all = { hundreds: 0, tens: 0, ones: 0 };
+    for (const c of COLUMNS) all[c] = now.mat[c] + now.taken[c] + now.pending[c];
+    if (steps?.fits && stepsHold({ age, plan: steps, base: baseCaps, all })) {
+      arranged.current = 'steps';
+      return chosen;
+    }
+    arranged.current = !fitsRoom ? 'tall' : chosen.side.problemInSide ? 'in-side' : 'usual';
     if (fitsRoom) return chosen;
     return chooseSide({
       checkInRow,
@@ -880,16 +951,44 @@ function TradeMat({
     if (sel === null || focusedControl() !== null) return;
     sideRef.current?.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true });
   });
-  const { workInSide, checkBeside, showProblemRow, problemH, cardH, spaceH, sideH } = side;
-  const spaceW = box.main > 0 ? box.main : 900;
+  const { workInSide, checkBeside, showProblemRow, problemH, cardH, sideH } = side;
+  // The two steps of a short room: planned for the item, the same mat in both steps.
+  const steps = arranged.current === 'steps';
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stepsFor reads box, baseCaps, path and age
+  const stepsPlan = useMemo(
+    () => (steps ? stepsFor(budget, box.side > 0 ? box.main + GAP + box.side : box.main) : null),
+    [steps, budget, box, baseCaps, path, age],
+  );
+  // The child's Next hands the focus to the answer box, Back to the mat (06 §6).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the step changes
+  useLayoutEffect(() => {
+    const want = stepFocus.current;
+    stepFocus.current = null;
+    if (!want) return;
+    rootRef.current
+      ?.querySelector<HTMLElement>(
+        want === 'answer' ? '.ni-btt__stepside .ni-btt__answer' : '.ni-btt__mat',
+      )
+      ?.focus({ preventScroll: true });
+  }, [step]);
+  const spaceW = stepsPlan ? stepsPlan.matW : box.main > 0 ? box.main : 900;
+  const spaceH = stepsPlan ? stepsPlan.matH : side.spaceH;
   // One scale for the whole item, chosen so every step on the expected path fits.
   const unit = useMemo(
-    () => itemUnit({ age, width: spaceW, height: spaceH, base: baseCaps, path }),
-    [baseCaps, path, age, spaceW, spaceH],
+    () =>
+      stepsPlan
+        ? stepsPlan.unit
+        : itemUnit({ age, width: spaceW, height: spaceH, base: baseCaps, path }),
+    [stepsPlan, baseCaps, path, age, spaceW, spaceH],
   );
+  const planCapsOptions = useMemo(() => {
+    if (!stepsPlan) return capsOptions;
+    const { columns: cols } = stepsCaps(baseCaps);
+    return capsOptions.map((c) => ({ ...c, columns: cols, tray: null, taken: null }));
+  }, [stepsPlan, capsOptions, baseCaps]);
   const plan = useMemo(
-    () => planMat({ age, width: spaceW, height: spaceH, caps: capsOptions, unit }),
-    [capsOptions, unit, age, spaceW, spaceH],
+    () => planMat({ age, width: spaceW, height: spaceH, caps: planCapsOptions, unit }),
+    [planCapsOptions, unit, age, spaceW, spaceH],
   );
   const caps = plan.caps;
   // The side panel lines up with the mat when its contents fit beside it; otherwise it starts at
@@ -1317,6 +1416,8 @@ function TradeMat({
     play: async (action) => {
       setDemoBusy(true);
       setInvite(null);
+      // In a short room the demo shows the step its action is on (nothing traced or focused).
+      if (arranged.current === 'steps') setStep(answerOp(action.op) ? 'answer' : 'pieces');
       try {
         if (action.op === 'trade') {
           const from = columnArg(action.args?.from);
@@ -1413,7 +1514,13 @@ function TradeMat({
         setDemoBusy(false);
       }
     },
-    invite: (action) => setInvite(action),
+    invite: (action) => {
+      // An invited control is on screen: its step is shown.
+      if (action && arranged.current === 'steps') {
+        setStep(answerOp(action.op) ? 'answer' : 'pieces');
+      }
+      setInvite(action);
+    },
   });
 
   const invited = (() => {
@@ -1468,13 +1575,23 @@ function TradeMat({
       (grabTarget ? root.querySelector<HTMLElement>(grabTarget) : null) ??
       (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
     handTarget ?? '',
+    undefined,
+    undefined,
+    // A short room's steps fill the room to its foot: under a tall waiting group Pip's hand may
+    // hang into the workshop card's padding below the widget, where it covers nothing (as
+    // number-line-jump's SHORT_OVERHANG).
+    stepsPlan ? STEPS_HAND_OVERHANG : 0,
   );
 
   // ---------- render ----------
 
   // `inSide`: the card as the side panel of a short room holds it (its own height, smaller type,
   // the goal chips in a column). `copy`: the hidden one that is measured to plan that layout.
-  const problemCard = (inSide: boolean, copy = false) => {
+  // `variant`: `bare` without its answer box (the pieces step of a short room); `widest` (a hidden
+  // copy) with its longest answer typed, as planSteps plans the answer step.
+  const problemCard = (inSide: boolean, copy = false, variant?: 'bare' | 'widest') => {
+    const bare = variant === 'bare';
+    const shown = variant === 'widest' ? '8'.repeat(places) : text;
     const cardStyle = inSide ? undefined : { height: cardH };
     if (config.goal === 'regroup-to') {
       const goal = config.regroupTarget ?? config.start;
@@ -1503,7 +1620,7 @@ function TradeMat({
         { t: 'op', v: op.op },
         { t: 'num', v: htoValue(op.operand) },
         // The `=` blank is the answer place only without the algorithm (whose result row is).
-        ...(config.thenAsk && !answerInWork
+        ...(config.thenAsk && !answerInWork && !bare
           ? ([
               { t: 'rel', v: '=' },
               { t: 'blank', id: 'answer' },
@@ -1512,7 +1629,12 @@ function TradeMat({
       ],
     };
     return (
-      <div className="ni-btt__problem" data-in-side={inSide ? 'true' : undefined} style={cardStyle}>
+      <div
+        className="ni-btt__problem"
+        data-in-side={inSide ? 'true' : undefined}
+        data-variant={variant}
+        style={cardStyle}
+      >
         <ExpressionView
           expr={expr}
           renderBlank={() => (
@@ -1521,10 +1643,12 @@ function TradeMat({
                 className={['ni-number', 'ni-btt__answer', invited === 'answer' ? 'ni-invite' : '']
                   .filter(Boolean)
                   .join(' ')}
-                data-empty={text === '' ? 'true' : undefined}
+                data-empty={shown === '' ? 'true' : undefined}
+                // The answer step's Next hands the focus here (only on the shown card).
+                tabIndex={steps && !copy ? -1 : undefined}
                 aria-label={`${t('ui.widget.answer')}: ${text}`.trim()}
               >
-                {text === '' ? <span className="ni-number__slot" /> : text}
+                {shown === '' ? <span className="ni-number__slot" /> : shown}
               </output>
             </span>
           )}
@@ -1674,6 +1798,16 @@ function TradeMat({
     );
   };
 
+  // Every piece of the item after splitting one `larger` into ten `smaller` (layout.ts stepsHold).
+  const splitHolds = (larger: Column, smaller: Column) => {
+    if (!stepsPlan) return true;
+    const all = { hundreds: 0, tens: 0, ones: 0 };
+    for (const c of COLUMNS) all[c] = state.mat[c] + state.taken[c] + state.pending[c];
+    all[larger] -= 1;
+    all[smaller] += 10;
+    return stepsHold({ age, plan: stepsPlan, base: baseCaps, all });
+  };
+
   const strips = (larger: Column) => {
     const smaller = smallerOf(larger) as Column;
     return (
@@ -1686,7 +1820,10 @@ function TradeMat({
               dir: 'split' as const,
               // A column of disks holds two tens (DISK_COLUMN_MAX): no split past that.
               enabled:
-                state.mat[larger] >= 1 && (!disks || state.mat[smaller] + 10 <= DISK_COLUMN_MAX),
+                state.mat[larger] >= 1 &&
+                (!disks || state.mat[smaller] + 10 <= DISK_COLUMN_MAX) &&
+                // A short room's steps: only while every piece still fits its fixed room.
+                (!stepsPlan || splitHolds(larger, smaller)),
             },
             { from: smaller, to: larger, dir: 'group' as const, enabled: state.mat[smaller] >= 10 },
           ] as const
@@ -1711,6 +1848,51 @@ function TradeMat({
     );
   };
 
+  // One waiting group in its holder (`w` px wide, `m` its margins): dragged or tapped onto the mat.
+  const pendingGroup = (c: Column, w: number, m: { left: number; right: number }) => {
+    const n = state.pending[c];
+    const boxes = naturalLayout(c, n, u, 10, disks);
+    const ext = extent(boxes);
+    const h = Math.max(sizes.target, ext.h + 2 * GROUP_PAD);
+    const id = `pending-${c}`;
+    const p = dnd.itemProps(id, { label: t(PENDING_KEY[c]) });
+    return (
+      <div
+        {...p}
+        key={c}
+        className={[
+          p.className,
+          'ni-btt__pending',
+          invited === id ? 'ni-invite' : '',
+          demoHi === id ? 'ni-btt__hi' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        data-item={id}
+        style={{
+          width: w,
+          height: h,
+          marginLeft: m.left || undefined,
+          marginRight: m.right || undefined,
+        }}
+      >
+        {boxes.map((b, k) => (
+          <Piece
+            // biome-ignore lint/suspicious/noArrayIndexKey: pieces of a group are positional
+            key={k}
+            kind={c}
+            box={b}
+            u={u}
+            id={`pending-${c}-${k}`}
+            // Centred in the box; absolute positions start inside its 3 px border.
+            dx={(w - ext.w) / 2 - 3}
+            dy={(h - ext.h) / 2 - 3}
+          />
+        ))}
+      </div>
+    );
+  };
+
   // The adding tray, under the mat with its cells under the columns, while anything waits. Its
   // pieces are drawn a little smaller (they grow as they move onto the mat).
   const tray =
@@ -1731,14 +1913,9 @@ function TradeMat({
         </span>
         {columns.map((c, i) => {
           const n = state.pending[c];
-          const boxes = naturalLayout(c, n, u, 10, disks);
-          const ext = extent(boxes);
           const w = holderWidth(c, n, u, age, disks);
-          const h = Math.max(sizes.target, ext.h + 2 * GROUP_PAD);
           // In a narrow outer cell the holder keeps clear of the tray's border (layout.ts).
           const m = holderMargins(i, columns.length, plan.colW[c], w);
-          const id = `pending-${c}`;
-          const isInvited = invited === id;
           return (
             // The tray is a fieldset (its content box has no definite height), so each cell is as
             // tall as the inside of the tray: the waiting group centres TRAY_PAD clear of its border.
@@ -1747,45 +1924,7 @@ function TradeMat({
               className="ni-btt__traycell"
               style={{ gridColumn: i * 2 + 1, height: plan.trayH - 2 * 3 }}
             >
-              {n > 0
-                ? (() => {
-                    const p = dnd.itemProps(id, { label: t(PENDING_KEY[c]) });
-                    return (
-                      <div
-                        {...p}
-                        className={[
-                          p.className,
-                          'ni-btt__pending',
-                          isInvited ? 'ni-invite' : '',
-                          demoHi === id ? 'ni-btt__hi' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        data-item={id}
-                        style={{
-                          width: w,
-                          height: h,
-                          marginLeft: m.left || undefined,
-                          marginRight: m.right || undefined,
-                        }}
-                      >
-                        {boxes.map((b, k) => (
-                          <Piece
-                            // biome-ignore lint/suspicious/noArrayIndexKey: pieces of a group are positional
-                            key={k}
-                            kind={c}
-                            box={b}
-                            u={u}
-                            id={`pending-${c}-${k}`}
-                            // Centred in the box; absolute positions start inside its 3 px border.
-                            dx={(w - ext.w) / 2 - 3}
-                            dy={(h - ext.h) / 2 - 3}
-                          />
-                        ))}
-                      </div>
-                    );
-                  })()
-                : null}
+              {n > 0 ? pendingGroup(c, w, m) : null}
             </div>
           );
         })}
@@ -1867,10 +2006,221 @@ function TradeMat({
       <CheckButton
         onPress={submit}
         disabled={!interactive || !canSubmit}
-        compact={problemInSide === true}
+        compact={problemInSide === true || steps}
       />
     </span>
   );
+
+  // Without a Hundreds column (a short room, 03 §5.5) the mat is named by the columns it has.
+  const matLabel = columns.includes('hundreds')
+    ? t('ui.widget.btt.mat')
+    : columns.map((c) => t(COL_KEY[c])).join(', ');
+  const matEl = (
+    <fieldset
+      className="ni-btt__mat"
+      aria-label={matLabel}
+      // Back hands the focus here (a short room's steps).
+      tabIndex={stepsPlan ? -1 : undefined}
+      style={
+        {
+          width: plan.matW,
+          gridTemplateColumns: gridColumns,
+          gridTemplateRows: `${sizes.header + plan.bodyH}px`,
+          borderWidth: MAT_BORDER,
+          '--btt-trade-h': `${sizes.tradeH}px`,
+        } as CSSProperties
+      }
+    >
+      {columns.flatMap((c, i) => {
+        const prev = columns[i - 1];
+        return prev ? [strips(prev), column(c)] : [column(c)];
+      })}
+    </fieldset>
+  );
+
+  const measureCopies = showWork ? null : (
+    // The problem card as the side panel would hold it: hidden, inert, measured (chooseSide); in
+    // a short room also without its answer box (planSteps).
+    <div className="ni-btt__measure" aria-hidden="true" inert>
+      {problemCard(true, true)}
+      {canStep ? problemCard(true, true, 'bare') : null}
+      {canStep ? problemCard(true, true, 'widest') : null}
+      <span className="ni-btt__checkcopy">
+        <CheckButton onPress={() => undefined} disabled compact />
+      </span>
+    </div>
+  );
+
+  // Next and Back: no trace and nothing recorded; the live region says the step once.
+  const stepTo = (to: 'pieces' | 'answer') => {
+    if (!interactive || to === step) return;
+    stepFocus.current = to === 'answer' ? 'answer' : 'mat';
+    setStepSaid(to === 'answer' ? t('ui.widget.answer') : matLabel);
+    setInvite(null);
+    setStep(to);
+  };
+
+  if (stepsPlan) {
+    const answering = step === 'answer';
+    const stepButton = (to: 'pieces' | 'answer') => (
+      <span className="ni-btt__stepbtn" data-cue={to === 'answer' ? 'next' : 'back'}>
+        <BigButton
+          label={to === 'answer' ? 'ui.btn.next' : 'ui.btn.close'}
+          icon={to === 'answer' ? <ArrowIcon /> : <BackIcon />}
+          // Next has the look "check" has where "check" will be: the one thing to press.
+          tone={to === 'answer' ? 'sun' : 'cloud'}
+          disabled={!interactive}
+          onPress={() => stepTo(to)}
+          showLabel={false}
+          className="ni-check--compact"
+        />
+      </span>
+    );
+    // The pieces step: the tray's waiting groups side by side, or the take-away box.
+    const stepsTray =
+      isPlus && !trayEmpty ? (
+        <fieldset
+          className="ni-btt__tray ni-btt__tray--steps"
+          aria-label={t('ui.widget.btt.adding')}
+        >
+          {columns.map((c) => {
+            const n = state.pending[c];
+            if (n <= 0) return null;
+            return pendingGroup(c, holderWidth(c, n, u, age, disks), { left: 0, right: 0 });
+          })}
+        </fieldset>
+      ) : null;
+    const stepsTake = isMinus
+      ? (() => {
+          const p = dnd.targetProps('take', { label: t('ui.widget.btt.nest') });
+          const w = stepsPlan.sideW;
+          const h = stepsPlan.boxH;
+          const inner = { w: w - 2 * BOX_PAD, h: h - 2 * BOX_PAD };
+          const a = standingGroups(state.taken, u, sizes.target, disks);
+          // Positions start inside the box's 3 px border; the pieces keep GUTTER clear of it.
+          const edge = BOX_PAD - 3;
+          const ox = edge + Math.max(0, Math.floor((inner.w - a.w) / 2));
+          const oy = edge + Math.max(0, Math.floor((inner.h - a.h) / 2));
+          return (
+            <div
+              className="ni-btt__nest ni-btt__takebox"
+              data-flash={flash.has('take') ? 'true' : undefined}
+              style={{ width: w, height: h }}
+            >
+              <div {...p} className={`${p.className} ni-btt__pad ni-btt__nestpad`} />
+              {COLUMNS.map((c) => {
+                const slot = a.slots[c];
+                if (!slot || state.taken[c] <= 0) return null;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    className={['ni-btt__back', invited === `back-${c}` ? 'ni-invite' : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                    data-back={c}
+                    aria-label={t(BACK_KEY[c])}
+                    disabled={!interactive}
+                    style={{
+                      left: ox + slot.x,
+                      width: slot.w,
+                      top: edge,
+                      bottom: edge,
+                      // A piece picked up to take: a tap anywhere in the box drops it there.
+                      pointerEvents: dnd.selected !== null ? 'none' : undefined,
+                    }}
+                    onClick={() => onBack(c)}
+                  />
+                );
+              })}
+              <div
+                className="ni-btt__taken"
+                aria-hidden="true"
+                style={{ left: ox, top: oy, width: a.w, height: a.h }}
+              >
+                {COLUMNS.flatMap((c) =>
+                  a.groups[c].map((b, k) => (
+                    <Piece
+                      key={`${c}-${
+                        // biome-ignore lint/suspicious/noArrayIndexKey: taken pieces are positional
+                        k
+                      }`}
+                      kind={c}
+                      box={b}
+                      u={u}
+                      id={`taken-${c}-${k}`}
+                      hidden={arriving.has(`taken-${c}-${k}`)}
+                    />
+                  )),
+                )}
+              </div>
+            </div>
+          );
+        })()
+      : null;
+    return (
+      <div
+        ref={rootRef}
+        className="ni-btt"
+        data-pieces={disks ? 'disks' : undefined}
+        data-tier={pictorial ? 'pictorial' : 'concrete'}
+        data-disabled={disabled ? 'true' : undefined}
+        data-goal={config.goal}
+        data-op={op?.op}
+        data-arrange="steps"
+        data-step={step}
+        style={handRootStyle}
+      >
+        <div
+          ref={mainRef}
+          className="ni-btt__main ni-btt__steps"
+          style={{
+            gridTemplateColumns: `${stepsPlan.matW}px ${stepsPlan.sideW}px`,
+            // The pad row's height in both steps: the widget keeps one height, so nothing moves.
+            gridTemplateRows: `${stepsPlan.matH}px ${padRowHeight(age)}px`,
+          }}
+        >
+          <div className="ni-btt__stepsmat">{matEl}</div>
+          {answering ? (
+            <>
+              <div className="ni-btt__stepside" data-step="answer">
+                <div className="ni-btt__steprow" style={{ height: stepsPlan.rowH }}>
+                  {problemCard(true)}
+                  {check}
+                </div>
+                <div className="ni-btt__steprow ni-btt__steprow--end">{stepButton('pieces')}</div>
+              </div>
+              <div className="ni-btt__padline">
+                <NumberPadKeys
+                  onKey={onKey}
+                  onEnter={submit}
+                  disabled={!interactive}
+                  highlighted={pressedKey}
+                  shape="row"
+                  compact
+                />
+              </div>
+            </>
+          ) : (
+            <div className="ni-btt__stepside ni-btt__stepside--tall" data-step="pieces">
+              <div className="ni-btt__steprow" style={{ height: stepsPlan.rowH }}>
+                {problemCard(true, false, 'bare')}
+                {stepButton('answer')}
+              </div>
+              {stepsTray}
+              {stepsTake}
+            </div>
+          )}
+        </div>
+        <p className="ni-visually-hidden" role="status">
+          {stepSaid}
+        </p>
+        <div ref={fxRef} className="ni-btt__fx" aria-hidden="true" />
+        {inviteHand}
+        {measureCopies}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1905,24 +2255,7 @@ function TradeMat({
             {checkInRow ? <span className="ni-btt__rowcheck">{check}</span> : <span />}
           </div>
         ) : null}
-        <fieldset
-          className="ni-btt__mat"
-          aria-label={t('ui.widget.btt.mat')}
-          style={
-            {
-              width: plan.matW,
-              gridTemplateColumns: gridColumns,
-              gridTemplateRows: `${sizes.header + plan.bodyH}px`,
-              borderWidth: MAT_BORDER,
-              '--btt-trade-h': `${sizes.tradeH}px`,
-            } as CSSProperties
-          }
-        >
-          {columns.flatMap((c, i) => {
-            const prev = columns[i - 1];
-            return prev ? [strips(prev), column(c)] : [column(c)];
-          })}
-        </fieldset>
+        {matEl}
         {tray}
         {nest}
       </div>
@@ -1966,15 +2299,7 @@ function TradeMat({
       </div>
       <div ref={fxRef} className="ni-btt__fx" aria-hidden="true" />
       {inviteHand}
-      {showWork ? null : (
-        // The problem card as the side panel would hold it: hidden, inert, measured (chooseSide).
-        <div className="ni-btt__measure" aria-hidden="true" inert>
-          {problemCard(true, true)}
-          <span className="ni-btt__checkcopy">
-            <CheckButton onPress={() => undefined} disabled compact />
-          </span>
-        </div>
-      )}
+      {measureCopies}
     </div>
   );
 }

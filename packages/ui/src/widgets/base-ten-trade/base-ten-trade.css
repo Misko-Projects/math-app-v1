@@ -880,3 +880,74 @@ button.ni-btt__box:focus-visible {
   display: flex;
   justify-content: flex-end;
 }
+
+/* ---------- a short room: the pieces, then the answer (layout.ts planSteps) ---------- */
+
+/*
+ * The mat stays in the top left for the whole item. Pieces step: beside it the problem without its
+ * answer box and Next (where "check" will be), the tray or the take-away box under them. Answer
+ * step: beside the mat the problem with its answer box, "check" and Back; the pad's one row of keys
+ * under the mat. Column and row sizes arrive inline.
+ */
+.ni-btt[data-arrange="steps"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ni-btt__steps {
+  display: grid;
+  align-items: start;
+  /* GAP and ROW_GAP (layout.ts). */
+  gap: 12px;
+}
+.ni-btt__stepsmat {
+  grid-row: 1;
+  grid-column: 1;
+}
+.ni-btt__stepside {
+  display: flex;
+  flex-direction: column;
+  grid-row: 1;
+  grid-column: 2;
+  /* SIDE_GAP (layout.ts). */
+  gap: 12px;
+  min-width: 0;
+  /* "check", Next and Back at the target size, as in the side panel. */
+  --target-big: var(--target-min);
+}
+.ni-btt__stepside--tall {
+  grid-row: 1 / span 2;
+}
+/* Top-aligned: Next's top edge is exactly where "check"'s will be. */
+.ni-btt__steprow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ni-btt__steprow--end {
+  justify-content: flex-end;
+}
+.ni-btt__stepbtn {
+  display: inline-flex;
+}
+.ni-btt__padline {
+  grid-row: 2;
+  grid-column: 1 / span 2;
+}
+/* The waiting groups side by side (TRAY_PAD clear of the border), centred under the problem. */
+.ni-btt__tray--steps {
+  display: flex;
+  align-self: center;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+}
+/* The take-away box: pieces standing as on the mat, a put-back control over each kind's. */
+.ni-btt__takebox {
+  border: 3px solid var(--color-wood-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-sand-shadow);
+  box-shadow: inset 0 6px 0 var(--color-wood);
+}
+.ni-btt__takebox > .ni-btt__nestpad {
+  inset: 0;
+}
