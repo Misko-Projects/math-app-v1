@@ -71,7 +71,7 @@ misconceptions:
     name: Keeps the old ten when counting past a decade (29, then 20)
     detect: { kind: answer, rule: decadeTransition }
     appliesTo: { generators: [count.sequence] }
-    skills: [CNT.09, CNT.10, CNT.16]
+    skills: [CNT.09, CNT.10, CNT.16, CNT.17]
     remediation: [CNT.09]
     feedback: fb.mc.decade-transition
     priority: 50

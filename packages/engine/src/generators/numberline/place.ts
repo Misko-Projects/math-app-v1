@@ -245,6 +245,8 @@ export const numberlinePlace: GeneratorDef = {
       max,
       target,
       ...(pair ? { b0: pair[0], b1: pair[1] } : {}),
+      // What one tick is worth (CMP.11 hints: "each tick is 5 more").
+      ...(line.ticksEvery !== null ? { step: line.ticksEvery } : {}),
     });
     const lf = lineFeatures(line, target);
     const readingMath = Object.fromEntries(LINE_READING_FEATURES.map((f) => [f, lf[f] ?? 0]));

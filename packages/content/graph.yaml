@@ -9,19 +9,11 @@ coverageGrades: [K, 1]
 # CMP.10–12, CNT.11, CNT.12, CNT.17, CPS.10, DAT.03–08, FRA.02–06, MDA.03–07, MUL.01–11, PV.08,
 # TIM.02, TIM.03, TIM.05–07 and the GEO and MEA rows. K02 clears them. K02 slice 1a authored the
 # grade-2 place-value rows (PV.04–PV.07, PV.12, PV.14–PV.17, PV.24), which leaves PV.08 and
-# PV.18–PV.23 (rounding, grade 3, and the stretch rows) as gaps below PV.24.
+# PV.18–PV.23 (rounding, grade 3, and the stretch rows) as gaps below PV.24. Slice 1b authored
+# CNT.11, CNT.12, CNT.17, CMP.10–12, CPS.10, ADD.14, ADD.22, PV.08 and PV.18.
 plannedIds:
   [
-    ADD.14,
-    ADD.22,
     ALG.03,
-    CMP.10,
-    CMP.11,
-    CMP.12,
-    CNT.11,
-    CNT.12,
-    CNT.17,
-    CPS.10,
     DAT.03,
     DAT.04,
     DAT.05,
@@ -67,8 +59,6 @@ plannedIds:
     MUL.09,
     MUL.10,
     MUL.11,
-    PV.08,
-    PV.18,
     PV.19,
     PV.20,
     PV.21,

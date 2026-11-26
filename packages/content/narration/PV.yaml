@@ -289,3 +289,16 @@ ls.PV.15.w1.s4:
 ls.PV.15.outro:
   text: "Hundreds first, then tens, then ones. Now you can build numbers to one thousand!"
   voice: pip
+# K02 (#17) slice 1b: rounding
+sk.PV.08.intro:
+  text: "Rounding finds the ten a number is closest to."
+sk.PV.18.intro:
+  text: "Now let's find the hundred a number is closest to."
+tp.PV.08.t1.prompt:
+  text: "Round {n} to the nearest ten."
+tp.PV.08.t2.prompt:
+  text: "Round {target} to the nearest ten. Is it closer to {b0} or to {b1}?"
+tp.PV.18.t1.prompt:
+  text: "Round {n} to the nearest hundred."
+tp.PV.18.t2.prompt:
+  text: "Round {target} to the nearest hundred. Is it closer to {b0} or to {b1}?"

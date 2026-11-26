@@ -9,7 +9,7 @@ import { checkResponse } from '../../items/check';
 import { generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { GenerationError } from '../types';
-import { bondParts, freshSplit, knownWays } from './parts';
+import { bondParts, freshSplit, knownWays, tenHops } from './parts';
 
 let nextId = 0;
 function tpl(
@@ -230,5 +230,54 @@ describe('K01 features', () => {
       expect(declared.has(k), k).toBe(true);
       expect(f, k).toHaveProperty([k]);
     }
+  });
+});
+
+describe('partners of 100 on an open line (CPS.10)', () => {
+  it('hops of 1–10 from the part to 100, no ticks, the total jump typed', () => {
+    const t = tpl('number-line-jump', 'pictorial', 'open-number-line');
+    const { item, steps } = build(t, { whole: 100, part: 64, unknown: 'part' });
+    if (item.widget.format !== 'number-line-jump') throw new Error('format');
+    expect(item.widget.ticksEvery).toBeNull();
+    expect(item.widget.path).toBe('open');
+    expect(item.widget.allowedJumps).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(item.widget.thenAsk).toBe('total-jump');
+    expect(item.answer).toMatchObject({ target: { start: 64, target: 100, value: 36 } });
+    // The demo goes to the next ten, then by tens.
+    const hops = steps.flatMap((s) => (s.action?.op === 'hop' ? [s.action.args?.by] : []));
+    expect(hops).toEqual([6, 10, 10, 10]);
+  });
+
+  it('tenHops: to the next ten, then tens, then the rest', () => {
+    expect(tenHops(64, 100)).toEqual([6, 10, 10, 10]);
+    expect(tenHops(60, 100)).toEqual([10, 10, 10, 10]);
+    expect(tenHops(97, 100)).toEqual([3]);
+    expect(tenHops(12, 37)).toEqual([8, 10, 7]);
+  });
+
+  it('the ticked line is unchanged (hops of one)', () => {
+    const { item } = build(tpl('number-line-jump'), { whole: 9, part: 4, unknown: 'part' });
+    if (item.widget.format !== 'number-line-jump') throw new Error('format');
+    expect(item.widget.ticksEvery).toBe(1);
+    expect(item.widget.allowedJumps).toEqual([1]);
+  });
+});
+
+describe('partners of 100 on the mat (CPS.10, PR #124 review)', () => {
+  it.each<[number, number, number]>([
+    [64, 6, 3],
+    [11, 9, 8],
+    [89, 1, 1],
+  ])('from %i the demo puts in %i ones, makes a ten, then %i tens', (part, ones, tens) => {
+    const t = tpl('base-ten-build', 'concrete', 'base-ten');
+    const { steps } = build(t, { whole: 100, part, unknown: 'part' });
+    const adds = steps.flatMap((s) =>
+      s.action?.op === 'add-piece' ? [[s.action.args?.kind, s.action.args?.count]] : [],
+    );
+    expect(adds).toEqual([
+      ['ones', ones],
+      ['tens', tens],
+    ]);
+    expect(steps.some((s) => s.action?.op === 'fuse')).toBe(true);
   });
 });

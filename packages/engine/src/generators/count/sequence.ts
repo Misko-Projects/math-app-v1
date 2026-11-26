@@ -5,7 +5,10 @@
 // redraws until the counted terms cross a multiple of 10 (CNT.09, CNT.10, CNT.16). With `tens` > 0
 // (CNT.20, count on and back by tens and ones) the first `tens` steps are tens and the rest are
 // ones (34, 44, 54, 55, 56); K01 builds that on number-pad, and the base-ten representation shows
-// the start as base-ten pieces.
+// the start as base-ten pieces. K02: `cross: century` redraws until the terms cross a multiple of
+// 100 (CNT.17, 199 → 200), and a number pad with the `groups` representation (CNT.11) shows the
+// sequence as plates of `step` objects counted from the first plate (start = step, hide last, 2–6
+// plates): "how many in all?" asks the last term.
 // Formats: numeral-pick, number-pad, hundred-chart, order, number-line-jump.
 
 import type {
@@ -62,6 +65,10 @@ export function chartFor(lo: number, hi: number): { first: number; rows: number 
   const first = Math.floor((lo - 1) / 100) * 100 + 1;
   return hi <= first + 99 ? { first, rows: 10 } : null;
 }
+
+/** The `groups` picture (CNT.11): at most this many plates, each of at most this many objects. */
+export const MAX_PLATES = 6;
+export const MAX_PER_PLATE = 5;
 
 const crosses = (lo: number, hi: number, unit: number): boolean =>
   Math.floor(lo / unit) !== Math.floor(hi / unit);
@@ -149,9 +156,9 @@ export const countSequence: GeneratorDef = {
     },
     cross: {
       type: 'string',
-      values: ['any', 'decade'],
+      values: ['any', 'decade', 'century'],
       default: { kind: 'const', value: 'any' },
-      doc: 'decade: the terms from start to last must cross a multiple of 10 (redrawn otherwise)',
+      doc: 'decade (century): the terms from start to last must cross a multiple of 10 (100); redrawn otherwise',
     },
     tens: {
       type: 'int',
@@ -198,6 +205,15 @@ export const countSequence: GeneratorDef = {
     const lo = Math.min(start, last);
     const hi = Math.max(start, last);
     if (p.cross === 'decade' && !crosses(lo, hi, 10)) return false;
+    if (p.cross === 'century' && !crosses(lo, hi, 100)) return false;
+    // Plates of `step` (CNT.11): counted from the first plate, the last term asked, 2–6 plates.
+    if (t.representation === 'groups') {
+      const plates = asNum(p.length, 1) + 1;
+      const step = asNum(p.step, 1);
+      if (t.format !== 'number-pad' || p.hide !== 'last' || asNum(p.dir, 1) < 0) return false;
+      if (start !== step || tens !== 0 || step < 2 || step > MAX_PER_PLATE) return false;
+      return plates >= 2 && plates <= MAX_PLATES;
+    }
     // Missing numbers between start and last need at least one term between them.
     const asks = t.format === 'number-pad' || t.format === 'hundred-chart';
     if (asks && p.hide === 'between' && asNum(p.length, 1) < 2) return false;
@@ -276,6 +292,13 @@ export const countSequence: GeneratorDef = {
           ones: start % 10,
         };
         const baseTen = t.representation === 'base-ten' || t.representation === 'bundles';
+        // Plates of `step` (CNT.11): one plate per term, so the total is the last term.
+        const plates: StimulusSpec = {
+          kind: 'groups',
+          groups: terms.length,
+          perGroup: step,
+          sprite: 'shell',
+        };
         p = {
           params,
           vars,
@@ -286,7 +309,9 @@ export const countSequence: GeneratorDef = {
               ? partialPath(terms, hidden, step)
               : baseTen
                 ? pieces
-                : { kind: 'none' },
+                : t.representation === 'groups'
+                  ? plates
+                  : { kind: 'none' },
             expression: { tokens },
             blanks,
             unit: null,

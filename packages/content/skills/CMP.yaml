@@ -84,6 +84,33 @@ skills:
     gateway: false
     representations: [number-line, symbols]
 
+  - id: CMP.10
+    name: Place and estimate numbers on a 0–1000 number line
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.NBT.A.4] }
+    prerequisites: [CMP.09, PV.05]
+    gateway: false
+    representations: [number-line, symbols]
+
+  - id: CMP.11
+    name: Read a number line marked in 2s, 5s or 10s
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.B.6] }
+    prerequisites: [CMP.04, CNT.11]
+    gateway: false
+    representations: [ruler, number-line]
+
+  - id: CMP.12
+    name: "Closer to which? Compare a number with two benchmarks"
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [3.NBT.A.1] }
+    prerequisites: [CMP.09]
+    gateway: false
+    representations: [number-line, symbols]
+
   - id: CMP.13
     name: Estimate how many are in a big group
     kind: concept

@@ -107,3 +107,14 @@ ls.CNT.14.f2.s3:
 ls.CNT.14.outro:
   text: "Your turn. Put in one more!"
   voice: pip
+# K02 (#17) slice 1b
+sk.CNT.11.intro:
+  text: "Let's skip-count by twos and fives, all the way to one hundred!"
+sk.CNT.12.intro:
+  text: "Let's count by tens and by hundreds, from any number."
+sk.CNT.17.intro:
+  text: "Let's count on by ones past a new hundred."
+tp.CNT.11.t1.prompt:
+  text: "Count by {step} from {start}. Fill in the missing numbers."
+tp.CNT.11.t3.prompt:
+  text: "Each plate has {step} shells. How many shells are there in all?"

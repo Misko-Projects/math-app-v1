@@ -202,3 +202,8 @@ ls.ADD.11.w1.s4:
 ls.ADD.11.outro:
   text: "The box can be on any side. Make both sides the same!"
   voice: pip
+# K02 (#17) slice 1b: fact fluency names the strategies (03 §6.4: no worked example).
+sk.ADD.14.intro:
+  text: "Let's get fast at adding up to twenty. Make a ten or use a double!"
+sk.ADD.22.intro:
+  text: "Let's get fast at taking away. Go back to ten or think of adding!"

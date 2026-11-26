@@ -95,6 +95,24 @@ skills:
     gateway: false
     representations: [hundred-chart, number-line, symbols]
 
+  - id: CNT.11
+    name: Skip-count by 2s and 5s to 100
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.A.2], supports: [2.OA.C.3] }
+    prerequisites: [CNT.09]
+    gateway: false
+    representations: [groups, hundred-chart, number-line]
+
+  - id: CNT.12
+    name: Skip-count by 10s and 100s within 1000 from any number
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.A.2] }
+    prerequisites: [PV.05, CNT.09]
+    gateway: false
+    representations: [base-ten, number-line, symbols]
+
   - id: CNT.13
     name: "Zero means none: count an empty set and write 0"
     kind: concept
@@ -130,6 +148,15 @@ skills:
     prerequisites: [CNT.08, CNT.10]
     gateway: false
     representations: [hundred-chart, number-line, symbols]
+
+  - id: CNT.17
+    name: Count by ones within 1000, across hundreds (199 → 200)
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.A.2] }
+    prerequisites: [CNT.10, PV.15]
+    gateway: false
+    representations: [base-ten, number-line, symbols]
 
   - id: CNT.18
     name: Find missing numbers on a number path or chart within 120

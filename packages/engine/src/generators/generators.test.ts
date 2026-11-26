@@ -1200,6 +1200,7 @@ describe('registry', () => {
       'puzzle.grid',
       'pv.number',
       'pv.regroup',
+      'pv.round',
       'pv.tenmore',
       'story.addsub',
       'subitize.flash',

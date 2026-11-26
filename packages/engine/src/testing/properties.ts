@@ -8,6 +8,7 @@ import {
   type GeneratedItem,
   type ItemTemplate,
   type ResponseValue,
+  type StimulusSpec,
   widgetConfigSchema,
 } from '@number-island/shared';
 import fc from 'fast-check';
@@ -472,6 +473,40 @@ function noNegatives(v: unknown): boolean {
   return true;
 }
 
+/**
+ * The asked number when a numeral-pick or number-pad picture marks it with an unlabelled arrow on
+ * a number line that prints it anyway (an end, or a multiple of `labelsEvery` from `min`); else
+ * null.
+ */
+export function arrowOnPrintedAnswer(item: GeneratedItem): number | null {
+  const w = item.widget;
+  if (w.format !== 'numeral-pick' && w.format !== 'number-pad') return null;
+  const asked =
+    item.answer.kind === 'number'
+      ? item.answer.value
+      : item.answer.kind === 'choice'
+        ? (optionNumber(item.answer.id) ?? Number.NaN)
+        : Number.NaN;
+  // The question's picture, and for "which arrow shows n?" the correct option's picture.
+  const pictures: StimulusSpec[] = [w.stimulus];
+  if (w.format === 'numeral-pick' && item.answer.kind === 'choice') {
+    const id = item.answer.id;
+    const correct = w.options.find((o) => o.id === id)?.stimulus;
+    if (correct) pictures.push(correct);
+  }
+  for (const s of pictures) {
+    if (s.kind !== 'number-line') continue;
+    const printed = (v: number) =>
+      v === s.min ||
+      v === s.max ||
+      (s.labelsEvery !== null && s.labelsEvery > 0 && (v - s.min) % s.labelsEvery === 0);
+    for (const m of s.marks ?? []) {
+      if (m.arrow && m.label === undefined && m.at === asked && printed(m.at)) return m.at;
+    }
+  }
+  return null;
+}
+
 export function choiceOptions(item: GeneratedItem): string[] {
   const w = item.widget;
   if (w.format === 'numeral-pick') return w.options.map((o) => o.id);
@@ -495,6 +530,8 @@ export function choiceOptions(item: GeneratedItem): string[] {
     if (w.mode === 'judge') return ['true', 'false'];
     if (w.mode === 'which-heavier') return ['left', 'right', 'same'];
   }
+  // number-line-place `closer` (CMP.12, PV.08, PV.18): the benchmark below or the one above.
+  if (w.format === 'number-line-place' && w.mode === 'closer') return ['b0', 'b1'];
   if (w.format === 'compare-length') return w.objects.map((o) => o.id);
   if (w.format === 'shape-sort' && w.mode === 'odd-one-out') return w.cards.map((c) => c.id);
   // K01 conventions (engine README): fraction-pick `fair-or-not` answers `yes` | `no` (like
@@ -777,6 +814,13 @@ export function runTemplateProperties(
         }
       }
     }
+    // 7a. a "read the arrow" picture never prints the asked number under its unlabelled arrow
+    // (CMP.10 at 500 on a line labelled every 500). numberline.place only for now: CMP.13.t4
+    // (estimate.quantity) can mark 100 at the line's labelled end, a K–1 follow-up.
+    const shown = t.generator === 'numberline.place' ? arrowOnPrintedAnswer(item) : null;
+    if (shown !== null) {
+      fail(seed, '7a.picture-reveals', `the arrow at ${shown} sits on a printed label`);
+    }
     // 8. difficulty finite; features declared
     if (!Number.isFinite(item.difficulty)) fail(seed, '8.difficulty', 'difficulty is not finite');
     for (const f of Object.keys(itemFeatures(item, t))) {
@@ -801,7 +845,10 @@ export function runTemplateProperties(
       const correct = ids.filter((id) => checkResponse(item, { kind: 'choice', id }).correct);
       const objects = item.widget.format === 'tap-count';
       // equal-share's choices are fixed pairs (yes/no, even/odd, 03 §5.5), so two is enough.
-      const pair = item.widget.format === 'equal-share';
+      // So are number-line-place `closer`'s two benchmarks.
+      const pair =
+        item.widget.format === 'equal-share' ||
+        (item.widget.format === 'number-line-place' && item.widget.mode === 'closer');
       if (
         ids.length < (pair ? 2 : min) ||
         (ids.length > 5 && !objects) ||

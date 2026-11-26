@@ -238,25 +238,34 @@ describe('the first plan of a new child', () => {
     // Advanced counts as grade 3, so every shipped skill (K to grade 2) has the prior 0.85 and is
     // assumed. With no skill left to introduce, the first session practises facts, and the
     // assumed skills come up for verification after their first interval (04 §5, I = 2 days).
+    // The facts include grade 2's (ADD.14, ADD.22): assumed is practiced, not fluent (04 §6.5).
+    const facts = new Set(['ADD.14', 'ADD.22']);
     const plan = await firstRequests(kid('2', true));
-    expect(all(plan).some((s) => gradeOf(s) === '2')).toBe(false);
+    expect(all(plan).some((s) => gradeOf(s) === '2' && !facts.has(s))).toBe(false);
     const later = await firstRequests(kid('2', true), 2.1 * DAY);
     expect(later).toMatchInlineSnapshot(`
       [
         [
           "ADD.06",
           "PV.17",
-          "PV.06",
-          "PV.07",
+          "CMP.10",
+          "CNT.12",
           "ADD.01",
         ],
         [
           "ADD.02",
           "PV.17",
-          "PV.06",
-          "PV.07",
+          "CMP.10",
+          "CNT.12",
           "ADD.01",
-          "ADD.03",
+        ],
+        [
+          "ADD.14",
+          "PV.17",
+          "CMP.10",
+          "CNT.12",
+          "ADD.01",
+          "ADD.02",
         ],
       ]
     `);
@@ -270,8 +279,13 @@ describe('the first plan of a new child', () => {
         ],
         [
           "ADD.02",
+          "ADD.06",
           "ADD.01",
-          "ADD.03",
+        ],
+        [
+          "ADD.14",
+          "ADD.01",
+          "ADD.02",
         ],
       ]
     `);
