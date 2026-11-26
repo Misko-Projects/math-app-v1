@@ -152,6 +152,9 @@ const SLICE_2A = [
 /** Slice 2b (#17): addition and subtraction within 1000, grade 2 and grade 3 (PV.19 included). */
 const SLICE_2B_G2 = ['MDA.24', 'MDA.25', 'MDA.05', 'MDA.17'] as const;
 const SLICE_2B_G3 = ['MDA.07', 'MDA.18', 'MDA.21', 'PV.19'] as const;
+/** Slice 3a (#17): equal groups, arrays, even and odd, rows and columns; grade 2 and grade 3. */
+const SLICE_3A_G2 = ['MUL.01', 'MUL.02', 'SUB.09', 'GEO.03', 'GEO.04', 'MUL.03'] as const;
+const SLICE_3A_G3 = ['MUL.04', 'MUL.22', 'MUL.05'] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -662,6 +665,7 @@ describe('session simulation (04 §8)', () => {
       slice('slice 1b', SLICE_1B);
       slice('slice 2a', SLICE_2A);
       slice('slice 2b', SLICE_2B_G2);
+      slice('slice 3a', SLICE_3A_G2);
       // Fact fluency: no simulated child turns fluent (see SLICE_1B_FLUENCY), so practice only.
       slice('slice 1b fluency', SLICE_1B_FLUENCY, false);
       console.log(
@@ -677,6 +681,7 @@ describe('session simulation (04 §8)', () => {
       const { slice } = readiness('3');
       slice('slice 1b rounding', SLICE_1B_ROUNDING);
       slice('slice 2b', SLICE_2B_G3);
+      slice('slice 3a', SLICE_3A_G3);
     },
     SIM_TIMEOUT,
   );
