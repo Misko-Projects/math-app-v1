@@ -299,7 +299,7 @@ describe('a clock or coins stimulus is not shown in any format yet (PR #101 revi
       misplacedTimeMoneyPictures({ widget: { format: 'numeral-pick', stimulus: clock } }),
     ).toEqual(['widget.stimulus']);
     expect(
-      misplacedTimeMoneyPictures({ widget: { format: 'number-pad', stimulus: coins } }),
+      misplacedTimeMoneyPictures({ widget: { format: 'number-pad', stimulus: coins } }), // two coins
     ).toEqual(['widget.stimulus']);
   });
 
@@ -967,5 +967,58 @@ describe("a coin item's answer is the one its config implies (PR #101 review 4)"
     }
     expect(compared).toBeGreaterThan(1000);
     expect(disagree.slice(0, 5)).toEqual([]);
+  });
+});
+
+describe('#17 slice 4a: the coin pictures a layout is proven to hold', () => {
+  const one = { kind: 'coins', coins: ['nickel'] };
+  const two = { kind: 'coins', coins: ['penny', 'dime'] };
+  const withBill = { kind: 'coins', coins: ['dime'], bills: [1] };
+  const card = (coins: string[]) => ({ kind: 'coins', coins });
+
+  it('one coin, no bill, as the picture of a number-pad or numeral-pick', () => {
+    for (const format of ['number-pad', 'numeral-pick']) {
+      expect(misplacedTimeMoneyPictures({ widget: { format, stimulus: one } })).toEqual([]);
+      expect(misplacedTimeMoneyPictures({ widget: { format, stimulus: two } })).toEqual([
+        'widget.stimulus',
+      ]);
+      expect(misplacedTimeMoneyPictures({ widget: { format, stimulus: withBill } })).toEqual([
+        'widget.stimulus',
+      ]);
+    }
+    expect(misplacedTimeMoneyPictures({ widget: { format: 'dot-flash', stimulus: one } })).toEqual([
+      'widget.stimulus',
+    ]);
+    expect(
+      misplacedTimeMoneyPictures({
+        widget: { format: 'numeral-pick', stimulus: one, options: [{ id: 'a', stimulus: one }] },
+      }),
+    ).toEqual(['widget.options.0.stimulus']);
+  });
+
+  it('three order cards of at most four coins each, no bill', () => {
+    const items = (cs: unknown[]) => cs.map((s, i) => ({ id: `obj-${i}`, value: i, stimulus: s }));
+    const ok = [
+      card(['quarter']),
+      card(['dime', 'nickel']),
+      card(['dime', 'dime', 'nickel', 'penny']),
+    ];
+    expect(misplacedTimeMoneyPictures({ widget: { format: 'order', items: items(ok) } })).toEqual(
+      [],
+    );
+    const five = card(['penny', 'penny', 'penny', 'penny', 'penny']);
+    expect(
+      misplacedTimeMoneyPictures({
+        widget: { format: 'order', items: items([ok[0], ok[1], five]) },
+      }),
+    ).toEqual(['widget.items.2.stimulus']);
+    expect(
+      misplacedTimeMoneyPictures({
+        widget: { format: 'order', items: items([ok[0], ok[1], withBill]) },
+      }),
+    ).toEqual(['widget.items.2.stimulus']);
+    expect(
+      misplacedTimeMoneyPictures({ widget: { format: 'order', items: items([ok[0], ok[1]]) } }),
+    ).toEqual(['widget.items.0.stimulus', 'widget.items.1.stimulus']);
   });
 });

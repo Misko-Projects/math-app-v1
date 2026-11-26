@@ -21,6 +21,24 @@ export interface CoinsViewProps {
   maxHeight?: number;
 }
 
+/**
+ * What a coins picture shows, for its accessible name (#17 slice 4a): each coin's look (metal, size
+ * and edge, as the kit draws it), never its name or value, and how many pieces there are, never the
+ * amount. A child names the coin from the picture (MON.01), so the name cannot do it for them.
+ */
+export function describeCoins(
+  coins: readonly CoinKind[],
+  bills: readonly number[],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  const looks = [
+    ...bills.map(() => t('ui.coin.look.bill')),
+    ...coins.map((c) => t(`ui.coin.look.${c}`)),
+  ];
+  if (looks.length === 1) return looks[0] as string;
+  return `${t('ui.coin.count', { n: looks.length })}: ${looks.join(', ')}`;
+}
+
 /** The money a coins picture shows, in cents. */
 export function coinsCentsOf(coins: readonly CoinKind[], bills: readonly number[] = []): number {
   return coins.reduce((a, c) => a + COIN_CENTS[c], 0) + bills.reduce((a, b) => a + 100 * b, 0);

@@ -15,3 +15,28 @@ lessons:
       - { seed: 1103943364, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [TIM.09.t2] }
+
+  # K02 slice 4a (#17): TIM.05 and TIM.11 each have a pick (TIM.05.t3, TIM.11.t2), which is not
+  # evidence (04 §7a), so these lessons pin the test-out pool (03 §6.5) to the pictorial
+  # constructed-answer template; the rest is what the auto lesson plays.
+  - skillId: TIM.05
+    mode: authored
+    templateId: TIM.05.t1
+    worked:
+      - { seed: 1105943362, target: easy }
+    faded:
+      - { seed: 1105943363, target: typical, childSteps: 1 }
+      - { seed: 1105943364, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [TIM.05.t2] }
+
+  - skillId: TIM.11
+    mode: authored
+    templateId: TIM.11.t1
+    worked:
+      - { seed: 1111943362, target: easy }
+    faded:
+      - { seed: 1111943363, target: typical, childSteps: 1 }
+      - { seed: 1111943364, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [TIM.11.t3] }

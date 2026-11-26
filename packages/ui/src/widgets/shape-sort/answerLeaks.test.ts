@@ -1,3 +1,5 @@
+import { compileContent } from '@number-island/content';
+import { readContentFiles } from '@number-island/content/node';
 import { resetContent } from '@number-island/engine';
 import type { GeneratedItem, ShapeCard, ShapeSortConfig, SortRule } from '@number-island/shared';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -160,5 +162,27 @@ describe('shape-sort never says or shows the answer on shipped items', () => {
         expect('number' in s || s.key.length > 0).toBe(true);
       }
     }
+  });
+});
+
+describe('event cards say and show their picture name (PR #132 review)', () => {
+  it('every event card of a shipped item names itself with a narration line that exists', () => {
+    const result = compileContent(readContentFiles());
+    const narration = result.content?.narration ?? {};
+    let events = 0;
+    for (const item of shippedItems('shape-sort', 20)) {
+      const w = item.widget;
+      if (w.format !== 'shape-sort') continue;
+      for (const c of w.cards) {
+        if (isShape(c.card) || c.card.kind !== 'event') continue;
+        events += 1;
+        const key = cardNameKey(c.card);
+        expect(key, c.card.event).toBe(`ui.sprite.event-${c.card.event}`);
+        expect(narration[key as string]?.text, key ?? '').toBeTruthy();
+        const s = cardSpeech(w, c);
+        expect('key' in s && s.key === key && s.spoken).toBe(true);
+      }
+    }
+    expect(events).toBeGreaterThan(0);
   });
 });

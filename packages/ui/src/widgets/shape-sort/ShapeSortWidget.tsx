@@ -59,7 +59,8 @@ export function cardNameKey(c: Card['card']): string | null {
   if (isShape(c)) return `shape.${c.shape}.one`;
   if (c.kind === 'object') return spriteNameKey(c.sprite);
   if (c.kind === 'coin') return `coin.${c.coin}.one`;
-  if (c.kind === 'event') return c.event;
+  // An event card is named by its picture's name (PR #132 review: the bare id has no clip).
+  if (c.kind === 'event') return `ui.sprite.event-${c.event}`;
   return null;
 }
 
@@ -82,7 +83,9 @@ export type CardSpeech =
 
 export function cardSpeech(config: Config, c: Card): CardSpeech {
   if (!isShape(c.card) && c.card.kind === 'number') return { number: c.card.value };
-  if (!isShape(c.card) && c.card.kind === 'event') return { key: c.card.event, spoken: true };
+  if (!isShape(c.card) && c.card.kind === 'event') {
+    return { key: `ui.sprite.event-${c.card.event}`, spoken: true };
+  }
   const key = cardNameKey(c.card) ?? c.id;
   if (config.namesGiven) return { key, spoken: true };
   const flatAmongFlat =

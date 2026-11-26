@@ -363,7 +363,7 @@ describe('frac.partition details', () => {
       GenerationError,
     );
     const cutT = tpl('frac.partition', 'fraction-cut');
-    expect(() => build(cutT, { mode: 'cut', shape: 'rect', den: 2, num: 2 })).toThrow(
+    expect(() => build(cutT, { mode: 'cut', shape: 'rect', den: 2, num: 3 })).toThrow(
       GenerationError,
     );
   });

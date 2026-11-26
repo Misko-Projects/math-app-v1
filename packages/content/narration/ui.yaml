@@ -401,6 +401,12 @@ ui.sprite.event-lunch:
   level: K
 ui.sprite.event-wake-up:
   text: "Waking up"
+ui.sprite.event-sunrise:
+  text: "Sunrise"
+ui.sprite.event-stars:
+  text: "Stars"
+ui.sprite.event-pajamas:
+  text: "Pajamas"
   level: K
 ui.sprite.feather:
   text: "Feather"
@@ -1172,6 +1178,12 @@ ui.money.cents-box:
 ui.money.this-one:
   text: "This one"
   level: "2"
+ui.money.this-one-left:
+  text: "This one: the purse on the left"
+  level: "2"
+ui.money.this-one-right:
+  text: "This one: the purse on the right"
+  level: "2"
 ui.money.same:
   text: "Same"
   level: "2"
@@ -1781,3 +1793,54 @@ ui.pier.picture:
 ui.lesson.try:
   text: "I can try"
   level: K
+# Coin pictures outside the coin formats (K02 slice 4a, #17): what a picture shows, never the
+# coin's name or value (MON.01 asks it) and never an amount.
+ui.coin.look.penny:
+  text: "a copper coin"
+  level: "2"
+ui.coin.look.nickel:
+  text: "a big silver coin with a smooth edge"
+  level: "2"
+ui.coin.look.dime:
+  text: "a small silver coin with a ridged edge"
+  level: "2"
+ui.coin.look.quarter:
+  text: "the biggest silver coin, with a ridged edge"
+  level: "2"
+ui.coin.look.bill:
+  text: "a dollar bill"
+  level: "2"
+ui.money.amount:
+  text: "{cents|cents}"
+  level: "2"
+ui.coin.count-one:
+  text: "One piece of money"
+  level: "2"
+ui.coin.count:
+  text: "{n|num} pieces of money"
+  level: "2"
+# Fraction pictures on a pick card (PR #132 review): what is drawn, never a fraction word.
+ui.frac.picture-equal-circle:
+  text: "A circle in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-circle:
+  text: "A circle in {n|num} parts that are not the same size"
+  level: "1"
+ui.frac.picture-equal-rect:
+  text: "A rectangle in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-rect:
+  text: "A rectangle in {n|num} parts that are not the same size"
+  level: "1"
+ui.frac.picture-equal-bar:
+  text: "A strip in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-bar:
+  text: "A strip in {n|num} parts that are not the same size"
+  level: "1"
+ui.frac.picture-equal-loaf:
+  text: "A loaf in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-loaf:
+  text: "A loaf in {n|num} parts that are not the same size"
+  level: "1"

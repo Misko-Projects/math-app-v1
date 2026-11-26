@@ -1195,6 +1195,7 @@ describe('registry', () => {
       'mda.addsub',
       'mea.length',
       'mea.massvolume',
+      'money.coins',
       'mul.facts',
       'mul.groups',
       'mul.tens',

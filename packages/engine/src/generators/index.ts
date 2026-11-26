@@ -25,6 +25,7 @@ import { geoPosition } from './geo/position';
 import { mdaAddSub } from './mda/addsub';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
+import { moneyCoins } from './money/coins';
 import { mulFacts } from './mul/facts';
 import { mulGroups } from './mul/groups';
 import { mulTens } from './mul/tens';
@@ -69,6 +70,7 @@ const GENERATORS: GeneratorDef[] = [
   fracPartition, // K01 fractions (FRA.01, FRA.07)
   fracCompare, // K01 fractions (FRA.08)
   timeClock, // K01 time
+  moneyCoins, // K02 money (MON.01, MON.02, MON.04–MON.06, MON.08)
   timeSequence, // K01 time
   dataSort, // K01 data (DAT.01, DAT.10)
   dataChart, // K01 data (DAT.02, DAT.09)

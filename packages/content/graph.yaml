@@ -17,6 +17,8 @@ coverageGrades: [K, 1]
 # Slice 3a authored MUL.01–MUL.05, MUL.22, SUB.09, GEO.03 and GEO.04, which adds MUL.13–MUL.21 as
 # gaps below MUL.22 (MUL.06 and MUL.13 wait for mul.facts).
 # Slice 3b authored MUL.06, MUL.07, MUL.11 and MUL.13–MUL.16 (mul.facts, mul.tens).
+# Slice 4a authored TIM.02, TIM.05, TIM.10, TIM.11, FRA.02 and MON.01, MON.02, MON.04–MON.06, MON.08
+# (money.coins), which adds MON.03 and MON.07 as gaps below MON.08.
 plannedIds:
   [
     ALG.03,
@@ -26,7 +28,6 @@ plannedIds:
     DAT.06,
     DAT.07,
     DAT.08,
-    FRA.02,
     FRA.03,
     FRA.04,
     FRA.05,
@@ -51,6 +52,8 @@ plannedIds:
     MEA.19,
     MEA.20,
     MEA.21,
+    MON.03,
+    MON.07,
     MUL.08,
     MUL.09,
     MUL.10,
@@ -63,9 +66,7 @@ plannedIds:
     PV.21,
     PV.22,
     PV.23,
-    TIM.02,
     TIM.03,
-    TIM.05,
     TIM.06,
     TIM.07,
   ]
@@ -74,5 +75,4 @@ plannedIds:
 # resident:<id>, outfit:<option>, ring:<index>). Such a rule warns and stays unsatisfied until the
 # skill exists; an unauthored skill anywhere else is an error. The PR that authors a skill removes
 # its entry (a stale entry or place only warns).
-pendingGameSkills:
-  MON.01: [building:market]
+pendingGameSkills: {}

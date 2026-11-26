@@ -7,7 +7,7 @@ misconceptions:
     name: Reads the clock with the hands swapped (3:00 as 12:15)
     detect: { kind: answer, rule: hourMinuteSwap }
     appliesTo: { generators: [time.clock] }
-    skills: [TIM.01, TIM.04, TIM.09]
+    skills: [TIM.01, TIM.02, TIM.04, TIM.09]
     remediation: [TIM.09, TIM.01]
     feedback: fb.mc.hour-minute-swap
     priority: 50
@@ -32,7 +32,7 @@ misconceptions:
     name: Reads the hour the short hand is coming to (2:30 as 3:30)
     detect: { kind: answer, rule: hourHandNext }
     appliesTo: { generators: [time.clock] }
-    skills: [TIM.04, TIM.09]
+    skills: [TIM.04, TIM.09, TIM.02, TIM.10, TIM.11]
     remediation: [TIM.09]
     feedback: fb.mc.hour-hand-next
     priority: 50
@@ -51,4 +51,70 @@ misconceptions:
         match: true
       - params: { mode: read, h: 2, m: 0 }
         response: { kind: numbers, values: [3, 0] }
+        match: false
+
+  # K02 slice 4a (#17): reads the long hand's number as the minutes. Only the pad discriminates: the
+  # long hand snaps to fives, and the match pick offers only multiples of five.
+  - id: MC.minute-hand-number
+    name: Reads the long hand's number as the minutes (2:20 as 2:04)
+    detect: { kind: answer, rule: minuteHandNumber }
+    appliesTo: { generators: [time.clock] }
+    skills: [TIM.02, TIM.11]
+    remediation: [TIM.02]
+    feedback: fb.mc.minute-hand-number
+    priority: 50
+    parentTip: >-
+      Count the long hand round together by fives, touching each number: "five, ten, fifteen,
+      twenty". The number it points at is not the minutes.
+    examples:
+      - params: { mode: read, h: 2, m: 20 }
+        response: { kind: numbers, values: [2, 4] }
+        match: true
+      - params: { mode: read, h: 2, m: 20 }
+        response: { kind: numbers, values: [2, 20] }
+        match: false
+      - params: { mode: read, h: 7, m: 45 }
+        response: { kind: numbers, values: [7, 9] }
+        match: true
+
+  # K02 slice 4a (#17): money.coins.
+  - id: MC.coins-as-ones
+    name: Counts every coin as one cent
+    detect: { kind: answer, rule: coinsAsOnes }
+    appliesTo: { generators: [money.coins] }
+    skills: [MON.02, MON.04, MON.06, MON.08]
+    remediation: [MON.01, MON.04]
+    feedback: fb.mc.coins-as-ones
+    priority: 50
+    parentTip: >-
+      Lay out a few real coins and count them two ways: "one, two, three coins" and "ten, fifteen,
+      sixteen cents". Ask which one tells how much money there is.
+    examples:
+      - params: { mode: count, q: 1, d: 1, n: 1, p: 0 }
+        response: { kind: number, value: 3 }
+        match: true
+      - params: { mode: count, q: 1, d: 1, n: 1, p: 0 }
+        response: { kind: number, value: 40 }
+        match: false
+
+  - id: MC.coin-value-by-size
+    name: Thinks a bigger coin is worth more (a nickel more than a dime)
+    detect: { kind: answer, rule: coinValueBySize }
+    appliesTo: { generators: [money.coins] }
+    skills: [MON.01, MON.02, MON.04, MON.05]
+    remediation: [MON.01]
+    feedback: fb.mc.coin-value-by-size
+    priority: 50
+    parentTip: >-
+      Put a nickel and a dime side by side. Say "the dime is smaller, but it is worth ten cents;
+      the nickel is bigger, but it is worth five".
+    examples:
+      - params: { mode: identify, coin: dime }
+        response: { kind: choice, id: opt-5 }
+        match: true
+      - params: { mode: identify, coin: nickel }
+        response: { kind: choice, id: opt-10 }
+        match: true
+      - params: { mode: identify, coin: quarter }
+        response: { kind: choice, id: opt-5 }
         match: false

@@ -1,0 +1,59 @@
+# K02 slice 4a (#17): the grade-2 MON rows of 03 §3.16 on money.coins. MON.03 (stories) and MON.07
+# (make change) wait (graph.yaml plannedIds). MON.04 leaves out the catalog's number-line
+# representation: money.coins builds no number-line-jump yet.
+strand: MON
+skills:
+  - id: MON.01
+    name: "Name coins and their values (1¢, 5¢, 10¢, 25¢)"
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.MD.C.8] }
+    prerequisites: [CNT.09]
+    gateway: false
+    representations: [coins]
+
+  - id: MON.02
+    name: Count a mix of coins (biggest value first)
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.C.8] }
+    prerequisites: [MON.04, MDA.01]
+    encompasses: { MON.04: 1.0 }
+    gateway: false
+    representations: [coins]
+
+  - id: MON.04
+    name: "Count same coins: pennies by 1s, nickels by 5s, dimes by 10s"
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.C.8] }
+    prerequisites: [MON.01, CNT.11]
+    gateway: false
+    representations: [coins]
+
+  - id: MON.05
+    name: Pay an exact amount with coins
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.C.8] }
+    prerequisites: [MON.02]
+    gateway: false
+    representations: [coins]
+
+  - id: MON.06
+    name: "Dollars and cents: write $1.25"
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.MD.C.8] }
+    prerequisites: [MON.02, PV.05]
+    gateway: false
+    representations: [coins, bills, symbols]
+
+  - id: MON.08
+    name: Which purse has more? Compare amounts of money
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.MD.C.8] }
+    prerequisites: [MON.02, PV.02]
+    gateway: false
+    representations: [coins]

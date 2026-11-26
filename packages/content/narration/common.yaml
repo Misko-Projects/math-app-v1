@@ -2393,3 +2393,189 @@ h.est.round-first:
   text: "Round each number first, to the place it says."
 h.est.then-add-take:
   text: "Then add or take away the new numbers."
+
+# ---------- K02 slice 4a (#17): grade 2 time and halves, thirds and fourths ----------
+# TIM.02 and TIM.11 draw m 5–55 (never o'clock); no line names a numeral a time can equal.
+h.time.count-fives:
+  text: "Start at the top. Count by fives to the long hand."
+  level: "2"
+h.time.short-past:
+  text: "The short hand moves with the long hand. It ends just past the hour."
+  level: "2"
+h.time.not-the-number:
+  text: "The long hand points to a number, but that is not the minutes. Count by fives."
+  level: "2"
+h.time.digital-parts:
+  text: "The number before the dots is the hour. The numbers after the dots are the minutes."
+  level: "2"
+# TIM.05: lunch is at noon or later, and noon is p.m.
+h.time.am-pm:
+  text: "Morning times are a.m. Afternoon and evening times are p.m."
+  level: "2"
+h.time.noon:
+  text: "Noon is p.m. From noon until midnight, times are p.m."
+  level: "2"
+h.time.look-scene:
+  text: "Look at the picture. When do we do this?"
+  level: "2"
+# TIM.10: t1 draws m 15 only, t2 m 45 only; t3 and t4 both.
+h.time.quarter-past:
+  text: "At quarter past, the long hand points right, a quarter of the way round."
+  level: "2"
+h.time.quarter-to:
+  text: "At quarter to, the long hand points left. One more quarter makes the next hour."
+  level: "2"
+h.time.quarter-both:
+  text: "At quarter past, the long hand points right. At quarter to, it points left."
+  level: "2"
+h.time.quarter-fifteen:
+  text: "A quarter of an hour is three fives of minutes, not five fives."
+  level: "2"
+h.frac.count-parts:
+  text: "Count the parts. Are there as many as it asks for?"
+  level: "2"
+h.frac.whole-fourths:
+  text: "Fill every part. Four fourths make one whole."
+  level: "2"
+gen.time.clock.am:
+  text: "This is in the morning. From midnight until noon, it is a.m."
+  level: "2"
+gen.time.clock.pm:
+  text: "This is not in the morning. From noon until midnight, it is p.m."
+  level: "2"
+gen.time.sequence.sort-look-ampm:
+  text: "When do we do this? In the morning, or from noon on?"
+  level: "2"
+gen.time.sequence.sort-am:
+  text: "This is in the morning, so it goes with a.m."
+  level: "2"
+gen.time.sequence.sort-pm:
+  text: "This is from noon on, so it goes with p.m."
+  level: "2"
+fb.mc.minute-hand-number:
+  text: "The long hand counts by fives. Count five for each number."
+
+# ---------- K02 slice 4a (#17): money.coins ----------
+gen.money.coins.option:
+  text: "{cents|cents}"
+  level: "2"
+gen.money.coins.look:
+  text: "Look at the coin: its size, its color and its edge."
+  level: "2"
+gen.money.coins.worth:
+  text: "It is worth {cents|cents}."
+  level: "2"
+gen.money.coins.sort:
+  text: "Put the coins in order, the coin worth the most first."
+  level: "2"
+gen.money.coins.count-on:
+  text: "Count on by what this one is worth."
+  level: "2"
+gen.money.coins.total:
+  text: "That is {cents|cents} in all."
+  level: "2"
+gen.money.coins.total-dollars:
+  text: "That is {cents|dollars}."
+  level: "2"
+gen.money.coins.drop:
+  text: "Put this one in."
+  level: "2"
+gen.money.coins.paid:
+  text: "Now it is just right."
+  level: "2"
+gen.money.coins.count-purse:
+  text: "Count the money in this purse."
+  level: "2"
+gen.money.coins.more:
+  text: "This purse has more money."
+  level: "2"
+gen.money.coins.least-first:
+  text: "This one has the least money. It goes first."
+  level: "2"
+gen.money.coins.next:
+  text: "Then the one with a little more."
+  level: "2"
+gen.money.coins.writing:
+  text: "Write the dollars, then a dot, then the cents."
+  level: "2"
+
+# MON hints (K02 slice 4a, #17): no hint names a number an answer can be.
+h.mon.size-not-value:
+  text: "A bigger coin is not always worth more. A dime is small, but it is worth more than a nickel."
+  level: "2"
+h.mon.coin-values:
+  text: "Penny, nickel, dime, quarter: each one is worth more than the one before."
+  level: "2"
+h.mon.value-not-coins:
+  text: "Count what each coin is worth, not how many coins there are."
+  level: "2"
+# MON.04.t1 draws 2–10 nickels and MON.04.t2 2–10 dimes, so neither answer is five or ten.
+h.mon.nickels-fives:
+  text: "Each nickel is worth five cents. Count by fives."
+  level: "2"
+h.mon.dimes-tens:
+  text: "Each dime is worth ten cents. Count by tens."
+  level: "2"
+h.mon.one-kind:
+  text: "All the coins are the same. Count by what one coin is worth."
+  level: "2"
+h.mon.count-as-you-go:
+  text: "Count up as you put each coin in."
+  level: "2"
+h.mon.biggest-first:
+  text: "Start with the coin worth the most. Then count on."
+  level: "2"
+h.mon.count-on:
+  text: "For each coin, count on from what you have so far."
+  level: "2"
+h.mon.biggest-first-pay:
+  text: "Use the coin worth the most that still fits. Then add smaller ones."
+  level: "2"
+h.mon.too-much:
+  text: "Too much? Take a coin back out."
+  level: "2"
+h.mon.count-yourself:
+  text: "There is no total to help. Count the coins in the tray."
+  level: "2"
+h.mon.dollar-is-100:
+  text: "One dollar is one hundred cents."
+  level: "2"
+h.mon.bill-first:
+  text: "The dollar bill is worth one dollar. You can start with it."
+  level: "2"
+# MON.06.t2 always shows the bill and at least one coin; MON.06.t3 never a bill and less than 100¢.
+h.mon.bill-over:
+  text: "There is a dollar bill and some coins, so it is more than one dollar."
+  level: "2"
+h.mon.no-bill-under:
+  text: "There is no dollar bill, and the coins make less than one dollar."
+  level: "2"
+h.mon.dot-between:
+  text: "The dot goes between the dollars and the cents."
+  level: "2"
+h.mon.one-sign:
+  text: "Use the dollar sign or the cent sign, not both."
+  level: "2"
+h.mon.count-each-purse:
+  text: "Count the money in each purse."
+  level: "2"
+h.mon.more-coins-not-more:
+  text: "More coins does not always mean more money."
+  level: "2"
+h.mon.least-first:
+  text: "Find the least money. It goes first."
+  level: "2"
+h.mon.tens-first:
+  text: "Look at the tens first. Fewer tens means less money."
+  level: "2"
+fb.mc.coins-as-ones:
+  text: "Count what each coin is worth, not how many coins."
+fb.mc.coin-value-by-size:
+  text: "A dime is small, but it is worth more than a nickel."
+fb.coin-count.retry:
+  text: "Let's count the coins again."
+fb.coin-pay.retry:
+  text: "Let's count the coins in the tray again."
+gen.money.coins.compare-amounts:
+  text: "Look at the tens of each amount first, then the ones."
+  level: "2"

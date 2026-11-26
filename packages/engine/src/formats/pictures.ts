@@ -147,7 +147,34 @@ export function sharedScaleIssues(
  * anywhere in an item (a format's own picture, a choice card, a compare side, an order card, a
  * hint overlay) is a content-check error, until a layout for it is built and proven. Returns the
  * paths found.
+ *
+ * Proven (#17 slice 4a, fit cases at 906 × 373 and 960 × 600): a coins picture of exactly one coin
+ * and no bill as the picture of a number-pad or numeral-pick (MON.01: a silent coin to name), and
+ * the coins of an order card, at most ORDER_CARD_COINS coins and no bill on three cards (MON.08).
  */
+export const ORDER_CARD_COINS = 4;
+
+const isOneCoin = (o: unknown): boolean => {
+  const s = o as { kind?: unknown; coins?: unknown; bills?: unknown } | null;
+  return (
+    s?.kind === 'coins' &&
+    Array.isArray(s.coins) &&
+    s.coins.length === 1 &&
+    (!Array.isArray(s.bills) || s.bills.length === 0)
+  );
+};
+
+const isCardCoins = (o: unknown): boolean => {
+  const s = o as { kind?: unknown; coins?: unknown; bills?: unknown } | null;
+  return (
+    s?.kind === 'coins' &&
+    Array.isArray(s.coins) &&
+    s.coins.length >= 1 &&
+    s.coins.length <= ORDER_CARD_COINS &&
+    (!Array.isArray(s.bills) || s.bills.length === 0)
+  );
+};
+
 export function misplacedTimeMoneyPictures(item: { widget: unknown; hints?: unknown }): string[] {
   const found: string[] = [];
   const isPicture = (o: Record<string, unknown>) =>
@@ -170,7 +197,21 @@ export function misplacedTimeMoneyPictures(item: { widget: unknown; hints?: unkn
   };
   const w = item.widget as Record<string, unknown> | null;
   if (typeof w === 'object' && w !== null) {
-    for (const [k, x] of Object.entries(w)) walk(x, `widget.${k}`, false);
+    const onePictureFormat = w.format === 'number-pad' || w.format === 'numeral-pick';
+    const items = w.format === 'order' && Array.isArray(w.items) ? w.items : null;
+    for (const [k, x] of Object.entries(w)) {
+      if (k === 'stimulus' && onePictureFormat && isOneCoin(x)) continue;
+      if (k === 'items' && items && items.length === 3) {
+        items.forEach((card, i) => {
+          const c = card as Record<string, unknown> | null;
+          for (const [ck, cx] of Object.entries(c ?? {})) {
+            walk(cx, `widget.items.${i}.${ck}`, ck === 'stimulus' && isCardCoins(cx));
+          }
+        });
+        continue;
+      }
+      walk(x, `widget.${k}`, false);
+    }
   }
   walk(item.hints, 'hints', false);
   return found;

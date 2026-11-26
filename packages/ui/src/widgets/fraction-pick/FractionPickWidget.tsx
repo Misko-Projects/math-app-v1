@@ -443,9 +443,17 @@ function OptionCard({
   const { say } = useSpeech();
   const fraction = fractionOf(option.stimulus);
   const numeral = labelFraction(option.label);
+  // A picture-only option is named by what it shows ("a circle in 3 parts, all the same size"),
+  // as a sighted child sees it, never by a fraction word (PR #132 review).
+  const described = fraction
+    ? t(`ui.frac.picture-${fraction.equalParts ? 'equal' : 'unequal'}-${fraction.shape}`, {
+        n: fraction.parts,
+      })
+    : undefined;
   const name = numeral
     ? `${numeral.a}/${numeral.b}`
-    : (option.label ?? (option.speak ? t(option.speak) : t('ui.widget.choice', { n: index + 1 })));
+    : (option.label ??
+      (option.speak ? t(option.speak) : (described ?? t('ui.widget.choice', { n: index + 1 }))));
   const speak = option.speak
     ? () => say(option.speak as string)
     : numeral

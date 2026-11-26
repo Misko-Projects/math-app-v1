@@ -1888,3 +1888,162 @@ export const FractionTwelfthCardsMin: Story = {
     noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
   },
 };
+
+// MON.08.t3 / t4 (money.coins compare on order, PR #132 review): purse cards and amount cards.
+const purses: ConfigFor<'order'> = {
+  format: 'order',
+  direction: 'asc',
+  items: [
+    { id: 'obj-0', value: 40, stimulus: { kind: 'coins', coins: ['quarter', 'dime', 'nickel'] } },
+    { id: 'obj-1', value: 15, stimulus: { kind: 'coins', coins: ['dime', 'nickel'] } },
+    { id: 'obj-2', value: 26, stimulus: { kind: 'coins', coins: ['quarter', 'penny'] } },
+  ],
+};
+const amounts: ConfigFor<'order'> = {
+  format: 'order',
+  direction: 'asc',
+  items: [
+    { id: 'obj-0', value: 40, label: '40¢' },
+    { id: 'obj-1', value: 15, label: '15¢' },
+    { id: 'obj-2', value: 26, label: '26¢' },
+  ],
+};
+
+/** Purse cards: named by the coins' looks and said as a piece count on tap, never the total. */
+export const MoneyPurseCards: Story = {
+  args: { config: purses, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const two = card(
+      root,
+      '2 pieces of money: a small silver coin with a ridged edge, a big silver coin with a smooth edge',
+    );
+    await userEvent.click(two);
+    await expect(audio.say).toHaveBeenCalledWith('ui.coin.count', { n: 2 });
+    const trayCards = within(root.querySelector('.ni-ord__tray') as HTMLElement).getAllByRole(
+      'button',
+    );
+    await expect(trayCards).toHaveLength(3);
+    for (const b of trayCards) {
+      await expect(b.getAttribute('aria-label') ?? '').not.toMatch(
+        /\d+¢|cents|dime|nickel|quarter|penny/,
+      );
+    }
+  },
+};
+
+/** Amount cards say their amount on tap. */
+export const MoneyAmountCards: Story = {
+  args: { config: amounts, tier: 'abstract' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(card(root, '15¢'));
+    await expect(audio.say).toHaveBeenCalledWith('ui.money.amount', { cents: 15 });
+  },
+};
+
+const moneyDemo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A worked MON.08 move speaks no card: the lesson line plays over the move, and a card's speech
+ * would cut it off (PR #132 review round 2). A one-coin purse says the singular on a child's tap.
+ */
+export const MoneyDemoQuiet: Story = {
+  args: {
+    config: {
+      ...purses,
+      items: [
+        ...purses.items.slice(0, 2),
+        { id: 'obj-2', value: 5, stimulus: { kind: 'coins', coins: ['nickel'] } },
+      ],
+    },
+    tier: 'pictorial',
+    disabled: true,
+    demo: moneyDemo,
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    await findWidget(canvasElement, ROOT);
+    await moneyDemo.play({ op: 'highlight', args: { id: 'obj-1' } });
+    await moneyDemo.play({ op: 'drag', args: { id: 'obj-2', slot: 0 } });
+    await expect(audio.say).not.toHaveBeenCalled();
+  },
+};
+
+export const MoneyOneCoinTap: Story = {
+  args: {
+    config: {
+      ...purses,
+      items: [
+        ...purses.items.slice(0, 2),
+        { id: 'obj-2', value: 5, stimulus: { kind: 'coins', coins: ['nickel'] } },
+      ],
+    },
+    tier: 'pictorial',
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(card(root, 'a big silver coin with a smooth edge'));
+    await expect(audio.say).toHaveBeenCalledWith('ui.coin.count-one', { n: 1 });
+  },
+};
+
+const objectDemo: WidgetDemo = createDemoController({ strict: true });
+
+/** An object card still names its thing during a demo move (TIM.08 events; PR #132 round 3). */
+export const ObjectDemoSpeaks: Story = {
+  args: {
+    config: {
+      format: 'order',
+      direction: 'asc',
+      items: [
+        {
+          id: 'e1',
+          value: 1,
+          stimulus: {
+            kind: 'objects',
+            set: { count: 1, sprite: 'event-wake-up', layout: 'line', layoutSeed: 1 },
+          },
+        },
+        {
+          id: 'e2',
+          value: 2,
+          stimulus: {
+            kind: 'objects',
+            set: { count: 1, sprite: 'event-lunch', layout: 'line', layoutSeed: 1 },
+          },
+        },
+        {
+          id: 'e3',
+          value: 3,
+          stimulus: {
+            kind: 'objects',
+            set: { count: 1, sprite: 'event-bedtime', layout: 'line', layoutSeed: 1 },
+          },
+        },
+      ],
+    },
+    tier: 'pictorial',
+    disabled: true,
+    demo: objectDemo,
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    await findWidget(canvasElement, ROOT);
+    await objectDemo.play({ op: 'drag', args: { id: 'e1', slot: 0 } });
+    await expect(audio.say).toHaveBeenCalledWith('ui.sprite.event-wake-up', undefined);
+  },
+};

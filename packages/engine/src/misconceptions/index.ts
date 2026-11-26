@@ -5,6 +5,7 @@ import type { GeneratedItem, MisconceptionSpec } from '@number-island/shared';
 import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
 import { biggerUnitMore } from './rules/biggerUnitMore';
+import { coinsAsOnes, coinValueBySize } from './rules/coins';
 import {
   borrowAcrossZero,
   borrowNoDecrement,
@@ -24,6 +25,7 @@ import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
+import { minuteHandAsMinutes } from './rules/minuteHandNumber';
 import {
   addInsteadOfMultiply,
   doubleOnce,
@@ -96,6 +98,10 @@ const RULES: Record<string, MisconceptionRule> = {
   doubleOnce: doubleOnce,
   tensDropped: tensDropped,
   partialProductDropped: partialProductDropped,
+  // K02 (#17) slice 4a: time and money
+  minuteHandNumber: minuteHandAsMinutes,
+  coinsAsOnes: coinsAsOnes,
+  coinValueBySize: coinValueBySize,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

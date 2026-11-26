@@ -184,12 +184,16 @@ export const PickHalvesK: Story = {
     for (const o of options) await expectTargetSize(o, 'k');
     await expectTargetGaps(options);
     await expectPicturesTrue(root, pickHalves);
-    // The cards are named by position only: a name never gives the answer away.
+    // The cards are named by what they show, as a sighted child sees them, never by a fraction
+    // word (PR #132 review: "Pick 1" told a screen-reader user nothing).
     await expect(options.map((o) => o.getAttribute('aria-label'))).toEqual([
-      'Pick 1',
-      'Pick 2',
-      'Pick 3',
+      'A circle in 2 parts that are not the same size',
+      'A circle in 4 parts, all the same size',
+      'A circle in 2 parts, all the same size',
     ]);
+    for (const o of options) {
+      await expect(o.getAttribute('aria-label') ?? '').not.toMatch(/halves|thirds|fourths/);
+    }
     await expect(check(root)).toBeDisabled();
     await userEvent.click(options[0] as HTMLElement);
     await userEvent.click(options[2] as HTMLElement);

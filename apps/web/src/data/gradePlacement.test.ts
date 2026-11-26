@@ -180,7 +180,7 @@ describe('the first plan of a new child', () => {
     expect(plan).toMatchInlineSnapshot(`
       [
         [
-          "CNT.10",
+          "CNT.11",
           "ADD.15",
         ],
         [
@@ -197,7 +197,7 @@ describe('the first plan of a new child', () => {
     expect(plan).toMatchInlineSnapshot(`
       [
         [
-          "CNT.10",
+          "CNT.11",
           "ADD.15",
         ],
         [
@@ -205,7 +205,7 @@ describe('the first plan of a new child', () => {
           "ADD.01",
         ],
         [
-          "CNT.11",
+          "CNT.10",
           "ADD.15",
         ],
       ]

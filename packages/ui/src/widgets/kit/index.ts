@@ -55,7 +55,13 @@ export {
   moneyText,
   useMoneySpeech,
 } from './CoinArt';
-export { CoinsView, type CoinsViewProps, coinsCentsOf, pictureQuarterPx } from './CoinsView';
+export {
+  CoinsView,
+  type CoinsViewProps,
+  coinsCentsOf,
+  describeCoins,
+  pictureQuarterPx,
+} from './CoinsView';
 export { type ChartGeometry, chartGeometry, type SlotGeometry } from './chartLayout';
 export { useCommitBarrier } from './commit';
 export {

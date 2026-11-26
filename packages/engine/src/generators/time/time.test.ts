@@ -19,10 +19,11 @@ import { generateItem, generateItemFromParams, itemFeatures } from '../../items/
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { hourHandNext } from '../../misconceptions/rules/hourHandNext';
 import { hourMinuteSwap } from '../../misconceptions/rules/hourMinuteSwap';
+import { minuteHandAsMinutes } from '../../misconceptions/rules/minuteHandNumber';
 import { GenerationError } from '../types';
-import { precisionFeatures, turnDistance } from './clock';
+import { matchTimes, precisionFeatures, sceneHour, timeOptionId, turnDistance } from './clock';
 import { nextHour, prevHour, timeText } from './face';
-import { DAY_EVENTS, MORNING_EVENTS, NIGHT_EVENTS } from './sequence';
+import { AM_EVENTS, DAY_EVENTS, MORNING_EVENTS, NIGHT_EVENTS, PM_EVENTS } from './sequence';
 
 let nextId = 0;
 function tpl(
@@ -433,5 +434,129 @@ describe('time.sequence shape-sort', () => {
     expect(() => build(sort, { events: 3 })).toThrow(GenerationError);
     expect(() => build(sort, { events: 7 })).toThrow(GenerationError);
     expect(() => build(sort, { events: 4, fixed: true })).toThrow(GenerationError);
+  });
+});
+
+describe('time.clock K02 modes: match, ampm, quarter (#17 slice 4a)', () => {
+  const match = tpl('time.clock', 'clock-read', {
+    params: {
+      mode: { kind: 'const', value: 'match' },
+      input: { kind: 'const', value: 'pick' },
+      ask: { kind: 'const', value: 'time' },
+    },
+  });
+  const ampm = tpl('time.clock', 'clock-read', {
+    params: { mode: { kind: 'const', value: 'ampm' }, input: { kind: 'const', value: 'pick' } },
+  });
+  const quarterSet = tpl('time.clock', 'clock-set', {
+    params: { mode: { kind: 'const', value: 'quarter' }, m: { kind: 'choice', values: [15, 45] } },
+  });
+  const quarterRead = tpl('time.clock', 'clock-read', {
+    params: { mode: { kind: 'const', value: 'quarter' }, m: { kind: 'choice', values: [15, 45] } },
+  });
+
+  it('the match pick offers the hour pair × the mirror minute pair, keyed by the shown time', () => {
+    for (let h = 1; h <= 12; h += 1) {
+      for (let m = 0; m < 60; m += 5) {
+        const set = matchTimes(h, m);
+        expect(set).toHaveLength(4);
+        expect(set).toContainEqual({ h, m });
+        // Every member's own set is the same set: a fixed partition of the face.
+        for (const o of set) expect(matchTimes(o.h, o.m)).toEqual(set);
+      }
+    }
+    const item = build(match, { h: 4, m: 20 });
+    expect(item.answer).toEqual({ kind: 'choice', id: timeOptionId(4, 20) });
+    if (item.widget.format !== 'clock-read') throw new Error('clock-read');
+    expect((item.widget.options ?? []).map((o) => o.label).sort()).toEqual([
+      '3:20',
+      '3:40',
+      '4:20',
+      '4:40',
+    ]);
+    expect(checkResponse(item, itemExampleCorrect(item, match)).correct).toBe(true);
+    expect(() => build(match, { h: 4, m: 22 })).toThrow(GenerationError);
+  });
+
+  it('the hour-hand-next distractor is the next hour of the pair, from half past on', () => {
+    const item = build(match, { h: 3, m: 40 });
+    expect(hourHandNext.predict?.(item)).toEqual({ kind: 'choice', id: timeOptionId(4, 40) });
+    expect(hourHandNext.predict?.(build(match, { h: 4, m: 40 }))).toBeNull();
+    expect(hourHandNext.predict?.(build(match, { h: 3, m: 20 }))).toBeNull();
+  });
+
+  it('a.m./p.m. puts the face hour in the scene half of the day; noon is p.m.', () => {
+    expect(sceneHour('lunch', 12)).toBe(12);
+    expect(sceneHour('lunch', 1)).toBe(13);
+    expect(sceneHour('lunch', 11)).toBeNull();
+    expect(sceneHour('breakfast', 7)).toBe(7);
+    expect(sceneHour('bedtime', 8)).toBe(20);
+    expect(sceneHour('bedtime', 12)).toBeNull();
+    expect(sceneHour('toString', 7)).toBeNull();
+    const noon = build(ampm, { h: 12, m: 0, scene: 'lunch' });
+    expect(noon.answer).toEqual({ kind: 'choice', id: 'pm' });
+    expect(noon.widget).toMatchObject({
+      time: { h: 12, m: 0 },
+      ampm: { scene: 'lunch', isPm: true },
+    });
+    const morning = build(ampm, { h: 7, m: 30, scene: 'breakfast' });
+    expect(morning.answer).toEqual({ kind: 'choice', id: 'am' });
+    expect(() => build(ampm, { h: 3, m: 0, scene: 'breakfast' })).toThrow(GenerationError);
+    for (const item of [noon, morning]) {
+      expect(widgetConfigSchema.safeParse(item.widget).success).toBe(true);
+      expect(checkResponse(item, itemExampleCorrect(item, ampm)).correct).toBe(true);
+    }
+  });
+
+  it('quarter mode draws only quarter past and quarter to, with the hour and the next', () => {
+    expect(() => build(quarterSet, { h: 3, m: 30 })).toThrow(GenerationError);
+    expect(() => build(quarterRead, { h: 3, m: 20 })).toThrow(GenerationError);
+    const to = build(quarterSet, { h: 12, m: 45 });
+    expect(to.answer).toMatchObject({ kind: 'state', target: { h: 12, m: 45 } });
+    const read = build(quarterRead, { h: 3, m: 15 });
+    expect(read.answer).toEqual({ kind: 'numbers', values: [3, 15], ordered: true });
+  });
+
+  it('every item of the new modes is valid and deterministic', () => {
+    for (const t of [match, ampm, quarterSet, quarterRead]) {
+      for (let seed = 1; seed <= 60; seed += 1) {
+        const a = generateItem(t, seed);
+        expect(widgetConfigSchema.safeParse(a.widget).success, t.id).toBe(true);
+        expect(generateItem(t, seed)).toEqual(a);
+        expect(checkResponse(a, itemExampleCorrect(a, t)).correct, t.id).toBe(true);
+      }
+    }
+  });
+});
+
+describe('MC.minute-hand-number', () => {
+  const pad = tpl('time.clock', 'clock-read', {
+    params: { mode: { kind: 'const', value: 'read' } },
+  });
+  it('predicts the long-hand number as the minutes on the pad, from ten minutes on', () => {
+    expect(minuteHandAsMinutes.predict?.(build(pad, { h: 2, m: 20 }))).toEqual({
+      kind: 'numbers',
+      values: [2, 4],
+    });
+    expect(minuteHandAsMinutes.predict?.(build(pad, { h: 2, m: 5 }))).toBeNull();
+    expect(minuteHandAsMinutes.predict?.(build(pad, { h: 2, m: 0 }))).toBeNull();
+  });
+});
+
+describe('time.sequence shape-sort a.m. / p.m. (TIM.05)', () => {
+  const sort = tpl('time.sequence', 'shape-sort', {
+    params: { split: { kind: 'const', value: 'ampm' } },
+  });
+  it('sorts morning events into a.m. and dinner and bedtime into p.m.; never lunch', () => {
+    expect(AM_EVENTS).toEqual(['wake-up', 'breakfast', 'sunrise']);
+    // Lunch can be before noon (PR #132 review), so no card needs a time to be placed.
+    expect(PM_EVENTS).toEqual(['dinner', 'bedtime']);
+    expect(() => build(sort, { events: 6, split: 'ampm' })).toThrow(GenerationError);
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const item = generateItem(sort, seed);
+      if (item.widget.format !== 'shape-sort') throw new Error('shape-sort');
+      expect(item.widget.bins?.map((b) => b.label)).toEqual(['word.am', 'word.pm']);
+      expect(checkResponse(item, itemExampleCorrect(item, sort)).correct).toBe(true);
+    }
   });
 });

@@ -157,6 +157,19 @@ const SLICE_3A_G2 = ['MUL.01', 'MUL.02', 'SUB.09', 'GEO.03', 'GEO.04', 'MUL.03']
 const SLICE_3A_G3 = ['MUL.04', 'MUL.22', 'MUL.05'] as const;
 /** Slice 3b (#17): multiplication facts and strategies, grade 3. */
 const SLICE_3B = ['MUL.06', 'MUL.13', 'MUL.14', 'MUL.15', 'MUL.16', 'MUL.07', 'MUL.11'] as const;
+const SLICE_4A = [
+  'TIM.02',
+  'TIM.11',
+  'TIM.05',
+  'TIM.10',
+  'FRA.02',
+  'MON.01',
+  'MON.04',
+  'MON.02',
+  'MON.05',
+  'MON.06',
+  'MON.08',
+] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -668,6 +681,7 @@ describe('session simulation (04 §8)', () => {
       slice('slice 2a', SLICE_2A);
       slice('slice 2b', SLICE_2B_G2);
       slice('slice 3a', SLICE_3A_G2);
+      slice('slice 4a', SLICE_4A);
       // Fact fluency: no simulated child turns fluent (see SLICE_1B_FLUENCY), so practice only.
       slice('slice 1b fluency', SLICE_1B_FLUENCY, false);
       console.log(

@@ -1,5 +1,5 @@
-# K01 (#11): the grade-1 FRA rows of 03 §3.11. FRA.02–06 and FRA.09–17 are grade 2–3 (K02;
-# graph.yaml plannedIds).
+# K01 (#11): the grade-1 FRA rows of 03 §3.11. K02 slice 4a (#17) adds FRA.02; FRA.03–06 and
+# FRA.09–17 are grade 2–3 (K02; graph.yaml plannedIds).
 strand: FRA
 skills:
   - id: FRA.01
@@ -8,6 +8,15 @@ skills:
     grade: 1
     standards: { ccss: [1.G.A.3] }
     prerequisites: [FRA.07, GEO.02]
+    gateway: false
+    representations: [fraction-shape, fraction-strip, words]
+
+  - id: FRA.02
+    name: Halves, thirds and fourths; four fourths make a whole
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.G.A.3] }
+    prerequisites: [FRA.01]
     gateway: false
     representations: [fraction-shape, fraction-strip, words]
 
