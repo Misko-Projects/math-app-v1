@@ -35,7 +35,7 @@ tp.MUL.02.t1.prompt:
 tp.MUL.02.t2.prompt:
   text: "Make {groups} groups of {perGroup}. How many in all?"
 tp.MUL.02.t3.prompt:
-  text: "Here are {groups} jumps of {perGroup}. Where do they land?"
+  text: "Start at 0. Here are {groups} jumps of {perGroup}. Where do they land?"
 tp.MUL.02.t4.prompt:
   text: "How many {sprite|noun:total} are there in all?"
 tp.MUL.03.t1.prompt:
@@ -49,7 +49,7 @@ tp.MUL.04.t1.prompt:
 tp.MUL.04.t2.prompt:
   text: "There are {groups} rows of {perGroup}. How much is {groups} times {perGroup}?"
 tp.MUL.04.t3.prompt:
-  text: "Here are {groups} jumps of {perGroup}. How much is {groups} times {perGroup}?"
+  text: "From 0, {groups} jumps of {perGroup}. How much is {groups} times {perGroup}?"
 tp.MUL.04.t4.prompt:
   text: "Think of equal groups. What is the total?"
 tp.MUL.05.t1.prompt:

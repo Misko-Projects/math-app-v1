@@ -64,6 +64,8 @@ sk.GEO.04.intro:
   text: "Split a rectangle into rows and columns of squares."
 tp.GEO.03.t1.prompt:
   text: "Draw a {kind|shape:one} on the dots."
+tp.GEO.03.t2.prompt:
+  text: "Find every shape with {n} sides."
 tp.GEO.04.t1.prompt:
   text: "Split the rectangle into {rows} rows and {cols} columns of equal squares."
 tp.GEO.04.t2.prompt:

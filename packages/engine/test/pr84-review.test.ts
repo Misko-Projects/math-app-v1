@@ -1085,3 +1085,23 @@ describe('PR #84 review, fresh round 1: no line claims a picture the widget does
     expect(fixtureTemplate('PUZ.02.t2').narration.hints).not.toContain('h.puzzle.side-add');
   });
 });
+
+// PR #129 review round 2: two K02 slice 3a items gave away or hid what the child needs.
+describe('PR #129 review round 2: GEO.03 asks by sides; a jumps picture names its start', () => {
+  it('GEO.03.t2 finds polygons by their side count, never by the name its cards say on tap', () => {
+    const t = fixtureTemplate('GEO.03.t2');
+    expect(t.params.rule).toEqual({ kind: 'const', value: 'sides' });
+    expect(t.params.mode).toEqual({ kind: 'const', value: 'find-all' });
+  });
+
+  it('every number-pad item that draws jumps on a number line says they start at 0', () => {
+    let seen = 0;
+    for (const t of fixture.templates) {
+      if (t.generator !== 'mul.groups' || t.format !== 'number-pad') continue;
+      if (t.representation !== 'number-line') continue;
+      seen += 1;
+      expect(fixture.narration[t.narration.prompt]?.text ?? '', t.id).toMatch(/\b0\b/);
+    }
+    expect(seen).toBe(2);
+  });
+});

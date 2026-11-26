@@ -120,8 +120,9 @@ templates:
       hints: [h.geo.closed, h.geo.any-turn]
 
   # GEO.03 (K02 #17 slice 3a): name triangles, pentagons and hexagons by their sides and corners.
-  # Draw one on dots, find every polygon of a name among turned and resized ones (find-all: a
-  # two-bin sort shows a card from the item as each bin's picture), pick the named one.
+  # Draw one on dots, find every polygon with a number of sides among turned and resized ones
+  # (by sides, not by name: the cards say their names on tap; find-all, because a two-bin sort
+  # shows a card from the item as each bin's picture), pick the named one.
   - id: GEO.03.t1
     skillId: GEO.03
     format: shape-compose
@@ -146,7 +147,7 @@ templates:
     generator: geo.identify
     params:
       set: polygons
-      rule: kind
+      rule: sides
       mode: find-all
       kind: { choice: [triangle, pentagon, hexagon] }
       cards: { int: [5, 6] }
@@ -154,7 +155,7 @@ templates:
       nonPrototypical: true
     difficulty: { base: -1.1 }
     narration:
-      prompt: p.geo.find-every
+      prompt: tp.GEO.03.t2.prompt
       hints: [h.geo.count-sides, h.geo.name-sides]
 
   - id: GEO.03.t3
