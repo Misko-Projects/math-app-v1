@@ -630,7 +630,7 @@ templates:
     representation: base-ten
     generator: mul.tens
     params: { a: { int: [2, 9] }, b: { int: [10, 90], step: 10 } }
-    difficulty: { base: -1.3 }
+    difficulty: { base: -0.3 }
     narration:
       prompt: tp.MUL.11.t1.prompt
       hints: [h.mul.tens, h.mul.times-ten]

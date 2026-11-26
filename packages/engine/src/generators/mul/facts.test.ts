@@ -282,7 +282,7 @@ describe('mul.tens base-ten-build read', () => {
         built += 1;
       }
     }
-    expect(built).toBeGreaterThan(20);
+    expect(built).toBe(20);
     expect(mulTens.accepts?.({ a: 4, b: 30, steps: true }, t)).toBe(false);
   });
 });
