@@ -817,6 +817,77 @@ describe.each(FIT_VIEWPORTS)(
   },
 );
 
+// #35: number-bond new-way (CPS.06.t1, every way but one found) at 960 × 600: where neither the
+// flat nor the folded bond fits, the counters are piles (34 px, plan.ts PILE_CELL) and each pool is
+// one grab, tap and keyboard area; the found ways two a row beside the bond. At 1280 × 800 nothing
+// changes (no piles).
+describe('number-bond new-way as piles in a short room (#35)', () => {
+  const pool = (slot: string) => `.ni-bondw [data-pool="${slot}"]`;
+  const inPool = (slot: string) => count(`${pool(slot)} [data-counter]`);
+  it('CPS.06.t1 on every seed: one counter per move, every state fits; none at 1280 × 800', async () => {
+    const template = content.store.graph.templates['CPS.06.t1'] as ItemTemplate;
+    const failing: string[] = [];
+    let piled = 0;
+    for (const seed of SEEDS) {
+      const item = engine.generateItem(template, seed);
+      await page.viewport(960, 600);
+      show(item, ageModeOf(template));
+      const at = async (state: string) => {
+        const misfit = await measure('CPS.06.t1');
+        if (misfit.length > 0) failing.push(`seed ${seed} ${state}: ${misfit.join('; ')}`);
+        if (SHOTS.includes('CPS.06.t1'))
+          await page.screenshot({ path: `__fit__/CPS.06.t1-s${seed}-${state}-960x600.png` });
+      };
+      await at('first');
+      const root = document.querySelector<HTMLElement>('.ni-bondw');
+      if (root?.dataset.pile !== 'true') continue;
+      piled += 1;
+      // Countable: every counter drawn 22 px or more, none overlapping its neighbour.
+      const sprites = [...document.querySelectorAll('.ni-bondw__counter > *')].map((e) =>
+        e.getBoundingClientRect(),
+      );
+      for (const r of sprites) expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(22);
+      // Each pool is one control a target wide, named with its count.
+      for (const slot of ['whole', 'part-0', 'part-1']) {
+        const r = document.querySelector(`${pool(slot)} .ni-bondw__pad`)?.getBoundingClientRect();
+        expect(Math.min(r?.width ?? 0, r?.height ?? 0)).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+        expect(
+          document.querySelector(`${pool(slot)} .ni-bondw__pad`)?.getAttribute('aria-label'),
+        ).toMatch(new RegExp(`: ${inPool(slot)}$`));
+      }
+      // A tap on the whole, a tap on a part: one counter moves.
+      const whole = inPool('whole');
+      await tap(`${pool('whole')} .ni-bondw__grab`);
+      await tap(`${pool('part-0')} .ni-bondw__pad`);
+      expect(inPool('part-0')).toBe(1);
+      expect(inPool('whole')).toBe(whole - 1);
+      await at('one-moved');
+      // From the keyboard: the whole's control, Enter; the other part's pool, Enter.
+      document.querySelector<HTMLElement>(`${pool('whole')} .ni-bondw__grab`)?.focus();
+      await userEvent.keyboard('{Enter}');
+      document.querySelector<HTMLElement>(`${pool('part-1')} .ni-bondw__pad`)?.focus();
+      await userEvent.keyboard('{Enter}');
+      expect(inPool('part-1')).toBe(1);
+      // The rest into the first part (the fullest pool a child makes), then one sent home.
+      while (inPool('whole') > 0) {
+        await tap(`${pool('whole')} .ni-bondw__grab`);
+        await tap(`${pool('part-0')} .ni-bondw__pad`);
+      }
+      await at('all-moved');
+      await tap(`${pool('part-0')} .ni-bondw__grab`);
+      expect(inPool('whole')).toBe(1);
+      expect(count('.ni-bondw [data-cue="check"] button')).toBe(1);
+      await page.viewport(1280, 800);
+      show(item, ageModeOf(template));
+      const big = await measure('CPS.06.t1');
+      if (big.length > 0) failing.push(`seed ${seed} at 1280 × 800: ${big.join('; ')}`);
+      expect(document.querySelector<HTMLElement>('.ni-bondw')?.dataset.pile).toBeUndefined();
+    }
+    expect(failing).toEqual([]);
+    if (SEEDS.length > 1) expect(piled).toBeGreaterThan(0);
+  }, 120_000);
+});
+
 // #35: regrouping with a typed answer in a short room (960 × 600) is played in two steps, the
 // pieces then the answer (base-ten-trade layout.ts planSteps). Every seed CI plays, operated as a
 // child would: the tray emptied or the take-away filled, the trade, Next, the one-row pad, Check, a

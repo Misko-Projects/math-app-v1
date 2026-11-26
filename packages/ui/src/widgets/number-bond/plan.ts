@@ -54,6 +54,15 @@ export const POOL_LEGS = 40;
 export const PART_GAP = 24;
 export const ACT_GAP = 24;
 export const ACT_GAP_Y = 16;
+/**
+ * Piles (#35): where neither the flat nor the folded bond fits a short area, the concrete bond of a
+ * split (no number asked) draws its counters PILE_CELL px, PILE_GAP apart, and each pool is the
+ * one grab, tap and keyboard area (one counter moves per drag or tap). The ways already found wrap
+ * FOUND_PER_ROW_PILE a row beside it, "check" under it.
+ */
+export const PILE_CELL = 34;
+export const PILE_GAP = 3;
+export const FOUND_PER_ROW_PILE = 2;
 
 export type ActDir = 'row' | 'column';
 
@@ -66,6 +75,8 @@ export interface BondPlan {
   edge: number;
   /** Concrete: the parts' pools at half their columns (`partColumns`). */
   fold: boolean;
+  /** Concrete: piles (PILE_CELL counters, a pool is one target); the found ways two a row. */
+  pile: boolean;
   arrangement: Arrangement;
   /** The answer beside the bond (null: none, or it waits for the answer step). */
   entry: EntryLayout | null;
@@ -109,9 +120,9 @@ export function poolSize(
   cap: number,
   edge: number = POOL_EDGE,
   cols: number = poolColumns(cap),
+  g: number = TARGET_GAP_PX,
 ): Size {
   const rows = Math.max(1, Math.ceil(cap / cols));
-  const g = TARGET_GAP_PX;
   return {
     w: cols * t + (cols - 1) * g + 2 * edge,
     h: rows * t + (rows - 1) * g + 2 * edge,
@@ -136,11 +147,19 @@ export interface PoolsLayout {
  * top corners (a blank part's badge, a full-size button, stands clear above its pool). A blank
  * badge is a full target (--target-min) at least 12 px from every pool.
  */
-export function poolsBox(input: BondInput, edge: number = POOL_EDGE, fold = false): PoolsLayout {
+export function poolsBox(
+  input: BondInput,
+  edge: number = POOL_EDGE,
+  fold = false,
+  pile = false,
+): PoolsLayout {
   const t = MIN_TARGET_PX[input.ageMode];
-  const whole = poolSize(t, input.caps[0], edge);
+  // Piles: smaller counters, closer; the pool (not each counter) is the target.
+  const cell = pile ? PILE_CELL : t;
+  const cg = pile ? PILE_GAP : TARGET_GAP_PX;
+  const whole = poolSize(cell, input.caps[0], edge, poolColumns(input.caps[0]), cg);
   const partCap = Math.max(input.caps[1], input.caps[2]);
-  const part = poolSize(t, partCap, edge, partColumns(partCap, fold));
+  const part = poolSize(cell, partCap, edge, partColumns(partCap, fold), cg);
   const size = (slot: 'whole' | 'part-0' | 'part-1') => (input.blank === slot ? t : BADGE);
   const gap = TARGET_GAP_PX;
   const partBlank = input.blank === 'part-0' || input.blank === 'part-1';
@@ -157,7 +176,9 @@ export function poolsBox(input: BondInput, edge: number = POOL_EDGE, fold = fals
   const bw = size('whole');
   const partBadge = (slot: 'part-0' | 'part-1', x: number): Box => {
     const s = size(slot);
-    const y = input.blank === slot ? partY - gap - s : partY - s / 2;
+    // Piles: on the pool's corner, not over its first (smaller) counter; the whole's pool is
+    // centred, so the badge stays clear of it in the legs' band.
+    const y = input.blank === slot ? partY - gap - s : pile ? partY - s : partY - s / 2;
     return { x, y, w: s, h: s };
   };
   return {
@@ -185,11 +206,16 @@ export function scalePools(l: PoolsLayout, z: number): PoolsLayout {
   return { size: { w: l.size.w * z, h: l.size.h * z }, pools: all(l.pools), badges: all(l.badges) };
 }
 
-/** The ways already found: small bonds side by side in a panel. */
-export function foundSize(n: number): Size | null {
+/** The ways already found: small bonds side by side in a panel, `perRow` a row. */
+export function foundSize(n: number, perRow = n): Size | null {
   if (n <= 0) return null;
   const b = bondSize(FOUND_C);
-  return { w: n * b.w + (n - 1) * 8 + 2 * FOUND_PANEL, h: b.h + 2 * FOUND_PANEL };
+  const cols = Math.min(n, perRow);
+  const rows = Math.ceil(n / cols);
+  return {
+    w: cols * b.w + (cols - 1) * 8 + 2 * FOUND_PANEL,
+    h: rows * b.h + (rows - 1) * 8 + 2 * FOUND_PANEL,
+  };
 }
 
 const act = (button: Size, n: number, dir: ActDir): Size =>
@@ -213,7 +239,54 @@ export function planBond(input: BondInput, room: Size): BondPlan {
   const flat = planWith(input, room, false);
   if (flat.over === 0 || !input.concrete) return flat.plan;
   const folded = planWith(input, room, true);
-  return folded.over < flat.over ? folded.plan : flat.plan;
+  const best = folded.over < flat.over ? folded : flat;
+  // Piles only for a split (a number asked has its steps), and only where the bond alone, flat or
+  // folded, is taller than the area: a short room (at 1280 × 800 a bond of 64 px counters always
+  // fits the height, so the large layout never piles).
+  const tall = (f: boolean) => poolsBox(input, POOL_EDGE, f).size.h > room.h;
+  if (best.over === 0 || input.blank || input.askMax !== null || !tall(false) || !tall(true)) {
+    return best.plan;
+  }
+  const piled = planPile(input, room);
+  return piled.over < best.over ? piled.plan : best.plan;
+}
+
+/** The concrete bond as piles (PILE_CELL): the found ways two a row; every arrangement tried. */
+export function planPile(input: BondInput, room: Size): { plan: BondPlan; over: number } {
+  const found = foundSize(input.found, FOUND_PER_ROW_PILE);
+  const check = act(input.button, 1, 'row');
+  function* candidates(): Generator<Candidate<BondPlan>> {
+    for (const [p, edge] of POOL_EDGES.entries()) {
+      for (const arrangement of ASK_ARRANGEMENTS) {
+        const item: BondPlan = {
+          steps: false,
+          c: minCircle(input.biggest, input.ageMode),
+          spread: BOND_W,
+          edge,
+          fold: false,
+          pile: true,
+          arrangement,
+          entry: null,
+          ask: null,
+          zoom: 1,
+          askZoom: 1,
+        };
+        yield {
+          item,
+          rank: p,
+          sizeAt: (z) =>
+            arrangedSize(
+              arrangement,
+              zoomed(poolsBox(input, edge, false, true).size, z),
+              [zoomed(found, z), zoomed(check, z)],
+              LAYOUT_GAP,
+            ),
+        };
+      }
+    }
+  }
+  const all = pickByFill(candidates(), room, withInviteRoom(room));
+  return { plan: { ...all.item, zoom: all.zoom }, over: all.over };
 }
 
 /** The best layout with the parts' pools flat or folded, and how far it overflows `room`. */
@@ -242,6 +315,7 @@ function planWith(input: BondInput, room: Size, fold: boolean): { plan: BondPlan
                   spread,
                   edge,
                   fold,
+                  pile: false,
                   arrangement,
                   entry,
                   ask: null,
@@ -331,6 +405,7 @@ function planWith(input: BondInput, room: Size, fold: boolean): { plan: BondPlan
     spread: build.item.spread,
     edge: build.item.edge,
     fold,
+    pile: false,
     arrangement: build.item.arrangement,
     entry: null,
     ask: ask.item,
