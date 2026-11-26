@@ -55,8 +55,9 @@ import {
 import { pierPlayable } from './pierRequest';
 
 /**
- * The seeds the check plays: the first one. `VITE_FIT_SEEDS=1,2,3` plays more (a survey: other
- * seeds draw other numbers, and the allowlist is kept for the first seed only).
+ * The seeds the check plays for every template: the first one by default. `VITE_FIT_SEEDS=2,3,4`
+ * plays those instead; CI runs seeds 1 to 9 across its `stories` jobs (ci.yml), so a template
+ * that fits its first item but not others is caught (#35).
  */
 const SEEDS = ((import.meta.env.VITE_FIT_SEEDS as string | undefined) ?? '1')
   .split(',')
@@ -248,6 +249,11 @@ async function measure(templateId: string): Promise<string[]> {
   throw new Error(`${templateId}: the layout did not settle`);
 }
 
+const knownMisfit = (templateId: string, seed: number, viewport: FitViewport) =>
+  FIT_SEED_EXCEPTIONS.some(
+    (k) => k.template === templateId && k.seed === seed && k.at.includes(viewport),
+  );
+
 const ageModeOf = (template: ItemTemplate): AgeMode =>
   content.store.graph.skills[template.skillId]?.grade === 'K' ? 'k' : 'g1-up';
 
@@ -315,6 +321,8 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
       }
       const found: string[] = [];
       for (const seed of SEEDS) {
+        // A seed known not to fit is checked below, in every run.
+        if (knownMisfit(template.id, seed, viewport)) continue;
         show(engine.generateItem(template, seed), ageModeOf(template));
         const misfit = await measure(template.id);
         if (misfit.length > 0) found.push(...(SEEDS.length > 1 ? [`seed ${seed}`] : []), ...misfit);
@@ -433,6 +441,53 @@ describe.each(FIT_VIEWPORTS)(
       button('[data-trade="split-tens"]')?.click();
       expect(await measure('PV.16.t1')).toEqual([]);
       expect(buildMat()).toEqual([9, 8, 19]);
+      expect(button('[data-trade="split-tens"]')?.disabled).toBe(true);
+      expect(document.querySelector('[data-fits="false"]')).toBeNull();
+    });
+
+    // A column at the cap itself (#35): 990 has no ones, so two splits of a ten make exactly 20.
+    const ninetyNineTens = (templateId: string): GeneratedItem => {
+      const template = content.store.graph.templates[templateId] as ItemTemplate;
+      for (let seed = 1; seed < 20_000; seed += 1) {
+        const item = engine.generateItem(template, seed);
+        if (item.params.n === 990) return item;
+      }
+      throw new Error(`${templateId}: no item of 990 in 20000 seeds`);
+    };
+
+    it('base-ten-trade (PV.16.t2): 990 split to a column of exactly 20 ones, then 8 hundreds 17 tens 20 ones', async () => {
+      await page.viewport(width, height);
+      show(ninetyNineTens('PV.16.t2'), 'g1-up');
+      expect(await measure('PV.16.t2')).toEqual([]);
+      expect(tradeMat()).toEqual([9, 9, 0]);
+      const size = () =>
+        document.querySelector('.ni-btt__mat [data-piece^="tens-"]')?.getBoundingClientRect().width;
+      const before = size();
+      button('[data-trade="trade-tens-ones"]')?.click();
+      expect(await measure('PV.16.t2')).toEqual([]);
+      button('[data-trade="trade-tens-ones"]')?.click();
+      expect(await measure('PV.16.t2')).toEqual([]);
+      expect(tradeMat()).toEqual([9, 7, 20]);
+      // A third split would make 30 ones.
+      expect(button('[data-trade="trade-tens-ones"]')?.disabled).toBe(true);
+      button('[data-trade="trade-hundreds-tens"]')?.click();
+      expect(await measure('PV.16.t2')).toEqual([]);
+      expect(tradeMat()).toEqual([8, 17, 20]);
+      await shot('PV.16.t2', 'column-of-20');
+      expect(size()).toBe(before);
+    });
+
+    it('base-ten-build (PV.16.t1): 990 as 8 hundreds 19 tens, split to a column of exactly 20 ones', async () => {
+      await page.viewport(width, height);
+      show(ninetyNineTens('PV.16.t1'), 'g1-up');
+      expect(await measure('PV.16.t1')).toEqual([]);
+      expect(buildMat()).toEqual([8, 19, 0]);
+      button('[data-trade="split-tens"]')?.click();
+      expect(await measure('PV.16.t1')).toEqual([]);
+      button('[data-trade="split-tens"]')?.click();
+      expect(await measure('PV.16.t1')).toEqual([]);
+      expect(buildMat()).toEqual([8, 17, 20]);
+      await shot('PV.16.t1', 'column-of-20');
       expect(button('[data-trade="split-tens"]')?.disabled).toBe(true);
       expect(document.querySelector('[data-fits="false"]')).toBeNull();
     });

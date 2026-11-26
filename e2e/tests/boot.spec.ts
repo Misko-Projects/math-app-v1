@@ -78,5 +78,9 @@ test.describe('app boot: the engine item core', () => {
     ).toBeVisible();
     expect(itemCoreRequests).toHaveLength(2);
     expect(new Set(itemCoreRequests).size).toBe(1);
+    // The welcome screen prefetches later chunks through the handler above. Let any fetch still
+    // in it finish before the test ends: one that outlived the test failed the run as
+    // "route.fetch: Test ended", reported against whatever test the worker ran next (#35).
+    await page.unrouteAll({ behavior: 'wait' });
   });
 });

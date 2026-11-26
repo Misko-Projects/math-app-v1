@@ -156,6 +156,24 @@ button.ni-tapc__obj:focus-visible {
 }
 
 /*
+ * Short areas where a band above each row does not fit (TapCountWidget `BADGE_INSET`): the badge
+ * sits inside the object's box, a 44 px pebble with a 32 px numeral 4 px in from its top-right
+ * corner, and the card needs no extra room on top.
+ */
+.ni-tapc[data-marks="inset"] .ni-tapc__picture {
+  padding-top: 20px;
+}
+.ni-tapc[data-marks="inset"] .ni-tapc__mark {
+  top: 4px;
+  right: 4px;
+  translate: none;
+  min-width: 44px;
+  height: 44px;
+  padding: 0.14em 5px 0;
+  font-size: 2rem;
+}
+
+/*
  * Pictures in places (TapCountWidget DOT_LAYOUTS: ten-frames, equal-groups plates): no number goes
  * on an object. While marks can show, every object's drawing sits at the top of its place (one
  * size for all) and a counted one gets a teal dot centred in the free space under it (set inline:
@@ -370,7 +388,16 @@ button.ni-tapc__obj:focus-visible {
   /* 12 px at the sides (not 24): the picture beside the compact pad gets the room. */
   padding-inline: 12px;
 }
+/*
+ * The same chrome where the objects need it to fit a short area (TapCountWidget `PictureStyle`
+ * `tight`): 12 px at the widget's sides, a 32 px column gap.
+ */
+.ni-tapc[data-room="tight"] {
+  column-gap: 32px;
+  padding-inline: 12px;
+}
 /* Beside the compact pad the picture card keeps 16 px at its sides (CARD_PAD_X_COMPACT). */
+.ni-tapc[data-room="tight"] .ni-tapc__picture,
 .ni-tapc[data-pad="compact"] .ni-tapc__picture {
   padding-inline: 16px;
 }
