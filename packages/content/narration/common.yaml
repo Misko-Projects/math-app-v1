@@ -1643,6 +1643,15 @@ gen.frac.partition.middle-each:
   text: "Then find the middle of each half."
 gen.frac.partition.mark-parts:
   text: "Mark it so all the parts are the same size."
+gen.frac.partition.grid-first:
+  text: "Cut along the lines, right across."
+  level: "2"
+gen.frac.partition.grid-other-way:
+  text: "Now cut just this part, a different way."
+  level: "2"
+gen.frac.partition.grid-same-size:
+  text: "The parts look different, but each one has {n} squares. They are the same size."
+  level: "2"
 gen.frac.compare.look:
   text: "Look at one piece from each."
 gen.frac.compare.bigger:

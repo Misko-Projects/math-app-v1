@@ -27,7 +27,7 @@ import { unequalShare } from '../../misconceptions/rules/unequalShare';
 import { predealtShares } from '../div/share';
 import { GenerationError } from '../types';
 import { denRatio, pieceSize } from './compare';
-import { cutLines, pickWord } from './partition';
+import { cutLines, NONCONGRUENT_DEMOS, pickWord } from './partition';
 
 type Gen = 'div.share' | 'frac.partition' | 'frac.compare';
 
@@ -540,5 +540,50 @@ describe('MC.unequal-share (unequalShare)', () => {
     const pad = tpl('div.share', 'number-pad', { tier: 'pictorial' });
     const item = build(pad, { ask: 'each', items: 6, recipients: 2 });
     expect(unequalShare.match(item, { kind: 'number', value: 4 })).toBe(false);
+  });
+});
+
+describe('frac.partition grid cuts that need not look the same (FRA.16, K02)', () => {
+  const cut = () => tpl('frac.partition', 'fraction-cut');
+  const grid = (den: number, cols: number, rows: number, num = 0): ParamValues => ({
+    mode: 'cut',
+    shape: 'grid',
+    acceptNonCongruent: true,
+    den,
+    num,
+    cols,
+    rows,
+  });
+
+  it.each(
+    NONCONGRUENT_DEMOS.flatMap((d) =>
+      Array.from({ length: d.den }, (_, num) => [d.den, d.cols, d.rows, num] as const),
+    ),
+  )('%i parts of a %i × %i grid, %i shaded: free cuts, and the worked solution is correct', (den, cols, rows, num) => {
+    const t = cut();
+    const item = build(t, grid(den, cols, rows, num));
+    expect(widgetConfigSchema.safeParse(item.widget).success).toBe(true);
+    expect(item.widget).toMatchObject({
+      format: 'fraction-cut',
+      shape: 'grid',
+      gridSize: [cols, rows],
+      cutMode: 'free',
+      acceptNonCongruent: true,
+    });
+    expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
+    const r = replaySteps(item, itemSolution(item, t));
+    expect(r && checkResponse(item, r).correct).toBe(true);
+  });
+
+  it('draws a grid only for a cut that accepts parts of different shapes, on a listed grid', () => {
+    const t = cut();
+    expect(() => build(t, { ...grid(4, 4, 4), acceptNonCongruent: false })).toThrow(GenerationError);
+    expect(() => build(t, { ...grid(4, 4, 4), shape: 'rect' })).toThrow(GenerationError);
+    expect(() => build(t, grid(2, 4, 2))).toThrow(GenerationError); // halves: always congruent
+    expect(() => build(t, grid(4, 6, 2))).toThrow(GenerationError);
+    const pick = tpl('frac.partition', 'fraction-pick', { tier: 'pictorial' });
+    expect(() =>
+      build(pick, { mode: 'fair-or-not', shape: 'grid', den: 2, num: 1, equalParts: true }),
+    ).toThrow(GenerationError);
   });
 });
