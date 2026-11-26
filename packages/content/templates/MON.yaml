@@ -1,0 +1,340 @@
+strand: MON
+# K02 slice 4a (#17): templates for the grade-2 MON rows on money.coins (03 §5.6). Coins are drawn
+# by the kit and never print their value. coin-count and coin-pay pieces say "a dime, 10 cents"
+# when tapped, so MON.01 (name the value) uses only a silent coin picture or the coin's name.
+templates:
+  # ---------- MON.01: name coins and their values ----------
+  - id: MON.01.t1
+    skillId: MON.01
+    format: numeral-pick
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: identify
+      coin: { choice: [penny, nickel, dime, quarter] }
+    difficulty: { base: -0.45 }
+    narration:
+      prompt: tp.MON.01.t1.prompt
+      hints: [h.mon.size-not-value, h.mon.coin-values]
+
+  - id: MON.01.t2
+    skillId: MON.01
+    format: number-pad
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: identify
+      coin: { choice: [penny, nickel, dime, quarter] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MON.01.t2.prompt
+      hints: [h.mon.size-not-value, h.mon.coin-values]
+
+  - id: MON.01.t3
+    skillId: MON.01
+    format: number-pad
+    tier: abstract
+    representation: coins
+    generator: money.coins
+    params:
+      mode: identify
+      coin: { choice: [penny, nickel, dime, quarter] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MON.01.t3.prompt
+      hints: [h.mon.coin-values, h.mon.size-not-value]
+
+  # ---------- MON.04: count same coins ----------
+  - id: MON.04.t1
+    skillId: MON.04
+    format: coin-pay
+    tier: concrete
+    representation: coins
+    generator: money.coins
+    params:
+      mode: pay
+      kinds: { choice: [n, d] }
+      cents: { int: [10, 50], step: 5 }
+      runningTotal: true
+    difficulty: { base: -0.35 }
+    narration:
+      prompt: tp.MON.04.t3.prompt
+      hints: [h.mon.one-kind, h.mon.count-as-you-go]
+
+  - id: MON.04.t2
+    skillId: MON.04
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: count
+      n: { int: [2, 10] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MON.04.t1.prompt
+      hints: [h.mon.value-not-coins, h.mon.nickels-fives]
+
+  - id: MON.04.t3
+    skillId: MON.04
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: count
+      d: { int: [2, 10] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MON.04.t1.prompt
+      hints: [h.mon.value-not-coins, h.mon.dimes-tens]
+
+  # ---------- MON.02: count a mix of coins ----------
+  - id: MON.02.t1
+    skillId: MON.02
+    format: coin-pay
+    tier: concrete
+    representation: coins
+    generator: money.coins
+    params:
+      mode: pay
+      kinds: qdnp
+      cents: { int: [11, 99] }
+      runningTotal: true
+    difficulty: { base: -1.6 }
+    narration:
+      prompt: tp.MON.04.t3.prompt
+      hints: [h.mon.biggest-first-pay, h.mon.count-as-you-go]
+
+  - id: MON.02.t2
+    skillId: MON.02
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: count
+      q: { int: [0, 3] }
+      d: { int: [0, 3] }
+      n: { int: [0, 2] }
+      p: { int: [0, 3] }
+      arrangement: sorted
+    constraints:
+      - "q + d + n + p >= 3"
+      - "(q > 0 && (d > 0 || n > 0 || p > 0)) || (d > 0 && (n > 0 || p > 0)) || (n > 0 && p > 0)"
+    difficulty: { base: -1.3 }
+    narration:
+      prompt: tp.MON.04.t1.prompt
+      hints: [h.mon.value-not-coins, h.mon.biggest-first, h.mon.count-on]
+
+  - id: MON.02.t3
+    skillId: MON.02
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: count
+      q: { int: [0, 3] }
+      d: { int: [0, 3] }
+      n: { int: [0, 2] }
+      p: { int: [0, 3] }
+      arrangement: mixed
+    constraints:
+      - "q + d + n + p >= 3"
+      - "(q > 0 && (d > 0 || n > 0 || p > 0)) || (d > 0 && (n > 0 || p > 0)) || (n > 0 && p > 0)"
+    difficulty: { base: -1.6 }
+    narration:
+      prompt: tp.MON.04.t1.prompt
+      hints: [h.mon.value-not-coins, h.mon.sort-first, h.mon.count-on]
+
+  # ---------- MON.05: pay an exact amount ----------
+  - id: MON.05.t1
+    skillId: MON.05
+    format: coin-pay
+    tier: concrete
+    representation: coins
+    generator: money.coins
+    params:
+      mode: pay
+      kinds: qdnp
+      cents: { int: [5, 99] }
+      runningTotal: true
+    difficulty: { base: -1.5 }
+    narration:
+      prompt: tp.MON.04.t3.prompt
+      hints: [h.mon.biggest-first-pay, h.mon.count-as-you-go, h.mon.too-much]
+
+  - id: MON.05.t2
+    skillId: MON.05
+    format: coin-pay
+    tier: concrete
+    representation: coins
+    generator: money.coins
+    params:
+      mode: pay
+      kinds: qdnp
+      cents: { int: [5, 99] }
+      runningTotal: false
+    difficulty: { base: -1.95 }
+    narration:
+      prompt: tp.MON.04.t3.prompt
+      hints: [h.mon.biggest-first-pay, h.mon.count-yourself, h.mon.too-much]
+
+  - id: MON.05.t3
+    skillId: MON.05
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: count
+      q: { int: [0, 3] }
+      d: { int: [0, 4] }
+      n: { int: [0, 3] }
+      p: { int: [0, 4] }
+      arrangement: mixed
+    constraints:
+      - "q + d + n + p >= 4"
+      - "(q > 0 && (d > 0 || n > 0 || p > 0)) || (d > 0 && (n > 0 || p > 0)) || (n > 0 && p > 0)"
+    difficulty: { base: -1.8 }
+    narration:
+      prompt: tp.MON.05.t3.prompt
+      hints: [h.mon.value-not-coins, h.mon.sort-first, h.mon.count-on]
+
+  # ---------- MON.06: dollars and cents ----------
+  # t1 always needs the bill (over a dollar); t2 always has one (over a dollar); t3 never (under).
+  - id: MON.06.t1
+    skillId: MON.06
+    format: coin-pay
+    tier: concrete
+    representation: coins
+    generator: money.coins
+    params:
+      mode: pay
+      kinds: "$qdn"
+      cents: { int: [105, 195], step: 5 }
+      runningTotal: true
+    difficulty: { base: -2.8 }
+    narration:
+      prompt: tp.MON.06.t1.prompt
+      hints: [h.mon.dollar-is-100, h.mon.bill-first]
+
+  - id: MON.06.t2
+    skillId: MON.06
+    format: coin-count
+    tier: pictorial
+    representation: bills
+    generator: money.coins
+    params:
+      mode: dollars
+      bills: 1
+      q: { int: [0, 3] }
+      d: { int: [0, 4] }
+      n: { int: [0, 2] }
+    constraints:
+      - "q + d + n >= 1"
+    difficulty: { base: -1.6 }
+    narration:
+      prompt: tp.MON.06.t2.prompt
+      hints: [h.mon.bill-over, h.mon.dot-between, h.mon.one-sign]
+
+  - id: MON.06.t3
+    skillId: MON.06
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: dollars
+      q: { int: [0, 3] }
+      d: { int: [0, 4] }
+      n: { int: [0, 2] }
+    constraints:
+      - "q + d + n >= 2"
+      - "25 * q + 10 * d + 5 * n < 100"
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.MON.06.t2.prompt
+      hints: [h.mon.no-bill-under, h.mon.dot-between, h.mon.one-sign]
+
+  - id: MON.06.t4
+    skillId: MON.06
+    format: numeral-pick
+    tier: pictorial
+    representation: symbols
+    generator: money.coins
+    params:
+      mode: dollars
+      cents: { int: [105, 195], step: 5 }
+    difficulty: { base: -0.2 }
+    narration:
+      prompt: tp.MON.06.t4.prompt
+      hints: [h.mon.dot-between, h.mon.one-sign]
+
+  # ---------- MON.08: which purse has more? ----------
+  - id: MON.08.t1
+    skillId: MON.08
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: compare
+      a: { int: [5, 60] }
+      b: { int: [5, 60] }
+      conflict: false
+    difficulty: { base: -1.6 }
+    narration:
+      prompt: tp.MON.08.t1.prompt
+      hints: [h.mon.count-each-purse, h.mon.value-not-coins]
+
+  - id: MON.08.t2
+    skillId: MON.08
+    format: coin-count
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: compare
+      a: { int: [5, 60] }
+      b: { int: [5, 60] }
+      conflict: true
+    difficulty: { base: -2.2 }
+    narration:
+      prompt: tp.MON.08.t1.prompt
+      hints: [h.mon.count-each-purse, h.mon.more-coins-not-more]
+
+  - id: MON.08.t3
+    skillId: MON.08
+    format: order
+    tier: pictorial
+    representation: coins
+    generator: money.coins
+    params:
+      mode: compare
+      a: { int: [5, 60] }
+      b: { int: [5, 60] }
+      c: { int: [5, 60] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MON.08.t3.prompt
+      hints: [h.mon.count-each-purse, h.mon.least-first]
+
+  - id: MON.08.t4
+    skillId: MON.08
+    format: order
+    tier: abstract
+    representation: coins
+    generator: money.coins
+    params:
+      mode: compare
+      a: { int: [5, 99] }
+      b: { int: [5, 99] }
+      c: { int: [5, 99] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MON.08.t4.prompt
+      hints: [h.mon.tens-first, h.mon.least-first]

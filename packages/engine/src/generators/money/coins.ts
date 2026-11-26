@@ -233,7 +233,9 @@ export const moneyCoins: GeneratorDef = {
     if (mode === 'identify') return { value: VALUE[asStr(p.coin) as CoinKind] ?? 0 };
     if (mode === 'count' || mode === 'dollars') {
       const [q, d, n, pn, bills] = ints(p, 'q', 'd', 'n', 'p', 'bills') as number[];
-      const total = 100 * (bills as number) + centsOf(purseCoins(q!, d!, n!, pn!));
+      const total =
+        100 * (bills as number) +
+        centsOf(purseCoins(q as number, d as number, n as number, pn as number));
       // A dollars writing pick (numeral-pick) draws no purse: its amount is `cents`.
       if (mode === 'dollars' && total === 0) return { value: asNum(p.cents) };
       return { value: total };
@@ -306,6 +308,8 @@ export const moneyCoins: GeneratorDef = {
           const c = asNum(p.c);
           if (!Number.isInteger(c) || c < 1 || c > 99 || c === a || c === b) return false;
           if (p.conflict === true) return false;
+          // The abstract cards are labelled amounts and draw no coins.
+          if (t.tier === 'abstract') return true;
           return [a, b, c].every((x) => fewestCoins(x).length <= ORDER_COINS_MAX);
         }
         return false;

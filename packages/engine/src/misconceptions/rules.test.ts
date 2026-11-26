@@ -187,6 +187,8 @@ describe('registry', () => {
       'biggerUnitMore',
       'borrowAcrossZero',
       'borrowNoDecrement',
+      'coinValueBySize',
+      'coinsAsOnes',
       'compareFirstDigit',
       'countAllInstead',
       'countStartNumber',

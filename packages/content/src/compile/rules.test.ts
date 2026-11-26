@@ -194,6 +194,12 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.15',
       'MEA.16',
       'MEA.22',
+      'MON.01',
+      'MON.02',
+      'MON.04',
+      'MON.05',
+      'MON.06',
+      'MON.08',
       'MUL.01',
       'MUL.02',
       'MUL.03',
@@ -254,6 +260,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.bigger-unit-more',
       'MC.borrow-across-zero',
       'MC.borrow-no-decrement',
+      'MC.coin-value-by-size',
+      'MC.coins-as-ones',
       'MC.compare-first-digit',
       'MC.count-all-instead',
       'MC.count-start-number',
@@ -314,6 +322,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'mul.facts',
         'mul.groups',
         'mul.tens',
+        // K02 (#17) slice 4a: money
+        'money.coins',
         'parity.evenodd',
         'geo.partition',
         'mea.length',
@@ -388,6 +398,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'fraction-pick',
         'fraction-line',
         'clock-set',
+        'coin-count',
+        'coin-pay',
         'clock-read',
         'bar-graph-read',
         'bar-graph-build',
@@ -1903,9 +1915,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // arrays (K02 slice 3a) added 9 skills, 33 templates, MC.add-instead-of-multiply and
       // MC.skip-count-slip; facts and strategies (K02 slice 3b) added 7 skills, 25 templates,
       // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped.
-      skills: 175,
-      templates: 650,
-      misconceptions: 40,
+      skills: 181,
+      templates: 670,
+      misconceptions: 42,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1999,10 +2011,13 @@ describe('graph.json (03 §9.1)', () => {
       ['MDA.17', 'MDA.25', 1],
       ['MDA.21', 'MDA.17', 1],
       ['MDA.21', 'MDA.18', 0.5],
+      ['MON.02', 'MON.04', 1],
       ['PV.06', 'PV.02', 0.6],
       ['PV.06', 'PV.05', 0.5],
       ['PV.07', 'PV.03', 1],
       ['PV.18', 'PV.08', 0.6],
+      ['TIM.02', 'TIM.04', 0.6],
+      ['TIM.02', 'TIM.09', 0.5],
     ]);
     expect(g?.strands.SUB).toEqual([
       'SUB.01',

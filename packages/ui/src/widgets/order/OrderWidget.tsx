@@ -15,6 +15,7 @@ import {
   CheckButton,
   cellToFit,
   countLayout,
+  describeCoins,
   FitPicture,
   LINE_BARE_PAD,
   naturalPictureSize,
@@ -466,7 +467,11 @@ export function OrderWidget({
 
   const itemName = (it: Item) =>
     it.label ??
-    (it.stimulus ? t('ui.order.picture', { n: config.items.indexOf(it) + 1 }) : String(it.value));
+    (it.stimulus?.kind === 'coins'
+      ? describeCoins(it.stimulus.coins, it.stimulus.bills ?? [], t)
+      : it.stimulus
+        ? t('ui.order.picture', { n: config.items.indexOf(it) + 1 })
+        : String(it.value));
   const speakItem = (it: Item) => {
     if (!speakOnTap) return;
     // Numerals speak their name (06 §5): the numeral the card shows, which need not be the value

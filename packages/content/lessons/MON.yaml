@@ -1,0 +1,40 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+# K02 slice 4a (#17): MON.06 has a pick (MON.06.t4, which writing is right), which is not evidence
+# (04 §7a), so this lesson pins the test-out pool (03 §6.5) to the pictorial constructed-answer
+# template; the rest is what the auto lesson plays.
+strand: MON
+lessons:
+  - skillId: MON.06
+    mode: authored
+    templateId: MON.06.t1
+    worked:
+      - { seed: 1206943362, target: easy }
+    faded:
+      - { seed: 1206943363, target: typical, childSteps: 1 }
+      - { seed: 1206943364, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MON.06.t2] }
+
+  # MON.01 (numeral-pick t1) and MON.08 (the which-purse picks t1, t2) also have picks: their
+  # test-outs are pinned to the pictorial constructed template.
+  - skillId: MON.01
+    mode: authored
+    templateId: MON.01.t2
+    worked:
+      - { seed: 1201943362, target: easy }
+    faded:
+      - { seed: 1201943363, target: typical, childSteps: 1 }
+      - { seed: 1201943364, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MON.01.t2] }
+
+  - skillId: MON.08
+    mode: authored
+    templateId: MON.08.t3
+    worked:
+      - { seed: 1208943362, target: easy }
+    faded:
+      - { seed: 1208943363, target: typical, childSteps: 1 }
+      - { seed: 1208943364, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MON.08.t3] }

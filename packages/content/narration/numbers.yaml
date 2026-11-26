@@ -516,6 +516,19 @@ word.morning:
   text: "morning"
 word.night:
   text: "night"
+# coin names for a prompt that names the coin (K02 slice 4a: MON.01.t3)
+word.penny:
+  text: "penny"
+  level: "2"
+word.nickel:
+  text: "nickel"
+  level: "2"
+word.dime:
+  text: "dime"
+  level: "2"
+word.quarter:
+  text: "quarter"
+  level: "2"
 # a.m. / p.m. bins (K02 slice 4a: TIM.05)
 word.am:
   text: "a.m."

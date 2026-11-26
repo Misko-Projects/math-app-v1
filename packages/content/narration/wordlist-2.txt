@@ -935,3 +935,17 @@ type
 noon
 midnight
 points
+amount
+amounts
+purse
+purses
+pay
+sign
+color
+mean
+bill
+silver
+ridged
+smooth
+copper
+still

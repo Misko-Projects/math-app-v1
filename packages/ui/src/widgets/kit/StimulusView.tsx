@@ -4,7 +4,7 @@ import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
 import { ChartView } from './ChartView';
 import { ClockView } from './ClockView';
-import { CoinsView } from './CoinsView';
+import { CoinsView, describeCoins } from './CoinsView';
 import { FractionView } from './FractionView';
 import { shapeFrame } from './fractionShapes';
 import { GaugeView } from './GaugeView';
@@ -293,7 +293,7 @@ export function StimulusView({
           <CoinsView
             coins={spec.coins}
             bills={spec.bills}
-            label={name}
+            label={label ?? describeCoins(spec.coins, spec.bills ?? [], t)}
             maxWidth={maxWidth}
             maxHeight={maxHeight}
           />

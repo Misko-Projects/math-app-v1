@@ -1781,3 +1781,23 @@ ui.pier.picture:
 ui.lesson.try:
   text: "I can try"
   level: K
+# Coin pictures outside the coin formats (K02 slice 4a, #17): what a picture shows, never the
+# coin's name or value (MON.01 asks it) and never an amount.
+ui.coin.look.penny:
+  text: "a copper coin"
+  level: "2"
+ui.coin.look.nickel:
+  text: "a big silver coin with a smooth edge"
+  level: "2"
+ui.coin.look.dime:
+  text: "a small silver coin with a ridged edge"
+  level: "2"
+ui.coin.look.quarter:
+  text: "the biggest silver coin, with a ridged edge"
+  level: "2"
+ui.coin.look.bill:
+  text: "a dollar bill"
+  level: "2"
+ui.coin.count:
+  text: "{n|num} pieces of money"
+  level: "2"

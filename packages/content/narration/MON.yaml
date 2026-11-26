@@ -1,0 +1,38 @@
+# MON narration (03 §8): skill intros and template prompts owned by the strand (K02 slice 4a, #17).
+sk.MON.01.intro:
+  text: "A penny, a nickel, a dime and a quarter are each worth a different amount."
+sk.MON.02.intro:
+  text: "Start with the coin worth the most. Then count on."
+sk.MON.04.intro:
+  text: "Count nickels by fives and dimes by tens."
+sk.MON.05.intro:
+  text: "Put in coins until you have just the right amount."
+sk.MON.06.intro:
+  text: "A dollar is one hundred cents. A dot comes between the dollars and the cents."
+sk.MON.08.intro:
+  text: "The purse with more coins does not always have more money."
+
+tp.MON.01.t1.prompt:
+  text: "How much is this coin worth?"
+tp.MON.01.t2.prompt:
+  text: "How many cents is this coin worth?"
+tp.MON.01.t3.prompt:
+  text: "How many cents is one {coin|word} worth?"
+tp.MON.04.t1.prompt:
+  text: "How much money is here?"
+tp.MON.04.t3.prompt:
+  text: "Pay {cents|cents}. Put the coins in the tray."
+tp.MON.05.t3.prompt:
+  text: "How much money is here? Count it."
+tp.MON.06.t1.prompt:
+  text: "Pay {cents|dollars}. Put the money in the tray."
+tp.MON.06.t2.prompt:
+  text: "How much money is here? Write the dollars and the cents."
+tp.MON.06.t4.prompt:
+  text: "Which is the right way to write {cents|cents} with a dollar sign?"
+tp.MON.08.t1.prompt:
+  text: "Which purse has more money?"
+tp.MON.08.t3.prompt:
+  text: "Put the purses in order, from the least money to the most."
+tp.MON.08.t4.prompt:
+  text: "Put the amounts in order, from the least to the most."

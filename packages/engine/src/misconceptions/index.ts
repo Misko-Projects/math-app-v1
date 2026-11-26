@@ -5,6 +5,7 @@ import type { GeneratedItem, MisconceptionSpec } from '@number-island/shared';
 import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
 import { biggerUnitMore } from './rules/biggerUnitMore';
+import { coinsAsOnes, coinValueBySize } from './rules/coins';
 import {
   borrowAcrossZero,
   borrowNoDecrement,
@@ -99,6 +100,8 @@ const RULES: Record<string, MisconceptionRule> = {
   partialProductDropped: partialProductDropped,
   // K02 (#17) slice 4a: time and money
   minuteHandNumber: minuteHandAsMinutes,
+  coinsAsOnes: coinsAsOnes,
+  coinValueBySize: coinValueBySize,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

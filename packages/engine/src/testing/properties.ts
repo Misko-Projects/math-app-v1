@@ -541,6 +541,8 @@ export function choiceOptions(item: GeneratedItem): string[] {
     if (w.mode === 'fair-or-not') return ['yes', 'no'];
     return (w.options ?? []).map((o) => o.id);
   }
+  // coin-count `compareWith` (MON.08) answers the fixed set `left` | `right` | `same`.
+  if (w.format === 'coin-count' && w.compareWith) return ['left', 'right', 'same'];
   // clock-read `ampm` (TIM.05) answers the fixed pair `am` | `pm`.
   if (w.format === 'clock-read' && w.input === 'pick' && w.ampm) return ['am', 'pm'];
   if (w.format === 'clock-read' && w.input === 'pick') return (w.options ?? []).map((o) => o.id);
