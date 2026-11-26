@@ -562,6 +562,26 @@ export function completePlacement(
 }
 
 /**
+ * The zero-probe initial placement: what an initial placement yields before any probe is
+ * answered, the §5 grade prior of every skill off the practiced track, stopped at once
+ * (`items: 0`; reason 'budget', a budget of no items, unless the prior already converged).
+ * Skills the child has attempts on are left out, so a changed grade never moves them (04 §5).
+ * A measured initial placement written later supersedes it in the fold (its posterior wins).
+ */
+export function gradePriorPlacement(
+  input: Omit<StartPlacementInput, 'strand'>,
+): EventPayloads['placement.completed'] {
+  const run = startPlacement({ ...input, strand: null });
+  const out = completePlacement({ ...run, done: run.done ?? 'budget' }, input.params ?? PARAMS);
+  const attempted = (s: SkillId): boolean => (input.state.skills[s]?.n ?? 0) > 0;
+  return {
+    ...out,
+    posterior: Object.fromEntries(Object.entries(out.posterior).filter(([s]) => !attempted(s))),
+    assumed: out.assumed.filter((s) => !attempted(s)),
+  };
+}
+
+/**
  * Rebuilds an unfinished placement from the child's event log, to the state the live run reached.
  * It reads the `placement.probe` events of this placement and the child's `session.started`
  * events, in the canonical fold order (`sortEvents`: ts, then id, each id once), so the replay

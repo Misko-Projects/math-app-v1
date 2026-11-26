@@ -670,6 +670,10 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     for (const a of [...payload.assumed].sort()) {
       const prev = next.skills[a];
       if (onTrack(prev)) continue;
+      // A grade prior (no items asked) assumes only skills the child's events never touched: a
+      // copy written offline by another device must not undo an attempt, a failed verification
+      // or a reset (02 "Grade-prior placement").
+      if (payload.items === 0 && prev !== undefined) continue;
       const st = prev ? cloneSkill(prev) : fresh(next, a);
       st.assumed = true;
       st.practicedAt = ts;

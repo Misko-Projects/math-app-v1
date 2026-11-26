@@ -253,7 +253,12 @@ test('a request opens from the island and Home leaves it without ending the sess
   // (The lesson logs the demo steps that played before the child left.)
   const types = async () =>
     (await localEvents(page)).map((e) => e.type).filter((type) => type !== 'lesson.step');
-  expect(await types()).toEqual(['session.started', 'request.accepted', 'request.completed']);
+  expect(await types()).toEqual([
+    'session.started',
+    'placement.completed',
+    'request.accepted',
+    'request.completed',
+  ]);
 
   // Leaving with the browser's back button completes the request too. The lesson was not
   // played to its end, so it is still owed: this request opens with it again.
@@ -265,6 +270,7 @@ test('a request opens from the island and Home leaves it without ending the sess
     .poll(types)
     .toEqual([
       'session.started',
+      'placement.completed',
       'request.accepted',
       'request.completed',
       'request.accepted',
