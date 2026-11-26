@@ -23,12 +23,12 @@ coverageGrades: [K, 1]
 # GEO.14 as gaps below GEO.15 (DAT.03, MEA.08, MEA.09 and FRA.16 stay planned).
 # Slice 4e authored ALG.06, ALG.07, ALG.10, PUZ.04, PUZ.06, PUZ.07 and PUZ.09, which adds ALG.08,
 # ALG.09 (waits for a table layout), PUZ.05 and PUZ.08 as gaps.
+# Slice 4c-1 authored DAT.03 (line plots).
 plannedIds:
   [
     ALG.03,
     ALG.08,
     ALG.09,
-    DAT.03,
     DAT.06,
     DAT.07,
     DAT.08,

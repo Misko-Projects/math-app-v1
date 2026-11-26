@@ -22,6 +22,7 @@
 
 import * as engine from '@number-island/engine';
 import type { GeneratedItem, ItemTemplate, StimulusSpec } from '@number-island/shared';
+import { chartPositionId } from '@number-island/shared';
 import {
   type AgeMode,
   createDemoController,
@@ -1961,5 +1962,59 @@ describe('grade 2 puzzles at their fullest (#17 slice 4e)', () => {
     expect(r.bottom).toBeLessThanOrEqual(s.bottom + SLACK_PX);
     expect(r.right).toBeLessThanOrEqual(s.right + SLACK_PX);
     await shot(id, 'found');
+  });
+});
+
+// K02 slice 4c-1 (#17): DAT.03 line plots. The build is measured after every X the child adds
+// (seeds 1–9 at both viewports, the stacks at their fullest at the end); the reads on seeds 1–9.
+// An X is at least 22 px.
+describe.each(FIT_VIEWPORTS)('DAT.03 line plots fit at %s (#17 slice 4c-1)', (viewport) => {
+  const [width, height] = viewport.split('x').map(Number) as [number, number];
+  const xsAtLeast22 = (where: string): string[] =>
+    [...document.querySelectorAll(`${where} .ni-chart__x`)]
+      .map((x) => x.getBoundingClientRect().width)
+      .filter((w) => w < 22)
+      .map((w) => `an X is ${w.toFixed(1)} px`);
+
+  it('DAT.03.t2: every X a child adds keeps the build inside the area', async () => {
+    await page.viewport(width, height);
+    const id = 'DAT.03.t2';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const failing: string[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      const item = engine.generateItem(template, seed);
+      show(item, ageModeOf(template));
+      const first = await measure(id);
+      if (first.length > 0) failing.push(`seed ${seed} first: ${first.join('; ')}`);
+      if (item.widget.format !== 'bar-graph-build') throw new Error('DAT.03.t2 builds');
+      await userEvent.click(document.querySelector('.ni-bgb__chip[data-item="mark"]') as Element);
+      for (const [k, at] of item.widget.data.values.entries()) {
+        await userEvent.click(
+          document.querySelector(`.ni-bgb__lane[data-slot="${chartPositionId(at)}"]`) as Element,
+        );
+        const misfit = [...(await measure(id)), ...xsAtLeast22('.ni-bgb__chart')];
+        if (misfit.length > 0) failing.push(`seed ${seed} after ${k + 1} Xs: ${misfit.join('; ')}`);
+      }
+      expect(document.querySelectorAll('.ni-bgb__chart .ni-chart__x').length).toBe(
+        item.widget.data.values.length,
+      );
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-s${seed}-built-${viewport}.png` });
+    }
+    expect(failing).toEqual([]);
+  });
+
+  it('DAT.03.t1 and t3: every read plot fits with Xs of 22 px or more', async () => {
+    await page.viewport(width, height);
+    const failing: string[] = [];
+    for (const id of ['DAT.03.t1', 'DAT.03.t3']) {
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        show(engine.generateItem(template, seed), ageModeOf(template));
+        const misfit = [...(await measure(id)), ...xsAtLeast22('.ni-bgr')];
+        if (misfit.length > 0) failing.push(`${id} seed ${seed}: ${misfit.join('; ')}`);
+      }
+    }
+    expect(failing).toEqual([]);
   });
 });

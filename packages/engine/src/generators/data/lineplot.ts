@@ -113,7 +113,13 @@ export const dataLineplot: GeneratorDef = {
     },
   },
   derived: ['measurements'],
-  features: {},
+  features: {
+    // K02 slice 4c-1: more lengths to place or count is harder (DAT.03 difficulty spread, V22).
+    'measurements.over6': {
+      weight: 0.3,
+      doc: 'max(0, measurements − 6) / 2: more lengths to place or count',
+    },
+  },
   narration: [
     'gen.data.lineplot.find',
     'gen.data.lineplot.mark',
@@ -187,6 +193,7 @@ export const dataLineplot: GeneratorDef = {
       max,
       many: 2,
     });
+    const math = { 'measurements.over6': Math.max(0, sum(xs) - 6) / 2 };
     let p: PartialOutput;
     if (t.format === 'bar-graph-build') {
       const measurements = rng
@@ -195,7 +202,7 @@ export const dataLineplot: GeneratorDef = {
       p = {
         params,
         vars,
-        math: {},
+        math,
         widget: {
           format: 'bar-graph-build',
           chart: chart(xs.map(() => 0)),
@@ -215,7 +222,7 @@ export const dataLineplot: GeneratorDef = {
     p = {
       params,
       vars,
-      math: {},
+      math,
       widget: {
         format: 'bar-graph-read',
         chart: chart(xs),

@@ -209,6 +209,8 @@ describe('registry', () => {
       'hourHandNext',
       'hourMinuteSwap',
       'keywordMoreMeansAdd',
+      'linePlotPositionAsCount',
+      'linePlotWrongStack',
       'minuteHandNumber',
       'offByOneCounting',
       'partialProductDropped',

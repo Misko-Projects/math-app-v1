@@ -57,3 +57,12 @@ tp.DAT.05.t2.prompt:
   text: "Look at the bar graph. How many more {catA|noun:many} than {catB|noun:many}?"
 tp.DAT.05.t3.prompt:
   text: "How many more {catA|noun:many} than {catB|noun:many} are there?"
+# K02 slice 4c-1 (#17): DAT.03 line plots.
+sk.DAT.03.intro:
+  text: "Let's measure planks and show their lengths with Xs on a line plot!"
+tp.DAT.03.t1.prompt:
+  text: "The line plot shows plank lengths in inches. How many planks are {at} inches long?"
+tp.DAT.03.t2.prompt:
+  text: "These planks were measured in inches. Put one X above each length."
+tp.DAT.03.t3.prompt:
+  text: "How many more planks are {at} inches long than {at2} inches long?"

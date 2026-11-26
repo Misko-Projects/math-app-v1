@@ -100,3 +100,43 @@ misconceptions:
       - params: { mode: ways, cents: 25, kinds: dn, found: 1 }
         response: { kind: state, value: { coins: { penny: 0, nickel: 3, dime: 1, quarter: 0 } } }
         match: false
+
+  # K02 slice 4c-1 (#17): line plot reading (DAT.03). The examples run on DAT.03.t1 (how-many):
+  # 3 planks are 15 inches long; the stacks beside it hold 2 and 1.
+  - id: MC.lineplot-position-as-count
+    name: Reads the number under a stack of Xs as how many there are
+    detect: { kind: answer, rule: linePlotPositionAsCount }
+    appliesTo: { generators: [data.lineplot] }
+    skills: [DAT.03]
+    remediation: [DAT.03]
+    feedback: fb.mc.lineplot-position-as-count
+    priority: 50
+    parentTip: >-
+      Put three spoons above a card that says 6. Ask how many spoons there are: the card says
+      how long, the spoons say how many.
+    examples:
+      - params: { question: how-many, min: 14, positions: 5, precision: 1, x1: 2, x2: 3, x3: 1, x4: 4, x5: 1, at: 2 }
+        response: { kind: number, value: 15 }
+        match: true
+      - params: { question: how-many, min: 14, positions: 5, precision: 1, x1: 2, x2: 3, x3: 1, x4: 4, x5: 1, at: 2 }
+        response: { kind: number, value: 3 }
+        match: false
+
+  - id: MC.lineplot-wrong-stack
+    name: Counts the Xs above the mark next to the one asked about
+    detect: { kind: answer, rule: linePlotWrongStack }
+    appliesTo: { generators: [data.lineplot] }
+    skills: [DAT.03]
+    remediation: [DAT.03]
+    feedback: fb.mc.lineplot-wrong-stack
+    priority: 40
+    parentTip: >-
+      Point at the number first, then slide your finger straight up and count only what is above
+      it.
+    examples:
+      - params: { question: how-many, min: 14, positions: 5, precision: 1, x1: 2, x2: 3, x3: 1, x4: 4, x5: 1, at: 2 }
+        response: { kind: number, value: 1 }
+        match: true
+      - params: { question: how-many, min: 14, positions: 5, precision: 1, x1: 2, x2: 3, x3: 1, x4: 4, x5: 1, at: 2 }
+        response: { kind: number, value: 4 }
+        match: false

@@ -1742,6 +1742,24 @@ gen.data.chart.mark:
   text: "Count the {cat|noun:many}. Make one mark for each."
 gen.data.chart.done:
   text: "Now each count is right."
+h.lineplot.find-length:
+  text: "Find the length on the number line first."
+  level: "2"
+h.lineplot.xs-above:
+  text: "Count only the Xs right above that length."
+  level: "2"
+h.lineplot.two-stacks:
+  text: "Find both lengths. Count the Xs above each one."
+  level: "2"
+h.lineplot.number-is-length:
+  text: "The number under the Xs is the length. The Xs tell how many planks."
+  level: "2"
+h.lineplot.one-each:
+  text: "Put one X for each plank. Look at each length just once."
+  level: "2"
+h.lineplot.check-count:
+  text: "Count your Xs. You need one X for each plank."
+  level: "2"
 gen.data.lineplot.find:
   text: "Find each length on the number line."
   level: "2"
@@ -2252,6 +2270,10 @@ fb.mc.bigger-unit-more:
   text: "Look at the size. Bigger ones fit fewer times."
 fb.mc.ruler-count-ticks:
   text: "Count the jumps from mark to mark, not the marks."
+fb.mc.lineplot-position-as-count:
+  text: "That number tells how long. Count the marks above it."
+fb.mc.lineplot-wrong-stack:
+  text: "Look right above the number it asks about. Count just those marks."
 fb.mc.ruler-read-end:
   text: "It does not start at 0. Count the jumps from where it starts."
 fb.mc.recount-from-one:
