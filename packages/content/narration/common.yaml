@@ -2093,7 +2093,7 @@ h.mda.put-in-b:
 h.mda.take-b:
   text: "Take away hundreds, tens and ones that make {b}."
 h.mda.disk-values:
-  text: "Each disk shows what it is worth. Look at the number on it."
+  text: "Each circle shows what it is worth. Look at the number on it."
 h.mda.same-places-add:
   text: "Add hundreds to hundreds, tens to tens and ones to ones."
 h.mda.each-place-under-ten:
@@ -2109,7 +2109,7 @@ h.mda.count-the-trade:
 h.mda.place-ten-or-more:
   text: "If a place adds up to ten or more, that makes one more of the next place."
 h.mda.line-up-places:
-  text: "Think of one number under the other: ones under ones, tens under tens."
+  text: "Put one number on top. Line up ones under ones, tens under tens."
 h.mda.carry-shows:
   text: "A trade shows as a small 1 above the next place."
 h.mda.split-when-short:
@@ -2119,7 +2119,7 @@ h.mda.no-tens-split-hundred:
 h.mda.then-split-ten:
   text: "Then split one ten into ten ones."
 h.mda.crossed-digits:
-  text: "A split shows as a crossed-out digit with the new number above it."
+  text: "After a split, the old digit has a line on it and the new number is on top."
 h.mda.zero-tens-hundred:
   text: "There are no tens. Take one hundred: that is ten tens."
 h.mda.nine-tens-left:
@@ -2131,6 +2131,6 @@ h.est.closer-hundred:
 h.est.round-each-hundred:
   text: "Round each number to the nearest hundred."
 h.est.round-first:
-  text: "Round each number first, the way the question says."
+  text: "Round each number first, to the place it says."
 h.est.then-add-take:
-  text: "Then add or take away the rounded numbers."
+  text: "Then add or take away the new numbers."

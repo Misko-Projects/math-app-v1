@@ -167,6 +167,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MDA.02',
       'MDA.03',
       'MDA.04',
+      'MDA.05',
+      'MDA.07',
       'MDA.08',
       'MDA.09',
       'MDA.10',
@@ -176,7 +178,12 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MDA.14',
       'MDA.15',
       'MDA.16',
+      'MDA.17',
+      'MDA.18',
+      'MDA.21',
       'MDA.22',
+      'MDA.24',
+      'MDA.25',
       'MEA.01',
       'MEA.02',
       'MEA.07',
@@ -205,6 +212,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'PV.16',
       'PV.17',
       'PV.18',
+      'PV.19',
       'PV.24',
       'SUB.01',
       'SUB.02',
@@ -221,6 +229,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
+      'MC.borrow-across-zero',
       'MC.borrow-no-decrement',
       'MC.compare-first-digit',
       'MC.count-all-instead',
@@ -301,6 +310,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'pv.tenmore',
         // K02 (#17) slice 1b: rounding
         'pv.round',
+        // K02 (#17) slice 2b: estimating by rounding
+        'pv.estimate',
         'mda.addsub',
         // K01 (#11): equality and story problems
         'equality.eq',
@@ -1848,10 +1859,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // MC.compare-first-digit; counting, number lines, rounding and fact fluency (K02 slice 1b)
       // added 11 skills, 49 templates, MC.round-down-always and MC.round-wrong-place; addition and
       // subtraction within 100 (K02 slice 2a) added 10 skills, 29 templates,
-      // MC.forgot-to-regroup-add, MC.smaller-from-larger and MC.borrow-no-decrement.
-      skills: 146,
-      templates: 553,
-      misconceptions: 32,
+      // MC.forgot-to-regroup-add, MC.smaller-from-larger and MC.borrow-no-decrement; within 1000
+      // (K02 slice 2b) added 8 skills, 22 templates and MC.borrow-across-zero.
+      skills: 154,
+      templates: 575,
+      misconceptions: 33,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1929,10 +1941,17 @@ describe('graph.json (03 §9.1)', () => {
       ['MDA.03', 'PV.12', 0.5],
       ['MDA.04', 'ADD.13', 0.5],
       ['MDA.04', 'MDA.03', 1],
+      ['MDA.05', 'MDA.03', 1],
+      ['MDA.05', 'MDA.24', 1],
+      ['MDA.07', 'MDA.05', 1],
       ['MDA.12', 'ADD.22', 0.8],
       ['MDA.12', 'MDA.10', 0.5],
       ['MDA.12', 'MDA.11', 1],
       ['MDA.12', 'PV.12', 0.5],
+      ['MDA.17', 'MDA.12', 1],
+      ['MDA.17', 'MDA.25', 1],
+      ['MDA.21', 'MDA.17', 1],
+      ['MDA.21', 'MDA.18', 0.5],
       ['PV.06', 'PV.02', 0.6],
       ['PV.06', 'PV.05', 0.5],
       ['PV.07', 'PV.03', 1],
