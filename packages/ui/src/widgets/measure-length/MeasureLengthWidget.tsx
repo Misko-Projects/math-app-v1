@@ -135,6 +135,8 @@ export function MeasureLengthWidget({
   const laying = config.mode === 'iterate' || config.mode === 'two-units';
   const picking = config.mode === 'estimate' || config.input === 'pick';
   const drawnUnits = laying && tier === 'pictorial';
+  /** The ruler moves (a tap-tick mark, or the concrete ruler sliding); otherwise it is a picture. */
+  const rulerAdjustable = config.input === 'tap-tick' || tier === 'concrete';
   const units: LengthUnit[] =
     config.mode === 'two-units' && config.altUnit ? [config.unit, config.altUnit] : [config.unit];
   /** How many of each unit fit (for drawn units and the scale). */
@@ -730,19 +732,31 @@ export function MeasureLengthWidget({
               aria-hidden="true"
             />
           ) : null}
-          {/* The ruler is a slider: tap-tick moves the end mark along it; on the concrete tier
-              the ruler itself slides (drag, or ←/→). */}
+          {/* The ruler is a slider when it moves: tap-tick moves the end mark along it; on the
+              concrete tier the ruler itself slides (drag, or ←/→). Otherwise (a pictorial ruler
+              read on the pad) it is a fixed picture: no slider role, no tab stop. */}
           <div
-            role="slider"
-            tabIndex={disabled ? -1 : 0}
+            {...(rulerAdjustable
+              ? {
+                  role: 'slider',
+                  tabIndex: disabled ? -1 : 0,
+                  'aria-valuemin': 0,
+                  'aria-valuemax': config.input === 'tap-tick' ? rulerMax : slideMax,
+                  'aria-valuenow': config.input === 'tap-tick' ? (tapMark ?? 0) : shown,
+                  'aria-disabled': disabled ? true : undefined,
+                }
+              : { role: 'img' })}
             className={['ni-mlen__ruler', invite === 'ruler' ? 'ni-invite' : '']
               .filter(Boolean)
               .join(' ')}
-            aria-label={t('ui.mlen.ruler')}
-            aria-valuemin={0}
-            aria-valuemax={config.input === 'tap-tick' ? rulerMax : slideMax}
-            aria-valuenow={config.input === 'tap-tick' ? (tapMark ?? 0) : shown}
-            aria-disabled={disabled ? true : undefined}
+            aria-label={
+              rulerAdjustable
+                ? t('ui.mlen.ruler')
+                : t('ui.mlen.ruler-picture', {
+                    unit: unitName(config.unit),
+                    thing: name.toLowerCase(),
+                  })
+            }
             data-ruler-start={shown}
             style={{ transform: `translateX(${-shift}px)` }}
             onPointerDown={onRulerDown}

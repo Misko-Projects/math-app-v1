@@ -544,6 +544,10 @@ ui.mlen.undo:
   level: K
 ui.mlen.ruler:
   text: "Ruler"
+# A ruler that does not move is a picture: its name says the unit and what lies on it, never the
+# length (K02 slice 4b, PR #133).
+ui.mlen.ruler-picture:
+  text: "A ruler in {unit} with a {thing} on it"
   level: K
 ui.scomp.outline:
   text: "The shape to fill"

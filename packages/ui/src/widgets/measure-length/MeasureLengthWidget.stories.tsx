@@ -676,6 +676,12 @@ export const ReadRuler: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    // A pictorial ruler does not move: a picture named "Ruler", no slider, no tab stop (PR #133
+    // review round 2, MEA.03.t2 and t3).
+    await expect(within(root).queryByRole('slider')).toBeNull();
+    // Its name says the unit and what lies on it, never the length.
+    const pic = within(root).getByRole('img', { name: 'A ruler in inches with a plank on it' });
+    await expect(pic).not.toHaveAttribute('tabindex');
     await expectRulerComposition(canvasElement, root);
     await expectNumeralsAtLeast32(root, '.ni-ruler__numeral');
     await expectNumeralInk(root, '.ni-ruler__numeral');
@@ -934,6 +940,8 @@ export const SlideRuler: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     const r = within(root).getByRole('slider', { name: 'Ruler' });
+    // A ruler that slides keeps its slider role and its tab stop (PR #133 review round 2).
+    await expect(r).toHaveAttribute('tabindex', '0');
     // The ruler is what the child drags (and, with tap-tick, taps): a full target.
     await expectTargetSize(r, 'g1-up');
     const tick = (v: number) =>
@@ -1039,10 +1047,10 @@ export const DemoRuler: Story = {
     await expect(root.querySelector('.ni-ruler__mark[data-mark="2"]')).not.toBeNull();
     await expect(root.querySelector('.ni-ruler__mark[data-mark="7"]')).not.toBeNull();
     await demoRuler.play({ op: 'slide-ruler', args: { to: 0 } });
-    await expect(within(root).getByRole('slider', { name: 'Ruler' })).toHaveAttribute(
-      'data-ruler-start',
-      '0',
-    );
+    // A pictorial ruler is a picture to the child (the demo still slides it).
+    await expect(
+      within(root).getByRole('img', { name: 'A ruler in inches with a plank on it' }),
+    ).toHaveAttribute('data-ruler-start', '0');
   },
 };
 
