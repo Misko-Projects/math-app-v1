@@ -2528,9 +2528,6 @@ h.mon.biggest-first:
 h.mon.count-on:
   text: "For each coin, count on from what you have so far."
   level: "2"
-h.mon.sort-first:
-  text: "Put the coins in order first, the coin worth the most first."
-  level: "2"
 h.mon.biggest-first-pay:
   text: "Use the coin worth the most that still fits. Then add smaller ones."
   level: "2"

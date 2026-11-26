@@ -479,7 +479,15 @@ export function OrderWidget({
     // its thing ("apple"), never how many or how much: a picture's quantity is the child's to find.
     if (it.label !== undefined && isNumeral(it.label)) sayNumber(Number(it.label));
     else if (!it.label && !it.stimulus) sayNumber(it.value);
-    else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
+    // Money (MON.08, PR #132 review): an amount card says its amount; a purse card says how many
+    // pieces it shows, never their total.
+    else if (it.label !== undefined && /^\d+¢$/.test(it.label)) {
+      say('ui.money.amount', { cents: Number.parseInt(it.label, 10) });
+    } else if (it.stimulus?.kind === 'coins') {
+      say('ui.coin.count', {
+        n: it.stimulus.coins.length + (it.stimulus.bills?.length ?? 0),
+      });
+    } else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
   };
 
   /** Puts an item in a slot: its old slot frees up and the slot's occupant goes back to the tray. */

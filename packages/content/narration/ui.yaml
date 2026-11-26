@@ -1810,6 +1810,34 @@ ui.coin.look.quarter:
 ui.coin.look.bill:
   text: "a dollar bill"
   level: "2"
+ui.money.amount:
+  text: "{cents|cents}"
+  level: "2"
 ui.coin.count:
   text: "{n|num} pieces of money"
   level: "2"
+# Fraction pictures on a pick card (PR #132 review): what is drawn, never a fraction word.
+ui.frac.picture-equal-circle:
+  text: "A circle in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-circle:
+  text: "A circle in {n|num} parts that are not the same size"
+  level: "1"
+ui.frac.picture-equal-rect:
+  text: "A rectangle in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-rect:
+  text: "A rectangle in {n|num} parts that are not the same size"
+  level: "1"
+ui.frac.picture-equal-bar:
+  text: "A strip in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-bar:
+  text: "A strip in {n|num} parts that are not the same size"
+  level: "1"
+ui.frac.picture-equal-loaf:
+  text: "A loaf in {n|num} parts, all the same size"
+  level: "1"
+ui.frac.picture-unequal-loaf:
+  text: "A loaf in {n|num} parts that are not the same size"
+  level: "1"

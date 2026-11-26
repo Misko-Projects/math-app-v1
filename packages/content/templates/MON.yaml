@@ -148,7 +148,7 @@ templates:
     difficulty: { base: -1.6 }
     narration:
       prompt: tp.MON.04.t1.prompt
-      hints: [h.mon.value-not-coins, h.mon.sort-first, h.mon.count-on]
+      hints: [h.mon.value-not-coins, h.mon.biggest-first, h.mon.count-on]
 
   # ---------- MON.05: pay an exact amount ----------
   - id: MON.05.t1
@@ -202,7 +202,7 @@ templates:
     difficulty: { base: -1.8 }
     narration:
       prompt: tp.MON.05.t3.prompt
-      hints: [h.mon.value-not-coins, h.mon.sort-first, h.mon.count-on]
+      hints: [h.mon.value-not-coins, h.mon.biggest-first, h.mon.count-on]
 
   # ---------- MON.06: dollars and cents ----------
   # t1 always needs the bill (over a dollar); t2 always has one (over a dollar); t3 never (under).

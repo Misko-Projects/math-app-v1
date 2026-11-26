@@ -126,7 +126,7 @@ templates:
     difficulty: { base: -0.8 }
     narration:
       prompt: tp.FRA.01.t3.prompt
-      hints: [h.frac.look-each, h.frac.same-size, h.frac.count-parts]
+      hints: [h.frac.look-each, h.frac.same-size]
     distractors:
       - { rule: MC.fraction-unequal-parts }
 

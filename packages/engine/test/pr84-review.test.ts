@@ -530,6 +530,21 @@ describe('PR #84 review (8): time hints hold for every time a template draws', (
     }
   });
 
+  it('PR #132 review: hints ask only what the item lets a child do', () => {
+    // An unequal-parts pick names no count, so no count hint (FRA.02.t3).
+    for (const tt of fixture.templates.filter((x) => x.generator === 'frac.partition')) {
+      const asks = new Set(domain(tt).map((d) => d.params.ask));
+      if (asks.has('unequal'))
+        expect(tt.narration.hints, tt.id).not.toContain('h.frac.count-parts');
+    }
+    // A coin-count purse can be marked, not rearranged: no hint says to put the coins in order.
+    for (const tt of fixture.templates.filter((x) => x.format === 'coin-count')) {
+      for (const h of tt.narration.hints) {
+        expect(fixture.narration[h]?.text ?? '', `${tt.id} ${h}`).not.toMatch(/in order/i);
+      }
+    }
+  });
+
   it('a clock template whose hints count on the numbers always shows them (PR #132 review)', () => {
     const NUMBER_HINTS = new Set(['h.time.just-after', 'h.time.not-the-number']);
     for (const tt of fixture.templates.filter((x) => x.generator === 'time.clock')) {

@@ -1888,3 +1888,58 @@ export const FractionTwelfthCardsMin: Story = {
     noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
   },
 };
+
+// MON.08.t3 / t4 (money.coins compare on order, PR #132 review): purse cards and amount cards.
+const purses: ConfigFor<'order'> = {
+  format: 'order',
+  direction: 'asc',
+  items: [
+    { id: 'obj-0', value: 40, stimulus: { kind: 'coins', coins: ['quarter', 'dime', 'nickel'] } },
+    { id: 'obj-1', value: 15, stimulus: { kind: 'coins', coins: ['dime', 'nickel'] } },
+    { id: 'obj-2', value: 26, stimulus: { kind: 'coins', coins: ['quarter', 'penny'] } },
+  ],
+};
+const amounts: ConfigFor<'order'> = {
+  format: 'order',
+  direction: 'asc',
+  items: [
+    { id: 'obj-0', value: 40, label: '40¢' },
+    { id: 'obj-1', value: 15, label: '15¢' },
+    { id: 'obj-2', value: 26, label: '26¢' },
+  ],
+};
+
+/** Purse cards: named by the coins' looks and said as a piece count on tap, never the total. */
+export const MoneyPurseCards: Story = {
+  args: { config: purses, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const two = card(
+      root,
+      '2 pieces of money: a small silver coin with a ridged edge, a big silver coin with a smooth edge',
+    );
+    await userEvent.click(two);
+    await expect(audio.say).toHaveBeenCalledWith('ui.coin.count', { n: 2 });
+    for (const b of root.querySelectorAll('.ni-ord__tray button')) {
+      await expect(b.getAttribute('aria-label') ?? '').not.toMatch(
+        /\d+¢|cents|dime|nickel|quarter|penny/,
+      );
+    }
+  },
+};
+
+/** Amount cards say their amount on tap. */
+export const MoneyAmountCards: Story = {
+  args: { config: amounts, tier: 'abstract' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(card(root, '15¢'));
+    await expect(audio.say).toHaveBeenCalledWith('ui.money.amount', { cents: 15 });
+  },
+};
