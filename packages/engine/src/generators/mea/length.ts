@@ -7,7 +7,9 @@
 // - order       put the objects in order by length (compare-length ask order, or order: numeral
 //               cards, or ruler strips with the `ruler` representation)          MEA.07, MEA.01
 // - indirect    two objects that cannot move side by side; compare them with a string   MEA.07
-// - difference  how much longer is one than the other (compare-length how-much-longer)  MEA.10
+// - difference  how much longer is one than the other (compare-length how-much-longer; K02:
+//               number-pad with a compare bar model of the two lengths, the `bar-model`
+//               representation, or with no picture, the prompt naming `long` and `short`) MEA.10
 // - iterate     lay copies of one unit end to end and count them (measure-length), or count the
 //               units in a picture (number-pad, numeral-pick)                            MEA.02
 // - two-units   measure the same object with two units (measure-length), or say which unit is
@@ -78,7 +80,7 @@ const FORMAT_MODES: Record<string, readonly LengthMode[]> = {
   compare: ['compare', 'two-units'],
   order: ['order'],
   'measure-length': ['iterate', 'two-units', 'read'],
-  'number-pad': ['iterate', 'read'],
+  'number-pad': ['iterate', 'read', 'difference'],
   'numeral-pick': ['iterate', 'read'],
 };
 
@@ -249,6 +251,7 @@ export const meaLength: GeneratorDef = {
     'gen.mea.length.order-then',
     'gen.mea.length.sticks-out',
     'gen.mea.length.longer-by',
+    'gen.mea.length.take-away',
     'gen.mea.length.lay-first',
     'gen.mea.length.lay-next',
     'gen.mea.length.units-long',
@@ -359,13 +362,49 @@ export const meaLength: GeneratorDef = {
     const altLength = asNum(params.altLength);
     const layout = rng.fork('layout');
     const sprite = layout.pick(LENGTH_SPRITES);
-    const vars = pickVars(t, { unit, altUnit, ask, many: 2 });
+    const all = objectLengths(params);
+    const vars = pickVars(t, {
+      unit,
+      altUnit,
+      ask,
+      many: 2,
+      long: Math.max(...all),
+      short: Math.min(...all),
+    });
     const math: Record<string, number> = {};
     let p: PartialOutput;
 
     if (OBJECT_MODES.has(mode)) {
       const lengths = objectLengths(params);
       math.closeness = ratio100(lengthCloseness(lengths));
+      if (t.format === 'number-pad') {
+        // How much longer (difference only): a compare bar model of the two lengths, or (the
+        // symbols representation) no picture, the prompt naming both lengths.
+        const long = Math.max(...lengths);
+        const short = Math.min(...lengths);
+        math['ask.difference'] = 1;
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'number-pad',
+            stimulus:
+              t.representation === 'bar-model'
+                ? {
+                    kind: 'bar-model',
+                    parts: [short, '?'],
+                    whole: long,
+                    compare: { bigger: long, smaller: short },
+                  }
+                : { kind: 'none' },
+            blanks: [{ id: 'n', maxDigits: 2 }],
+            unit: STANDARD.has(unit) ? (unit as 'in' | 'cm' | 'ft' | 'm') : null,
+          },
+          answer: { kind: 'number', value: long - short },
+        };
+        return finish(meaLength, ctx, p);
+      }
       if (t.format === 'compare') {
         // Two ruler strips on one scale; the side of the first length comes from the layout.
         const [a, b] = lengths as [number, number];
@@ -779,6 +818,20 @@ export const meaLength: GeneratorDef = {
       case 'numeral-pick': {
         const n =
           a.kind === 'number' ? a.value : a.kind === 'choice' ? (optionNumber(a.id) ?? 0) : 0;
+        if (asStr(p.mode) === 'difference' && w.format === 'number-pad') {
+          const ls = objectLengths(p);
+          return [
+            say('gen.mea.length.take-away', {
+              long: Math.max(...ls),
+              short: Math.min(...ls),
+            }),
+            say(
+              'gen.mea.length.longer-by',
+              { n },
+              { op: 'type', args: { blank: 'n', value: n } },
+            ),
+          ];
+        }
         const first =
           asStr(p.mode) === 'read'
             ? say('gen.mea.length.read-start', { start: asNum(p.offset) })

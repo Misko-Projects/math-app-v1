@@ -109,6 +109,25 @@ const LENGTH: Case[] = [
     lastOp: 'answer',
   },
   {
+    name: 'number-pad: how much longer, on a compare bar model (MEA.10)',
+    t: tpl('mea.length', 'number-pad', { representation: 'bar-model' }),
+    params: { mode: 'difference', unit: 'in', length: 4, length2: 13 },
+    answer: { kind: 'number', value: 9 },
+    widget: {
+      stimulus: { kind: 'bar-model', parts: [4, '?'], whole: 13, compare: { bigger: 13, smaller: 4 } },
+      unit: 'in',
+    },
+    lastOp: 'type',
+  },
+  {
+    name: 'number-pad: how much longer, the lengths in words only (MEA.10, symbols)',
+    t: tpl('mea.length', 'number-pad', { representation: 'symbols', tier: 'abstract' }),
+    params: { mode: 'difference', unit: 'cm', length: 8, length2: 7 },
+    answer: { kind: 'number', value: 1 },
+    widget: { stimulus: { kind: 'none' }, unit: 'cm' },
+    lastOp: 'type',
+  },
+  {
     name: 'compare: two ruler strips, the same',
     t: tpl('mea.length', 'compare'),
     params: { mode: 'compare', ask: 'longer', length: 6, same: true },

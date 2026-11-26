@@ -1224,6 +1224,9 @@ gen.mea.length.sticks-out:
   text: "Look at the part that sticks out."
 gen.mea.length.longer-by:
   text: "It is {n} longer."
+gen.mea.length.take-away:
+  text: "Take the short one from the long one: {long} take away {short}."
+  level: "2"
 gen.mea.length.lay-first:
   text: "Start right at the end. {n}."
 gen.mea.length.lay-next:
