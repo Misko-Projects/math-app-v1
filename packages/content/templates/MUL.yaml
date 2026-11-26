@@ -56,8 +56,8 @@ templates:
       prompt: tp.MUL.01.t4.prompt
       hints: [h.parity.ends-in, h.parity.partner]
 
-  # MUL.02 equal groups on mul.groups: read the groups, build them, jump them on a number line, or
-  # count a picture of groups. Totals to 25 (5 groups of 5); the line goes to 50 by tens.
+  # MUL.02 equal groups on mul.groups: read the groups, build them, find where drawn jumps land
+  # (number-pad: the jump widget would say the landing aloud), or count a picture of groups. Totals to 25 (5 groups of 5); the line goes to 50 by tens.
   - id: MUL.02.t1
     skillId: MUL.02
     format: equal-groups
@@ -84,12 +84,12 @@ templates:
 
   - id: MUL.02.t3
     skillId: MUL.02
-    format: number-line-jump
+    format: number-pad
     tier: pictorial
     representation: number-line
     generator: mul.groups
     params: { groups: { int: [2, 5] }, perGroup: { choice: [2, 3, 4, 5, 10] }, unknown: total }
-    difficulty: { base: -1.5 }
+    difficulty: { base: -0.7 }
     narration:
       prompt: tp.MUL.02.t3.prompt
       hints: [h.mul.jump-same, h.mul.count-jumps]

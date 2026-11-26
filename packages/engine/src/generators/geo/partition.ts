@@ -60,6 +60,8 @@ export const geoPartition: GeneratorDef = {
     'gen.geo.partition.cols',
     'gen.geo.partition.fill-row',
     'gen.geo.partition.count',
+    'gen.geo.partition.count-rows',
+    'gen.geo.partition.total',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: (p) => ({ result: asNum(p.rows) * asNum(p.cols) }),
@@ -193,10 +195,11 @@ export const geoPartition: GeneratorDef = {
       return steps;
     }
     if (w.format === 'array-build') {
+      // The cubes are drawn already: count them by rows (PR #129 review).
       return [
-        say('gen.geo.partition.rows', { rows }, { op: 'skip-count-rows' }),
+        say('gen.geo.partition.count-rows', { cols }, { op: 'skip-count-rows' }),
         say(
-          'gen.geo.partition.count',
+          'gen.geo.partition.total',
           { counts, result },
           { op: 'answer', args: { value: result } },
         ),

@@ -1740,6 +1740,9 @@ gen.mul.groups.fill:
 gen.mul.groups.share:
   text: "Share them out, one to each group at a time."
   level: "2"
+gen.mul.groups.deal:
+  text: "One for this group."
+  level: "2"
 gen.mul.groups.each:
   text: "Each group has {perGroup}."
   level: "2"
@@ -1781,6 +1784,12 @@ gen.geo.partition.cols:
   level: "2"
 gen.geo.partition.fill-row:
   text: "Fill a row with {cols} squares."
+  level: "2"
+gen.geo.partition.count-rows:
+  text: "Count by rows. Each row has {cols}."
+  level: "2"
+gen.geo.partition.total:
+  text: "{counts}. There are {result} in all."
   level: "2"
 gen.geo.partition.count:
   text: "{counts}. There are {result} squares."

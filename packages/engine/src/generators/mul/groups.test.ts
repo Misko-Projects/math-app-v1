@@ -74,7 +74,6 @@ describe('mul.groups', () => {
     ['dot-flash', 'pictorial', 'groups', 'total', 'read'],
     ['dot-flash', 'pictorial', 'array', 'total', 'read'],
     ['dot-flash', 'pictorial', 'dots', 'total', 'read'],
-    ['number-line-jump', 'pictorial', 'number-line', 'total', 'read'],
     ['number-line-jump', 'pictorial', 'number-line', 'groups', 'read'],
     ['number-pad', 'pictorial', 'objects', 'total', 'read'],
     ['number-pad', 'pictorial', 'objects', 'groups', 'read'],
@@ -130,11 +129,14 @@ describe('mul.groups', () => {
     expect(arr(ARRAY_SIDE_MAX + 1, 2)).toBe(false);
     const nl = tpl('mul.groups', 'number-line-jump', 'pictorial', 'number-line');
     const line = (g: number, q: number) =>
-      mulGroups.accepts?.({ groups: g, perGroup: q, unknown: 'total', result: g * q }, nl);
+      mulGroups.accepts?.({ groups: g, perGroup: q, unknown: 'groups', result: g * q }, nl);
     expect(line(10, 10)).toBe(true);
     expect(MUL_LINE_MAX).toBe(100);
     expect(line(11, 10)).toBe(false);
-    // Sharing has no line: a jump item makes groups or finds a total.
+    // A jump item only makes groups: the widget says each landing aloud, so it never asks the
+    // total (PR #129 review), and sharing has no line.
+    const jumps = solved(nl, { groups: 3, perGroup: 4, unknown: 'total' });
+    expect(jumps.widget.format === 'number-line-jump' && jumps.widget.thenAsk).toBeNull();
     expect(mulGroups.accepts?.({ groups: 2, perGroup: 3, unknown: 'size', result: 6 }, nl)).toBe(
       false,
     );
@@ -174,10 +176,31 @@ describe('mul.groups', () => {
     expect(mulExpression(3, 4, 'size', false)).toBeNull();
   });
 
-  it('a jump item that asks the total does not label the landing', () => {
-    const t = tpl('mul.groups', 'number-line-jump', 'pictorial', 'number-line');
+  it('a number-line picture of the jumps labels only 0, never the landing', () => {
+    const t = tpl('mul.groups', 'number-pad', 'pictorial', 'number-line');
     const item = solved(t, { groups: 4, perGroup: 5, unknown: 'total' });
-    expect(item.widget.format === 'number-line-jump' && item.widget.labelsEvery).toBeNull();
+    const s = item.widget.format === 'number-pad' ? item.widget.stimulus : null;
+    expect(s?.kind === 'number-line' && s.labelsEvery).toBeNull();
+    expect(s?.kind === 'number-line' && s.marks).toEqual([{ at: 0, label: '0' }]);
+  });
+
+  it('a fair-sharing build deals one to each group per round (PR #129 review)', () => {
+    const t = tpl('mul.groups', 'equal-groups', 'concrete', 'groups');
+    const item = solved(t, { groups: 2, perGroup: 4, unknown: 'size', mode: 'build' });
+    const fills = itemSolution(item, t)
+      .map((x) => x.action)
+      .filter((a) => a?.op === 'fill-group')
+      .map((a) => [a?.args?.index, a?.args?.count]);
+    expect(fills).toEqual([
+      [0, 1],
+      [1, 1],
+      [0, 2],
+      [1, 2],
+      [0, 3],
+      [1, 3],
+      [0, 4],
+      [1, 4],
+    ]);
   });
 });
 
@@ -210,6 +233,17 @@ describe('parity.evenodd', () => {
 });
 
 describe('geo.partition', () => {
+  it('an array to read is counted by rows, never drawn (PR #129 review)', () => {
+    const t = tpl('geo.partition', 'array-build', 'pictorial', 'array');
+    const item = solved(t, { rows: 3, cols: 3, mode: 'read' });
+    const steps = itemSolution(item, t);
+    expect(steps.map((x) => x.action?.op)).toEqual(['skip-count-rows', 'answer']);
+    expect(steps.map((x) => x.say)).toEqual([
+      'gen.geo.partition.count-rows',
+      'gen.geo.partition.total',
+    ]);
+  });
+
   it('every rectangle the formats allow solves, rows × cols squares', () => {
     const fmts: [ItemFormat, Tier, Representation, string, number, number][] = [
       ['area-tiles', 'concrete', 'area-grid', 'partition', AREA_WORK_H_MAX, AREA_WORK_W_MAX],

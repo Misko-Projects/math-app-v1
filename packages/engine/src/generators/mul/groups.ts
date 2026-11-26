@@ -12,8 +12,9 @@
 //   and with `signs` (or the symbols representation) a number sentence: groups × perGroup, total ÷
 //   groups, total ÷ perGroup; without `signs` the total is a sum of equal addends.
 // - dot-flash: groups, an array or dots in groups flash; type the total.
-// - number-line-jump: from 0 in jumps of perGroup. The total: `groups` jumps, then say where you
-//   land. The number of groups: hop to the total (named) in jumps of perGroup.
+// - number-line-jump: always making groups: hop from 0 to the total (named) in jumps of perGroup,
+//   whatever `unknown` says (not sharing). It never asks where the jumps land: the jump widget
+//   says each landing aloud (a number-pad with the jumps drawn asks that instead, PR #129 review).
 // Bounds come from the formats (GROUPS_MAX, GROUP_CAPACITY, the pile limits, ARRAY_SIDE_MAX); a
 // draw outside them is redrawn (`accepts`).
 // Not built yet (spec params and formats a later slice adds): `area-tiles`, a ten-rod container
@@ -165,6 +166,7 @@ export const mulGroups: GeneratorDef = {
     'gen.mul.groups.total',
     'gen.mul.groups.fill',
     'gen.mul.groups.share',
+    'gen.mul.groups.deal',
     'gen.mul.groups.each',
     'gen.mul.groups.make-group',
     'gen.mul.groups.how-many-groups',
@@ -298,7 +300,7 @@ export const mulGroups: GeneratorDef = {
         break;
       case 'number-line-jump': {
         const line = lineOf(groups, perGroup);
-        const landing = unknown === 'total';
+        const landing = false;
         p = {
           params,
           vars,
@@ -390,13 +392,31 @@ export const mulGroups: GeneratorDef = {
           ];
         }
         const steps: LessonStep[] = [];
-        for (let k = 0; k < groups; k += 1) {
+        if (unknown === 'size') {
+          // Fair sharing deals one to each group per round (PR #129 review): the size is found,
+          // never assumed.
+          for (let round = 1; round <= perGroup; round += 1) {
+            for (let k = 0; k < groups; k += 1) {
+              steps.push(
+                say(
+                  k === 0 ? 'gen.mul.groups.share' : 'gen.mul.groups.deal',
+                  {},
+                  { op: 'fill-group', args: { index: k, count: round } },
+                ),
+              );
+            }
+          }
+        }
+        for (let k = 0; unknown !== 'size' && k < groups; k += 1) {
           if (unknown === 'groups') {
             steps.push(say('gen.mul.groups.make-group', { perGroup }, { op: 'add-group' }));
           }
-          const key = unknown === 'size' ? 'gen.mul.groups.share' : 'gen.mul.groups.fill';
           steps.push(
-            say(key, { perGroup }, { op: 'fill-group', args: { index: k, count: perGroup } }),
+            say(
+              'gen.mul.groups.fill',
+              { perGroup },
+              { op: 'fill-group', args: { index: k, count: perGroup } },
+            ),
           );
         }
         const last =
