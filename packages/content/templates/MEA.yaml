@@ -487,22 +487,23 @@ templates:
       hints: [h.ruler.start-zero, h.ruler.count-spaces, h.ruler.end-number]
 
   # ---------- K02 slice 4b (#17): MEA.10 how much longer ----------
-  # Two objects side by side on unit ticks, then a compare bar model of two measured lengths, then
-  # the two lengths in words only (two-digit lengths: subtract within 100).
+  # A compare bar model of two measured lengths (pick, then type), then the two lengths in words
+  # only (two-digit lengths: subtract within 100). The ruler representation waits for
+  # compare-length how-much-longer to fit 1280 × 800 (its pad overflows there).
   - id: MEA.10.t1
     skillId: MEA.10
-    format: compare-length
+    format: numeral-pick
     tier: pictorial
-    representation: ruler
+    representation: bar-model
     generator: mea.length
     params:
       mode: difference
       unit: { choice: [in, cm] }
-      length: { int: [2, 12] }
+      length: { int: [3, 20] }
     difficulty: { base: -0.96 }
     narration:
       prompt: tp.MEA.10.t1.prompt
-      hints: [h.length.look-ends, h.length.diff-spaces, h.length.diff-count-on]
+      hints: [h.length.diff-bar, h.length.diff-count-on]
 
   - id: MEA.10.t2
     skillId: MEA.10

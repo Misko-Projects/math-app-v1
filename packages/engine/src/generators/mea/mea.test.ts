@@ -25,14 +25,12 @@ import { lengthCloseness, NONSTANDARD_UNIT_SIZE, objectLengths } from './length'
 import { clearlyLighter, gaugeFor, WEIGHABLES } from './massvolume';
 
 let nextId = 0;
-function tpl(
+/** A test template without an id. */
+function tplShape(
   generator: 'mea.length' | 'mea.massvolume',
   format: ItemFormat,
-  over: Partial<ItemTemplate> = {},
-): ItemTemplate {
-  nextId += 1;
+): Omit<ItemTemplate, 'id'> {
   return {
-    id: `T.${generator}.${format}.${nextId}`,
     skillId: 'X.01',
     format,
     tier: 'pictorial',
@@ -40,8 +38,16 @@ function tpl(
     params: {},
     difficulty: { base: 0, features: {} },
     narration: { prompt: 'p.x', hints: ['h.one', 'h.two', 'h.three'] },
-    ...over,
   };
+}
+
+function tpl(
+  generator: 'mea.length' | 'mea.massvolume',
+  format: ItemFormat,
+  over: Partial<ItemTemplate> = {},
+): ItemTemplate {
+  nextId += 1;
+  return { id: `T.${generator}.${format}.${nextId}`, ...tplShape(generator, format), ...over };
 }
 
 beforeEach(() => {
@@ -107,25 +113,6 @@ const LENGTH: Case[] = [
     answer: { kind: 'number', value: 5 },
     widget: { ask: 'how-much-longer' },
     lastOp: 'answer',
-  },
-  {
-    name: 'number-pad: how much longer, on a compare bar model (MEA.10)',
-    t: tpl('mea.length', 'number-pad', { representation: 'bar-model' }),
-    params: { mode: 'difference', unit: 'in', length: 4, length2: 13 },
-    answer: { kind: 'number', value: 9 },
-    widget: {
-      stimulus: { kind: 'bar-model', parts: [4, '?'], whole: 13, compare: { bigger: 13, smaller: 4 } },
-      unit: 'in',
-    },
-    lastOp: 'type',
-  },
-  {
-    name: 'number-pad: how much longer, the lengths in words only (MEA.10, symbols)',
-    t: tpl('mea.length', 'number-pad', { representation: 'symbols', tier: 'abstract' }),
-    params: { mode: 'difference', unit: 'cm', length: 8, length2: 7 },
-    answer: { kind: 'number', value: 1 },
-    widget: { stimulus: { kind: 'none' }, unit: 'cm' },
-    lastOp: 'type',
   },
   {
     name: 'compare: two ruler strips, the same',
@@ -309,8 +296,45 @@ const MASS: Case[] = [
   },
 ];
 
+// K02 slice 4b (MEA.10): how much longer on the number pad and numeral pick. These templates have
+// fixed ids and leave the counter alone, so every other test template keeps its id (and its draws).
+const k02 = (format: ItemFormat, n: number, over: Partial<ItemTemplate>): ItemTemplate => ({
+  ...tplShape('mea.length', format),
+  id: `T.mea.length.k02.${n}`,
+  ...over,
+});
+const LENGTH_K02: Case[] = [
+  {
+    name: 'number-pad: how much longer, on a compare bar model (MEA.10)',
+    t: k02('number-pad', 1, { representation: 'bar-model' }),
+    params: { mode: 'difference', unit: 'in', length: 4, length2: 13 },
+    answer: { kind: 'number', value: 9 },
+    widget: {
+      stimulus: { kind: 'bar-model', parts: [4, '?'], whole: 13, compare: { bigger: 13, smaller: 4 } },
+      unit: 'in',
+    },
+    lastOp: 'type',
+  },
+  {
+    name: 'number-pad: how much longer, the lengths in words only (MEA.10, symbols)',
+    t: k02('number-pad', 2, { representation: 'symbols', tier: 'abstract' }),
+    params: { mode: 'difference', unit: 'cm', length: 8, length2: 7 },
+    answer: { kind: 'number', value: 1 },
+    widget: { stimulus: { kind: 'none' }, unit: 'cm' },
+    lastOp: 'type',
+  },
+  {
+    name: 'numeral-pick: how much longer, on a compare bar model (MEA.10)',
+    t: k02('numeral-pick', 3, { representation: 'bar-model' }),
+    params: { mode: 'difference', unit: 'in', length: 6, length2: 11 },
+    answer: { kind: 'choice', id: 'opt-5' },
+    widget: { stimulus: { kind: 'bar-model', parts: [6, '?'], whole: 11 } },
+    lastOp: 'tap',
+  },
+];
+
 describe.each([
-  ['mea.length', LENGTH],
+  ['mea.length', [...LENGTH, ...LENGTH_K02]],
   ['mea.massvolume', MASS],
 ] as const)('%s', (generator, cases) => {
   it('covers every format the generator lists', () => {

@@ -81,7 +81,7 @@ const FORMAT_MODES: Record<string, readonly LengthMode[]> = {
   order: ['order'],
   'measure-length': ['iterate', 'two-units', 'read'],
   'number-pad': ['iterate', 'read', 'difference'],
-  'numeral-pick': ['iterate', 'read'],
+  'numeral-pick': ['iterate', 'read', 'difference'],
 };
 
 const OBJECT_MODES = new Set<LengthMode>(['compare', 'order', 'indirect', 'difference']);
@@ -378,31 +378,45 @@ export const meaLength: GeneratorDef = {
     if (OBJECT_MODES.has(mode)) {
       const lengths = objectLengths(params);
       math.closeness = ratio100(lengthCloseness(lengths));
-      if (t.format === 'number-pad') {
+      if (t.format === 'number-pad' || t.format === 'numeral-pick') {
         // How much longer (difference only): a compare bar model of the two lengths, or (the
         // symbols representation) no picture, the prompt naming both lengths.
         const long = Math.max(...lengths);
         const short = Math.min(...lengths);
+        const value = long - short;
         math['ask.difference'] = 1;
+        const stimulus: StimulusSpec =
+          t.representation === 'bar-model'
+            ? {
+                kind: 'bar-model',
+                parts: [short, '?'],
+                whole: long,
+                compare: { bigger: long, smaller: short },
+              }
+            : { kind: 'none' };
+        if (t.format === 'numeral-pick') {
+          const opts = numberOptions(t, params, value, rng, 1);
+          math['distractors.diagnostic'] = opts.diagnostic;
+          p = {
+            params,
+            vars,
+            math,
+            widget: { format: 'numeral-pick', stimulus, options: opts.options, layout: 'row' },
+            answer: { kind: 'choice', id: numberOptionId(value) },
+          };
+          return finish(meaLength, ctx, p);
+        }
         p = {
           params,
           vars,
           math,
           widget: {
             format: 'number-pad',
-            stimulus:
-              t.representation === 'bar-model'
-                ? {
-                    kind: 'bar-model',
-                    parts: [short, '?'],
-                    whole: long,
-                    compare: { bigger: long, smaller: short },
-                  }
-                : { kind: 'none' },
+            stimulus,
             blanks: [{ id: 'n', maxDigits: 2 }],
             unit: STANDARD.has(unit) ? (unit as 'in' | 'cm' | 'ft' | 'm') : null,
           },
-          answer: { kind: 'number', value: long - short },
+          answer: { kind: 'number', value },
         };
         return finish(meaLength, ctx, p);
       }
@@ -819,7 +833,7 @@ export const meaLength: GeneratorDef = {
       case 'numeral-pick': {
         const n =
           a.kind === 'number' ? a.value : a.kind === 'choice' ? (optionNumber(a.id) ?? 0) : 0;
-        if (asStr(p.mode) === 'difference' && w.format === 'number-pad') {
+        if (asStr(p.mode) === 'difference') {
           const ls = objectLengths(p);
           return [
             say('gen.mea.length.take-away', {
@@ -829,7 +843,9 @@ export const meaLength: GeneratorDef = {
             say(
               'gen.mea.length.longer-by',
               { n },
-              { op: 'type', args: { blank: 'n', value: n } },
+              w.format === 'number-pad'
+                ? { op: 'type', args: { blank: 'n', value: n } }
+                : { op: 'tap', args: { id: numberOptionId(n) } },
             ),
           ];
         }

@@ -2623,9 +2623,6 @@ h.ruler.not-zero:
 h.ruler.take-start:
   text: "Count the spaces from where it starts to where it ends."
   level: "2"
-h.length.diff-spaces:
-  text: "Look past the end of the short one. Count the spaces to the end of the long one."
-  level: "2"
 h.length.diff-count-on:
   text: "Count on from the short length to the long length."
   level: "2"

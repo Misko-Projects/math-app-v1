@@ -74,7 +74,7 @@ const GENERATORS: GeneratorDef[] = [
   moneyCoins, // K02 money (MON.01, MON.02, MON.04–MON.06, MON.08)
   timeSequence, // K01 time
   dataSort, // K01 data (DAT.01, DAT.10)
-  dataChart, // K01 data (DAT.02, DAT.09); K02 four categories (DAT.04)
+  dataChart, // K01 data (DAT.02, DAT.09); K02 builds and questions (DAT.04, DAT.05)
   dataLineplot, // K02 line plots (DAT.03)
   patternRepeat, // K01 patterns (ALG.01, ALG.04)
   patternGrow, // K01 patterns (ALG.02)

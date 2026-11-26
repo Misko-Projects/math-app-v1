@@ -66,7 +66,7 @@ tp.MEA.03.t3.prompt:
 tp.MEA.03.t4.prompt:
   text: "Look at the ruler. How many {unit|unit:many} long is it?"
 tp.MEA.10.t1.prompt:
-  text: "How many {unit|unit:many} longer is the long one?"
+  text: "One rope is {long} {unit|unit:many} long. The other is {short} {unit|unit:many} long. How much longer is the long rope?"
 tp.MEA.10.t2.prompt:
   text: "One rope is {long} {unit|unit:many} long. The other is {short} {unit|unit:many} long. How much longer is the long rope?"
 tp.MEA.10.t3.prompt:

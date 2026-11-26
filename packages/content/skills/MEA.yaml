@@ -45,7 +45,8 @@ skills:
     standards: { ccss: [2.MD.A.4] }
     prerequisites: [MEA.03, MDA.11]
     gateway: false
-    representations: [ruler, bar-model, symbols]
+    # The catalog lists ruler too: it waits for compare-length how-much-longer to fit 1280 × 800.
+    representations: [bar-model, symbols]
 
   # MEA.15 (GEO subagent, geo.identify set attributes)
   - id: MEA.15

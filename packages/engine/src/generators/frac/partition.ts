@@ -6,6 +6,8 @@
 //   freely along its lines, and equal parts of different shapes count. Only the grids
 //   NONCONGRUENT_DEMOS lists are drawn (fourths of 4 × 4 or 8 × 2, thirds of 6 × 2): the worked
 //   solution cuts each into squares and bars of the same size, so equal shares look different.
+//   No shipped template uses it yet: FRA.16 stays planned until a pictorial grid picture exists
+//   (V27), so the grid cut is reachable only through its tests (frac.test.ts).
 // - `fair-or-not` (fraction-pick, FRA.07): one shape cut into `den` parts, equal when
 //   `equalParts`; the child answers `yes` | `no`.
 // - `pick` (fraction-pick pick-picture, FRA.01): three pictures of the same shape (halves, fourths,
