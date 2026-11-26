@@ -8,8 +8,8 @@
 //               cards, or ruler strips with the `ruler` representation)          MEA.07, MEA.01
 // - indirect    two objects that cannot move side by side; compare them with a string   MEA.07
 // - difference  how much longer is one than the other (compare-length how-much-longer; K02:
-//               number-pad with a compare bar model of the two lengths, the `bar-model`
-//               representation, or with no picture, the prompt naming `long` and `short`) MEA.10
+//               number-pad and numeral-pick: both lengths on a ruler from 0 with the `ruler`
+//               representation, or no picture; the prompt names `long` and `short`) MEA.10
 // - iterate     lay copies of one unit end to end and count them (measure-length), or count the
 //               units in a picture (number-pad, numeral-pick)                            MEA.02
 // - two-units   measure the same object with two units (measure-length), or say which unit is
@@ -379,19 +379,22 @@ export const meaLength: GeneratorDef = {
       const lengths = objectLengths(params);
       math.closeness = ratio100(lengthCloseness(lengths));
       if (t.format === 'number-pad' || t.format === 'numeral-pick') {
-        // How much longer (difference only): a compare bar model of the two lengths, or (the
-        // symbols representation) no picture, the prompt naming both lengths.
+        // How much longer (difference only): with the `ruler` representation, both lengths on a
+        // ruler from 0 (a dot where the short one ends, an arrow where the long one ends);
+        // otherwise no picture. The prompt names both lengths either way.
         const long = Math.max(...lengths);
         const short = Math.min(...lengths);
         const value = long - short;
         math['ask.difference'] = 1;
         const stimulus: StimulusSpec =
-          t.representation === 'bar-model'
+          t.representation === 'ruler'
             ? {
-                kind: 'bar-model',
-                parts: [short, '?'],
-                whole: long,
-                compare: { bigger: long, smaller: short },
+                kind: 'number-line',
+                min: 0,
+                max: long + 1,
+                ticksEvery: 1,
+                labelsEvery: 1,
+                marks: [{ at: short }, { at: long, arrow: true }],
               }
             : { kind: 'none' };
         if (t.format === 'numeral-pick') {

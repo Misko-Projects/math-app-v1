@@ -306,12 +306,12 @@ const k02 = (format: ItemFormat, n: number, over: Partial<ItemTemplate>): ItemTe
 });
 const LENGTH_K02: Case[] = [
   {
-    name: 'number-pad: how much longer, on a compare bar model (MEA.10)',
-    t: k02('number-pad', 1, { representation: 'bar-model' }),
+    name: 'number-pad: how much longer, both on a ruler from 0 (MEA.10)',
+    t: k02('number-pad', 1, { representation: 'ruler' }),
     params: { mode: 'difference', unit: 'in', length: 4, length2: 13 },
     answer: { kind: 'number', value: 9 },
     widget: {
-      stimulus: { kind: 'bar-model', parts: [4, '?'], whole: 13, compare: { bigger: 13, smaller: 4 } },
+      stimulus: { kind: 'number-line', min: 0, max: 14, marks: [{ at: 4 }, { at: 13, arrow: true }] },
       unit: 'in',
     },
     lastOp: 'type',
@@ -325,11 +325,11 @@ const LENGTH_K02: Case[] = [
     lastOp: 'type',
   },
   {
-    name: 'numeral-pick: how much longer, on a compare bar model (MEA.10)',
-    t: k02('numeral-pick', 3, { representation: 'bar-model' }),
+    name: 'numeral-pick: how much longer, both on a ruler from 0 (MEA.10)',
+    t: k02('numeral-pick', 3, { representation: 'ruler' }),
     params: { mode: 'difference', unit: 'in', length: 6, length2: 11 },
     answer: { kind: 'choice', id: 'opt-5' },
-    widget: { stimulus: { kind: 'bar-model', parts: [6, '?'], whole: 11 } },
+    widget: { stimulus: { kind: 'number-line', max: 12, marks: [{ at: 6 }, { at: 11, arrow: true }] } },
     lastOp: 'tap',
   },
 ];

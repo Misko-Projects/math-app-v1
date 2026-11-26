@@ -2630,8 +2630,8 @@ h.ruler.take-start:
 h.length.diff-count-on:
   text: "Count on from the short length to the long length."
   level: "2"
-h.length.diff-bar:
-  text: "The long bar goes on past the short one. That part shows how much longer."
+h.length.diff-ruler:
+  text: "Both start at 0. Count the spaces from the dot to the arrow."
   level: "2"
 h.length.diff-take-away:
   text: "Take the short length away from the long length."

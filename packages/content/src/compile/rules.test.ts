@@ -150,6 +150,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.11',
       'DAT.01',
       'DAT.02',
+      'DAT.03',
+      'DAT.04',
+      'DAT.05',
       'DAT.09',
       'DAT.10',
       'FRA.01',
@@ -167,6 +170,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'GEO.09',
       'GEO.10',
       'GEO.11',
+      'GEO.12',
+      'GEO.15',
+      'GEO.16',
       'MDA.01',
       'MDA.02',
       'MDA.03',
@@ -190,7 +196,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MDA.25',
       'MEA.01',
       'MEA.02',
+      'MEA.03',
       'MEA.07',
+      'MEA.10',
       'MEA.15',
       'MEA.16',
       'MEA.22',
@@ -286,6 +294,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.recount-from-one',
       'MC.round-down-always',
       'MC.round-wrong-place',
+      'MC.ruler-count-ticks',
+      'MC.ruler-read-end',
       'MC.skip-count-slip',
       'MC.smaller-from-larger',
       'MC.start-unknown-reversed',
@@ -347,6 +357,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'time.sequence',
         'data.sort',
         'data.chart',
+        'data.lineplot',
         'pattern.repeat',
         'pattern.grow',
         'puzzle.grid',
@@ -1914,10 +1925,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // (K02 slice 2b) added 8 skills, 22 templates and MC.borrow-across-zero; equal groups and
       // arrays (K02 slice 3a) added 9 skills, 33 templates, MC.add-instead-of-multiply and
       // MC.skip-count-slip; facts and strategies (K02 slice 3b) added 7 skills, 25 templates,
-      // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped.
-      skills: 181,
-      templates: 670,
-      misconceptions: 42,
+      // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped;
+      // rulers, line plots, graphs, faces and corners (K02 slice 4b) added 8 skills, 28 templates,
+      // MC.ruler-count-ticks and MC.ruler-read-end.
+      skills: 189,
+      templates: 698,
+      misconceptions: 44,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1976,8 +1989,9 @@ describe('graph.json (03 §9.1)', () => {
     expect(g?.descendants2['CPS.03']).toBe(10);
     // CNT.07, CNT.15, CPS.04, DAT.09, MEA.02, MUL.12, PV.09; then ADD.03, ADD.08, CMP.03, CMP.07,
     // CNT.08, CNT.09, CNT.14, CNT.19, CPS.07, FRA.07, MEA.22, PV.10, PV.11 and SUB.04; K02 slice
-    // 3a adds GEO.03 and then GEO.04 and MUL.05
-    expect(g?.descendants2['CNT.06']).toBe(24);
+    // 3a adds GEO.03 and then GEO.04 and MUL.05; slice 4b adds MEA.03 (under MEA.02), DAT.04
+    // (under DAT.09), GEO.12, GEO.15 and GEO.16 (under GEO.03)
+    expect(g?.descendants2['CNT.06']).toBe(29);
     expect(g?.encompasses).toEqual([
       ['ADD.06', 'ADD.02', 1],
       ['ADD.08', 'CPS.03', 1],
@@ -1992,6 +2006,7 @@ describe('graph.json (03 §9.1)', () => {
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
       ['CNT.10', 'CNT.09', 1],
+      ['DAT.05', 'DAT.02', 0.6],
       ['MDA.01', 'ADD.06', 0.5],
       ['MDA.01', 'PV.03', 0.5],
       ['MDA.03', 'ADD.14', 0.8],

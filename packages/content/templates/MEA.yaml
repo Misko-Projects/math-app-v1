@@ -487,38 +487,38 @@ templates:
       hints: [h.ruler.start-zero, h.ruler.count-spaces, h.ruler.end-number]
 
   # ---------- K02 slice 4b (#17): MEA.10 how much longer ----------
-  # A compare bar model of two measured lengths (pick, then type), then the two lengths in words
-  # only (two-digit lengths: subtract within 100). The ruler representation waits for
-  # compare-length how-much-longer to fit 1280 × 800 (its pad overflows there).
+  # Two lengths on a ruler from 0 (pick, then type), then the two lengths in words only (two-digit
+  # lengths: subtract within 100). compare-length how-much-longer waits: its pad overflows
+  # 1280 × 800. The bar-model representation waits for bar-model pictures (U04).
   - id: MEA.10.t1
     skillId: MEA.10
     format: numeral-pick
     tier: pictorial
-    representation: bar-model
+    representation: ruler
     generator: mea.length
     params:
       mode: difference
       unit: { choice: [in, cm] }
-      length: { int: [3, 20] }
+      length: { int: [3, 15] }
     difficulty: { base: -0.96 }
     narration:
       prompt: tp.MEA.10.t1.prompt
-      hints: [h.length.diff-bar, h.length.diff-count-on]
+      hints: [h.length.diff-ruler, h.length.diff-count-on]
 
   - id: MEA.10.t2
     skillId: MEA.10
     format: number-pad
     tier: pictorial
-    representation: bar-model
+    representation: ruler
     generator: mea.length
     params:
       mode: difference
       unit: { choice: [in, cm] }
-      length: { int: [5, 30] }
+      length: { int: [3, 15] }
     difficulty: { base: -1.11 }
     narration:
       prompt: tp.MEA.10.t2.prompt
-      hints: [h.length.diff-bar, h.length.diff-count-on, h.length.diff-take-away]
+      hints: [h.length.diff-ruler, h.length.diff-count-on, h.length.diff-take-away]
 
   - id: MEA.10.t3
     skillId: MEA.10
