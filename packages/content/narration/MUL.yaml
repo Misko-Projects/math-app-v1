@@ -8,3 +8,65 @@ tp.MUL.12.t2.prompt:
   text: "Share them so each friend gets the same. The seagull gets the ones left over."
 tp.MUL.12.t3.prompt:
   text: "Pip shares them with {recipients} friends. How many does each friend get?"
+
+# K02 (#17) slice 3a
+sk.MUL.01.intro:
+  text: "Even or odd? Let's see if everyone has a partner!"
+sk.MUL.02.intro:
+  text: "Equal groups! Every group has the same number."
+sk.MUL.03.intro:
+  text: "An array has equal rows. Count them by rows!"
+sk.MUL.04.intro:
+  text: "Groups of the same number, again and again. That is times!"
+sk.MUL.05.intro:
+  text: "Share them equally, so every group gets the same."
+sk.MUL.22.intro:
+  text: "How many groups can we make?"
+tp.MUL.01.t1.prompt:
+  text: "Share the {sprite|noun:n} between two friends. Is {n} even or odd?"
+tp.MUL.01.t2.prompt:
+  text: "Share them between two friends. How many are left with no partner?"
+tp.MUL.01.t3.prompt:
+  text: "Pair them up, two by two. How many are left with no partner?"
+tp.MUL.01.t4.prompt:
+  text: "Sort the numbers. Is each one even or odd?"
+tp.MUL.02.t1.prompt:
+  text: "There are {groups} groups of {perGroup}. How many in all?"
+tp.MUL.02.t2.prompt:
+  text: "Make {groups} groups of {perGroup}. How many in all?"
+tp.MUL.02.t3.prompt:
+  text: "Make {groups} jumps of {perGroup}. Where do you land?"
+tp.MUL.02.t4.prompt:
+  text: "How many {sprite|noun:total} are there in all?"
+tp.MUL.03.t1.prompt:
+  text: "Make {groups} rows of {perGroup}."
+tp.MUL.03.t2.prompt:
+  text: "How many in all? Use the equal rows."
+tp.MUL.03.t3.prompt:
+  text: "Add the equal rows. What is the total?"
+tp.MUL.04.t1.prompt:
+  text: "Make {groups} groups of {perGroup}. That is {groups} times {perGroup}. How many in all?"
+tp.MUL.04.t2.prompt:
+  text: "There are {groups} rows of {perGroup}. How much is {groups} times {perGroup}?"
+tp.MUL.04.t3.prompt:
+  text: "Here are {groups} jumps of {perGroup}. How much is {groups} times {perGroup}?"
+tp.MUL.04.t4.prompt:
+  text: "Think of equal groups. What is the total?"
+tp.MUL.05.t1.prompt:
+  text: "Share the {sprite|noun:items} equally among {recipients} friends. How many does each friend get?"
+tp.MUL.05.t2.prompt:
+  text: "Share {total} {sprite|noun:total} equally into {groups} groups. How many in each group?"
+tp.MUL.05.t3.prompt:
+  text: "The {sprite|noun:total} are shared equally into {groups} rows. How many in each row?"
+tp.MUL.05.t4.prompt:
+  text: "Share {total} equally into {groups} groups. How many in each group?"
+tp.MUL.22.t1.prompt:
+  text: "Put {total} {sprite|noun:total} into groups of {perGroup}. How many groups can you make?"
+tp.MUL.22.t2.prompt:
+  text: "Hop from 0 to {total} in jumps of {perGroup}."
+tp.MUL.22.t3.prompt:
+  text: "Make groups of {perGroup}. How many groups can you make?"
+ls.MUL.04.outro:
+  text: "Times means groups of. Three times four is three groups of four!"
+ls.MUL.05.outro:
+  text: "Share equally, and every group gets the same. That is dividing!"

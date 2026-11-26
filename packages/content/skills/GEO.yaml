@@ -20,6 +20,25 @@ skills:
     gateway: false
     representations: [shapes, dot-grid]
 
+  # K02 (#17) slice 3a: name polygons; split a rectangle into rows and columns of squares.
+  - id: GEO.03
+    name: Name polygons by counting sides and corners (triangle to hexagon)
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.G.A.1] }
+    prerequisites: [GEO.02, CNT.06]
+    gateway: false
+    representations: [shapes, dot-grid]
+
+  - id: GEO.04
+    name: Split a rectangle into rows and columns of equal squares; count them
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.G.A.2] }
+    prerequisites: [GEO.03, MUL.02]
+    gateway: true
+    representations: [tiles, array, area-grid, symbols]
+
   - id: GEO.05
     name: "Position words: above, below, beside, in front of, behind, next to"
     kind: concept

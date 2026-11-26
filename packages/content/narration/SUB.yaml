@@ -47,3 +47,13 @@ ls.SUB.03.w1.s3:
   text: "Five and {more} more make {n}!"
   voice: pip
   style: excited
+
+# K02 (#17) slice 3a
+sk.SUB.09.intro:
+  text: "Look fast! See the groups, then say how many."
+tp.SUB.09.t1.prompt:
+  text: "Look fast! How many in all?"
+tp.SUB.09.t2.prompt:
+  text: "Look fast at the rows! How many in all?"
+tp.SUB.09.t4.prompt:
+  text: "How many in all? Look at the equal rows."

@@ -119,6 +119,112 @@ templates:
       prompt: p.geo.find-every
       hints: [h.geo.closed, h.geo.any-turn]
 
+  # GEO.03 (K02 #17 slice 3a): name triangles, pentagons and hexagons by their sides and corners.
+  # Draw one on dots, sort turned and resized polygons by name, pick the named one.
+  - id: GEO.03.t1
+    skillId: GEO.03
+    format: shape-compose
+    tier: concrete
+    representation: dot-grid
+    generator: geo.draw
+    params:
+      kind: { choice: [triangle, pentagon, hexagon] }
+      tool: dots
+      cols: 6
+      rows: 3
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.GEO.03.t1.prompt
+      hints: [h.geo.name-sides, h.geo.dots]
+
+  - id: GEO.03.t2
+    skillId: GEO.03
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: polygons
+      rule: kind
+      mode: sort
+      kind: { choice: [triangle, pentagon, hexagon] }
+      other: { choice: [triangle, pentagon, hexagon] }
+      cards: { int: [5, 6] }
+      nonPrototypical: true
+    constraints: ["kind != other"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.GEO.03.t2.prompt
+      hints: [h.geo.count-sides, h.geo.name-sides]
+
+  - id: GEO.03.t3
+    skillId: GEO.03
+    format: numeral-pick
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: polygons
+      rule: kind
+      kind: { choice: [triangle, pentagon, hexagon] }
+      cards: { int: [3, 4] }
+      nonPrototypical: { bool: 0.5 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: p.geo.which-kind
+      hints: [h.geo.count-sides, h.geo.name-sides]
+
+  # GEO.04 (K02 #17 slice 3a, gateway) on geo.partition: draw the row and column lines, cover with
+  # squares and count, count an array of squares, then rows of squares in words. Up to 4 rows of 5
+  # to work on, 5 × 5 to count.
+  - id: GEO.04.t1
+    skillId: GEO.04
+    format: area-tiles
+    tier: concrete
+    representation: area-grid
+    generator: geo.partition
+    params: { rows: { int: [2, 4] }, cols: { int: [2, 5] }, mode: partition }
+    difficulty: { base: -1.0 }
+    narration:
+      prompt: tp.GEO.04.t1.prompt
+      hints: [h.partition.lines, h.partition.same-size]
+
+  - id: GEO.04.t2
+    skillId: GEO.04
+    format: area-tiles
+    tier: concrete
+    representation: tiles
+    generator: geo.partition
+    params: { rows: { int: [2, 4] }, cols: { int: [2, 5] }, mode: tile }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.GEO.04.t2.prompt
+      hints: [h.partition.cover, h.partition.count-rows]
+
+  - id: GEO.04.t3
+    skillId: GEO.04
+    format: array-build
+    tier: pictorial
+    representation: array
+    generator: geo.partition
+    params: { rows: { int: [2, 5] }, cols: { int: [2, 5] }, mode: read }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.04.t3.prompt
+      hints: [h.partition.count-rows, h.mul.add-rows]
+
+  - id: GEO.04.t4
+    skillId: GEO.04
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: geo.partition
+    params: { rows: { int: [2, 5] }, cols: { int: [2, 5] } }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.GEO.04.t4.prompt
+      hints: [h.partition.picture, h.mul.add-rows]
+
   # GEO.05: position words
   - id: GEO.05.t1
     skillId: GEO.05

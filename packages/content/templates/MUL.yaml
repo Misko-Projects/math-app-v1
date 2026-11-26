@@ -4,6 +4,250 @@
 # teaches (PR #84 review), and t1 and t2 already assess the deal.
 strand: MUL
 templates:
+  # ---------- K02 (#17) slice 3a ----------
+  # MUL.01 even and odd on parity.evenodd: share between two (say even or odd; type how many are
+  # left without a partner), the same on ten-frames, then sort number cards.
+  - id: MUL.01.t1
+    skillId: MUL.01
+    format: equal-share
+    tier: concrete
+    representation: objects
+    generator: parity.evenodd
+    params: { n: { int: [2, 16] }, ask: even-odd }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.MUL.01.t1.prompt
+      hints: [h.parity.pairs, h.parity.partner]
+
+  - id: MUL.01.t2
+    skillId: MUL.01
+    format: equal-share
+    tier: concrete
+    representation: groups
+    generator: parity.evenodd
+    params: { n: { int: [3, 20] }, ask: leftover }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.MUL.01.t2.prompt
+      hints: [h.parity.pairs, h.parity.left]
+
+  - id: MUL.01.t3
+    skillId: MUL.01
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: parity.evenodd
+    params: { n: { int: [2, 20] } }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.01.t3.prompt
+      hints: [h.parity.two-by-two, h.parity.left]
+
+  - id: MUL.01.t4
+    skillId: MUL.01
+    format: shape-sort
+    tier: pictorial
+    representation: symbols
+    generator: parity.evenodd
+    params: { n: { int: [8, 20] }, cards: { int: [4, 6] } }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.01.t4.prompt
+      hints: [h.parity.ends-in, h.parity.partner]
+
+  # MUL.02 equal groups on mul.groups: read the groups, build them, jump them on a number line, or
+  # count a picture of groups. Totals to 25 (5 groups of 5); the line goes to 50 by tens.
+  - id: MUL.02.t1
+    skillId: MUL.02
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: total, mode: read }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.02.t1.prompt
+      hints: [h.mul.count-by, h.mul.add-groups]
+
+  - id: MUL.02.t2
+    skillId: MUL.02
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: total, mode: build }
+    difficulty: { base: -0.2 }
+    narration:
+      prompt: tp.MUL.02.t2.prompt
+      hints: [h.mul.fill-same, h.mul.count-by]
+
+  - id: MUL.02.t3
+    skillId: MUL.02
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { choice: [2, 3, 4, 5, 10] }, unknown: total }
+    difficulty: { base: -1.5 }
+    narration:
+      prompt: tp.MUL.02.t3.prompt
+      hints: [h.mul.jump-same, h.mul.count-jumps]
+
+  - id: MUL.02.t4
+    skillId: MUL.02
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: total }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.MUL.02.t4.prompt
+      hints: [h.mul.count-by, h.mul.add-groups]
+
+  # MUL.03 arrays to 5 × 5: build rows of a size, read an array of tiles, add the equal rows.
+  - id: MUL.03.t1
+    skillId: MUL.03
+    format: array-build
+    tier: concrete
+    representation: array
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: total, mode: build }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.MUL.03.t1.prompt
+      hints: [h.mul.row-across, h.mul.same-row]
+
+  - id: MUL.03.t2
+    skillId: MUL.03
+    format: array-build
+    tier: pictorial
+    representation: tiles
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: total, mode: read }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.03.t2.prompt
+      hints: [h.mul.count-by-rows, h.mul.add-rows]
+
+  - id: MUL.03.t3
+    skillId: MUL.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: total }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.MUL.03.t3.prompt
+      hints: [h.mul.add-same, h.mul.count-by]
+
+  # MUL.04 (gateway) multiplication means equal groups: groups, an array and jumps, each named
+  # a × b, then the number sentence alone. Factors 2–6.
+  - id: MUL.04.t1
+    skillId: MUL.04
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, mode: build }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.04.t1.prompt
+      hints: [h.mul.times-groups, h.mul.count-by]
+
+  - id: MUL.04.t2
+    skillId: MUL.04
+    format: array-build
+    tier: pictorial
+    representation: array
+    generator: mul.groups
+    params: { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, mode: read }
+    difficulty: { base: -1.0 }
+    narration:
+      prompt: tp.MUL.04.t2.prompt
+      hints: [h.mul.times-rows, h.mul.count-by-rows]
+
+  - id: MUL.04.t3
+    skillId: MUL.04
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: mul.groups
+    params:
+      { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, signs: true }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.MUL.04.t3.prompt
+      hints: [h.mul.times-jumps, h.mul.count-jumps]
+
+  - id: MUL.04.t4
+    skillId: MUL.04
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.groups
+    params:
+      { groups: { int: [2, 6] }, perGroup: { int: [2, 6] }, unknown: total, signs: true }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.MUL.04.t4.prompt
+      hints: [h.mul.times-groups, h.mul.count-by]
+
+  # MUL.05 (gateway) division as fair sharing: deal a pile, share into groups, read equal rows,
+  # then the ÷ sentence alone. Partitive only (MUL.22 makes groups).
+  - id: MUL.05.t1
+    skillId: MUL.05
+    format: equal-share
+    tier: concrete
+    representation: objects
+    generator: div.share
+    params:
+      ask: each
+      items: { int: [6, 24] }
+      recipients: { choice: [2, 3, 4] }
+    difficulty: { base: -0.5 }
+    expectedLatencyMs: 20000
+    narration:
+      prompt: tp.MUL.05.t1.prompt
+      hints: [h.share.one-each, h.share.same-for-all]
+
+  - id: MUL.05.t2
+    skillId: MUL.05
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 6] }, unknown: size, mode: build }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.MUL.05.t2.prompt
+      hints: [h.mul.share-round, h.mul.fill-same]
+
+  - id: MUL.05.t3
+    skillId: MUL.05
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 6] }, unknown: size, signs: true }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.05.t3.prompt
+      hints: [h.mul.share-rows, h.mul.groups-of]
+
+  - id: MUL.05.t4
+    skillId: MUL.05
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 6] }, unknown: size, signs: true }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.05.t4.prompt
+      hints: [h.mul.share-round, h.mul.groups-of]
+
   - id: MUL.12.t1
     skillId: MUL.12
     format: equal-share
@@ -51,3 +295,41 @@ templates:
     narration:
       prompt: tp.MUL.12.t3.prompt
       hints: [h.share.one-each, h.share.count-one]
+
+  # MUL.22 division as making groups (quotative): make groups of a size from a pile, hop to the
+  # total in jumps of that size, or group a picture of a pile.
+  - id: MUL.22.t1
+    skillId: MUL.22
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: groups, mode: build }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.MUL.22.t1.prompt
+      hints: [h.mul.make-groups, h.mul.count-groups]
+
+  - id: MUL.22.t2
+    skillId: MUL.22
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { choice: [2, 3, 4, 5, 10] }, unknown: groups }
+    difficulty: { base: -1.9 }
+    narration:
+      prompt: tp.MUL.22.t2.prompt
+      hints: [h.mul.jump-same, h.mul.count-jumps]
+
+  - id: MUL.22.t3
+    skillId: MUL.22
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: mul.groups
+    params: { groups: { int: [2, 5] }, perGroup: { int: [2, 5] }, unknown: groups }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.MUL.22.t3.prompt
+      hints: [h.mul.make-groups, h.mul.count-groups]

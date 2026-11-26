@@ -1,7 +1,52 @@
-# K01 (#11): the grade-1 MUL row of 03 §3.10. MUL.01–11 and MUL.13–23 are grade 2–3 (K02;
-# graph.yaml plannedIds).
+# K01 (#11): the grade-1 MUL row of 03 §3.10. K02 (#17) slice 3a adds MUL.01–05 and MUL.22;
+# MUL.06–11 and MUL.13–21 are planned (graph.yaml plannedIds), MUL.23 comes later.
 strand: MUL
 skills:
+  - id: MUL.01
+    name: "Even and odd: can everyone have a partner?"
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.OA.C.3] }
+    prerequisites: [ADD.07, CNT.11]
+    gateway: false
+    representations: [objects, groups, ten-frame, symbols]
+
+  - id: MUL.02
+    name: "Equal groups: find the total by skip-counting or adding"
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.OA.C.4] }
+    prerequisites: [CNT.11, ADD.13]
+    gateway: false
+    representations: [objects, groups, number-line]
+
+  - id: MUL.03
+    name: "Arrays to 5 × 5: the total as a sum of equal rows"
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.OA.C.4] }
+    prerequisites: [MUL.02, GEO.04]
+    gateway: false
+    representations: [tiles, array, symbols]
+
+  - id: MUL.04
+    name: "Multiplication means equal groups: a × b"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.OA.A.1] }
+    prerequisites: [MUL.03]
+    gateway: true
+    representations: [groups, array, number-line, symbols]
+
+  - id: MUL.05
+    name: "Division as fair sharing: how many in each group?"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.OA.A.2] }
+    prerequisites: [MUL.12, MUL.02]
+    gateway: true
+    representations: [objects, groups, array, symbols]
+
   - id: MUL.12
     name: Share a set fairly by dealing one at a time
     kind: concept
@@ -11,3 +56,12 @@ skills:
     gateway: false
     # No groups: the one-basket make-set template was dropped in the PR #84 review.
     representations: [objects]
+
+  - id: MUL.22
+    name: "Division as making groups: how many groups of 4 are in 12?"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.OA.A.2] }
+    prerequisites: [MUL.02]
+    gateway: false
+    representations: [objects, groups, number-line]

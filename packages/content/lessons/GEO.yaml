@@ -49,3 +49,34 @@ lessons:
       - { seed: 1329844814, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [GEO.08.t5] }
+
+  # GEO.04 (gateway, K02 #17 slice 3a): draw the lines, then cover with squares and count an array
+  # of squares (a second and third representation, 03 §6.4).
+  - skillId: GEO.04
+    mode: authored
+    templateId: GEO.04.t1
+    worked:
+      - params: { rows: 2, cols: 3, mode: partition }
+    faded:
+      - templateId: GEO.04.t2
+        params: { rows: 2, cols: 4, mode: tile }
+        childSteps: 1
+      - templateId: GEO.04.t3
+        params: { rows: 3, cols: 3, mode: read }
+        childSteps: 1
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.GEO.04.outro
+
+  # GEO.03 (K02 #17 slice 3a): pins the test-out pool to the pictorial constructed sort (t2); the
+  # numeral-pick (t3) answers with a choice. The examples play the concrete drawing template.
+  - skillId: GEO.03
+    mode: authored
+    templateId: GEO.03.t1
+    worked:
+      - { seed: 1301, target: easy }
+    faded:
+      - { seed: 1302, target: typical, childSteps: 1 }
+      - { seed: 1303, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [GEO.03.t2] }

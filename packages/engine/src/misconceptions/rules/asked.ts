@@ -47,7 +47,8 @@ export function askedNumbers(item: GeneratedItem): number[] | null {
 /**
  * State answers that carry the asked number as `target.value`: the typed landing of a jump, the
  * typed total after filling frames or sliding beads (thenAsk), a base-ten build's value, and the
- * result typed after computing on the place-value mat (base-ten-trade `compute` with thenAsk).
+ * result typed after computing on the place-value mat (base-ten-trade `compute` with thenAsk), and
+ * the unknown typed after building equal groups (K02 slice 3a).
  */
 const VALUE_STATE_FORMATS = new Set<string>([
   'number-line-jump',
@@ -55,6 +56,7 @@ const VALUE_STATE_FORMATS = new Set<string>([
   'rekenrek',
   'base-ten-build',
   'base-ten-trade',
+  'equal-groups',
 ]);
 
 /** The non-zero place values of n, largest first (41 → 40, 1). */
@@ -152,6 +154,13 @@ export function responseWith(item: GeneratedItem, values: number[]): ResponseVal
           kind: 'state',
           value: { hundreds: c.hundreds + 10 * c.thousands, tens: c.tens, ones: c.ones, value: v },
         };
+      }
+      // Equal groups built right, then the rewritten number typed.
+      if (w.format === 'equal-groups') {
+        const g = Number(a.target.groups);
+        const per = Number(a.target.perGroup);
+        if (!Number.isInteger(g) || !Number.isInteger(per)) return null;
+        return { kind: 'state', value: { groups: new Array<number>(g).fill(per), value: v } };
       }
       if (item.widget.format !== 'number-line-jump') return null;
       const t = a.target as { start: number; target: number; allowedJumps: number[] };

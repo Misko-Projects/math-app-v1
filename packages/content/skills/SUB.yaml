@@ -72,3 +72,13 @@ skills:
     prerequisites: [SUB.04, PV.01]
     gateway: false
     representations: [bundles, base-ten]
+
+  # K02 (#17) slice 3a: quick-read equal groups and small arrays.
+  - id: SUB.09
+    name: Quick-read equal groups and small arrays (3 groups of 4)
+    kind: concept
+    grade: 2
+    standards: { ccss: [], supports: [2.OA.C.4] }
+    prerequisites: [SUB.06, MUL.02]
+    gateway: false
+    representations: [groups, array, dots]
