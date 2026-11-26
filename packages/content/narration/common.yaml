@@ -2223,7 +2223,7 @@ fb.balance.retry:
 fb.balance.retry-sides:
   text: "Work out each side. Are they the same?"
 fb.clues.retry:
-  text: "Check each clue again, one at a time."
+  text: "Listen again. Your number must fit every part."
 fb.shape-compose.retry:
   text: "Look at the outline again. Try turning a piece."
 fb.puzzle-grid.retry:

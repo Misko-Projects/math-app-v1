@@ -257,7 +257,7 @@ templates:
       cents: { choice: [10, 15, 20, 25] }
       kinds: { choice: [dn, qdn] }
       found: { int: [1, 2] }
-    difficulty: { base: -0.5 }
+    difficulty: { base: -0.35 }
     narration: { prompt: tp.PUZ.09.t1.prompt, hints: [h.coins.ways-found, h.coins.ways-trade] }
 
   # How many ways, told in words (a coins picture is shown only by the coin formats).
