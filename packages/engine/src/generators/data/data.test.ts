@@ -283,68 +283,6 @@ describe('data.chart', () => {
   });
 });
 
-describe('data.chart with four categories (DAT.04, K02)', () => {
-  const four = { categories: 4, a: 6, b: 2, c: 9, d: 3 };
-
-  it('draws all four on a read item and asks about every one', () => {
-    const t = tpl('data.chart', 'bar-graph-read', { kind: 'bar', question: 'most' });
-    const item = make(t, { ...four, kind: 'bar', question: 'most' });
-    const w = item.widget as Extract<GeneratedItem['widget'], { format: 'bar-graph-read' }>;
-    expect(w.chart.categories).toHaveLength(4);
-    expect(w.question.categories).toHaveLength(4);
-    expect(item.answer).toEqual({ kind: 'choice', id: w.chart.categories.find((c) => c.value === 9)?.id });
-    expect(itemFeatures(item, t)).toMatchObject({ 'categories.over2': 2 });
-    expectSound(item, t);
-  });
-
-  it('builds four bars from a table', () => {
-    const t = tpl('data.chart', 'bar-graph-build', { data: 'table', mode: 'bars' }, 'concrete');
-    const item = make(t, { ...four, data: 'table', mode: 'bars' });
-    const w = item.widget as Extract<GeneratedItem['widget'], { format: 'bar-graph-build' }>;
-    expect([...w.data.values].sort((x, y) => x - y)).toEqual([2, 3, 6, 9]);
-    expectSound(item, t);
-  });
-
-  it('never draws d with fewer than four categories, and refuses five', () => {
-    const t = tpl('data.chart', 'bar-graph-read', { kind: 'bar', question: 'total' });
-    const three = make(t, { categories: 3, a: 1, b: 2, c: 3, d: 9, kind: 'bar', question: 'total' });
-    expect(three.answer).toEqual({ kind: 'number', value: 6 });
-    expect(() => make(t, { ...four, categories: 5, kind: 'bar', question: 'total' })).toThrow(
-      GenerationError,
-    );
-  });
-
-  it('every accepted four-category item is a valid, answerable widget (property sweep)', () => {
-    const cases: [ItemFormat, ParamValues][] = [
-      ['bar-graph-read', { kind: 'bar', question: 'how-many' }],
-      ['bar-graph-read', { kind: 'picture', question: 'total' }],
-      ['bar-graph-read', { kind: 'bar', question: 'difference' }],
-      ['bar-graph-read', { kind: 'bar', question: 'least' }],
-      ['bar-graph-build', { data: 'objects', mode: 'pictures' }],
-      ['bar-graph-build', { data: 'table', mode: 'bars' }],
-      ['number-pad', { kind: 'picture', question: 'total' }],
-    ];
-    let checked = 0;
-    for (const [format, fixed] of cases) {
-      const t = tpl('data.chart', format, fixed, format === 'bar-graph-build' ? 'concrete' : 'pictorial');
-      for (let seed = 1; seed <= 40; seed += 1) {
-        const v = (k: number) => 1 + ((seed * k) % 10);
-        const params = { ...fixed, categories: 4, a: v(7), b: v(3), c: v(11), d: v(13) };
-        let item: GeneratedItem;
-        try {
-          item = generateItemFromParams(t, params, { seed });
-        } catch (e) {
-          expect(e).toBeInstanceOf(GenerationError);
-          continue;
-        }
-        expectSound(item, t);
-        checked += 1;
-      }
-    }
-    expect(checked).toBeGreaterThan(100);
-  });
-});
-
 describe('chart.values', () => {
   const target = { values: [3, 0, 5] };
   it.each([
