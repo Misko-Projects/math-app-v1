@@ -28,8 +28,8 @@ misconceptions:
   - id: MC.add-instead-of-multiply
     name: Adds the two numbers instead of finding the total of the equal groups
     detect: { kind: answer, rule: addInsteadOfMultiply }
-    appliesTo: { generators: [mul.groups] }
-    skills: [MUL.04]
+    appliesTo: { generators: [mul.groups, mul.facts, mul.tens] }
+    skills: [MUL.04, MUL.06, MUL.11, MUL.13]
     remediation: [MUL.02, MUL.04]
     feedback: fb.mc.add-instead-of-multiply
     priority: 50
@@ -46,8 +46,8 @@ misconceptions:
   - id: MC.skip-count-slip
     name: Skip-counts one group too few or too many
     detect: { kind: answer, rule: skipCountSlip }
-    appliesTo: { generators: [mul.groups] }
-    skills: [MUL.02]
+    appliesTo: { generators: [mul.groups, mul.facts] }
+    skills: [MUL.02, MUL.13, MUL.14, MUL.15]
     remediation: [MUL.02]
     feedback: fb.mc.skip-count-slip
     priority: 40
@@ -62,4 +62,78 @@ misconceptions:
         match: true
       - params: { groups: 4, perGroup: 5, unknown: total, mode: read }
         response: { kind: number, value: 9 }
+        match: false
+
+  # K02 (#17) slice 3b: facts and strategies. MC.times-zero-keeps and MC.double-once are not in
+  # the 03 §7.2 table before this slice; the table gains them in the same PR.
+  - id: MC.times-zero-keeps
+    name: Gives the other factor when one factor is 0
+    detect: { kind: answer, rule: timesZeroKeeps }
+    appliesTo: { generators: [mul.facts] }
+    skills: [MUL.06]
+    remediation: [MUL.06]
+    feedback: fb.mc.times-zero-keeps
+    priority: 55
+    parentTip: >-
+      Put out 4 empty bowls: 4 groups of 0 is 0. Then 0 groups of 7 is nothing at all, so also 0.
+    examples:
+      - params: { a: 7, b: 0, family: x0x1 }
+        response: { kind: number, value: 7 }
+        match: true
+      - params: { a: 7, b: 0, family: x0x1 }
+        response: { kind: number, value: 1 }
+        match: false
+
+  - id: MC.double-once
+    name: Doubles only once when timesing by 4 or 8
+    detect: { kind: answer, rule: doubleOnce }
+    appliesTo: { generators: [mul.facts] }
+    skills: [MUL.14]
+    remediation: [MUL.14]
+    feedback: fb.mc.double-once
+    priority: 45
+    parentTip: >-
+      Times 4 is double, then double again: 4 × 6 is 6 + 6 = 12, and 12 + 12 = 24.
+    examples:
+      - params: { a: 4, b: 7, family: x4, strategy: double }
+        response: { kind: numbers, values: [14, 14, 14] }
+        match: true
+      - params: { a: 4, b: 7, family: x4, strategy: double }
+        response: { kind: numbers, values: [14, 14, 21] }
+        match: false
+
+  - id: MC.tens-dropped
+    name: Drops the zero when timesing by a multiple of ten
+    detect: { kind: answer, rule: tensDropped }
+    appliesTo: { generators: [mul.tens] }
+    skills: [MUL.11]
+    remediation: [PV.10, MUL.11]
+    feedback: fb.mc.tens-dropped
+    priority: 50
+    parentTip: >-
+      Say it in tens: 4 × 30 is 4 × 3 tens, which is 12 tens. Twelve tens is 120, not 12.
+    examples:
+      - params: { a: 4, b: 30, steps: true }
+        response: { kind: numbers, values: [12, 12] }
+        match: true
+      - params: { a: 4, b: 30, steps: true }
+        response: { kind: numbers, values: [12, 34] }
+        match: false
+
+  - id: MC.partial-product-dropped
+    name: Gives one part of a broken-apart fact as the total
+    detect: { kind: answer, rule: partialProductDropped }
+    appliesTo: { generators: [mul.facts] }
+    skills: [MUL.07]
+    remediation: [MUL.07]
+    feedback: fb.mc.partial-product-dropped
+    priority: 50
+    parentTip: >-
+      Split 7 rows of 6 into 5 rows and 2 rows. Find both parts, then add them: 30 + 12 = 42.
+    examples:
+      - params: { a: 7, b: 6, strategy: break-apart }
+        response: { kind: numbers, values: [30, 12, 30] }
+        match: true
+      - params: { a: 7, b: 6, strategy: break-apart }
+        response: { kind: numbers, values: [30, 12, 41] }
         match: false

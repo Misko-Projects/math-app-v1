@@ -65,3 +65,68 @@ skills:
     prerequisites: [MUL.02]
     gateway: false
     representations: [objects, groups, number-line]
+
+  # K02 (#17) slice 3b: facts and strategies with mul.facts (and mul.tens for MUL.11).
+  - id: MUL.06
+    name: "Turn-around facts, × 0 and × 1"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.OA.B.5] }
+    prerequisites: [MUL.04]
+    gateway: false
+    # No balance item: the turn-around is the number sentence a × b = b × ?.
+    representations: [groups, array, symbols]
+
+  - id: MUL.07
+    name: "Break apart to multiply (7 × 6 = 5 × 6 + 2 × 6)"
+    kind: strategy
+    grade: 3
+    standards: { ccss: [3.OA.B.5, 3.MD.C.7c] }
+    prerequisites: [MUL.15, MUL.06, GEO.04]
+    gateway: true
+    representations: [tiles, array, symbols]
+
+  - id: MUL.11
+    name: "Multiply a one-digit number by a multiple of 10 (4 × 30)"
+    kind: procedure
+    grade: 3
+    standards: { ccss: [3.NBT.A.3] }
+    prerequisites: [MUL.06, MUL.13, PV.04]
+    gateway: false
+    representations: [base-ten, symbols]
+
+  - id: MUL.13
+    name: "Facts for × 2, × 5 and × 10 by skip-counting"
+    kind: strategy
+    grade: 3
+    standards: { ccss: [3.OA.C.7] }
+    prerequisites: [MUL.04, CNT.11]
+    gateway: false
+    representations: [groups, number-line, symbols]
+
+  - id: MUL.14
+    name: "Double to multiply: × 4 and × 8"
+    kind: strategy
+    grade: 3
+    standards: { ccss: [3.OA.C.7] }
+    prerequisites: [MUL.13, ADD.07]
+    gateway: false
+    representations: [array, symbols]
+
+  - id: MUL.15
+    name: "Add or take away a group: × 3, × 6 and × 9"
+    kind: strategy
+    grade: 3
+    standards: { ccss: [3.OA.B.5] }
+    prerequisites: [MUL.13]
+    gateway: false
+    representations: [groups, array, symbols]
+
+  - id: MUL.16
+    name: "Multiply three numbers in any order (3 × 5 × 2)"
+    kind: procedure
+    grade: 3
+    standards: { ccss: [3.OA.B.5] }
+    prerequisites: [MUL.06, MUL.13]
+    gateway: false
+    representations: [groups, symbols]

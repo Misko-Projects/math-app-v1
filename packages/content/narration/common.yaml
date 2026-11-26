@@ -1716,6 +1716,58 @@ h.mul.see-groups:
   text: "See the groups. How many are in one group?"
 h.mul.see-rows:
   text: "See the rows. How many are in one row?"
+h.mul.zero-one:
+  text: "Times zero makes zero. Times one keeps the other number the same."
+h.mul.think-groups:
+  text: "Think of equal groups. Is a group empty? Is there just one?"
+h.mul.count-all:
+  text: "Count every one in every group."
+h.mul.turn:
+  text: "Turn it around. The order does not change the total."
+h.mul.turn-array:
+  text: "Turn the array on its side. The rows become columns, and the total stays the same."
+h.mul.touch-groups:
+  text: "Touch each group as you count."
+h.mul.count-by-f:
+  text: "Count by {f}s, one number for each jump."
+h.mul.skip-known:
+  text: "Find the two, five or ten in the fact. Count by it."
+h.mul.one-per-group:
+  text: "Say one number for each group."
+h.mul.half:
+  text: "Times by half of the four or eight first. Then double it."
+h.mul.double:
+  text: "Then double it: add the same number again."
+h.mul.double-twice:
+  text: "Times four is double, then double again. Times eight is one more double."
+h.mul.one-more-group:
+  text: "Add one more group of {o}."
+h.mul.near-fact:
+  text: "Start with {k} times {o}."
+h.mul.add-or-take:
+  text: "Then add or take away one group of {o}."
+h.mul.near-group:
+  text: "Think of two, five or ten groups first."
+h.mul.add-or-take-any:
+  text: "Then add or take away one group."
+h.mul.easy-pair:
+  text: "Pick two numbers to times first. Any order gives the same answer."
+h.mul.then-last:
+  text: "Then times that by the number left."
+h.mul.break-five:
+  text: "Break one number into five and the rest."
+h.mul.split-half:
+  text: "Split the columns in half. Both halves are the same."
+h.mul.split-five:
+  text: "Split after 5 columns. Now there are two smaller arrays."
+h.mul.add-parts:
+  text: "Find both parts, then add them."
+h.mul.tens:
+  text: "Think of the tens. Times the tens first."
+h.mul.times-ten:
+  text: "Then times by ten: put a zero on the end."
+h.mul.think-array:
+  text: "Turn it to the side. The total is the same."
 h.geo.name-sides:
   text: "Three sides: a triangle. Five sides: a pentagon. Six sides: a hexagon."
 h.partition.lines:
@@ -1806,6 +1858,9 @@ gen.mul.facts.join:
 gen.mul.facts.split:
   text: "Draw a line after 5 columns."
   level: "2"
+gen.mul.facts.split-half:
+  text: "Draw a line down the middle."
+  level: "2"
 gen.mul.facts.pair:
   text: "Times {x} and {y} first. That makes {part}."
   level: "2"
@@ -1849,6 +1904,14 @@ fb.mc.add-instead-of-multiply:
   text: "That adds two numbers. Count every one in every group."
 fb.mc.skip-count-slip:
   text: "So close! Count the groups again. Did you skip one?"
+fb.mc.times-zero-keeps:
+  text: "Times zero makes zero. Zero groups have nothing in them."
+fb.mc.double-once:
+  text: "Good start! Now double it one more time."
+fb.mc.tens-dropped:
+  text: "Those are tens, not ones. Put the zero back on."
+fb.mc.partial-product-dropped:
+  text: "That is one part. Add the other part too."
 
 # ---------- feedback ----------
 fb.correct.1:

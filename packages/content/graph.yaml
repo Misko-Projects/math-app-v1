@@ -16,6 +16,7 @@ coverageGrades: [K, 1]
 # MDA.23 as a gap below MDA.24.
 # Slice 3a authored MUL.01–MUL.05, MUL.22, SUB.09, GEO.03 and GEO.04, which adds MUL.13–MUL.21 as
 # gaps below MUL.22 (MUL.06 and MUL.13 wait for mul.facts).
+# Slice 3b authored MUL.06, MUL.07, MUL.11 and MUL.13–MUL.16 (mul.facts, mul.tens).
 plannedIds:
   [
     ALG.03,
@@ -50,16 +51,9 @@ plannedIds:
     MEA.19,
     MEA.20,
     MEA.21,
-    MUL.06,
-    MUL.07,
     MUL.08,
     MUL.09,
     MUL.10,
-    MUL.11,
-    MUL.13,
-    MUL.14,
-    MUL.15,
-    MUL.16,
     MUL.17,
     MUL.18,
     MUL.19,

@@ -17,6 +17,14 @@ import { checkResponse } from '../../items/check';
 import { generateItemFromParams } from '../../items/generate';
 import { itemSolution, replaySteps } from '../../items/solution';
 import {
+  addInsteadOfMultiply,
+  doubleOnce,
+  partialProductDropped,
+  skipCountSlip,
+  tensDropped,
+  timesZeroKeeps,
+} from '../../misconceptions/rules/multiplication';
+import {
   easyPair,
   FACT_FAMILIES,
   FACT_STRATEGIES,
@@ -98,6 +106,7 @@ describe('mul.facts', () => {
     ['equal-groups', 'concrete', 'groups', 'read'],
     ['array-build', 'pictorial', 'array', 'read'],
     ['array-build', 'pictorial', 'array', 'split'],
+    ['array-build', 'pictorial', 'tiles', 'split'],
   ];
   it.each(cases)(
     '%s %s %s (%s): every accepted draw solves and is true',
@@ -256,4 +265,80 @@ describe('mul.tens (MUL.11)', () => {
       }
     },
   );
+});
+
+describe('mul.tens numeral-pick', () => {
+  it('offers the product among distinct options and taps it', () => {
+    const t = { ...tpl('numeral-pick', 'abstract', 'symbols'), generator: 'mul.tens' };
+    for (const a of range(2, 9)) {
+      for (const b of [10, 20, 30, 40, 50, 60, 70, 80, 90]) {
+        const item = solved(t, { a, b, steps: false });
+        if (item.widget.format !== 'numeral-pick') throw new Error('numeral-pick');
+        const ids = item.widget.options.map((o) => o.id);
+        expect(ids).toContain(`opt-${a * b}`);
+        expect(new Set(ids).size).toBe(ids.length);
+      }
+    }
+    expect(mulTens.accepts?.({ a: 4, b: 30, steps: true }, t)).toBe(false);
+  });
+});
+
+describe('slice 3b misconception rules', () => {
+  const pad = tpl('number-pad', 'abstract', 'symbols');
+  const n = (value: number) => ({ kind: 'number', value }) as const;
+  const ns = (...values: number[]) => ({ kind: 'numbers', values }) as const;
+  const tensT = { ...tpl('number-pad', 'abstract', 'symbols'), generator: 'mul.tens' };
+
+  it('times-zero-keeps: 7 × 0 → 7 and 0 × 9 → 9, not on 0 × 0 or a fact without 0', () => {
+    expect(timesZeroKeeps.match(solved(pad, { a: 7, b: 0 }), n(7))).toBe(true);
+    expect(timesZeroKeeps.match(solved(pad, { a: 0, b: 9 }), n(9))).toBe(true);
+    expect(timesZeroKeeps.match(solved(pad, { a: 7, b: 0 }), n(1))).toBe(false);
+    expect(timesZeroKeeps.applies?.(solved(pad, { a: 0, b: 0 }))).toBe(false);
+    expect(timesZeroKeeps.applies?.(solved(pad, { a: 3, b: 1 }))).toBe(false);
+    expect(timesZeroKeeps.predict?.(solved(pad, { a: 7, b: 0 }))).toEqual(n(7));
+  });
+
+  it('add-instead-of-multiply: 7 × 1 → 8 and the total of a strategy sentence', () => {
+    expect(addInsteadOfMultiply.match(solved(pad, { a: 7, b: 1 }), n(8))).toBe(true);
+    const dbl = solved(pad, { a: 4, b: 7, family: 'x4', strategy: 'double' });
+    expect(addInsteadOfMultiply.match(dbl, ns(14, 14, 11))).toBe(true);
+    // A wrong step is not this misconception.
+    expect(addInsteadOfMultiply.match(dbl, ns(13, 14, 11))).toBe(false);
+    expect(addInsteadOfMultiply.applies?.(solved(pad, { a: 6, b: 4, form: 'turn-around' }))).toBe(
+      false,
+    );
+    expect(addInsteadOfMultiply.applies?.(solved(pad, { a: 3, b: 5, c: 2 }))).toBe(false);
+  });
+
+  it('skip-count-slip: forgetting the extra group, 6 × 7 → 35, and 9 × 7 → 70', () => {
+    const six = solved(pad, { a: 6, b: 7, family: 'x6', strategy: 'add-group' });
+    expect(skipCountSlip.match(six, ns(35, 35))).toBe(true);
+    const nine = solved(pad, { a: 9, b: 7, family: 'x9', strategy: 'add-group' });
+    expect(skipCountSlip.match(nine, ns(70, 70))).toBe(true);
+    expect(skipCountSlip.predict?.(six)).toEqual(ns(35, 35));
+  });
+
+  it('double-once: 4 × 7 → 14 and 8 × 6 → 24, on a factor 4 or 8 only', () => {
+    expect(doubleOnce.match(solved(pad, { a: 4, b: 7, family: 'x4' }), n(14))).toBe(true);
+    expect(doubleOnce.match(solved(pad, { a: 6, b: 8, family: 'x8' }), n(24))).toBe(true);
+    const dbl = solved(pad, { a: 7, b: 8, family: 'x8', strategy: 'double' });
+    expect(doubleOnce.match(dbl, ns(28, 28, 28))).toBe(true);
+    expect(doubleOnce.predict?.(dbl)).toEqual(ns(28, 28, 28));
+    expect(doubleOnce.applies?.(solved(pad, { a: 6, b: 7 }))).toBe(false);
+  });
+
+  it('tens-dropped: 4 × 30 → 12, with and without steps', () => {
+    expect(tensDropped.match(solved(tensT, { a: 4, b: 30, steps: false }), n(12))).toBe(true);
+    expect(tensDropped.match(solved(tensT, { a: 4, b: 30, steps: true }), ns(12, 12))).toBe(true);
+    expect(tensDropped.match(solved(tensT, { a: 4, b: 30, steps: false }), n(34))).toBe(false);
+    expect(tensDropped.applies?.(solved(pad, { a: 4, b: 10, family: 'x10' }))).toBe(false);
+  });
+
+  it('partial-product-dropped: 7 × 6 → 30 or 12 as the total', () => {
+    const item = solved(pad, { a: 7, b: 6, strategy: 'break-apart' });
+    expect(partialProductDropped.match(item, ns(30, 12, 30))).toBe(true);
+    expect(partialProductDropped.match(item, ns(30, 12, 12))).toBe(true);
+    expect(partialProductDropped.match(item, ns(30, 12, 41))).toBe(false);
+    expect(partialProductDropped.predict?.(item)).toEqual(ns(30, 12, 30));
+  });
 });

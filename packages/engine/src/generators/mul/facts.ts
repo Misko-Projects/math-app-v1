@@ -15,8 +15,10 @@
 // - number-pad: a picture from the representation (`array`: a rows of b; `groups`: a groups of b;
 //   `number-line`: a jumps of b from 0, labelled only at 0; `symbols`: none) and the sentence.
 // - equal-groups (`read`): a groups of b, the total asked (a 1–6, b 1–10).
-// - array-build: `read` shows a rows of b and asks the total; `split` (break-apart) shows o rows
-//   of f, the child places a split line anywhere and types the total (the solution splits at 5).
+// - array-build: `read` shows a rows of b and asks the total; `split` (break-apart or double)
+//   shows o rows of f, the child places a split line anywhere and types the total (the solution
+//   splits after 5 columns, or down the middle to double). The `tiles` representation draws the
+//   grid.
 // Abstract items (symbols) show no countable picture of the product, and the strategy sentences
 // never show the total. No factor 0 is drawn on a picture: there is nothing to count (the turn-
 // around and × 0 rows ask × 0 in symbols only).
@@ -320,7 +322,7 @@ export const mulFacts: GeneratorDef = {
       type: 'string',
       values: ['read', 'split'],
       default: { kind: 'const', value: 'read' },
-      doc: 'array-build: read the array, or split it (break-apart)',
+      doc: 'array-build: read the array, or split it (break-apart, double)',
     },
     container: {
       type: 'string',
@@ -357,6 +359,7 @@ export const mulFacts: GeneratorDef = {
     'gen.mul.facts.part',
     'gen.mul.facts.join',
     'gen.mul.facts.split',
+    'gen.mul.facts.split-half',
     'gen.mul.facts.pair',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
@@ -406,7 +409,9 @@ export const mulFacts: GeneratorDef = {
         );
       case 'array-build': {
         if (turn) return false;
-        if (asStr(p.mode, 'read') === 'split') return strategy === 'break-apart';
+        if (asStr(p.mode, 'read') === 'split') {
+          return strategy === 'break-apart' || strategy === 'double';
+        }
         return strategy === 'none';
       }
       case 'number-pad': {
@@ -488,7 +493,7 @@ export const mulFacts: GeneratorDef = {
             cols,
             orientationMatters: true,
             sprite,
-            gridShown: false,
+            gridShown: t.representation === 'tiles',
           },
           answer: split
             ? {
@@ -544,7 +549,7 @@ export const mulFacts: GeneratorDef = {
       value: {
         rows: t.rows,
         cols: t.cols,
-        split: 5,
+        split: splitAt(factPlan(out.params)),
         value: asNum(out.params.a) * asNum(out.params.b),
       },
     };
@@ -575,12 +580,34 @@ export const mulFacts: GeneratorDef = {
     }
     const lead: LessonStep[] =
       w.format === 'array-build' && w.mode === 'split'
-        ? [say('gen.mul.facts.split', {}, { op: 'split-at', args: { col: 5 } })]
+        ? [
+            say(
+              plan.strategy === 'double' ? 'gen.mul.facts.split-half' : 'gen.mul.facts.split',
+              {},
+              {
+                op: 'split-at',
+                args: { col: splitAt(plan) },
+              },
+            ),
+          ]
         : [];
     switch (plan.strategy) {
       case 'double': {
         const half = f / 2;
         const part = half * o;
+        if (w.format !== 'number-pad') {
+          // The split array: each half is half × o; the total is the double.
+          return [
+            ...lead,
+            say('gen.mul.facts.half', { f, half }),
+            say('gen.mul.facts.is', { a: half, b: o, result: part }),
+            say(
+              'gen.mul.facts.double',
+              { part, result },
+              { op: 'answer', args: { value: result } },
+            ),
+          ];
+        }
         return [
           say('gen.mul.facts.half', { f, half }),
           say('gen.mul.facts.is', { a: half, b: o, result: part }, type(0)),
@@ -636,6 +663,9 @@ export const mulFacts: GeneratorDef = {
     }
   },
 };
+
+/** Where a split item's solution draws its line: after 5 columns, or down the middle. */
+const splitAt = (plan: FactPlan): number => (plan.strategy === 'double' ? plan.f / 2 : 5);
 
 function blankIndex(tokens: ExpressionToken[], id: string): number {
   return tokens.filter((t) => t.t === 'blank').findIndex((t) => t.t === 'blank' && t.id === id);

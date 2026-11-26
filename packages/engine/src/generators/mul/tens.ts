@@ -2,13 +2,16 @@
 // b 10–90 in steps of ten. Derived: `result` = a × b.
 // - `steps: false` asks a × b = ?; `steps: true` writes it as tens and asks each step:
 //   a × b = a × t × 10 = [p] × 10 = [x], t = b ÷ 10 (4 × 30 = 4 × 3 × 10 = 12 × 10 = 120).
-// Formats (K02 slice 3b): number-pad only. Its `base-ten` picture is ONE group, b as t tens (the
-// child times it by a), never the product; `symbols` shows no picture. The rod of ten has no
-// sprite for equal-groups, and a base-ten-build of the product would show it on its goal card,
-// so equal-groups and base-ten-build are not built yet.
+// Formats (K02 slice 3b): number-pad and numeral-pick. The number-pad `base-ten` picture is ONE
+// group, b as t tens (the child times it by a), never the product; `symbols` shows no picture.
+// numeral-pick shows a × b and offers the product among the template's diagnostic distractors
+// (the zero dropped, the numbers added) and near misses. The rod of ten has no sprite for
+// equal-groups, and a base-ten-build of the product would show it on its goal card, so
+// equal-groups and base-ten-build are not built yet.
 
 import type { ExpressionToken, LessonStep, ResponseValue } from '@number-island/shared';
-import { asNum, correctFromAnswer, finish, pickVars, sampleAll } from '../common';
+import { numberOptionId } from '../../formats/numeral-pick';
+import { asNum, correctFromAnswer, finish, numberOptions, pickVars, sampleAll } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 export const TENS_A_MIN = 2;
@@ -58,7 +61,7 @@ export function tensPlan(
 
 export const mulTens: GeneratorDef = {
   id: 'mul.tens',
-  formats: ['number-pad'],
+  formats: ['number-pad', 'numeral-pick'],
   params: {
     a: {
       type: 'int',
@@ -89,7 +92,7 @@ export const mulTens: GeneratorDef = {
     const a = asNum(p.a);
     const b = asNum(p.b);
     return (
-      t.format === 'number-pad' &&
+      (t.format === 'number-pad' || (t.format === 'numeral-pick' && p.steps !== true)) &&
       a >= TENS_A_MIN &&
       a <= TENS_A_MAX &&
       b >= 10 &&
@@ -98,7 +101,7 @@ export const mulTens: GeneratorDef = {
     );
   },
   build(ctx: BuildContext): GeneratorOutput {
-    const { params, template } = ctx;
+    const { params, template, rng } = ctx;
     const a = asNum(params.a);
     const b = asNum(params.b);
     const plan = tensPlan(a, b, params.steps === true);
@@ -107,10 +110,30 @@ export const mulTens: GeneratorDef = {
     const blanks = plan.tokens.flatMap((tk) =>
       tk.t === 'blank' ? [{ id: tk.id, maxDigits: tk.id === 'x' && a * b >= 100 ? 3 : 2 }] : [],
     );
+    const vars = pickVars(template, { a, b, t: plan.t });
+    const math = { 'product.over100': a * b > 100 ? 1 : 0 };
+    if (template.format === 'numeral-pick') {
+      const opts = numberOptions(template, params, a * b, rng, 10, 1000);
+      return finish(mulTens, ctx, {
+        params,
+        vars,
+        math,
+        widget: {
+          format: 'numeral-pick',
+          stimulus: {
+            kind: 'expression',
+            expr: { tokens: [num(a), times, num(b)] },
+          },
+          options: opts.options,
+          layout: 'row',
+        },
+        answer: { kind: 'choice', id: numberOptionId(a * b) },
+      });
+    }
     return finish(mulTens, ctx, {
       params,
-      vars: pickVars(template, { a, b, t: plan.t }),
-      math: { 'product.over100': a * b > 100 ? 1 : 0 },
+      vars,
+      math,
       widget: {
         format: 'number-pad',
         stimulus:
@@ -137,6 +160,16 @@ export const mulTens: GeneratorDef = {
     const t = b / 10;
     const ids = w.format === 'number-pad' ? w.blanks.map((bl) => bl.id) : [];
     const tens = a * t;
+    if (w.format === 'numeral-pick') {
+      return [
+        say('gen.mul.tens.tens', { a, t, tens }),
+        say(
+          'gen.mul.tens.times-ten',
+          { tens, result: a * b },
+          { op: 'tap', args: { id: numberOptionId(a * b) } },
+        ),
+      ];
+    }
     const last = ids.length - 1;
     const steps: LessonStep[] = [];
     steps.push(
