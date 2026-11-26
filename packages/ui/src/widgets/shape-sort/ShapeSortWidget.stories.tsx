@@ -141,6 +141,7 @@ const corners: Config = {
     },
   ],
   mode: 'sort',
+  namesGiven: true,
 };
 
 /** MEA.16.t4 seed 1 (mea.massvolume): heavier or lighter than an apple (weight step 4). */
@@ -159,6 +160,7 @@ const weights: Config = {
     { id: 'b1', label: 'word.lighter', rule: { prop: 'weight', op: '<=', value: 3 } },
   ],
   mode: 'sort',
+  namesGiven: true,
 };
 
 /** GEO.07.t1 seed 2 (geo.identify, real objects): cubes, cones and spheres, three bins. */
@@ -220,6 +222,7 @@ const solids: Config = {
     { id: 'b2', label: 'shape.sphere.many', rule: { prop: 'shape', op: '==', value: 'sphere' } },
   ],
   mode: 'sort',
+  namesGiven: true,
 };
 const solidsTarget = {
   cards: solids.cards.map((c) => ({ id: c.id, props: (c.card as { props: object }).props })),
@@ -354,9 +357,11 @@ export const SortBlocksK: Story = {
     // Mouse drag a rhombus.
     await pointerDrag(cardEl(root, 'c0'), center(pad(root, 'b1')), 'mouse');
     await waitFor(() => expect(inBin(root, 'b1')).toEqual(['c0']));
-    // Tap-to-place: tap the card (it says its name), then the bin.
+    // Tap-to-place: tap the card, then the bin. On a kind sort the card's name is the answer:
+    // it says nothing, and its accessible name is its place (Refs #35).
     await userEvent.click(cardEl(root, 'c3'));
-    await expect(audio.say).toHaveBeenCalledWith('shape.triangle.one', undefined);
+    await expect(audio.say).not.toHaveBeenCalledWith('shape.triangle.one', undefined);
+    await expect(cardEl(root, 'c3')).toHaveAccessibleName('Card 4');
     await userEvent.click(pad(root, 'b0'));
     await waitFor(() => expect(inBin(root, 'b0')).toEqual(['c1', 'c3']));
     // Keyboard: Enter picks the last card up, focus jumps to the first bin it can go in (not
@@ -682,7 +687,8 @@ export const StressSevenLandscapeMinK: Story = {
  * 6 px ledge clears the lip, and the bin's label starts at least 6 px below its top border.
  * Logs the measured paddings.
  */
-async function expectBinLips(root: HTMLElement) {
+async function expectBinLips(root: HTMLElement, pictures = false) {
+  // `pictures`: the config gives the bins a card as their picture (`binPicturesGiven`).
   let least = Number.POSITIVE_INFINITY;
   for (const bin of root.querySelectorAll<HTMLElement>('.ni-ssort__bin')) {
     const p = bin.querySelector('.ni-ssort__pad') as HTMLElement;
@@ -703,14 +709,21 @@ async function expectBinLips(root: HTMLElement) {
         11.5,
       );
     }
-    // The bin's name is above its frame, and its picture is at least 40 px.
-    const label = bin.querySelector('.ni-ssort__label') as HTMLElement;
-    await expect(label.getBoundingClientRect().bottom).toBeLessThanOrEqual(r.top + 0.5);
-    const icon = bin.querySelector('[data-bin-icon]') as HTMLElement;
-    const art = icon.firstElementChild as Element | null;
-    await expect(art, 'bin picture').not.toBeNull();
-    const a = (art as Element).getBoundingClientRect();
-    await expect(Math.max(a.width, a.height), 'bin picture size').toBeGreaterThanOrEqual(40);
+    // The bin's name is above its frame; its picture (where the config gives one) is at least
+    // 40 px. A bin with no picture never shows one of the cards (Refs #35).
+    const label = bin.querySelector('.ni-ssort__label') as HTMLElement | null;
+    const icon = bin.querySelector('[data-bin-icon]') as HTMLElement | null;
+    if (!pictures) {
+      await expect(icon, 'no card as the bin picture').toBeNull();
+      await expect(label, 'a bin without a picture shows its name').not.toBeNull();
+    }
+    if (label) await expect(label.getBoundingClientRect().bottom).toBeLessThanOrEqual(r.top + 0.5);
+    if (pictures) {
+      const art = icon?.firstElementChild ?? null;
+      await expect(art, 'bin picture').not.toBeNull();
+      const a = (art as Element).getBoundingClientRect();
+      await expect(Math.max(a.width, a.height), 'bin picture size').toBeGreaterThanOrEqual(40);
+    }
   }
   console.info(
     Number.isFinite(least)
@@ -937,8 +950,10 @@ export const FindAllTriangles: Story = {
     const open = cardEl(root, 'c1');
     await expect(open.querySelector('polyline.ni-shape__open')).not.toBeNull();
     await expect(open.querySelector('polygon')).toBeNull();
+    // A find by kind: the card's name is the answer, so a tap says nothing (Refs #35).
     await userEvent.click(cardEl(root, 'c0'));
-    await expect(audio.say).toHaveBeenCalledWith('shape.triangle.one', undefined);
+    await expect(audio.say).not.toHaveBeenCalledWith('shape.triangle.one', undefined);
+    await expect(cardEl(root, 'c0')).toHaveAccessibleName('Card 1');
     await userEvent.click(open);
     await userEvent.click(cardEl(root, 'c2'));
     await expect(open).toHaveAttribute('aria-pressed', 'true');
@@ -1195,6 +1210,8 @@ const nineThings: Config = {
     label: `noun.${kind}.many` as const,
     rule: { prop: 'kind', op: '==' as const, value: kind },
   })),
+  namesGiven: true,
+  binPicturesGiven: true,
 };
 
 const cardsIn = (root: HTMLElement, bin: string) => [

@@ -5,7 +5,7 @@ import {
   type ShapeSortState,
   sortCardProps,
 } from '@number-island/engine';
-import type { ShapeCard, WidgetAction } from '@number-island/shared';
+import type { ShapeCard, SortRule, WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
@@ -61,6 +61,36 @@ export function cardNameKey(c: Card['card']): string | null {
   if (c.kind === 'coin') return `coin.${c.coin}.one`;
   if (c.kind === 'event') return c.event;
   return null;
+}
+
+/**
+ * What a card says on tap and carries as its accessible name, by rule (never by template): what
+ * the child can see without knowing the answer. A number or word card reads its face. A picture
+ * card (shape, object, coin) says its name only when the config marks names as given
+ * (`namesGiven`: the ask is a side count, a colour, a weight …); otherwise its name could be the
+ * answer (a kind sort or find), so it is "Shape 3" by its place, and says nothing on tap.
+ */
+export type CardSpeech =
+  | { number: number }
+  | { key: string; vars?: Record<string, string | number>; spoken: boolean };
+
+export function cardSpeech(config: Config, c: Card): CardSpeech {
+  if (!isShape(c.card) && c.card.kind === 'number') return { number: c.card.value };
+  if (!isShape(c.card) && c.card.kind === 'event') return { key: c.card.event, spoken: true };
+  const key = config.namesGiven ? cardNameKey(c.card) : null;
+  if (key) return { key, spoken: true };
+  const n = config.cards.findIndex((x) => x.id === c.id) + 1;
+  return { key: 'ui.ssort.card', vars: { n }, spoken: false };
+}
+
+/**
+ * The card a bin shows as its picture: one it takes, only when the config marks bin pictures as
+ * given (`binPicturesGiven`, a data sort into categories the child sees). Otherwise the bin shows
+ * its name alone: a card in the picture would show which card goes in it.
+ */
+export function binPictureCard(config: Config, bin: { rule: SortRule }): Card | null {
+  if (!config.binPicturesGiven) return null;
+  return config.cards.find((x) => ruleMatches(bin.rule, sortCardProps(x.card))) ?? null;
 }
 
 /** How many of a marked attribute a shape card has (shown as a numeral beside it). */
@@ -129,12 +159,19 @@ export function ShapeSortWidget({
     ...config.cards.map((c) => (isShape(c.card) ? shapeExtent(c.card) : 0)),
   );
 
+  /** A card's accessible name (`cardSpeech`: never its name where the name is the answer). */
   const name = (c: Card) => {
-    if (!isShape(c.card) && c.card.kind === 'number') return String(c.card.value);
-    const key = cardNameKey(c.card);
-    return key ? t(key) : c.id;
+    const s = cardSpeech(config, c);
+    return 'number' in s ? String(s.number) : t(s.key, s.vars);
   };
+  /** A child's tap: the card says what `cardSpeech` allows, and nothing when its name is held. */
   const speak = (c: Card) => {
+    const s = cardSpeech(config, c);
+    if ('number' in s) sayNumber(s.number);
+    else if (s.spoken) say(s.key, s.vars);
+  };
+  /** A demo (a worked example the child watches) names the card it moves. */
+  const speakName = (c: Card) => {
     if (!isShape(c.card) && c.card.kind === 'number') sayNumber(c.card.value);
     else {
       const key = cardNameKey(c.card);
@@ -209,7 +246,7 @@ export function ShapeSortWidget({
           } else {
             setHighlight({ id: card.id, mark });
             if (total !== null) sayNumber(total);
-            else speak(card);
+            else speakName(card);
           }
           await pause(1300);
           if (!alive.current) return;
@@ -218,7 +255,7 @@ export function ShapeSortWidget({
         }
         // drag-card and answer: point at the card, then move or pick it.
         setHighlight({ id: card.id, mark: 'shape' });
-        speak(card);
+        speakName(card);
         await pause(500);
         if (!alive.current) return;
         setHighlight(null);
@@ -258,8 +295,11 @@ export function ShapeSortWidget({
         );
       case 'number':
         return <span className="ni-ssort__numeral">{c.card.value}</span>;
-      default:
-        return <span className="ni-ssort__word">{name(c)}</span>;
+      default: {
+        // A coin or an event card's face is its word.
+        const key = cardNameKey(c.card);
+        return <span className="ni-ssort__word">{key ? t(key) : c.id}</span>;
+      }
     }
   };
 
@@ -361,9 +401,12 @@ export function ShapeSortWidget({
     handRoom: trayInvited ? TRAY_HAND_ROOM : 0,
   });
   const outer = sizes.full;
-  /** A bin's picture (05: K content must not rely on reading): the first card it takes. */
+  /**
+   * A bin's picture (05: K content must not rely on reading), where the config gives it
+   * (`binPictureCard`); otherwise the bin shows its name, and says it when tapped.
+   */
   const binIcon = (b: (typeof bins)[number]) => {
-    const c = config.cards.find((x) => ruleMatches(b.rule, sortCardProps(x.card)));
+    const c = binPictureCard(config, b);
     if (!c) return null;
     if (isShape(c.card)) {
       // Its own tight box (not the cards' shared scale), upright, about 40 px across.
@@ -373,6 +416,7 @@ export function ShapeSortWidget({
     }
     return face(c, BIN_ICON_PX);
   };
+  const binIcons = bins.map(binIcon);
   /**
    * A card `outer` px across. Smaller than full size (a crowded tray or bin in the short area) it
    * keeps its shape, drawn smaller, and is picked up from a cell round it: the target's height,
@@ -487,13 +531,18 @@ export function ShapeSortWidget({
             {/* The bin's picture and its name, ABOVE its frame: rings inside the frame never
                 touch the name (evidence review). */}
             <span className="ni-ssort__bin-head" aria-hidden="true">
-              <span className="ni-ssort__bin-icon" data-bin-icon={b.id}>
-                {binIcon(b)}
-              </span>
+              {binIcons[bi] ? (
+                <span className="ni-ssort__bin-icon" data-bin-icon={b.id}>
+                  {binIcons[bi]}
+                </span>
+              ) : null}
               {/* A bin squeezed narrower than its name keeps its picture (the name is still the
-                  bin's accessible name, and is said when the bin is tapped). */}
-              {(sizes.binWidths[bi] as number) < binHeadWidth(t(b.label)) ? null : (
-                <span className="ni-ssort__label">{t(b.label)}</span>
+                  bin's accessible name, and is said when the bin is tapped). A bin with no
+                  picture always shows its name. */}
+              {binIcons[bi] && (sizes.binWidths[bi] as number) < binHeadWidth(t(b.label)) ? null : (
+                <span className="ni-ssort__label" data-alone={binIcons[bi] ? undefined : 'true'}>
+                  {t(b.label)}
+                </span>
               )}
             </span>
             <div

@@ -401,7 +401,14 @@ export const geoDraw: GeneratorDef = {
       return finish(geoDraw, ctx, {
         params,
         vars,
-        widget: { format: 'shape-sort', cards: cardList, bins: null, mode: 'find-all' },
+        widget: {
+          format: 'shape-sort',
+          cards: cardList,
+          bins: null,
+          mode: 'find-all',
+          // A side count is asked: a shape's name says no more than its sides do.
+          ...(Object.keys(req).every((k) => k === 'sides') ? { namesGiven: true } : {}),
+        },
         answer: { kind: 'state', checker: 'select.exactSet', target: { ids } },
         math,
       });

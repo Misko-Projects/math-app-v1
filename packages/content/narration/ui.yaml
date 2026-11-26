@@ -503,6 +503,9 @@ ui.ssort.tray:
 ui.ssort.find:
   text: "Cards"
   level: K
+ui.ssort.card:
+  text: "Card {n}"
+  level: K
 ui.clen.object:
   text: "{name} {n}"
   level: K

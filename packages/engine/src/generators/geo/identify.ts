@@ -76,6 +76,18 @@ type Rule = (typeof RULES)[number];
 const MODES = ['find-all', 'sort', 'odd-one-out'] as const;
 const ATTRIBUTES: readonly string[] = ['heavy', 'long', 'holds'];
 const COUNT_RULES: readonly string[] = ['sides', 'corners', 'faces'];
+
+/**
+ * Whether the cards may say their names (shape-sort `namesGiven`): when the ask is a count
+ * (sides, corners, faces), or every card is a real object (a ball says "ball", never the class
+ * asked). On a kind, flat-or-solid, rolls or equal-sides ask a shape's name is the answer.
+ */
+function namesGiven(rule: Rule, entries: readonly { e: Entry }[]): boolean {
+  return (
+    COUNT_RULES.includes(rule) ||
+    entries.every(({ e }) => 'kind' in e.card && e.card.kind === 'object')
+  );
+}
 const CLASS_RULES: readonly string[] = [
   'flat-solid',
   'curved',
@@ -515,6 +527,7 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
         cards: entries.map(({ id, e }) => ({ id, card: e.card })),
         bins: null,
         mode: 'odd-one-out',
+        ...(namesGiven(rule, entries) ? { namesGiven: true } : {}),
       },
       answer: { kind: 'choice', id: oddId },
       entries,
@@ -561,6 +574,7 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
         cards: entries.map(({ id, e }) => ({ id, card: e.card })),
         bins: null,
         mode: 'find-all',
+        ...(namesGiven(rule, entries) ? { namesGiven: true } : {}),
       },
       answer: { kind: 'state', checker: 'select.exactSet', target: { ids } },
       entries,
@@ -690,6 +704,7 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
       cards: entries.map(({ id, e }) => ({ id, card: e.card })),
       bins,
       mode: 'sort',
+      ...(namesGiven(rule, entries) ? { namesGiven: true } : {}),
     },
     answer: {
       kind: 'state',
