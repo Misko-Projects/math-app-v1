@@ -969,3 +969,9 @@ happens
 taken
 solve
 blank
+stay
+grid
+cage
+clues
+mystery
+clue

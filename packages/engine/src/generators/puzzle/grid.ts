@@ -315,11 +315,11 @@ export const puzzleGrid: GeneratorDef = {
     'rows.over1': { weight: 0.3, doc: 'hundred-chart piece: it spans more than one row' },
     'sum.over10': { weight: 0.3, doc: 'sum-triangle: the sides add up to more than 10' },
     items: { weight: 0.3, doc: 'order format feature (03 §5.5): card count − 3' },
-    cageCells: { weight: 0.3, doc: 'cage-sum on the balance: the cage has three cells' },
+    cageSum: { weight: 0.3, doc: 'cage-sum on the balance: the cage makes more than 4' },
     three: { weight: 0.5, doc: 'digit-cards: three cards (a three-digit number)' },
     threeClues: { weight: 0.2, doc: 'clues: three clues to keep in mind' },
     near: { weight: 0.3, doc: 'clues: more than, less than, odd or even' },
-    big: { weight: 0.2, doc: 'clues: the number is above 50' },
+    big: { weight: 0.35, doc: 'clues: the number is above 50' },
   },
   narration: [
     'gen.puzzle.grid.path-look',

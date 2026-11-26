@@ -211,6 +211,8 @@ function valid(p: ParamValues, t: ItemTemplate): boolean {
     if (!TWO_SIDED.has(eq.form) || eq.op !== '+') return false;
     const d = Math.abs(c - partners(eq.form, p).cp);
     if (d < 1 || d > near) return false;
+    // The hint names c, its partner and the change: none of them is the answer.
+    if ([c, partners(eq.form, p).cp, d].includes(eq.missing)) return false;
   }
   if (fact === 'zero') {
     if (!ONE_SIDED.has(eq.form)) return false;

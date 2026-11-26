@@ -33,3 +33,32 @@ tp.ALG.05.t3.prompt:
   text: "Does it balance? Do both sides have the same?"
 tp.ALG.05.t4.prompt:
   text: "Count each side. Add some to make it balance!"
+
+# K02 slice 4e (#17): grade 2 equality and growing shapes.
+sk.ALG.06.intro:
+  text: "When one number goes up, the other can go down. Both sides stay the same."
+  level: "2"
+sk.ALG.07.intro:
+  text: "Find the number in the box that makes both sides the same."
+  level: "2"
+sk.ALG.10.intro:
+  text: "Some shape patterns grow by the same number of squares each step."
+  level: "2"
+tp.ALG.06.t1.prompt:
+  text: "Don't add it all up. What number in the box makes it balance?"
+  level: "2"
+tp.ALG.06.t2.prompt:
+  text: "Does it balance? Compare the numbers. Don't add them all up."
+  level: "2"
+tp.ALG.07.t1.prompt:
+  text: "What number in the box makes it balance?"
+  level: "2"
+tp.ALG.10.t1.prompt:
+  text: "The pattern grows. Build the next step with squares."
+  level: "2"
+tp.ALG.10.t2.prompt:
+  text: "These are the squares in each step. How many squares go in each empty step?"
+  level: "2"
+tp.ALG.10.t3.prompt:
+  text: "Step 1 has {a} squares, step 2 has {b}, step 3 has {c}. How many squares are in step {k}?"
+  level: "2"

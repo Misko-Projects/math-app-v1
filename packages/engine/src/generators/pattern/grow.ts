@@ -11,8 +11,9 @@
 // `grow`. Three steps are shown; each step has `step` more squares than the one before (1 to 3,
 // starting at 1 to 4 squares). At the `tiles` representation each step is a stack of square tiles
 // and the child builds the next stack with one-more / one-less (built, never picked); otherwise the
-// steps are the numbers of squares and the child types the count of each asked step. A stack has
-// at most MAX_TILES squares.
+// steps are the numbers of squares and the child types the count of each asked step. On number-pad
+// the prompt tells the squares of steps 1 to 3 and the child types the squares of step 3 + `ask`.
+// A stack has at most MAX_TILES squares.
 
 import type { LessonStep, PatternToken, ResponseValue } from '@number-island/shared';
 import {
@@ -53,7 +54,7 @@ const say = (
 
 export const patternGrow: GeneratorDef = {
   id: 'pattern.grow',
-  formats: ['pattern-extend', 'hundred-chart', 'number-line-jump'],
+  formats: ['pattern-extend', 'hundred-chart', 'number-line-jump', 'number-pad'],
   params: {
     start: { type: 'int', default: { kind: 'int', min: 1, max: 20 }, doc: 'the first term' },
     step: {
@@ -96,6 +97,7 @@ export const patternGrow: GeneratorDef = {
     'gen.pattern.grow.land',
     'gen.pattern.grow.squares',
     'gen.pattern.grow.next-squares',
+    'gen.pattern.grow.step-squares',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive(p) {
@@ -115,7 +117,7 @@ export const patternGrow: GeneratorDef = {
     if (asStr(p.kind, 'number') === 'shape') {
       // Squares in each step: built (tiles) or typed, never the rule or another format.
       return (
-        t.format === 'pattern-extend' &&
+        (t.format === 'pattern-extend' || t.format === 'number-pad') &&
         asStr(p.mode, 'extend') === 'extend' &&
         start >= 1 &&
         step >= 1 &&
@@ -137,7 +139,7 @@ export const patternGrow: GeneratorDef = {
     const terms = Array.from({ length: SHOWN }, (_, k) => term(start, step, k));
     const asked = Array.from({ length: ask }, (_, k) => term(start, step, SHOWN + k));
     const [a, b, c] = terms as [number, number, number];
-    const vars = pickVars(t, { a, b, c, ask });
+    const vars = pickVars(t, { a, b, c, ask, k: SHOWN + ask });
     const math: Record<string, number> = {
       twoDigitStep: step >= 10 ? 1 : 0,
       'step.notOne': step !== 1 ? 1 : 0,
@@ -189,6 +191,19 @@ export const patternGrow: GeneratorDef = {
           target: { start: c, target: next, allowedJumps: [1, 2, 10], value: next },
         },
         highlight: [{ op: 'highlight', args: { at: c } }],
+      };
+    } else if (t.format === 'number-pad') {
+      // A shape pattern told in numbers: the squares of the asked step (the last asked term).
+      p = {
+        params,
+        vars,
+        math,
+        widget: {
+          format: 'number-pad',
+          stimulus: { kind: 'none' },
+          blanks: [{ id: 'x', maxDigits: 2 }],
+        },
+        answer: { kind: 'number', value: asked[ask - 1] as number },
       };
     } else if (asStr(params.kind, 'number') === 'shape') {
       const tok = (n: number) => (t.representation === 'tiles' ? { tiles: n } : { n });
@@ -278,6 +293,17 @@ export const patternGrow: GeneratorDef = {
     }
     const tiles = w.format === 'pattern-extend' && w.kind === 'grow' && w.sequence[0] !== null &&
       'tiles' in (w.sequence[0] as PatternToken);
+    if (w.format === 'number-pad') {
+      const n = asked[ask - 1] as number;
+      return [
+        say('gen.pattern.grow.squares', { step }),
+        say(
+          'gen.pattern.grow.step-squares',
+          { k: SHOWN + ask, n },
+          { op: 'type', args: { blank: 'x', value: n } },
+        ),
+      ];
+    }
     if (w.format === 'pattern-extend' && w.kind === 'grow') {
       return [
         say('gen.pattern.grow.squares', { step }),

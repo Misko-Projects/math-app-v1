@@ -127,3 +127,164 @@ templates:
     narration:
       prompt: tp.PUZ.03.t2.prompt
       hints: [h.geo.grid-rects]
+
+  # ---------- K02 slice 4e (#17): grade 2 puzzles ----------
+  # PUZ.04: a 3 × 3 cage grid of 1, 2 and 3 with exactly one solution (puzzle.grid accepts only
+  # those); one cage on the balance is its pictorial step.
+  - id: PUZ.04.t1
+    skillId: PUZ.04
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: puzzle.grid
+    params:
+      variant: cage-sum
+      square: { int: [0, 11] }
+      layout: { int: [0, 4] }
+      givens: 0
+    difficulty: { base: -1 }
+    narration: { prompt: tp.PUZ.04.t1.prompt, hints: [h.puzzle.cage-add, h.eq.same-both] }
+
+  - id: PUZ.04.t2
+    skillId: PUZ.04
+    format: puzzle-grid
+    tier: abstract
+    representation: symbols
+    generator: puzzle.grid
+    params:
+      variant: cage-sum
+      square: { int: [0, 11] }
+      layout: { int: [0, 4] }
+      givens: { int: [0, 2] }
+    difficulty: { base: -2.5 }
+    narration:
+      prompt: tp.PUZ.04.t2.prompt
+      hints: [h.puzzle.line-once, h.puzzle.cage-add, h.puzzle.cage-try]
+
+  # PUZ.06: different digit cards 1–9; the biggest number puts the biggest digit first.
+  - id: PUZ.06.t1
+    skillId: PUZ.06
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: puzzle.grid
+    params:
+      variant: digit-cards
+      count: { choice: [2, 3] }
+      d1: { int: [1, 9] }
+      d2: { int: [1, 9] }
+      d3: { int: [1, 9] }
+      want: biggest
+    difficulty: { base: -0.5 }
+    narration: { prompt: tp.PUZ.06.t1.prompt, hints: [h.digits.biggest-place, h.digits.big-first] }
+
+  - id: PUZ.06.t2
+    skillId: PUZ.06
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: puzzle.grid
+    params:
+      variant: digit-cards
+      count: { choice: [2, 3] }
+      d1: { int: [1, 9] }
+      d2: { int: [1, 9] }
+      d3: { int: [1, 9] }
+      want: smallest
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.PUZ.06.t2.prompt
+      hints: [h.digits.biggest-place, h.digits.small-first]
+
+  - id: PUZ.06.t3
+    skillId: PUZ.06
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: puzzle.grid
+    params:
+      variant: digit-cards
+      count: 3
+      d1: { int: [1, 9] }
+      d2: { int: [1, 9] }
+      d3: { int: [1, 9] }
+      want: biggest
+    difficulty: { base: -1.1 }
+    narration: { prompt: tp.PUZ.06.t3.prompt, hints: [h.digits.biggest-place, h.digits.big-first] }
+
+  # PUZ.07: a mystery number from clues in the prompt, each clue needed and only one number fitting.
+  - id: PUZ.07.t1
+    skillId: PUZ.07
+    format: hundred-chart
+    tier: pictorial
+    representation: hundred-chart
+    generator: puzzle.grid
+    params: { variant: clues, clues: fives, t: { int: [1, 9] } }
+    difficulty: { base: -0.55 }
+    narration: { prompt: tp.PUZ.07.t1.prompt, hints: [h.clues.one-at-a-time, h.clues.fives] }
+
+  - id: PUZ.07.t2
+    skillId: PUZ.07
+    format: hundred-chart
+    tier: pictorial
+    representation: hundred-chart
+    generator: puzzle.grid
+    params: { variant: clues, clues: near, n: { int: [12, 98] } }
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.PUZ.07.t2.prompt, hints: [h.clues.one-at-a-time, h.clues.between] }
+
+  - id: PUZ.07.t3
+    skillId: PUZ.07
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: puzzle.grid
+    params: { variant: clues, clues: near, n: { int: [12, 98] } }
+    difficulty: { base: -1.15 }
+    narration: { prompt: tp.PUZ.07.t3.prompt, hints: [h.clues.one-at-a-time, h.clues.between] }
+
+  # PUZ.09: a way to pay is a set of coins; the same coins in another order are the same way.
+  - id: PUZ.09.t1
+    skillId: PUZ.09
+    format: coin-pay
+    tier: concrete
+    representation: coins
+    generator: money.coins
+    params:
+      mode: ways
+      cents: { choice: [10, 15, 20, 25, 30] }
+      kinds: { choice: [dn, qdn, dnp] }
+      found: { int: [1, 2] }
+    difficulty: { base: -0.5 }
+    narration: { prompt: tp.PUZ.09.t1.prompt, hints: [h.coins.ways-found, h.coins.ways-trade] }
+
+  # How many ways, told in words (a coins picture is shown only by the coin formats).
+  - id: PUZ.09.t2
+    skillId: PUZ.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: money.coins
+    params:
+      mode: ways
+      cents: { choice: [10, 15, 20, 25, 30] }
+      kinds: dn
+    difficulty: { base: 0 }
+    narration:
+      prompt: tp.PUZ.09.t2.prompt
+      hints: [h.coins.ways-big-first, h.coins.ways-trade]
+
+  - id: PUZ.09.t3
+    skillId: PUZ.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: money.coins
+    params:
+      mode: ways
+      cents: { choice: [25, 30] }
+      kinds: qdn
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.PUZ.09.t3.prompt
+      hints: [h.coins.ways-big-first, h.coins.ways-trade]

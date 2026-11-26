@@ -14,3 +14,50 @@ tp.PUZ.02.t2.prompt:
   text: "One side makes {sum}, and its corners are {a} and {b}. What is the middle number?"
 tp.PUZ.03.t2.prompt:
   text: "Fill the outline with {rects} {rk|shape:rects} and {squares} {sk|shape:squares}."
+
+# K02 slice 4e (#17): grade 2 puzzles.
+sk.PUZ.04.intro:
+  text: "Fill a number grid where every cage adds up just right."
+  level: "2"
+sk.PUZ.06.intro:
+  text: "Line up digit cards to make the biggest and the smallest numbers."
+  level: "2"
+sk.PUZ.07.intro:
+  text: "Use the clues to find the mystery number."
+  level: "2"
+sk.PUZ.09.intro:
+  text: "There is more than one way to pay. Let's find them!"
+  level: "2"
+tp.PUZ.04.t1.prompt:
+  text: "These boxes are one cage. Together they make {sum}. What goes in the last box?"
+  level: "2"
+tp.PUZ.04.t2.prompt:
+  text: "Use 1, 2 and 3 once in each row and column. Each cage adds up to its number."
+  level: "2"
+tp.PUZ.06.t1.prompt:
+  text: "Make the biggest number you can. Put the cards in order."
+  level: "2"
+tp.PUZ.06.t2.prompt:
+  text: "Make the smallest number you can. Put the cards in order."
+  level: "2"
+tp.PUZ.06.t3.prompt:
+  text: "The cards are {x}, {y} and {z}. Use each card once. What is the biggest number you can make?"
+  level: "2"
+tp.PUZ.07.t1.prompt:
+  text: "Mystery number: its tens digit is {t}, it is odd, and you say it counting by fives. Tap it."
+  level: "2"
+tp.PUZ.07.t2.prompt:
+  text: "Mystery number: it is more than {lo}, it is less than {hi}, and it is {par|word}. Tap it."
+  level: "2"
+tp.PUZ.07.t3.prompt:
+  text: "Mystery number: it is more than {lo}, it is less than {hi}, and it is {par|word}. What is it?"
+  level: "2"
+tp.PUZ.09.t1.prompt:
+  text: "Pay {cents|cents} a new way. The same coins in a new order are not a new way."
+  level: "2"
+tp.PUZ.09.t2.prompt:
+  text: "With dimes and nickels, how many ways make {cents|cents}? The same coins in a new order are the same way."
+  level: "2"
+tp.PUZ.09.t3.prompt:
+  text: "With quarters, dimes and nickels, how many ways make {cents|cents}? Coins in a new order are the same way."
+  level: "2"

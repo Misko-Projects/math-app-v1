@@ -54,11 +54,10 @@ export const SQUARES3: readonly (readonly (readonly number[])[])[] = (() => {
  */
 export const CAGE_LAYOUTS: readonly string[] = [
   'AABCDBCDD',
-  'ABBACDEED',
+  'ABBACCDDC',
   'AABCABCDD',
   'ABBAACDDC',
-  'ABCABCDDC',
-  'AABCCBDDB',
+  'AABCBBCDD',
 ];
 /** The cells shown when `givens` > 0, in order. */
 export const GIVEN_ORDER: readonly Cell[] = [
@@ -93,10 +92,10 @@ export function cageSolutions(squareIdx: number, layout: string, givens: number)
   );
 }
 
-/** The cage the balance shows: the first cage with three cells, else the first one. */
+/** The cage the balance shows: the first cage with two cells (a balance side holds two values). */
 export function balanceCage(layout: string): Cell[] {
   const cages = [...cagesOf(layout).values()];
-  return cages.find((c) => c.length === 3) ?? (cages[0] as Cell[]);
+  return cages.find((c) => c.length === 2) as Cell[];
 }
 
 function cageValid(p: ParamValues, format: string): boolean {
@@ -220,7 +219,7 @@ export function k02Build(p: ParamValues, format: string, rng: Rng): K02Build {
       left.push({ op: '+' }, { blank: 'x' });
       return {
         vars: { sum, cells: cells.length },
-        math: { cageCells: cells.length - 2 },
+        math: { cageSum: sum > 4 ? 1 : 0 },
         widget: {
           format: 'balance',
           left: { terms: left },
@@ -336,11 +335,13 @@ export function cageFill(p: ParamValues): number[][] {
  * The cage puzzle's fill order: repeatedly the first cage with one empty box (its sum gives it),
  * else the first row or column with one empty box (it needs the digit missing there).
  */
-export function cageOrder(p: ParamValues): { cell: Cell; by: 'cage' | 'line'; id: string }[] {
+export function cageOrder(
+  p: ParamValues,
+): { cell: Cell; by: 'cage' | 'line' | 'try'; id: string }[] {
   const layout = CAGE_LAYOUTS[asNum(p.layout)] as string;
   const cages = [...cagesOf(layout)];
   const known = new Set(GIVEN_ORDER.slice(0, asNum(p.givens)).map(([r, c]) => `${r},${c}`));
-  const out: { cell: Cell; by: 'cage' | 'line'; id: string }[] = [];
+  const out: { cell: Cell; by: 'cage' | 'line' | 'try'; id: string }[] = [];
   const open = (cells: Cell[]) => cells.filter(([r, c]) => !known.has(`${r},${c}`));
   const lines: [string, Cell[]][] = [0, 1, 2].flatMap((i) => [
     [`row${i}`, [0, 1, 2].map((j) => [i, j] as Cell)] as [string, Cell[]],
@@ -350,7 +351,15 @@ export function cageOrder(p: ParamValues): { cell: Cell; by: 'cage' | 'line'; id
     const cage = cages.find(([, cs]) => open(cs).length === 1);
     const line = cage ? undefined : lines.find(([, cs]) => open(cs).length === 1);
     const pick = cage ?? line;
-    if (!pick) break;
+    if (!pick) {
+      // No cage or line has one empty box left: start with the first empty box of the first cage
+      // (the solution knows its digit; the child tries one and checks its row, column and cage).
+      const first = cages.find(([, cs]) => open(cs).length > 0) as [string, Cell[]];
+      const cell = open(first[1])[0] as Cell;
+      known.add(`${cell[0]},${cell[1]}`);
+      out.push({ cell, by: 'try', id: first[0] });
+      continue;
+    }
     const cell = open(pick[1])[0] as Cell;
     known.add(`${cell[0]},${cell[1]}`);
     out.push({ cell, by: cage ? 'cage' : 'line', id: pick[0] });
@@ -375,7 +384,9 @@ export function k02Solution(
       steps.push(
         by === 'cage'
           ? say('gen.puzzle.grid.cage-one', {}, { op: 'highlight-cage', args: { id } })
-          : say('gen.puzzle.grid.cage-line', {}),
+          : by === 'line'
+            ? say('gen.puzzle.grid.cage-line', {})
+            : say('gen.puzzle.grid.cage-try', {}, { op: 'highlight-cage', args: { id } }),
         say('gen.puzzle.grid.cage-fill', { n: v }, { op: 'fill', args: { r, c, value: v } }),
       );
     }
@@ -425,6 +436,7 @@ export const K02_NARRATION = [
   'gen.puzzle.grid.cage-look',
   'gen.puzzle.grid.cage-one',
   'gen.puzzle.grid.cage-line',
+  'gen.puzzle.grid.cage-try',
   'gen.puzzle.grid.cage-fill',
   'gen.puzzle.grid.cage-balance',
   'gen.puzzle.grid.digits-big',

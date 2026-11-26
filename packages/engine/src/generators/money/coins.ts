@@ -23,7 +23,8 @@
 //   is a set of coins: the same coins in another order are the same way. coin-pay `new-way`: the
 //   ways of at most TRAY_NARROW_PIECES_MAX pieces, fewest pieces first (`waysList`); the first
 //   `found` of them are listed as found and the child makes another one. number-pad: how many
-//   ways there are (any number of pieces), with one coin of each kind pictured.
+//   ways there are (any number of pieces); the prompt names the coins (no picture: a coins
+//   stimulus is shown only by the coin formats).
 // MON.07 (make change) will add `change`.
 //
 // The coins of every item come from its params alone (counts or amounts), so the format features
@@ -473,14 +474,13 @@ export const moneyCoins: GeneratorDef = {
       const purse = payPurse(kinds);
       const varsW = pickVars(t, { cents, n: value });
       if (t.format === 'number-pad') {
-        const coins = BIG_FIRST.filter((k) => purse[k] !== undefined);
         p = {
           params,
           vars: varsW,
           math: { ...math, kinds: kinds.length - 2, waysOver3: Math.max(0, value - 3) },
           widget: {
             format: 'number-pad',
-            stimulus: coinsPicture(coins),
+            stimulus: { kind: 'none' },
             blanks: [{ id: 'x', maxDigits: 1 }],
           },
           answer: { kind: 'number', value },
@@ -592,7 +592,7 @@ export const moneyCoins: GeneratorDef = {
     }
     if (w.format === 'number-pad' && asStr(out.params.mode) === 'ways') {
       return [
-        say('gen.money.coins.ways-big-first', {}, { op: 'show-stimulus' }),
+        say('gen.money.coins.ways-big-first', {}),
         say('gen.money.coins.ways-count', { n: value }, { op: 'type', args: { blank: 'x', value } }),
       ];
     }
