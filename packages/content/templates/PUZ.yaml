@@ -130,18 +130,20 @@ templates:
 
   # ---------- K02 slice 4e (#17): grade 2 puzzles ----------
   # PUZ.04: a 3 × 3 cage grid of 1, 2 and 3 with exactly one solution (puzzle.grid accepts only
-  # those); one cage on the balance is its pictorial step.
+  # those); a cage of two boxes on the balance (one box known) is its pictorial step.
   - id: PUZ.04.t1
     skillId: PUZ.04
     format: balance
     tier: pictorial
     representation: balance
-    generator: puzzle.grid
+    generator: equality.eq
     params:
-      variant: cage-sum
-      square: { int: [0, 11] }
-      layout: { int: [0, 4] }
-      givens: 0
+      form: a+_=c
+      a: { int: [1, 3] }
+      b: { int: [1, 3] }
+      c: 1
+      maxN: 6
+    constraints: ["a != b"]
     difficulty: { base: -1 }
     narration: { prompt: tp.PUZ.04.t1.prompt, hints: [h.puzzle.cage-add, h.eq.same-both] }
 

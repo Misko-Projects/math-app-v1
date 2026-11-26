@@ -37,6 +37,12 @@ import {
   timesZeroKeeps,
 } from './rules/multiplication';
 import { offByOneCounting } from './rules/offByOneCounting';
+import {
+  cageRepeatDigit,
+  digitOrderReversed,
+  growAsRepeat,
+  wayCountedTwice,
+} from './rules/k02Puzzles';
 import { patternRestart } from './rules/patternRestart';
 import { perceptualSize } from './rules/perceptualSize';
 import { placeSwap } from './rules/placeSwap';
@@ -109,6 +115,11 @@ const RULES: Record<string, MisconceptionRule> = {
   minuteHandNumber: minuteHandAsMinutes,
   coinsAsOnes: coinsAsOnes,
   coinValueBySize: coinValueBySize,
+  // K02 (#17) slice 4e: patterns and puzzles
+  growAsRepeat: growAsRepeat,
+  cageRepeatDigit: cageRepeatDigit,
+  digitOrderReversed: digitOrderReversed,
+  wayCountedTwice: wayCountedTwice,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

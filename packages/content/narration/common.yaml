@@ -2440,13 +2440,10 @@ gen.puzzle.grid.cage-try:
   text: "Try a number in this cage. Then check its row, its column and its cage."
   level: "2"
 gen.puzzle.grid.cage-line:
-  text: "This line has one empty box. Which of 1, 2 and 3 is not there yet?"
+  text: "This line has one empty box. Which of 1, 2 and 3 is missing?"
   level: "2"
 gen.puzzle.grid.cage-fill:
   text: "It is {n}."
-  level: "2"
-gen.puzzle.grid.cage-balance:
-  text: "Both sides must make the same number. Add up the boxes you know."
   level: "2"
 gen.puzzle.grid.digits-big:
   text: "The biggest digit goes first, in the biggest place."
@@ -2979,7 +2976,7 @@ h.clues.between:
   text: "Find the numbers between the two numbers. Then check odd or even."
   level: "2"
 h.coins.ways-found:
-  text: "Look at the ways already found. Use different coins."
+  text: "Look at the ways we found. Use different coins."
   level: "2"
 h.coins.ways-trade:
   text: "Trade a coin for smaller coins that make the same amount."
@@ -2993,3 +2990,11 @@ h.grow.keep-adding:
 gen.pattern.grow.step-squares:
   text: "Step {k} has {n} squares."
   level: "2"
+fb.mc.grow-as-repeat:
+  text: "This pattern grows. Each step has more squares."
+fb.mc.cage-repeat-digit:
+  text: "Each row and each column has 1, 2 and 3 just once."
+fb.mc.digit-order-reversed:
+  text: "The first card is the biggest place. Which card goes there?"
+fb.mc.way-counted-twice:
+  text: "We found those coins before. A new order is the same way."

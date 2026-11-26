@@ -29,7 +29,7 @@ sk.PUZ.09.intro:
   text: "There is more than one way to pay. Let's find them!"
   level: "2"
 tp.PUZ.04.t1.prompt:
-  text: "These boxes are one cage. Together they make {sum}. What goes in the last box?"
+  text: "A cage of two boxes makes {n}. One box has {a}. What goes in the other box?"
   level: "2"
 tp.PUZ.04.t2.prompt:
   text: "Use 1, 2 and 3 once in each row and column. Each cage adds up to its number."

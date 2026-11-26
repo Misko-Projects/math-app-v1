@@ -14,7 +14,7 @@
 //   (turn-arounds once); the child fills them all, in any order. all-ways (order): every way as a
 //   picture of two groups (turn-arounds included); the child orders them by the first group.
 // K01 builds puzzle-grid, hundred-chart, number-bond and order.
-// K02 slice 4e adds `cage-sum` (PUZ.04, puzzle-grid and balance), `digit-cards` (PUZ.06, order and
+// K02 slice 4e adds `cage-sum` (PUZ.04, puzzle-grid), `digit-cards` (PUZ.06, order and
 // number-pad) and `clues` (PUZ.07, hundred-chart and number-pad): see k02.ts.
 
 import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
@@ -198,7 +198,7 @@ const waysOf = (whole: number): [number, number][] =>
 
 export const puzzleGrid: GeneratorDef = {
   id: 'puzzle.grid',
-  formats: ['puzzle-grid', 'hundred-chart', 'number-bond', 'order', 'balance', 'number-pad'],
+  formats: ['puzzle-grid', 'hundred-chart', 'number-bond', 'order', 'number-pad'],
   params: {
     variant: {
       type: 'string',
@@ -315,7 +315,6 @@ export const puzzleGrid: GeneratorDef = {
     'rows.over1': { weight: 0.3, doc: 'hundred-chart piece: it spans more than one row' },
     'sum.over10': { weight: 0.3, doc: 'sum-triangle: the sides add up to more than 10' },
     items: { weight: 0.3, doc: 'order format feature (03 §5.5): card count − 3' },
-    cageSum: { weight: 0.3, doc: 'cage-sum on the balance: the cage makes more than 4' },
     three: { weight: 0.5, doc: 'digit-cards: three cards (a three-digit number)' },
     threeClues: { weight: 0.2, doc: 'clues: three clues to keep in mind' },
     near: { weight: 0.3, doc: 'clues: more than, less than, odd or even' },

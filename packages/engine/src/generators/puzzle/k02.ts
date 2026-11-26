@@ -5,8 +5,7 @@
 //   squares of the digits 1–3 (each once in every row and column), `layout` one of the cage
 //   layouts in CAGE_LAYOUTS, and `givens` how many cells are shown (the first of GIVEN_ORDER).
 //   Accepted only when exactly one square fits the cage sums and the givens (`cageSolutions`).
-// - cage-sum (balance): one cage of that puzzle on the balance, its other cells known: the child
-//   finds the last box (x + y + _ = sum).
+//   (PUZ.04's balance step is equality.eq: a cage of two boxes, one known, a + _ = sum.)
 // - digit-cards (PUZ.06, order): `count` (2 or 3) different digit cards 1–9 (`d1`, `d2`, `d3`);
 //   the child lines them up to make the biggest (`want: biggest`, the biggest digit first) or the
 //   smallest number. number-pad: the cards are named in the prompt and the child types the number.
@@ -15,7 +14,6 @@
 //   (10t + 5). `near`: it is more than n − 2, less than n + 2, and odd or even (n).
 
 import type {
-  BalanceSide,
   LessonStep,
   ParamValues,
   ResponseValue,
@@ -92,18 +90,11 @@ export function cageSolutions(squareIdx: number, layout: string, givens: number)
   );
 }
 
-/** The cage the balance shows: the first cage with two cells (a balance side holds two values). */
-export function balanceCage(layout: string): Cell[] {
-  const cages = [...cagesOf(layout).values()];
-  return cages.find((c) => c.length === 2) as Cell[];
-}
-
 function cageValid(p: ParamValues, format: string): boolean {
   const square = asNum(p.square);
   const layout = CAGE_LAYOUTS[asNum(p.layout)];
   const givens = asNum(p.givens);
   if (!layout || !SQUARES3[square] || givens < 0 || givens > CAGE_GIVENS_MAX) return false;
-  if (format === 'balance') return true;
   if (format !== 'puzzle-grid') return false;
   return cageSolutions(square, layout, givens).length === 1;
 }
@@ -206,30 +197,6 @@ export function k02Build(p: ParamValues, format: string, rng: Rng): K02Build {
     const sq = SQUARES3[asNum(p.square)] as readonly (readonly number[])[];
     const layout = CAGE_LAYOUTS[asNum(p.layout)] as string;
     const cages = cagesOf(layout);
-    if (format === 'balance') {
-      const cells = balanceCage(layout);
-      const known = cells.slice(0, -1).map(([r, c]) => sq[r]?.[c] as number);
-      const [lr, lc] = cells[cells.length - 1] as Cell;
-      const sum = cageSum(sq, cells);
-      const left: BalanceSide['terms'] = [];
-      known.forEach((v, i) => {
-        if (i > 0) left.push({ op: '+' });
-        left.push({ n: v });
-      });
-      left.push({ op: '+' }, { blank: 'x' });
-      return {
-        vars: { sum, cells: cells.length },
-        math: { cageSum: sum > 4 ? 1 : 0 },
-        widget: {
-          format: 'balance',
-          left: { terms: left },
-          right: { terms: [{ n: sum }] },
-          mode: 'fill-blank',
-          showTilt: false,
-        },
-        answer: { kind: 'number', value: sq[lr]?.[lc] as number },
-      };
-    }
     const givens = asNum(p.givens);
     const shown = new Set(GIVEN_ORDER.slice(0, givens).map(([r, c]) => `${r},${c}`));
     const cells = [...layout].map((id, i) => {
@@ -392,13 +359,6 @@ export function k02Solution(
     }
     return steps;
   }
-  if (variant === 'cage-sum') {
-    const v = typeof answer === 'number' ? answer : 0;
-    return [
-      say('gen.puzzle.grid.cage-balance', {}),
-      say('gen.puzzle.grid.cage-fill', { n: v }, { op: 'answer', args: { value: v } }),
-    ];
-  }
   if (variant === 'digit-cards') {
     const order = digitOrder(p);
     const want = asStr(p.want, 'biggest');
@@ -438,7 +398,6 @@ export const K02_NARRATION = [
   'gen.puzzle.grid.cage-line',
   'gen.puzzle.grid.cage-try',
   'gen.puzzle.grid.cage-fill',
-  'gen.puzzle.grid.cage-balance',
   'gen.puzzle.grid.digits-big',
   'gen.puzzle.grid.digits-small',
   'gen.puzzle.grid.digits-next',
