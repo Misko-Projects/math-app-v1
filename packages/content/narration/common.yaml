@@ -1026,6 +1026,9 @@ gen.mda.addsub.columns-take:
   text: "Take away the ones, then the tens, then the hundreds."
 gen.mda.addsub.sum-hundreds:
   text: "Add the hundreds."
+gen.mda.addsub.check-add:
+  text: "Check: {r} + {b} = {a}. It works!"
+  say: "Check: {r} plus {b} is {a}. It works!"
 gen.pv.estimate.round:
   text: "{n} rounds to {v}."
 gen.pv.estimate.add:

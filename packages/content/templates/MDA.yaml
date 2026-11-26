@@ -485,7 +485,7 @@ templates:
     tier: abstract
     representation: symbols
     generator: mda.addsub
-    params: { a: { int: [31, 99] }, b: { int: [11, 88] }, op: "-" }
+    params: { a: { int: [31, 99] }, b: { int: [11, 88] }, op: "-", checkByAdding: true }
     constraints: ["result >= 11"]
     difficulty: { base: -1.28 }
     narration: { prompt: tp.MDA.16.t2.prompt, hints: [h.mda.think-plus, h.mda.check-with-plus] }

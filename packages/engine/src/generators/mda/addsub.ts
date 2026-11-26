@@ -331,6 +331,11 @@ export const mdaAddSub: GeneratorDef = {
       default: { kind: 'const', value: -1 },
       doc: '−1: any; otherwise exactly this many carries (+) or borrows (−)',
     },
+    checkByAdding: {
+      type: 'bool',
+      default: { kind: 'const', value: false },
+      doc: 'true: a subtraction on the number pad whose worked solution ends with the addition check, result + b = a (MDA.16)',
+    },
     zeroTens: {
       type: 'bool',
       default: { kind: 'const', value: false },
@@ -433,6 +438,7 @@ export const mdaAddSub: GeneratorDef = {
     'gen.mda.addsub.columns-add',
     'gen.mda.addsub.columns-take',
     'gen.mda.addsub.sum-hundreds',
+    'gen.mda.addsub.check-add',
   ],
   sample(spec, rng) {
     const p = sampleAll(spec, rng);
@@ -479,6 +485,7 @@ export const mdaAddSub: GeneratorDef = {
     const regroups = asNum(p.regroups, -1);
     if (regroups >= 0 && carries + borrows !== regroups) return false;
     if (p.zeroInMinuend === true && (plus || !hasZeroBelowLead(a))) return false;
+    if (p.checkByAdding === true && (plus || t.format !== 'number-pad')) return false;
     if (p.zeroTens === true && (a < 100 || Math.floor(a / 10) % 10 !== 0)) return false;
     const change = asStr(p.unknown, 'result') === 'change';
     if (change && t.format !== 'number-pad' && t.format !== 'number-line-jump') return false;
@@ -772,9 +779,15 @@ export const mdaAddSub: GeneratorDef = {
                   plus ? 'gen.mda.addsub.tens-then-ones' : 'gen.mda.addsub.take-tens-then-ones',
                   {},
                 );
+        // MDA.16: the answer is checked by adding it back (25 + 27 = 52).
+        const check =
+          p.checkByAdding === true && !plus && !change
+            ? [say('gen.mda.addsub.check-add', { r: result, b, a })]
+            : [];
         return [
           { ...first, action: { op: 'highlight', args: { token: 'x' } } },
           final({ op: 'type', args: { blank: 'x', value: answer } }),
+          ...check,
         ];
       }
       case 'base-ten-build': {
