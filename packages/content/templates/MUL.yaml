@@ -332,3 +332,341 @@ templates:
     narration:
       prompt: tp.MUL.22.t3.prompt
       hints: [h.mul.make-groups, h.mul.count-groups]
+
+  # K02 (#17) slice 3b: facts and strategies (mul.facts; mul.tens for MUL.11). No factor 0 is
+  # pictured; strategy sentences ask each step, then the total.
+  # MUL.06: × 1 groups (mul.groups), × 0 and × 1 in symbols, the turn-around with an array and in
+  # symbols. The symbols item is the first mul.facts template (the × 0 misconception examples run
+  # on it), so the array comes after it (an expected V10 warning, LATE_PICTORIAL).
+  - id: MUL.06.t1
+    skillId: MUL.06
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [1, 6] }, perGroup: { int: [1, 10] }, unknown: total, mode: read }
+    constraints: ["groups == 1 || perGroup == 1", "groups * perGroup > 1"]
+    difficulty: { base: -0.15 }
+    narration:
+      prompt: tp.MUL.06.t1.prompt
+      hints: [h.mul.zero-one, h.mul.count-all]
+
+  - id: MUL.06.t2
+    skillId: MUL.06
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [0, 10] }, b: { int: [0, 10] }, family: x0x1 }
+    constraints: ["a + b > 0"]
+    difficulty: { base: 0.5 }
+    narration:
+      prompt: tp.MUL.06.t2.prompt
+      hints: [h.mul.zero-one, h.mul.think-groups]
+
+  - id: MUL.06.t3
+    skillId: MUL.06
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, form: turn-around }
+    difficulty: { base: 0.0 }
+    narration:
+      prompt: tp.MUL.06.t3.prompt
+      hints: [h.mul.turn-array, h.mul.turn]
+
+  - id: MUL.06.t4
+    skillId: MUL.06
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, form: turn-around }
+    difficulty: { base: 0.0 }
+    narration:
+      prompt: tp.MUL.06.t4.prompt
+      hints: [h.mul.turn, h.mul.think-array]
+
+  # MUL.13: count by 2s, 5s or 10s: groups, jumps on a line, then the fact alone.
+  - id: MUL.13.t1
+    skillId: MUL.13
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.facts
+    params: { a: { int: [2, 6] }, b: { choice: [2, 5, 10] } }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.13.t1.prompt
+      hints: [h.mul.count-by, h.mul.touch-groups]
+
+  - id: MUL.13.t2
+    skillId: MUL.13
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, family: { choice: [x2, x5, x10] } }
+    difficulty: { base: 0.1 }
+    narration:
+      prompt: tp.MUL.13.t2.prompt
+      hints: [h.mul.count-by-f, h.mul.count-jumps]
+
+  - id: MUL.13.t3
+    skillId: MUL.13
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, family: { choice: [x2, x5, x10] } }
+    difficulty: { base: 0.1 }
+    narration:
+      prompt: tp.MUL.13.t3.prompt
+      hints: [h.mul.skip-known, h.mul.one-per-group]
+
+  # MUL.14: × 4 and × 8 by doubling: the array split in half, the array with the doubling sentence,
+  # the sentence alone, the fact alone.
+  - id: MUL.14.t1
+    skillId: MUL.14
+    format: array-build
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params:
+      {
+        a: { int: [2, 10] },
+        b: { int: [2, 10] },
+        family: { choice: [x4, x8] },
+        strategy: double,
+        mode: split,
+      }
+    difficulty: { base: -1.87 }
+    narration:
+      prompt: tp.MUL.14.t1.prompt
+      hints: [h.mul.split-half, h.mul.double]
+
+  - id: MUL.14.t2
+    skillId: MUL.14
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params:
+      { a: { int: [2, 10] }, b: { int: [2, 10] }, family: { choice: [x4, x8] }, strategy: double }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.14.t2.prompt
+      hints: [h.mul.half, h.mul.double]
+
+  - id: MUL.14.t3
+    skillId: MUL.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params:
+      { a: { int: [2, 10] }, b: { int: [2, 10] }, family: { choice: [x4, x8] }, strategy: double }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.14.t3.prompt
+      hints: [h.mul.half, h.mul.double]
+
+  - id: MUL.14.t4
+    skillId: MUL.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, family: { choice: [x4, x8] } }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MUL.14.t4.prompt
+      hints: [h.mul.double-twice, h.mul.half]
+
+  # MUL.15: × 3, × 6 and × 9 from a near fact: one more group, the array with the sentence, the
+  # sentence alone, the fact alone.
+  - id: MUL.15.t1
+    skillId: MUL.15
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.facts
+    params: { a: { choice: [3, 6] }, b: { int: [2, 10] }, strategy: add-group }
+    difficulty: { base: -0.91 }
+    narration:
+      prompt: tp.MUL.15.t1.prompt
+      hints: [h.mul.one-more-group, h.mul.count-by]
+
+  - id: MUL.15.t2
+    skillId: MUL.15
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params:
+      {
+        a: { int: [2, 10] },
+        b: { int: [2, 10] },
+        family: { choice: [x3, x6, x9] },
+        strategy: add-group,
+      }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.MUL.15.t2.prompt
+      hints: [h.mul.near-fact, h.mul.add-or-take]
+
+  - id: MUL.15.t3
+    skillId: MUL.15
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params:
+      {
+        a: { int: [2, 10] },
+        b: { int: [2, 10] },
+        family: { choice: [x3, x6, x9] },
+        strategy: add-group,
+      }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.MUL.15.t3.prompt
+      hints: [h.mul.near-fact, h.mul.add-or-take]
+
+  - id: MUL.15.t4
+    skillId: MUL.15
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, family: { choice: [x3, x6, x9] } }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MUL.15.t4.prompt
+      hints: [h.mul.near-group, h.mul.add-or-take-any]
+
+  # MUL.16: three factors, the easy pair first: its groups, a picture of them, the sentence alone.
+  - id: MUL.16.t1
+    skillId: MUL.16
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.facts
+    params: { a: { int: [2, 5] }, b: { int: [2, 5] }, c: { int: [2, 5] } }
+    difficulty: { base: -0.91 }
+    narration:
+      prompt: tp.MUL.16.t1.prompt
+      hints: [h.mul.pair-first, h.mul.count-by]
+
+  - id: MUL.16.t2
+    skillId: MUL.16
+    format: number-pad
+    tier: pictorial
+    representation: groups
+    generator: mul.facts
+    params: { a: { int: [2, 5] }, b: { int: [2, 5] }, c: { int: [2, 5] } }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.16.t2.prompt
+      hints: [h.mul.easy-pair, h.mul.then-last]
+
+  - id: MUL.16.t3
+    skillId: MUL.16
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 5] }, b: { int: [2, 5] }, c: { int: [2, 5] } }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.16.t3.prompt
+      hints: [h.mul.easy-pair, h.mul.then-last]
+
+  # MUL.07 (gateway): break a factor 6–9 into 5 and the rest: the array with the sentence, a split
+  # the child draws, the sentence alone.
+  - id: MUL.07.t1
+    skillId: MUL.07
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [6, 9] }, b: { int: [2, 9] }, strategy: break-apart }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.07.t1.prompt
+      hints: [h.mul.break-five, h.mul.add-parts]
+
+  - id: MUL.07.t2
+    skillId: MUL.07
+    format: array-build
+    tier: pictorial
+    representation: tiles
+    generator: mul.facts
+    params: { a: { int: [6, 9] }, b: { int: [2, 9] }, strategy: break-apart, mode: split }
+    difficulty: { base: -1.85 }
+    narration:
+      prompt: tp.MUL.07.t2.prompt
+      hints: [h.mul.split-five, h.mul.add-parts]
+
+  - id: MUL.07.t3
+    skillId: MUL.07
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [6, 9] }, b: { int: [2, 9] }, strategy: break-apart }
+    difficulty: { base: -1.0 }
+    narration:
+      prompt: tp.MUL.07.t3.prompt
+      hints: [h.mul.break-five, h.mul.add-parts]
+
+  # MUL.11: a one-digit number times a multiple of ten: all the tens on a mat to read, one group of
+  # tens pictured with the tens sentence, the sentence alone, the fact alone.
+  - id: MUL.11.t1
+    skillId: MUL.11
+    format: base-ten-build
+    tier: pictorial
+    representation: base-ten
+    generator: mul.tens
+    params: { a: { int: [2, 9] }, b: { int: [10, 90], step: 10 } }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MUL.11.t1.prompt
+      hints: [h.mul.tens, h.mul.times-ten]
+
+  - id: MUL.11.t2
+    skillId: MUL.11
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: mul.tens
+    params: { a: { int: [2, 9] }, b: { int: [10, 90], step: 10 }, steps: true }
+    difficulty: { base: -1.4 }
+    narration:
+      prompt: tp.MUL.11.t2.prompt
+      hints: [h.mul.tens, h.mul.times-ten]
+
+  - id: MUL.11.t3
+    skillId: MUL.11
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.tens
+    params: { a: { int: [2, 9] }, b: { int: [10, 90], step: 10 }, steps: true }
+    difficulty: { base: -1.4 }
+    narration:
+      prompt: tp.MUL.11.t3.prompt
+      hints: [h.mul.tens, h.mul.times-ten]
+
+  - id: MUL.11.t4
+    skillId: MUL.11
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.tens
+    params: { a: { int: [2, 9] }, b: { int: [10, 90], step: 10 } }
+    difficulty: { base: -1.1 }
+    narration:
+      prompt: tp.MUL.11.t4.prompt
+      hints: [h.mul.tens, h.mul.times-ten]

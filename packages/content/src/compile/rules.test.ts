@@ -24,7 +24,8 @@ type Yaml = { [k: string]: any };
  * abstract templates; template ids are stable (03 §4.3), so their V10 tier-order warnings are
  * expected.
  */
-const LATE_PICTORIAL = ['SUB.03.t5', 'CNT.14.t6', 'GEO.05.t3'];
+// MUL.06.t3: the × 0 misconception examples need MUL.06's first mul.facts template in symbols.
+const LATE_PICTORIAL = ['SUB.03.t5', 'CNT.14.t6', 'GEO.05.t3', 'MUL.06.t3'];
 const EXPECTED = (d: Diagnostic) =>
   d.check === 'V10' && LATE_PICTORIAL.some((id) => d.message.startsWith(`${id} (pictorial)`));
 /**
@@ -197,7 +198,14 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MUL.03',
       'MUL.04',
       'MUL.05',
+      'MUL.06',
+      'MUL.07',
+      'MUL.11',
       'MUL.12',
+      'MUL.13',
+      'MUL.14',
+      'MUL.15',
+      'MUL.16',
       'MUL.22',
       'PUZ.01',
       'PUZ.02',
@@ -245,6 +253,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
+      'MC.double-once',
       'MC.equals-add-all',
       'MC.equals-means-answer',
       'MC.face-value',
@@ -256,6 +265,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.hour-minute-swap',
       'MC.keyword-more-means-add',
       'MC.off-by-one-counting',
+      'MC.partial-product-dropped',
       'MC.pattern-restart',
       'MC.perceptual-size',
       'MC.place-swap',
@@ -267,6 +277,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.start-unknown-reversed',
       'MC.symbol-reversed',
       'MC.teen-reversal',
+      'MC.tens-dropped',
+      'MC.times-zero-keeps',
       'MC.unequal-share',
       'MC.unit-gaps',
       'MC.write-as-spoken',
@@ -293,7 +305,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'geo.position',
         'geo.draw',
         // K02 (#17) slice 3a: equal groups, arrays, even and odd, rows and columns
+        'mul.facts',
         'mul.groups',
+        'mul.tens',
         'parity.evenodd',
         'geo.partition',
         'mea.length',
@@ -1881,10 +1895,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // MC.forgot-to-regroup-add, MC.smaller-from-larger and MC.borrow-no-decrement; within 1000
       // (K02 slice 2b) added 8 skills, 22 templates and MC.borrow-across-zero; equal groups and
       // arrays (K02 slice 3a) added 9 skills, 33 templates, MC.add-instead-of-multiply and
-      // MC.skip-count-slip.
-      skills: 163,
-      templates: 608,
-      misconceptions: 35,
+      // MC.skip-count-slip; facts and strategies (K02 slice 3b) added 7 skills, 25 templates,
+      // MC.times-zero-keeps, MC.double-once, MC.tens-dropped and MC.partial-product-dropped.
+      skills: 170,
+      templates: 633,
+      misconceptions: 39,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1929,6 +1944,7 @@ describe('graph.json (03 §9.1)', () => {
       'MDA.12',
       'MUL.04',
       'MUL.05',
+      'MUL.07',
       'PV.01',
       'PV.04',
       'PV.09',

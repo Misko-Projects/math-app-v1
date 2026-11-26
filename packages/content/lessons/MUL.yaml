@@ -34,3 +34,20 @@ lessons:
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3 }
     outro: ls.MUL.05.outro
+
+  # MUL.07 (gateway): break 7 × 6 at 5 with the array, then split an array and use the sentence.
+  - skillId: MUL.07
+    mode: authored
+    templateId: MUL.07.t1
+    worked:
+      - params: { a: 7, b: 6, strategy: break-apart }
+    faded:
+      - templateId: MUL.07.t2
+        params: { a: 6, b: 4, strategy: break-apart, mode: split }
+        childSteps: 1
+      - templateId: MUL.07.t3
+        params: { a: 8, b: 3, strategy: break-apart }
+        childSteps: 1
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.MUL.07.outro

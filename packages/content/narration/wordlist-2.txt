@@ -923,3 +923,10 @@ zero
 cm
 ft
 m
+break
+breaking
+apart
+rest
+stays
+become
+nothing

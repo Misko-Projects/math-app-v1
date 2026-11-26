@@ -25,7 +25,9 @@ import { geoPosition } from './geo/position';
 import { mdaAddSub } from './mda/addsub';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
+import { mulFacts } from './mul/facts';
 import { mulGroups } from './mul/groups';
+import { mulTens } from './mul/tens';
 import { numberlinePlace } from './numberline/place';
 import { parityEvenOdd } from './parity/evenodd';
 import { patternGrow } from './pattern/grow';
@@ -83,7 +85,9 @@ const GENERATORS: GeneratorDef[] = [
   storyAddsub,
   addsubThree,
   // K02 (#17) slice 3a: equal groups, arrays, even and odd, rectangles in rows and columns
+  mulFacts,
   mulGroups,
+  mulTens,
   parityEvenOdd,
   geoPartition,
 ];

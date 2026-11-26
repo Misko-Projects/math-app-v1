@@ -57,6 +57,8 @@ const VALUE_STATE_FORMATS = new Set<string>([
   'base-ten-build',
   'base-ten-trade',
   'equal-groups',
+  // A split array with its typed total (K02 slice 3b: break-apart and doubling).
+  'array-build',
 ]);
 
 /** The non-zero place values of n, largest first (41 → 40, 1). */
@@ -161,6 +163,13 @@ export function responseWith(item: GeneratedItem, values: number[]): ResponseVal
         const per = Number(a.target.perGroup);
         if (!Number.isInteger(g) || !Number.isInteger(per)) return null;
         return { kind: 'state', value: { groups: new Array<number>(g).fill(per), value: v } };
+      }
+      // A split array, the line where the item draws it, then the rewritten total typed.
+      if (w.format === 'array-build') {
+        const rows = Number(a.target.rows);
+        const cols = Number(a.target.cols);
+        const at = typeof a.target.splitAt === 'number' ? a.target.splitAt : Math.min(5, cols - 1);
+        return { kind: 'state', value: { rows, cols, split: at, value: v } };
       }
       if (item.widget.format !== 'number-line-jump') return null;
       const t = a.target as { start: number; target: number; allowedJumps: number[] };

@@ -1,7 +1,8 @@
 // array.dims `{ rows, cols, orientationMatters?, requireSplit? }` (03 §5.5 array-build, and
 // area-tiles `partition`): the array is rows × cols (cols × rows too unless orientation matters).
 // With `requireSplit` (MUL.07) a split line sits after any column 1 … cols − 1 and the typed
-// `value` is the total rows × cols.
+// `value` is the total rows × cols; with `splitAt` (doubling, MUL.14) the line must sit after
+// exactly that column (the middle).
 import { num, type StateChecker } from './types';
 
 const dim = (v: unknown): number | undefined => {
@@ -22,7 +23,8 @@ export const arrayDims: StateChecker = {
     if (!same && !turned) return false;
     if (target.requireSplit !== true) return true;
     const split = dim(value.split);
-    return split !== undefined && split < vc && num(value.value) === r * c;
+    if (split === undefined || split >= vc || num(value.value) !== r * c) return false;
+    return target.splitAt === undefined || split === num(target.splitAt);
   },
   // Moving the split line to another column is another valid split.
   exempt: (target, original, mutated) =>

@@ -70,3 +70,71 @@ ls.MUL.04.outro:
   text: "Times means groups of. Three times four is three groups of four!"
 ls.MUL.05.outro:
   text: "Share equally, and every group gets the same. That is dividing!"
+
+# K02 (#17) slice 3b
+sk.MUL.06.intro:
+  text: "Turn a fact around and the answer stays the same. Let's times by 0 and 1!"
+sk.MUL.07.intro:
+  text: "A big fact can break into two smaller facts. Add the parts!"
+sk.MUL.11.intro:
+  text: "Times tens! Find the tens, then say them as a number."
+sk.MUL.13.intro:
+  text: "Count by 2s, 5s and 10s to times fast!"
+sk.MUL.14.intro:
+  text: "Times 4 is a double of a double. Let's double!"
+sk.MUL.15.intro:
+  text: "Use a fact you know, then add or take away a group."
+sk.MUL.16.intro:
+  text: "Three numbers to times? Pick two to start. Any order works!"
+tp.MUL.06.t1.prompt:
+  text: "How many in all? Look at the groups."
+tp.MUL.06.t2.prompt:
+  text: "What number makes it true?"
+tp.MUL.06.t3.prompt:
+  text: "Turn the array around. What number makes it true?"
+tp.MUL.06.t4.prompt:
+  text: "Turn it around. What number makes it true?"
+tp.MUL.13.t1.prompt:
+  text: "Count by {b}s. How many in all?"
+tp.MUL.13.t2.prompt:
+  text: "Count the jumps by {f}s. How much is {a} times {b}?"
+tp.MUL.13.t3.prompt:
+  text: "Skip-count to find the answer."
+tp.MUL.14.t1.prompt:
+  text: "Split the array in half. Find one half, then double it. How many in all?"
+tp.MUL.14.t2.prompt:
+  text: "Find half first, then double it. Fill in each box."
+tp.MUL.14.t3.prompt:
+  text: "Use doubles. Fill in each box."
+tp.MUL.14.t4.prompt:
+  text: "Use doubles to find the answer."
+tp.MUL.15.t1.prompt:
+  text: "{k} groups of {o} make {known}. Here is one more group. How many in all?"
+tp.MUL.15.t2.prompt:
+  text: "Use a fact you know, then add or take away a group. Fill in each box."
+tp.MUL.15.t3.prompt:
+  text: "Start with a fact you know. Fill in each box."
+tp.MUL.15.t4.prompt:
+  text: "Use a fact you know to find the answer."
+tp.MUL.16.t1.prompt:
+  text: "{a} times {b} times {c}. Do {x} times {y} first: that is one group. How many in all?"
+tp.MUL.16.t2.prompt:
+  text: "Each group is {x} times {y}. Fill in each box."
+tp.MUL.16.t3.prompt:
+  text: "Times two numbers first, then the last one. Fill in each box."
+tp.MUL.07.t1.prompt:
+  text: "Break it into 5 and the rest. Find each part, then the total."
+tp.MUL.07.t2.prompt:
+  text: "Draw a line to split the array into two parts. How many in all?"
+tp.MUL.07.t3.prompt:
+  text: "Break it apart. Find each part, then the total."
+tp.MUL.11.t1.prompt:
+  text: "Here are {a} groups of {t} tens. How much is {a} times {b}?"
+tp.MUL.11.t2.prompt:
+  text: "One group is {t} tens. How much is {a} times {b}?"
+tp.MUL.11.t3.prompt:
+  text: "Think in tens. Fill in each box."
+tp.MUL.11.t4.prompt:
+  text: "Think in tens to find the answer."
+ls.MUL.07.outro:
+  text: "Break a fact into parts you know, then add the parts. That is breaking apart!"
