@@ -16,7 +16,7 @@ export const STIMULUS_KINDS = {
   rekenrek: 'drawn',
   'base-ten': 'drawn',
   'number-line': 'drawn',
-  'bar-model': 'placeholder',
+  'bar-model': 'drawn',
   'number-bond': 'drawn',
   groups: 'drawn',
   array: 'drawn',

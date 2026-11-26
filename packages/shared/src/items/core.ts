@@ -621,9 +621,12 @@ export type StimulusSpec =
     }
   | {
       kind: 'bar-model';
-      parts: (number | '?')[];
-      whole: number | '?';
+      /** null (only with `lower`): the first step's result, a blank piece both bars share. */
+      parts: (number | '?' | null)[];
+      whole: number | '?' | null;
       compare?: { bigger: number | '?'; smaller: number | '?' };
+      /** A two-step model's second bar (#17 slice 4d), drawn under the first. */
+      lower?: { parts: (number | '?' | null)[]; whole: number | '?' | null };
     }
   | { kind: 'number-bond'; whole: number | '?'; parts: (number | '?')[] }
   | { kind: 'groups'; groups: number; perGroup: number; sprite: SpriteId }
@@ -653,6 +656,8 @@ export type StimulusSpec =
   | { kind: 'scene'; context: ContextId; sprites: { sprite: SpriteId; count: number }[] };
 
 const numOrQ = z.union([z.number(), z.literal('?')]);
+/** A bar-model amount; null is the first step's result of a two-step model. */
+const barAmount = z.union([z.number(), z.literal('?'), z.null()]);
 const count = z.number().int().min(0);
 export const stimulusSpecSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('none') }),
@@ -704,9 +709,10 @@ export const stimulusSpecSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('bar-model'),
-    parts: z.array(numOrQ),
-    whole: numOrQ,
+    parts: z.array(barAmount),
+    whole: barAmount,
     compare: z.object({ bigger: numOrQ, smaller: numOrQ }).optional(),
+    lower: z.object({ parts: z.array(barAmount), whole: barAmount }).optional(),
   }),
   z.object({ kind: z.literal('number-bond'), whole: numOrQ, parts: z.array(numOrQ) }),
   z.object({ kind: z.literal('groups'), groups: count, perGroup: count, sprite: spriteIdSchema }),

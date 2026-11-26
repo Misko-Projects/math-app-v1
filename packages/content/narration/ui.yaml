@@ -249,6 +249,23 @@ ui.widget.jumps:
 ui.widget.jumps-mixed:
   text: "A number line. From {start}, jumps of {sizes}."
   level: K
+# A bar model's accessible name (kit barModel.ts describeBarModel): the told numbers and "?",
+# never the unknown and never an operation word.
+ui.widget.bar.whole:
+  text: "A bar with parts {parts}. The whole bar is {whole}."
+  level: "1"
+ui.widget.bar.compare:
+  text: "Long bar {bigger}. Short bar {smaller}, then a part of {extra}."
+  level: "1"
+ui.widget.bar.two:
+  text: "Two bars, one under the other."
+  level: "1"
+ui.widget.bar.row:
+  text: "Bar {n}: parts {parts}, the whole is {whole}."
+  level: "1"
+ui.widget.bar.from-first:
+  text: "the blank part"
+  level: "1"
 # A picture graph's key (ChartView), when one picture stands for more than one.
 ui.widget.chart.key:
   text: "Each picture is {n}"
