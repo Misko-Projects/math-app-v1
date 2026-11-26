@@ -87,9 +87,9 @@ sk.MUL.15.intro:
 sk.MUL.16.intro:
   text: "Three numbers to times? Pick two to start. Any order works!"
 tp.MUL.06.t1.prompt:
-  text: "What number makes it true?"
-tp.MUL.06.t2.prompt:
   text: "How many in all? Look at the groups."
+tp.MUL.06.t2.prompt:
+  text: "What number makes it true?"
 tp.MUL.06.t3.prompt:
   text: "Turn the array around. What number makes it true?"
 tp.MUL.06.t4.prompt:
@@ -129,12 +129,12 @@ tp.MUL.07.t2.prompt:
 tp.MUL.07.t3.prompt:
   text: "Break it apart. Find each part, then the total."
 tp.MUL.11.t1.prompt:
-  text: "One group is {t} tens. How much is {a} times {b}?"
+  text: "Here are {a} groups of {t} tens. How much is {a} times {b}?"
 tp.MUL.11.t2.prompt:
-  text: "Think in tens. Fill in each box."
+  text: "One group is {t} tens. How much is {a} times {b}?"
 tp.MUL.11.t3.prompt:
-  text: "Think in tens to find the answer."
+  text: "Think in tens. Fill in each box."
 tp.MUL.11.t4.prompt:
-  text: "Think in tens. Which number is the answer?"
+  text: "Think in tens to find the answer."
 ls.MUL.07.outro:
   text: "Break a fact into parts you know, then add the parts. That is breaking apart!"

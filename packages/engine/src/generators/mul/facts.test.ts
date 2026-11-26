@@ -33,7 +33,7 @@ import {
   mulFacts,
   THREE_PRODUCT_MAX,
 } from './facts';
-import { mulTens, TENS_A_MAX, TENS_A_MIN, TENS_B_MAX, tensPlan } from './tens';
+import { mulTens, TENS_A_MAX, TENS_A_MIN, TENS_B_MAX, TENS_READ_MAX, tensPlan } from './tens';
 
 let nextId = 0;
 const tpl = (format: ItemFormat, tier: Tier, representation: Representation): ItemTemplate => {
@@ -267,18 +267,22 @@ describe('mul.tens (MUL.11)', () => {
   );
 });
 
-describe('mul.tens numeral-pick', () => {
-  it('offers the product among distinct options and taps it', () => {
-    const t = { ...tpl('numeral-pick', 'abstract', 'symbols'), generator: 'mul.tens' };
+describe('mul.tens base-ten-build read', () => {
+  it('lays a × t rods on the mat (at most TENS_READ_MAX) and asks their value', () => {
+    const t = { ...tpl('base-ten-build', 'pictorial', 'base-ten'), generator: 'mul.tens' };
+    let built = 0;
     for (const a of range(2, 9)) {
       for (const b of [10, 20, 30, 40, 50, 60, 70, 80, 90]) {
+        const ok = mulTens.accepts?.({ a, b, steps: false }, t) === true;
+        expect(ok).toBe((a * b) / 10 <= TENS_READ_MAX);
+        if (!ok) continue;
         const item = solved(t, { a, b, steps: false });
-        if (item.widget.format !== 'numeral-pick') throw new Error('numeral-pick');
-        const ids = item.widget.options.map((o) => o.id);
-        expect(ids).toContain(`opt-${a * b}`);
-        expect(new Set(ids).size).toBe(ids.length);
+        if (item.widget.format !== 'base-ten-build') throw new Error('base-ten-build');
+        expect(item.widget.prebuilt).toEqual({ hundreds: 0, tens: (a * b) / 10, ones: 0 });
+        built += 1;
       }
     }
+    expect(built).toBeGreaterThan(20);
     expect(mulTens.accepts?.({ a: 4, b: 30, steps: true }, t)).toBe(false);
   });
 });

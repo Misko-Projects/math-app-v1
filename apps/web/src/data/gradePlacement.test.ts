@@ -205,7 +205,7 @@ describe('the first plan of a new child', () => {
           "ADD.01",
         ],
         [
-          "ADD.03",
+          "CNT.11",
           "ADD.15",
         ],
       ]

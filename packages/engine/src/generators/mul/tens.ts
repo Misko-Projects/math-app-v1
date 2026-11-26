@@ -2,21 +2,25 @@
 // b 10–90 in steps of ten. Derived: `result` = a × b.
 // - `steps: false` asks a × b = ?; `steps: true` writes it as tens and asks each step:
 //   a × b = a × t × 10 = [p] × 10 = [x], t = b ÷ 10 (4 × 30 = 4 × 3 × 10 = 12 × 10 = 120).
-// Formats (K02 slice 3b): number-pad and numeral-pick. The number-pad `base-ten` picture is ONE
-// group, b as t tens (the child times it by a), never the product; `symbols` shows no picture.
-// numeral-pick shows a × b and offers the product among the template's diagnostic distractors
-// (the zero dropped, the numbers added) and near misses. The rod of ten has no sprite for
-// equal-groups, and a base-ten-build of the product would show it on its goal card, so
-// equal-groups and base-ten-build are not built yet.
+// Formats (K02 slice 3b):
+// - number-pad: the `base-ten` picture is ONE group, b as t tens (the child times it by a), never
+//   the product; `symbols` shows no picture.
+// - base-ten-build (`read`, pictorial): the a groups of t tens lie on the mat as a × t rods (at
+//   most TENS_READ_MAX, so 4 × 30 shows 12 rods), the tray offers rods only, and the child types
+//   the value: twelve tens is 120.
+// Not built yet: equal-groups (the rod of ten has no sprite) and a base-ten-build that asks the
+// child to build the product (its goal card would show it). A numeral-pick was tried and dropped:
+// its options, built from the misconceptions, give the key away (the part-7 option-set sweep).
 
 import type { ExpressionToken, LessonStep, ResponseValue } from '@number-island/shared';
-import { numberOptionId } from '../../formats/numeral-pick';
-import { asNum, correctFromAnswer, finish, numberOptions, pickVars, sampleAll } from '../common';
+import { asNum, correctFromAnswer, finish, pickVars, sampleAll } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 export const TENS_A_MIN = 2;
 export const TENS_A_MAX = 9;
 export const TENS_B_MAX = 90;
+/** The most rods a base-ten-build read lays on the mat (a × b ÷ 10). */
+export const TENS_READ_MAX = 20;
 
 const say = (
   key: string,
@@ -61,7 +65,7 @@ export function tensPlan(
 
 export const mulTens: GeneratorDef = {
   id: 'mul.tens',
-  formats: ['number-pad', 'numeral-pick'],
+  formats: ['number-pad', 'base-ten-build'],
   params: {
     a: {
       type: 'int',
@@ -92,7 +96,8 @@ export const mulTens: GeneratorDef = {
     const a = asNum(p.a);
     const b = asNum(p.b);
     return (
-      (t.format === 'number-pad' || (t.format === 'numeral-pick' && p.steps !== true)) &&
+      (t.format === 'number-pad' ||
+        (t.format === 'base-ten-build' && p.steps !== true && (a * b) / 10 <= TENS_READ_MAX)) &&
       a >= TENS_A_MIN &&
       a <= TENS_A_MAX &&
       b >= 10 &&
@@ -101,7 +106,7 @@ export const mulTens: GeneratorDef = {
     );
   },
   build(ctx: BuildContext): GeneratorOutput {
-    const { params, template, rng } = ctx;
+    const { params, template } = ctx;
     const a = asNum(params.a);
     const b = asNum(params.b);
     const plan = tensPlan(a, b, params.steps === true);
@@ -112,22 +117,20 @@ export const mulTens: GeneratorDef = {
     );
     const vars = pickVars(template, { a, b, t: plan.t });
     const math = { 'product.over100': a * b > 100 ? 1 : 0 };
-    if (template.format === 'numeral-pick') {
-      const opts = numberOptions(template, params, a * b, rng, 10, 1000);
+    if (template.format === 'base-ten-build') {
       return finish(mulTens, ctx, {
         params,
         vars,
         math,
         widget: {
-          format: 'numeral-pick',
-          stimulus: {
-            kind: 'expression',
-            expr: { tokens: [num(a), times, num(b)] },
-          },
-          options: opts.options,
-          layout: 'row',
+          format: 'base-ten-build',
+          target: a * b,
+          mode: 'read',
+          pieces: { thousands: false, hundreds: false, tens: true, ones: false },
+          wholeIs: 'unit',
+          prebuilt: { hundreds: 0, tens: a * plan.t, ones: 0 },
         },
-        answer: { kind: 'choice', id: numberOptionId(a * b) },
+        answer: { kind: 'number', value: a * b },
       });
     }
     return finish(mulTens, ctx, {
@@ -160,13 +163,13 @@ export const mulTens: GeneratorDef = {
     const t = b / 10;
     const ids = w.format === 'number-pad' ? w.blanks.map((bl) => bl.id) : [];
     const tens = a * t;
-    if (w.format === 'numeral-pick') {
+    if (w.format === 'base-ten-build') {
       return [
         say('gen.mul.tens.tens', { a, t, tens }),
         say(
           'gen.mul.tens.times-ten',
           { tens, result: a * b },
-          { op: 'tap', args: { id: numberOptionId(a * b) } },
+          { op: 'answer', args: { value: a * b } },
         ),
       ];
     }
