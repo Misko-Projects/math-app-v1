@@ -2231,6 +2231,8 @@ fb.bar-graph-build.retry:
   text: "Let's count each kind again, one by one."
 fb.story-problem.retry:
   text: "Let's listen to the story again. Show it with counters."
+fb.story-problem.retry-listen:
+  text: "Let's listen to the story again. Then try again."
 fb.mc.off-by-one-counting:
   text: "Touch each one once. Count again with me."
 fb.mc.count-start-number:

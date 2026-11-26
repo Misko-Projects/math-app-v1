@@ -82,6 +82,10 @@ export function retryFeedback(item: GeneratedItem): NarrationKey {
     if (own) return own;
     if (w.direction === 'desc') return 'fb.order.retry-desc';
   }
+  // "Show it with counters" is only true on a story with a counters board (#17 slice 4e).
+  if (w.format === 'story-problem' && w.workspace !== 'counters') {
+    return 'fb.story-problem.retry-listen';
+  }
   return `fb.${item.format}.retry`;
 }
 
