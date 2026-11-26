@@ -1813,6 +1813,9 @@ ui.coin.look.bill:
 ui.money.amount:
   text: "{cents|cents}"
   level: "2"
+ui.coin.count-one:
+  text: "One piece of money"
+  level: "2"
 ui.coin.count:
   text: "{n|num} pieces of money"
   level: "2"

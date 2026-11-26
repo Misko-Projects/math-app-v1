@@ -55,8 +55,8 @@ templates:
     generator: money.coins
     params:
       mode: pay
-      kinds: { choice: [n, d] }
-      cents: { int: [10, 50], step: 5 }
+      kinds: { choice: [p, n, d] }
+      cents: { int: [5, 50], step: 5 }
       runningTotal: true
     difficulty: { base: -0.35 }
     narration:

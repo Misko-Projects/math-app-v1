@@ -1923,7 +1923,11 @@ export const MoneyPurseCards: Story = {
     );
     await userEvent.click(two);
     await expect(audio.say).toHaveBeenCalledWith('ui.coin.count', { n: 2 });
-    for (const b of root.querySelectorAll('.ni-ord__tray button')) {
+    const trayCards = within(root.querySelector('.ni-ord__tray') as HTMLElement).getAllByRole(
+      'button',
+    );
+    await expect(trayCards).toHaveLength(3);
+    for (const b of trayCards) {
       await expect(b.getAttribute('aria-label') ?? '').not.toMatch(
         /\d+¢|cents|dime|nickel|quarter|penny/,
       );
@@ -1941,5 +1945,56 @@ export const MoneyAmountCards: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await userEvent.click(card(root, '15¢'));
     await expect(audio.say).toHaveBeenCalledWith('ui.money.amount', { cents: 15 });
+  },
+};
+
+const moneyDemo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A worked MON.08 move speaks no card: the lesson line plays over the move, and a card's speech
+ * would cut it off (PR #132 review round 2). A one-coin purse says the singular on a child's tap.
+ */
+export const MoneyDemoQuiet: Story = {
+  args: {
+    config: {
+      ...purses,
+      items: [
+        ...purses.items.slice(0, 2),
+        { id: 'obj-2', value: 5, stimulus: { kind: 'coins', coins: ['nickel'] } },
+      ],
+    },
+    tier: 'pictorial',
+    disabled: true,
+    demo: moneyDemo,
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    await findWidget(canvasElement, ROOT);
+    await moneyDemo.play({ op: 'highlight', args: { id: 'obj-1' } });
+    await moneyDemo.play({ op: 'drag', args: { id: 'obj-2', slot: 0 } });
+    await expect(audio.say).not.toHaveBeenCalled();
+  },
+};
+
+export const MoneyOneCoinTap: Story = {
+  args: {
+    config: {
+      ...purses,
+      items: [
+        ...purses.items.slice(0, 2),
+        { id: 'obj-2', value: 5, stimulus: { kind: 'coins', coins: ['nickel'] } },
+      ],
+    },
+    tier: 'pictorial',
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(card(root, 'a big silver coin with a smooth edge'));
+    await expect(audio.say).toHaveBeenCalledWith('ui.coin.count-one', { n: 1 });
   },
 };

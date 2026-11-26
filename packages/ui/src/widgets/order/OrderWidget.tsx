@@ -472,7 +472,7 @@ export function OrderWidget({
       : it.stimulus
         ? t('ui.order.picture', { n: config.items.indexOf(it) + 1 })
         : String(it.value));
-  const speakItem = (it: Item) => {
+  const speakItem = (it: Item, byDemo = false) => {
     if (!speakOnTap) return;
     // Numerals speak their name (06 §5): the numeral the card shows, which need not be the value
     // it sorts by (FRA.08.t4 shows a part count and sorts by piece size). A card of objects names
@@ -480,13 +480,14 @@ export function OrderWidget({
     if (it.label !== undefined && isNumeral(it.label)) sayNumber(Number(it.label));
     else if (!it.label && !it.stimulus) sayNumber(it.value);
     // Money (MON.08, PR #132 review): an amount card says its amount; a purse card says how many
-    // pieces it shows, never their total.
+    // pieces it shows, never their total. On a child's tap only: a demo move plays under its own
+    // lesson line, which a card's speech would cut off (review round 2).
+    else if (byDemo) return;
     else if (it.label !== undefined && /^\d+¢$/.test(it.label)) {
       say('ui.money.amount', { cents: Number.parseInt(it.label, 10) });
     } else if (it.stimulus?.kind === 'coins') {
-      say('ui.coin.count', {
-        n: it.stimulus.coins.length + (it.stimulus.bills?.length ?? 0),
-      });
+      const n = it.stimulus.coins.length + (it.stimulus.bills?.length ?? 0);
+      say(n === 1 ? 'ui.coin.count-one' : 'ui.coin.count', { n });
     } else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
   };
 
@@ -571,7 +572,7 @@ export function OrderWidget({
     const it = itemById.get(id);
     if (!it || fixedSlots.has(k) || fixedIds.has(id) || k < 0 || k >= n) return;
     setHighlight(id);
-    speakItem(it);
+    speakItem(it, true);
     await pause(350);
     if (!alive.current) return;
     const from = rectOf((r) => byData(r, 'card', id) ?? byData(r, 'placed', id));
@@ -605,7 +606,7 @@ export function OrderWidget({
           const it = typeof id === 'string' ? itemById.get(id) : undefined;
           if (!it) return;
           setHighlight(it.id);
-          speakItem(it);
+          speakItem(it, true);
           await pause(1200);
           if (alive.current) setHighlight(null);
         } else if (action.op === 'answer') {
