@@ -57,49 +57,18 @@ export interface FitSeedException {
   reason: string;
 }
 
+const BOND_NEW_WAY =
+  'number-bond, concrete new-way, whole 6 to 10 (the first seed draws a smaller whole and fits): every pool holds the whole, so each is two rows of five 64 px counters and the bond alone is 364 px tall in the 358 px area at 960 × 600, before the found ways (186 px) and Check: 58–298 px too tall, Check up to 292 px below (it fits at 1280 × 800). Each counter is its own drag target, so drawing counters smaller saves no room; the area scrolls with Check reachable. Fix: a short-area design (the found ways as a step of their own, or the pool as the drag handle), which changes how the item is played.';
+
 /**
- * Templates that fit on the first seed, the one the check plays for every template, but not on
- * every seed: other seeds draw other numbers and layouts. The check plays each seed listed here
- * too and fails when it fits, so these stay known instead of silently green (#12; the eight-seed
- * survey with `VITE_FIT_SEEDS=1,2,3,4,5,6,7,8`).
+ * Templates that fit on the first seed but not on some others: other seeds draw other numbers and
+ * layouts. CI plays every template on seeds 1 to 9 (`VITE_FIT_SEEDS`, ci.yml `stories`); a seed
+ * listed here is not a failure there, and every job plays each listed seed and fails when it fits,
+ * so these stay known instead of silently green (#12, #35).
  */
-export const FIT_SEED_EXCEPTIONS: readonly FitSeedException[] = [
-  {
-    template: 'CNT.05.t1',
-    seed: 3,
-    at: SMALL,
-    reason:
-      'tap-count, K, 13 to 20 objects to count by tapping (here 20): three rows of 80 px targets with the count badges over each row need about 431 px, the area has 366; fix: needs a design for large K sets (smaller badge bands or paging).',
-  },
-  {
-    template: 'CNT.03.t1',
-    seed: 6,
-    at: SMALL,
-    reason:
-      'tap-count, K, a scatter of six or more to count by tapping (here 7): the kit scatter is four cells tall at about 102 px a cell; fix: a wider, shorter scatter for tappable sets in short areas.',
-  },
-  {
-    template: 'CNT.03.t1',
-    seed: 4,
-    at: SMALL,
-    reason:
-      'tap-count, K, a circle of six to count by tapping: the circle is taller than the area at full target size; fix: a tighter circle for tappable sets in short areas.',
-  },
-  {
-    template: 'CNT.02.t3',
-    seed: 6,
-    at: SMALL,
-    reason:
-      'tap-count, K, a picture of ten in a scatter beside the compact number pad: the rows are spread for count badges the picture does not show; fix: no badge bands on a picture that is not counted by tapping.',
-  },
-  {
-    template: 'CNT.19.t2',
-    seed: 2,
-    at: ['1280x800'],
-    reason:
-      'tap-count, equal groups with a third plate of five or more: two rows of plates are taller than the area at 1280 × 800 (at 960 × 600 the template is listed above for every seed); fix: as for the plates above.',
-  },
-];
+export const FIT_SEED_EXCEPTIONS: readonly FitSeedException[] = [2, 3, 4, 5, 6, 7, 8, 9].map(
+  (seed) => ({ template: 'CPS.06.t1', seed, at: SMALL, reason: BOND_NEW_WAY }),
+);
 
 const registered = new Set<ItemFormat>(registeredFormats());
 
@@ -142,12 +111,6 @@ export interface LessonFitException {
  * `pnpm content:build` writes (03 §6.1).
  */
 export const LESSON_FIT_EXCEPTIONS: readonly LessonFitException[] = [
-  {
-    example: 'CNT.03:faded:1',
-    at: SMALL,
-    reason:
-      'tap-count, K, eight scattered objects to count by tapping: the scatter of 80 px targets is 451 px tall and the area has 366 at 960 × 600, so the area scrolls (it fits at 1280 × 800). The same limit as the CNT.03.t1 seeds listed above; fix: a wider, shorter scatter for tappable sets in short areas.',
-  },
   {
     example: 'CPS.06:faded:0',
     at: SMALL,
