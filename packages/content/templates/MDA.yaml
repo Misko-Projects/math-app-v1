@@ -1,4 +1,5 @@
-# MDA templates (03 §4.3): K01 the grade-1 rows, K02 slice 2a (#17) the grade-2 rows within 100.
+# MDA templates (03 §4.3): K01 the grade-1 rows, K02 slice 2a (#17) the grade-2 rows within 100,
+# slice 2b the rows within 1000.
 strand: MDA
 templates:
   # ---------- MDA.01 add tens; add ones without crossing a ten ----------
@@ -528,3 +529,225 @@ templates:
     constraints: ["result >= 11", "result <= 99"]
     difficulty: { base: -1.8 }
     narration: { prompt: tp.MDA.22.t3.prompt, hints: [h.mda.count-up-between, h.eq.think-parts] }
+
+  # ---------- K02 slice 2b (#17): addition and subtraction within 1000 ----------
+  # Mats with hundreds draw place-value disks. Adding, a column holds at most 9 + 9 (+ 1 carried)
+  # = 19 disks, and the tray at most 2 hundreds (base-ten-trade caps), so b stays below 300;
+  # subtracting, a column holds at most 9 + 10 after the one split it needs (20 cap).
+  # ---------- MDA.24 add three-digit numbers without regrouping ----------
+  - id: MDA.24.t1
+    skillId: MDA.24
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [100, 899] }, op: "+" }
+    constraints: ["carries == 0", "result <= 999"]
+    difficulty: { base: -0.95 }
+    narration: { prompt: tp.MDA.24.t1.prompt, hints: [h.mda.put-in-b, h.mda.disk-values] }
+
+  - id: MDA.24.t2
+    skillId: MDA.24
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [101, 899] }, op: "+" }
+    constraints: ["carries == 0", "result <= 999"]
+    difficulty: { base: -0.95 }
+    narration: { prompt: tp.MDA.24.t2.prompt, hints: [h.mda.same-places-add, h.mda.each-place-under-ten] }
+
+  - id: MDA.24.t3
+    skillId: MDA.24
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [101, 899] }, op: "+" }
+    constraints: ["carries == 0", "result <= 999"]
+    difficulty: { base: -1.55 }
+    narration: { prompt: tp.MDA.24.t3.prompt, hints: [h.mda.same-places-add, h.mda.each-place-under-ten] }
+
+  # ---------- MDA.25 subtract three-digit numbers without regrouping ----------
+  - id: MDA.25.t1
+    skillId: MDA.25
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [201, 999] }, b: { int: [100, 899] }, op: "-" }
+    constraints: ["borrows == 0"]
+    difficulty: { base: -1.25 }
+    narration: { prompt: tp.MDA.25.t1.prompt, hints: [h.mda.take-b, h.mda.disk-values] }
+
+  - id: MDA.25.t2
+    skillId: MDA.25
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [201, 999] }, b: { int: [101, 899] }, op: "-" }
+    constraints: ["borrows == 0"]
+    difficulty: { base: -1.77 }
+    narration: { prompt: tp.MDA.25.t2.prompt, hints: [h.mda.same-places-take, h.mda.each-place-enough] }
+
+  # ---------- MDA.05 add within 1000 with regrouping ----------
+  - id: MDA.05.t1
+    skillId: MDA.05
+    format: base-ten-trade
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [11, 299] }, op: "+" }
+    constraints: ["carries >= 1", "result <= 999"]
+    difficulty: { base: -2.62 }
+    narration: { prompt: tp.MDA.05.t1.prompt, hints: [h.mda.ten-for-next-place, h.mda.count-the-trade] }
+
+  - id: MDA.05.t2
+    skillId: MDA.05
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [12, 89] }, op: "+", digitsB: 2, strategy: tens-ones }
+    constraints: ["carries >= 1", "result <= 999"]
+    difficulty: { base: -4.75 }
+    narration: { prompt: tp.MDA.05.t2.prompt, hints: [h.mda.jump-tens, h.mda.count-landing] }
+
+  - id: MDA.05.t3
+    skillId: MDA.05
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [101, 899] }, op: "+" }
+    constraints: ["carries >= 1", "result <= 999"]
+    difficulty: { base: -2.36 }
+    narration: { prompt: tp.MDA.05.t3.prompt, hints: [h.mda.same-places-add, h.mda.place-ten-or-more] }
+
+  - id: MDA.05.t4
+    skillId: MDA.05
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [11, 899] }, op: "+" }
+    constraints: ["carries >= 1", "result <= 999"]
+    difficulty: { base: -2.89 }
+    narration: { prompt: tp.MDA.05.t4.prompt, hints: [h.mda.line-up-places, h.mda.place-ten-or-more] }
+
+  # ---------- MDA.07 add within 1000 with the standard algorithm ----------
+  # pv-chart: the trade mat with the column algorithm written beside it.
+  - id: MDA.07.t1
+    skillId: MDA.07
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [11, 299] }, op: "+", strategy: algorithm }
+    constraints: ["carries >= 1", "result <= 999"]
+    difficulty: { base: -2.89 }
+    narration: { prompt: tp.MDA.07.t1.prompt, hints: [h.mda.ten-for-next-place, h.mda.carry-shows] }
+
+  - id: MDA.07.t2
+    skillId: MDA.07
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [101, 899] }, b: { int: [101, 899] }, op: "+" }
+    constraints: ["carries >= 1", "result <= 999"]
+    difficulty: { base: -2.87 }
+    narration: { prompt: tp.MDA.07.t2.prompt, hints: [h.mda.line-up-places, h.mda.place-ten-or-more] }
+
+  # ---------- MDA.17 subtract within 1000 with regrouping ----------
+  - id: MDA.17.t1
+    skillId: MDA.17
+    format: base-ten-trade
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [201, 999] }, b: { int: [101, 899] }, op: "-" }
+    constraints: ["borrows >= 1"]
+    difficulty: { base: -3.29 }
+    narration: { prompt: tp.MDA.17.t1.prompt, hints: [h.mda.split-when-short, h.mda.take-b] }
+
+  - id: MDA.17.t2
+    skillId: MDA.17
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [101, 999] }, b: { int: [12, 89] }, op: "-", digitsB: 2, strategy: tens-ones }
+    constraints: ["borrows >= 1"]
+    difficulty: { base: -5.67 }
+    narration: { prompt: tp.MDA.17.t2.prompt, hints: [h.mda.jump-back-tens, h.mda.count-landing] }
+
+  - id: MDA.17.t3
+    skillId: MDA.17
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [101, 999] }, b: { int: [11, 899] }, op: "-" }
+    constraints: ["borrows >= 1"]
+    difficulty: { base: -3.2 }
+    narration: { prompt: tp.MDA.17.t3.prompt, hints: [h.mda.line-up-places, h.mda.split-when-short] }
+
+  # ---------- MDA.18 subtract across zeros ----------
+  # a has no tens and its ones are short: split a hundred into tens, then a ten into ones.
+  - id: MDA.18.t1
+    skillId: MDA.18
+    format: base-ten-trade
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [100, 999] }, zeroTens: true, b: { int: [11, 899] }, op: "-" }
+    constraints: ["acrossZeros >= 1"]
+    difficulty: { base: -5.67 }
+    narration: { prompt: tp.MDA.18.t1.prompt, hints: [h.mda.no-tens-split-hundred, h.mda.then-split-ten] }
+
+  - id: MDA.18.t2
+    skillId: MDA.18
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: mda.addsub
+    params: { a: { int: [100, 999] }, zeroTens: true, b: { int: [11, 899] }, op: "-", strategy: algorithm }
+    constraints: ["acrossZeros >= 1"]
+    difficulty: { base: -5.87 }
+    narration: { prompt: tp.MDA.18.t2.prompt, hints: [h.mda.no-tens-split-hundred, h.mda.crossed-digits] }
+
+  - id: MDA.18.t3
+    skillId: MDA.18
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [100, 999] }, zeroTens: true, b: { int: [11, 899] }, op: "-" }
+    constraints: ["acrossZeros >= 1"]
+    difficulty: { base: -4.7 }
+    narration: { prompt: tp.MDA.18.t3.prompt, hints: [h.mda.zero-tens-hundred, h.mda.nine-tens-left] }
+
+  # ---------- MDA.21 subtract within 1000 with the standard algorithm ----------
+  - id: MDA.21.t1
+    skillId: MDA.21
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: mda.addsub
+    params: { a: { int: [101, 999] }, b: { int: [11, 899] }, op: "-", strategy: algorithm }
+    constraints: ["borrows >= 1"]
+    difficulty: { base: -3.5 }
+    narration: { prompt: tp.MDA.21.t1.prompt, hints: [h.mda.split-when-short, h.mda.crossed-digits] }
+
+  - id: MDA.21.t2
+    skillId: MDA.21
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [101, 999] }, b: { int: [101, 899] }, op: "-" }
+    constraints: ["borrows >= 1"]
+    difficulty: { base: -3.12 }
+    narration: { prompt: tp.MDA.21.t2.prompt, hints: [h.mda.line-up-places, h.mda.split-when-short] }

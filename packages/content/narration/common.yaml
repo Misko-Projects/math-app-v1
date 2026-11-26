@@ -1020,6 +1020,20 @@ gen.mda.addsub.count-up:
   text: "Count up from {b} to {a}. How many is that?"
 gen.mda.addsub.jumped:
   text: "All the jumps up to {to} make {v}."
+gen.mda.addsub.columns-add:
+  text: "Add the ones, then the tens, then the hundreds."
+gen.mda.addsub.columns-take:
+  text: "Take away the ones, then the tens, then the hundreds."
+gen.mda.addsub.sum-hundreds:
+  text: "Add the hundreds."
+gen.pv.estimate.round:
+  text: "{n} rounds to {v}."
+gen.pv.estimate.add:
+  text: "{ra} + {rb} = {v}, so the answer is about {v}."
+  say: "{ra} plus {rb} is {v}, so the answer is about {v}."
+gen.pv.estimate.take:
+  text: "{ra} − {rb} = {v}, so the answer is about {v}."
+  say: "{ra} minus {rb} is {v}, so the answer is about {v}."
 gen.addsub.facts.start-at:
   text: "Start at {a}. Then count on {b}."
 gen.addsub.facts.start-back:
@@ -2065,8 +2079,58 @@ h.mda.add-all-tens:
 h.mda.all-ones:
   text: "Then add all the ones. Do they make a new ten?"
 fb.mc.forgot-to-regroup-add:
-  text: "Count the ones again. Each ten ones make one more ten. Add those tens too!"
+  text: "Did a place make ten or more? That is one more for the next place."
 fb.mc.smaller-from-larger:
-  text: "Need more ones to take away? Split a ten first."
+  text: "Need more to take away in a place? Split one from the next place first."
 fb.mc.borrow-no-decrement:
-  text: "You split a ten, so there is one less ten now."
+  text: "You split one from a place, so that place has one less now."
+fb.mc.borrow-across-zero:
+  text: "A zero has none to split. Take one from the place next to it first."
+
+# K02 slice 2b (#17): hints for addition and subtraction within 1000, and estimating (PV.19).
+h.mda.put-in-b:
+  text: "Put in hundreds, tens and ones that make {b}."
+h.mda.take-b:
+  text: "Take away hundreds, tens and ones that make {b}."
+h.mda.disk-values:
+  text: "Each disk shows what it is worth. Look at the number on it."
+h.mda.same-places-add:
+  text: "Add hundreds to hundreds, tens to tens and ones to ones."
+h.mda.each-place-under-ten:
+  text: "Each place adds up to less than ten, so there is no trade."
+h.mda.same-places-take:
+  text: "Take hundreds from hundreds, tens from tens and ones from ones."
+h.mda.each-place-enough:
+  text: "In each place you can take away without a split."
+h.mda.ten-for-next-place:
+  text: "Ten in one place? Trade them for one of the next place."
+h.mda.count-the-trade:
+  text: "Each trade puts one more in the next place. Count it too."
+h.mda.place-ten-or-more:
+  text: "If a place adds up to ten or more, that makes one more of the next place."
+h.mda.line-up-places:
+  text: "Think of one number under the other: ones under ones, tens under tens."
+h.mda.carry-shows:
+  text: "A trade shows as a small 1 above the next place."
+h.mda.split-when-short:
+  text: "Need more to take away in a place? Split one from a bigger place."
+h.mda.no-tens-split-hundred:
+  text: "No tens to split? Split a hundred into ten tens first."
+h.mda.then-split-ten:
+  text: "Then split one ten into ten ones."
+h.mda.crossed-digits:
+  text: "A split shows as a crossed-out digit with the new number above it."
+h.mda.zero-tens-hundred:
+  text: "There are no tens. Take one hundred: that is ten tens."
+h.mda.nine-tens-left:
+  text: "Split one of those tens into ten ones. Then nine tens are left."
+h.mda.count-landing:
+  text: "Count your jumps. Do they make {b}?"
+h.est.closer-hundred:
+  text: "Which hundred is each number closer to?"
+h.est.round-each-hundred:
+  text: "Round each number to the nearest hundred."
+h.est.round-first:
+  text: "Round each number first, the way the question says."
+h.est.then-add-take:
+  text: "Then add or take away the rounded numbers."

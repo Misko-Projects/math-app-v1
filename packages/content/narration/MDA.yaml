@@ -148,3 +148,65 @@ ls.MDA.03.outro:
   text: "Ten ones make a new ten. Now you can add big numbers!"
 ls.MDA.12.outro:
   text: "Need more ones? Split a ten. Now you can take away big numbers!"
+
+# K02 slice 2b (#17): addition and subtraction within 1000.
+sk.MDA.24.intro:
+  text: "Add hundreds to hundreds, tens to tens and ones to ones."
+sk.MDA.25.intro:
+  text: "Take hundreds from hundreds, tens from tens and ones from ones."
+sk.MDA.05.intro:
+  text: "Ten ones make a ten. Ten tens make a hundred!"
+sk.MDA.07.intro:
+  text: "Add place by place, starting with the ones."
+sk.MDA.17.intro:
+  text: "Need more to take away? Split one from a bigger place."
+sk.MDA.18.intro:
+  text: "No tens? Split a hundred into ten tens first."
+sk.MDA.21.intro:
+  text: "Take away place by place, starting with the ones."
+
+tp.MDA.24.t1.prompt:
+  text: "Here is {a}. Put in {b} more and build the new number."
+tp.MDA.24.t2.prompt:
+  text: "Add {a} and {b}: the hundreds, the tens, then the ones."
+tp.MDA.24.t3.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"
+tp.MDA.25.t1.prompt:
+  text: "Here is {a}. Take away {b} and build what is left."
+tp.MDA.25.t2.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"
+tp.MDA.05.t1.prompt:
+  text: "Here is {a}. Put in {b} more. Make each trade you need, then tell how many."
+tp.MDA.05.t2.prompt:
+  text: "Start at {a} and jump {b} more. Where do you land?"
+tp.MDA.05.t3.prompt:
+  text: "Add {a} and {b}: the hundreds, the tens, then the ones."
+tp.MDA.05.t4.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"
+tp.MDA.07.t1.prompt:
+  text: "Here is {a}. Put in {b} more, and each trade shows in the columns. Then tell how many."
+tp.MDA.07.t2.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"
+tp.MDA.17.t1.prompt:
+  text: "Here is {a}. Take away {b}, then tell how many are left."
+tp.MDA.17.t2.prompt:
+  text: "Start at {a} and jump back {b}. Where do you land?"
+tp.MDA.17.t3.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"
+tp.MDA.18.t1.prompt:
+  text: "Here is {a}. Take away {b}, then tell how many are left."
+tp.MDA.18.t2.prompt:
+  text: "Here is {a}. Take away {b}, and each split shows in the columns. Then tell how many are left."
+tp.MDA.18.t3.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"
+tp.MDA.21.t1.prompt:
+  text: "Here is {a}. Take away {b}, and each split shows in the columns. Then tell how many are left."
+tp.MDA.21.t2.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"

@@ -1,7 +1,7 @@
 # Place-value misconceptions (03 §7.2). Skills list the catalog skills authored so far. K02 slice
 # 1a (#17) added the grade-2 skills to 1000 and the entries MC.zero-placeholder and
-# MC.compare-first-digit. Still to join: PV.20 (MC.write-as-spoken), MDA.18 (MC.zero-placeholder),
-# CMP.10 (MC.compare-first-digit) and the rounding entries, with their skills.
+# MC.compare-first-digit; slice 2b added MDA.18 to MC.zero-placeholder. Still to join: PV.20
+# (MC.write-as-spoken), CMP.10 (MC.compare-first-digit) and the rounding entries, with their skills.
 area: place-value
 misconceptions:
   - id: MC.place-swap
@@ -109,8 +109,8 @@ misconceptions:
   - id: MC.zero-placeholder
     name: Leaves out the zero that holds a place (305 written as 35)
     detect: { kind: answer, rule: zeroPlaceholder }
-    appliesTo: { generators: [pv.number] }
-    skills: [PV.05, PV.14, PV.15]
+    appliesTo: { generators: [pv.number, mda.addsub] }
+    skills: [PV.05, PV.14, PV.15, MDA.18]
     remediation: [PV.14]
     feedback: fb.mc.zero-placeholder
     priority: 50
@@ -171,8 +171,8 @@ misconceptions:
   - id: MC.round-down-always
     name: Always rounds down (47 to 40)
     detect: { kind: answer, rule: roundDownAlways }
-    appliesTo: { generators: [pv.round] }
-    skills: [PV.08, PV.18]
+    appliesTo: { generators: [pv.round, pv.estimate] }
+    skills: [PV.08, PV.18, PV.19]
     remediation: [CMP.12]
     feedback: fb.mc.round-down-always
     priority: 50
@@ -194,6 +194,15 @@ misconceptions:
       - params: { n: 45, place: 10 }
         response: { kind: number, value: 40 }
         match: true
+      # PV.19: 470 + 250 rounded down is 400 + 200 = 600; the estimate is 500 + 300 = 800.
+      - generator: pv.estimate
+        params: { a: 470, b: 250, op: "+", place: 100 }
+        response: { kind: number, value: 600 }
+        match: true
+      - generator: pv.estimate
+        params: { a: 470, b: 250, op: "+", place: 100 }
+        response: { kind: number, value: 800 }
+        match: false
 
   - id: MC.round-wrong-place
     name: Rounds to the wrong place (347 to the nearest hundred as 350)

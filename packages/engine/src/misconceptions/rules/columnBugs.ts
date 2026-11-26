@@ -4,6 +4,8 @@
 //   MC.smaller-from-larger    52 − 27 → 35: each column takes the smaller digit from the larger
 //   MC.borrow-no-decrement    53 − 27 → 36: a short column takes ten more, the next column is not
 //                             reduced
+//   MC.borrow-across-zero     403 − 127 → 376: borrowing from a zero turns it into 9, and the column
+//                             past the zero is not reduced (K02 slice 2b)
 // Each applies only with a carry (addition) or a borrow (subtraction), where the buggy answer
 // differs from the right one; elsewhere predict is null and nothing matches.
 
@@ -38,6 +40,25 @@ const BUGS: Record<string, { op: '+' | '-'; bug: ColumnBug }> = {
   borrowNoDecrement: {
     op: '-',
     bug: (a, b) => columns(a, b, (x, y) => (x < y ? x + 10 - y : x - y)),
+  },
+  borrowAcrossZero: {
+    op: '-',
+    bug: (a, b) => {
+      // The column algorithm, except that a zero lent from becomes 9 and borrows from no one.
+      const c = [...a];
+      const out: number[] = [];
+      for (let k = 0; k < c.length; k += 1) {
+        let x = c[k] as number;
+        const y = b[k] ?? 0;
+        if (x < y) {
+          x += 10;
+          if (c[k + 1] === 0) c[k + 1] = 9;
+          else if (c[k + 1] !== undefined) c[k + 1] = (c[k + 1] as number) - 1;
+        }
+        out.push(x - y);
+      }
+      return fromColumns(out);
+    },
   },
 };
 
@@ -87,3 +108,4 @@ function columnRule(id: string): MisconceptionRule {
 export const forgotToRegroupAdd = columnRule('forgotToRegroupAdd');
 export const smallerFromLarger = columnRule('smallerFromLarger');
 export const borrowNoDecrement = columnRule('borrowNoDecrement');
+export const borrowAcrossZero = columnRule('borrowAcrossZero');

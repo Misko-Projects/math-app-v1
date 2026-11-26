@@ -168,6 +168,15 @@ skills:
     gateway: false
     representations: [number-line, symbols]
 
+  - id: PV.19
+    name: Estimate sums and differences by rounding
+    kind: problem-solving
+    grade: 3
+    standards: { ccss: [], supports: [3.OA.D.8] }
+    prerequisites: [PV.18, MDA.05]
+    gateway: false
+    representations: [number-line, symbols]
+
   - id: PV.24
     name: What a digit is worth (the 4 in 345 means 40)
     kind: concept

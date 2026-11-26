@@ -1,6 +1,7 @@
 # MDA: Multi-digit addition and subtraction, catalog rows from 03 §3.9 (K01: the grade-1 rows).
-# K02 slice 2a (#17) adds the grade-2 rows within 100: MDA.03, MDA.04, MDA.10–MDA.16 and MDA.22. The
-# rows left (MDA.05–MDA.07, MDA.17–MDA.21, MDA.23–MDA.25) are K02 (graph.yaml plannedIds).
+# K02 slice 2a (#17) adds the grade-2 rows within 100: MDA.03, MDA.04, MDA.10–MDA.16 and MDA.22.
+# Slice 2b adds the rows within 1000: MDA.05, MDA.07, MDA.17, MDA.18, MDA.21, MDA.24 and MDA.25.
+# The rows left (MDA.06, MDA.19, MDA.20, MDA.23) are planned (graph.yaml plannedIds).
 strand: MDA
 skills:
   - id: MDA.01
@@ -43,6 +44,27 @@ skills:
     encompasses: { MDA.03: 1.0, ADD.13: 0.5 }
     gateway: false
     representations: [expanded, symbols]
+
+  - id: MDA.05
+    name: Add within 1000 with regrouping (models and strategies)
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.7] }
+    prerequisites: [MDA.24, MDA.03, PV.16]
+    encompasses: { MDA.03: 1.0, MDA.24: 1.0 }
+    gateway: false
+    representations: [base-ten, open-number-line, expanded, symbols]
+
+  # 03 §3: pv-chart is the trade mat with the column algorithm written beside it (showAlgorithm).
+  - id: MDA.07
+    name: Add within 1000 with the standard algorithm
+    kind: procedure
+    grade: 3
+    standards: { ccss: [3.NBT.A.2] }
+    prerequisites: [MDA.05]
+    encompasses: { MDA.05: 1.0 }
+    gateway: false
+    representations: [pv-chart, symbols]
 
   - id: MDA.08
     name: Add a one-digit number across a ten (37 + 5 → 40 + 2)
@@ -128,6 +150,35 @@ skills:
     gateway: false
     representations: [number-bond, symbols]
 
+  - id: MDA.17
+    name: Subtract within 1000 with regrouping (models and strategies)
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.7] }
+    prerequisites: [MDA.25, MDA.12, PV.16, PV.07]
+    encompasses: { MDA.12: 1.0, MDA.25: 1.0 }
+    gateway: false
+    representations: [base-ten, open-number-line, symbols]
+
+  - id: MDA.18
+    name: Subtract across zeros (400 − 168)
+    kind: procedure
+    grade: 3
+    standards: { ccss: [3.NBT.A.2] }
+    prerequisites: [MDA.17]
+    gateway: false
+    representations: [base-ten, pv-chart, symbols]
+
+  - id: MDA.21
+    name: Subtract within 1000 with the standard algorithm
+    kind: procedure
+    grade: 3
+    standards: { ccss: [3.NBT.A.2] }
+    prerequisites: [MDA.18]
+    encompasses: { MDA.17: 1.0, MDA.18: 0.5 }
+    gateway: false
+    representations: [pv-chart, symbols]
+
   - id: MDA.22
     name: Find a missing number in addition or subtraction within 100 (36 + ? = 80)
     kind: concept
@@ -136,3 +187,21 @@ skills:
     prerequisites: [MDA.14, ADD.11]
     gateway: false
     representations: [balance, open-number-line, symbols]
+
+  - id: MDA.24
+    name: Add three-digit numbers without regrouping
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.7] }
+    prerequisites: [MDA.09, PV.15]
+    gateway: false
+    representations: [base-ten, expanded, symbols]
+
+  - id: MDA.25
+    name: Subtract three-digit numbers without regrouping
+    kind: procedure
+    grade: 2
+    standards: { ccss: [2.NBT.B.7] }
+    prerequisites: [MDA.11, PV.15]
+    gateway: false
+    representations: [base-ten, symbols]

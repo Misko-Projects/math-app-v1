@@ -30,6 +30,7 @@ import { patternRepeat } from './pattern/repeat';
 import { puzzleGrid } from './puzzle/grid';
 import { pvNumber } from './pv/number';
 import { pvRegroup } from './pv/regroup';
+import { pvEstimate } from './pv/estimate';
 import { pvRound } from './pv/round';
 import { pvTenMore } from './pv/tenmore';
 import { storyAddsub } from './story/addsub';
@@ -73,6 +74,7 @@ const GENERATORS: GeneratorDef[] = [
   pvRegroup,
   pvTenMore,
   pvRound, // K02 (#17) rounding (PV.08, PV.18, CMP.12)
+  pvEstimate, // K02 (#17) slice 2b: estimate by rounding (PV.19)
   mdaAddSub,
   equalityEq,
   storyAddsub,
