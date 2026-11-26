@@ -891,10 +891,6 @@ ui.widget.btt.back.ones:
 ui.widget.btt.work:
   text: "Your work"
   level: K
-# Said once on Next in a short room, where the algorithm waits for the answer step (#35; grade 2–3 items only).
-ui.widget.btt.written:
-  text: "Each trade shows in the columns."
-  level: "2"
 ui.widget.btt.goal:
   text: "Make it look like this"
   level: K

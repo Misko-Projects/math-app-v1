@@ -1216,7 +1216,7 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
         expect(count('.ni-btt__mat')).toBe(0);
         const said = document.querySelector('.ni-btt [role="status"]')?.textContent ?? '';
         expect(said).not.toBe('');
-        expect(said.includes('shows in the columns')).toBe(work);
+        expect(said.includes('Your work')).toBe(work);
         // A wrong answer typed and checked: the look-again cue, still the answer step.
         const a = Number(item.params.a);
         const b = Number(item.params.b);
@@ -1241,9 +1241,7 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
         // Said once: the second Next does not repeat it.
         if (work) {
           expect(
-            document
-              .querySelector('.ni-btt [role="status"]')
-              ?.textContent?.includes('shows in the columns'),
+            document.querySelector('.ni-btt [role="status"]')?.textContent?.includes('Your work'),
           ).toBe(false);
         }
       }

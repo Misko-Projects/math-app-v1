@@ -709,7 +709,7 @@ function TradeMat({
   /** What the live region says after the child's Next or Back (once per change). */
   const [stepSaid, setStepSaid] = useState('');
   const stepFocus = useRef<'answer' | 'mat' | null>(null);
-  /** The algorithm's trades are written in its columns: said on the first Next only. */
+  /** With the algorithm, its card ("Your work") is named on the first Next only. */
   const saidWritten = useRef(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -2089,7 +2089,7 @@ function TradeMat({
     setStepSaid(
       to === 'answer'
         ? written
-          ? `${t('ui.widget.answer')}. ${t('ui.widget.btt.written')}`
+          ? `${t('ui.widget.answer')}. ${t('ui.widget.btt.work')}`
           : t('ui.widget.answer')
         : matLabel,
     );
