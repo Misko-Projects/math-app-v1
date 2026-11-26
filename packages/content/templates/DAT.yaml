@@ -404,7 +404,7 @@ templates:
     expectedLatencyMs: 30000
     narration:
       prompt: tp.DAT.04.t1.prompt
-      hints: [h.data.tally-five, h.data.count-by-five, h.data.bar-reach]
+      hints: [h.data.tally-five, h.data.bar-reach]
 
   - id: DAT.04.t2
     skillId: DAT.04
