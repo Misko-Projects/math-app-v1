@@ -85,6 +85,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ADD.11',
       'ADD.12',
       'ADD.13',
+      'ADD.14',
       'ADD.15',
       'ADD.16',
       'ADD.17',
@@ -92,6 +93,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ADD.19',
       'ADD.20',
       'ADD.21',
+      'ADD.22',
       'ADD.23',
       'ADD.24',
       'ADD.25',
@@ -110,6 +112,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CMP.07',
       'CMP.08',
       'CMP.09',
+      'CMP.10',
+      'CMP.11',
+      'CMP.12',
       'CMP.13',
       'CNT.01',
       'CNT.02',
@@ -121,10 +126,13 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CNT.08',
       'CNT.09',
       'CNT.10',
+      'CNT.11',
+      'CNT.12',
       'CNT.13',
       'CNT.14',
       'CNT.15',
       'CNT.16',
+      'CNT.17',
       'CNT.18',
       'CNT.19',
       'CNT.20',
@@ -137,6 +145,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.07',
       'CPS.08',
       'CPS.09',
+      'CPS.10',
       'CPS.11',
       'DAT.01',
       'DAT.02',
@@ -175,6 +184,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'PV.05',
       'PV.06',
       'PV.07',
+      'PV.08',
       'PV.09',
       'PV.10',
       'PV.11',
@@ -184,6 +194,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'PV.15',
       'PV.16',
       'PV.17',
+      'PV.18',
       'PV.24',
       'SUB.01',
       'SUB.02',
@@ -218,6 +229,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.perceptual-size',
       'MC.place-swap',
       'MC.recount-from-one',
+      'MC.round-down-always',
+      'MC.round-wrong-place',
       'MC.start-unknown-reversed',
       'MC.symbol-reversed',
       'MC.teen-reversal',
@@ -273,6 +286,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): place value and two-digit addition and subtraction
         'pv.regroup',
         'pv.tenmore',
+        // K02 (#17) slice 1b: rounding
+        'pv.round',
         'mda.addsub',
         // K01 (#11): equality and story problems
         'equality.eq',
@@ -525,7 +540,7 @@ describe('V03: sequential ids', () => {
     expectFinding(
       variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = []))),
       'V03',
-      /missing ADD.14/,
+      /missing ALG.03/,
     );
     expectFinding(
       variant((f) =>
@@ -537,13 +552,13 @@ describe('V03: sequential ids', () => {
   });
   it('accepts a retired gap', () => {
     const diags = variant((f) => {
-      // ADD.14 moves from planned to retired; the other planned gaps stay planned.
+      // ALG.03 moves from planned to retired; the other planned gaps stay planned.
       editYaml(
         f,
         'graph.yaml',
-        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.14')),
+        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ALG.03')),
       );
-      f['retired.yaml'] = 'skills: [ADD.14]\n';
+      f['retired.yaml'] = 'skills: [ALG.03]\n';
     });
     expect(diags.filter((d) => d.check === 'V03')).toEqual([]);
   });
@@ -1617,12 +1632,12 @@ describe('V21: test-out choice rule and gateway item count', () => {
 });
 
 describe('V02/V03: excused ids must be canonical', () => {
-  it('does not let ADD.014 excuse the missing ADD.14', () => {
+  it('does not let ALG.003 excuse the missing ALG.03', () => {
     const diags = variant((f) =>
-      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.014'])),
+      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ALG.003'])),
     );
-    expectFinding(diags, 'V02', /'ADD.014' is not a canonical SkillId or TemplateId/);
-    expectFinding(diags, 'V03', /missing ADD.14/);
+    expectFinding(diags, 'V02', /'ALG.003' is not a canonical SkillId or TemplateId/);
+    expectFinding(diags, 'V03', /missing ALG.03/);
   });
   it('rejects excused template ids that could never be authored', () => {
     expectFinding(
@@ -1817,10 +1832,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // among them), 41 templates and 5 misconceptions; fractions, sharing, time, data, patterns
       // and puzzles (K01) added 18 skills, 62 templates and six misconceptions; place value to
       // 1000 (K02 slice 1a) added 10 skills, 46 templates, MC.zero-placeholder and
-      // MC.compare-first-digit.
-      skills: 125,
-      templates: 475,
-      misconceptions: 27,
+      // MC.compare-first-digit; counting, number lines, rounding and fact fluency (K02 slice 1b)
+      // added 11 skills, 49 templates, MC.round-down-always and MC.round-wrong-place.
+      skills: 136,
+      templates: 524,
+      misconceptions: 29,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1869,8 +1885,8 @@ describe('graph.json (03 §9.1)', () => {
     ]);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
-    // CPS.04, CPS.09, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07, PV.09 and SUB.04
-    expect(g?.descendants2['CPS.03']).toBe(9);
+    // CPS.04, CPS.09, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07, CPS.10, PV.09 and SUB.04
+    expect(g?.descendants2['CPS.03']).toBe(10);
     // CNT.07, CNT.15, CPS.04, DAT.09, MEA.02, MUL.12, PV.09; then ADD.03, ADD.08, CMP.03, CMP.07,
     // CNT.08, CNT.09, CNT.14, CNT.19, CPS.07, FRA.07, MEA.22, PV.10, PV.11 and SUB.04
     expect(g?.descendants2['CNT.06']).toBe(21);
@@ -1878,6 +1894,13 @@ describe('graph.json (03 §9.1)', () => {
       ['ADD.06', 'ADD.02', 1],
       ['ADD.08', 'CPS.03', 1],
       ['ADD.08', 'CPS.11', 1],
+      ['ADD.14', 'ADD.06', 0.8],
+      ['ADD.14', 'ADD.07', 0.3],
+      ['ADD.14', 'ADD.08', 0.4],
+      ['ADD.14', 'ADD.16', 0.3],
+      ['ADD.22', 'ADD.06', 0.6],
+      ['ADD.22', 'ADD.18', 0.4],
+      ['ADD.22', 'ADD.19', 0.4],
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
       ['CNT.10', 'CNT.09', 1],
@@ -1886,6 +1909,7 @@ describe('graph.json (03 §9.1)', () => {
       ['PV.06', 'PV.02', 0.6],
       ['PV.06', 'PV.05', 0.5],
       ['PV.07', 'PV.03', 1],
+      ['PV.18', 'PV.08', 0.6],
     ]);
     expect(g?.strands.SUB).toEqual([
       'SUB.01',

@@ -439,9 +439,15 @@ templates:
     tier: pictorial
     representation: number-line
     generator: count.sequence
-    params: { start: { int: [1, 990] }, step: { choice: [10, 100] }, dir: 1, length: { int: [2, 3] } }
-    constraints: ["last <= 1000"]
-    difficulty: { base: -3.4 }
+    params:
+      {
+        start: { int: [10, 900], step: 10 },
+        step: { choice: [10, 100] },
+        dir: 1,
+        length: { int: [2, 3] },
+      }
+    constraints: ["start % step == 0", "last + 3 * step <= 1000"]
+    difficulty: { base: -2.9 }
     narration: { prompt: p.count.skip-to, hints: [h.skip.add-each, h.add.say-hops] }
 
   - id: CNT.12.t2
@@ -454,7 +460,7 @@ templates:
       start: { int: [100, 980] }
       step: { choice: [10, 100] }
       dir: 1
-      length: { int: [1, 3] }
+      length: { int: [1, 2] }
       hide: all-after
     constraints: ["last <= 1000"]
     difficulty: { base: -3.2 }
@@ -470,7 +476,7 @@ templates:
       start: { int: [1, 980] }
       step: { choice: [10, 100] }
       dir: 1
-      length: { int: [1, 3] }
+      length: { int: [1, 2] }
       hide: all-after
     constraints: ["last <= 1000"]
     difficulty: { base: -3.2 }
@@ -482,7 +488,8 @@ templates:
     tier: abstract
     representation: symbols
     generator: count.sequence
-    params: { start: { int: [1, 980] }, step: { choice: [10, 100] }, dir: 1, length: { int: [2, 3] } }
+    params:
+      { start: { int: [1, 980] }, step: { choice: [10, 100] }, dir: 1, length: { int: [2, 3] } }
     constraints: ["last <= 1000"]
     difficulty: { base: -3.2 }
     narration: { prompt: p.count.order, hints: [h.order.smallest, h.skip.add-each] }
@@ -718,12 +725,53 @@ templates:
     representation: number-line
     generator: count.sequence
     params:
-      start: { choice: [196, 197, 198, 199, 296, 297, 298, 299, 396, 397, 398, 399, 496, 497, 498, 499, 596, 597, 598, 599, 696, 697, 698, 699, 796, 797, 798, 799, 896, 897, 898, 899, 996, 997, 998, 999] }
+      start:
+        {
+          choice:
+            [
+              196,
+              197,
+              198,
+              199,
+              296,
+              297,
+              298,
+              299,
+              396,
+              397,
+              398,
+              399,
+              496,
+              497,
+              498,
+              499,
+              596,
+              597,
+              598,
+              599,
+              696,
+              697,
+              698,
+              699,
+              796,
+              797,
+              798,
+              799,
+              896,
+              897,
+              898,
+              899,
+              996,
+              997,
+              998,
+              999,
+            ],
+        }
       step: 1
       dir: 1
       length: { int: [2, 4] }
       cross: century
-    constraints: ["last <= 1000"]
+    constraints: ["last + 3 <= 1000"]
     difficulty: { base: -3.2 }
     narration: { prompt: p.count.on-to, hints: [h.sequence.say-it, h.sequence.new-hundred] }
 
@@ -751,7 +799,48 @@ templates:
     representation: symbols
     generator: count.sequence
     params:
-      start: { choice: [196, 197, 198, 199, 296, 297, 298, 299, 396, 397, 398, 399, 496, 497, 498, 499, 596, 597, 598, 599, 696, 697, 698, 699, 796, 797, 798, 799, 896, 897, 898, 899, 996, 997, 998, 999] }
+      start:
+        {
+          choice:
+            [
+              196,
+              197,
+              198,
+              199,
+              296,
+              297,
+              298,
+              299,
+              396,
+              397,
+              398,
+              399,
+              496,
+              497,
+              498,
+              499,
+              596,
+              597,
+              598,
+              599,
+              696,
+              697,
+              698,
+              699,
+              796,
+              797,
+              798,
+              799,
+              896,
+              897,
+              898,
+              899,
+              996,
+              997,
+              998,
+              999,
+            ],
+        }
       step: 1
       dir: 1
       length: { int: [1, 3] }

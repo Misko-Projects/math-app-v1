@@ -202,6 +202,8 @@ describe('registry', () => {
       'perceptualSize',
       'placeSwap',
       'recountFromOne',
+      'roundDownAlways',
+      'roundWrongPlace',
       'startUnknownReversed',
       'symbolReversed',
       'teenReversal',

@@ -697,7 +697,10 @@ export const bondParts: GeneratorDef = {
         return {
           kind: 'state',
           value: {
-            jumps: jumps.length > 1 ? tenHops(start, goal) : new Array<number>((goal - start) / jump).fill(jump),
+            jumps:
+              jumps.length > 1
+                ? tenHops(start, goal)
+                : new Array<number>((goal - start) / jump).fill(jump),
             value: goal - start,
           },
         };

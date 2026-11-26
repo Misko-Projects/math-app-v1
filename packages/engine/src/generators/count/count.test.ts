@@ -296,3 +296,45 @@ describe('count.sequence: counting back', () => {
     expect(itemFeatures(generateItemFromParams(t, { start: 0 }), t).zero).toBe(0);
   });
 });
+
+describe('count.sequence: K02 (CNT.11, CNT.17)', () => {
+  it('cross century accepts a hundred crossing and rejects a count inside one hundred', () => {
+    const t = tpl('count.sequence', 'number-pad', { tier: 'abstract' });
+    expect(() => generateItemFromParams(t, { start: 199, cross: 'century' })).not.toThrow();
+    expect(() =>
+      generateItemFromParams(t, { start: 398, length: 3, cross: 'century' }),
+    ).not.toThrow();
+    expect(() => generateItemFromParams(t, { start: 189, cross: 'century' })).toThrow(
+      GenerationError,
+    );
+  });
+
+  it('counting on from 199 asks 200', () => {
+    const t = tpl('count.sequence', 'number-pad', { tier: 'abstract' });
+    const item = expectSound(t, { start: 199, cross: 'century' });
+    expect(item.answer).toEqual({ kind: 'number', value: 200 });
+  });
+
+  it('groups: one plate of `step` per term; the last term is how many in all', () => {
+    const t = tpl('count.sequence', 'number-pad', { representation: 'groups' });
+    const item = expectSound(t, { start: 5, step: 5, length: 3, hide: 'last' });
+    if (item.widget.format !== 'number-pad') throw new Error('format');
+    expect(item.widget.stimulus).toEqual({
+      kind: 'groups',
+      groups: 4,
+      perGroup: 5,
+      sprite: 'shell',
+    });
+    expect(item.answer).toEqual({ kind: 'number', value: 20 });
+  });
+
+  it.each<[string, ParamValues]>([
+    ['not from the first plate', { start: 10, step: 5, length: 2, hide: 'last' }],
+    ['more than six plates', { start: 2, step: 2, length: 6, hide: 'last' }],
+    ['plates of ten', { start: 10, step: 10, length: 2, hide: 'last' }],
+    ['every term asked', { start: 2, step: 2, length: 2, hide: 'all-after' }],
+  ])('groups rejects %s', (_l, p) => {
+    const t = tpl('count.sequence', 'number-pad', { representation: 'groups' });
+    expect(() => generateItemFromParams(t, p)).toThrow(GenerationError);
+  });
+});

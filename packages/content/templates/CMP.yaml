@@ -560,7 +560,8 @@ templates:
       labelsEvery: 100
       mode: place
     difficulty: { base: -1.2 }
-    narration: { prompt: tp.CMP.10.t1.prompt, hints: [h.numberline.between-marks, h.numberline.ends] }
+    narration:
+      { prompt: tp.CMP.10.t1.prompt, hints: [h.numberline.between-marks, h.numberline.ends] }
 
   - id: CMP.10.t2
     skillId: CMP.10
@@ -568,7 +569,8 @@ templates:
     tier: pictorial
     representation: number-line
     generator: numberline.place
-    params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 0, labelsEvery: 0, mode: place }
+    params:
+      { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 0, labelsEvery: 0, mode: place }
     difficulty: { base: -1.8 }
     narration: { prompt: tp.CMP.10.t2.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
 
@@ -580,7 +582,8 @@ templates:
     generator: numberline.place
     params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 100, labelsEvery: 500 }
     difficulty: { base: -1.2 }
-    narration: { prompt: tp.CMP.10.t3.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }
+    narration:
+      { prompt: tp.CMP.10.t3.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }
 
   # Read the arrow on a bare 0–1000 line; an estimate within 100 is right, and targets stay 100
   # from both ends (the generator rejects closer ones), so no accepted answer is off the line.
@@ -602,7 +605,8 @@ templates:
     generator: numberline.place
     params: { min: 0, max: 1000, target: { int: [1, 999] }, ticksEvery: 100, labelsEvery: 500 }
     difficulty: { base: -1.2 }
-    narration: { prompt: tp.CMP.10.t4.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }
+    narration:
+      { prompt: tp.CMP.10.t4.prompt, hints: [h.numberline.count-hundreds, h.numberline.middle] }
 
   # ---------- CMP.11 read a number line marked in 2s, 5s or 10s ----------
   # Each template keeps one marking; the target is a tick without a label.
@@ -620,7 +624,8 @@ templates:
       labelsEvery: 10
       mode: read
     difficulty: { base: -0.84 }
-    narration: { prompt: tp.CMP.11.t1.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+    narration:
+      { prompt: tp.CMP.11.t1.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
 
   - id: CMP.11.t2
     skillId: CMP.11
@@ -636,7 +641,8 @@ templates:
       labelsEvery: 20
       mode: read
     difficulty: { base: -1.0 }
-    narration: { prompt: tp.CMP.11.t1.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+    narration:
+      { prompt: tp.CMP.11.t1.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
 
   - id: CMP.11.t3
     skillId: CMP.11
@@ -652,7 +658,8 @@ templates:
       labelsEvery: 50
       mode: read
     difficulty: { base: -1.0 }
-    narration: { prompt: tp.CMP.11.t3.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+    narration:
+      { prompt: tp.CMP.11.t3.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
 
   - id: CMP.11.t4
     skillId: CMP.11
@@ -667,7 +674,8 @@ templates:
       ticksEvery: 5
       labelsEvery: 20
     difficulty: { base: -1.1 }
-    narration: { prompt: tp.CMP.11.t4.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+    narration:
+      { prompt: tp.CMP.11.t4.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
 
   - id: CMP.11.t5
     skillId: CMP.11
@@ -682,7 +690,8 @@ templates:
       ticksEvery: 2
       labelsEvery: 10
     difficulty: { base: -0.94 }
-    narration: { prompt: tp.CMP.11.t4.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
+    narration:
+      { prompt: tp.CMP.11.t4.prompt, hints: [h.numberline.skip-ticks, h.numberline.from-label] }
 
   # ---------- CMP.12 closer to which? two benchmarks ----------
   # The generator never draws a benchmark or the exact middle, so one benchmark is always closer.

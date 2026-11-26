@@ -84,7 +84,10 @@ export const pvRound: GeneratorDef = {
       crossesUp: result === b1 ? 1 : 0,
     };
     const vars = pickVars(t, { n, place, b0, b1 });
-    const numeral = { kind: 'expression' as const, expr: { tokens: [{ t: 'num' as const, v: n }] } };
+    const numeral = {
+      kind: 'expression' as const,
+      expr: { tokens: [{ t: 'num' as const, v: n }] },
+    };
     let p: PartialOutput;
     switch (t.format) {
       case 'numeral-pick': {
@@ -114,10 +117,9 @@ export const pvRound: GeneratorDef = {
             // with ticks a tenth of the place apart and n marked.
             stimulus:
               t.representation === 'number-line'
-                ? linePicture(
-                    { min: b0, max: b1, ticksEvery: place / 10, labelsEvery: place },
-                    [{ at: n, label: true }],
-                  )
+                ? linePicture({ min: b0, max: b1, ticksEvery: place / 10, labelsEvery: place }, [
+                    { at: n, label: true },
+                  ])
                 : numeral,
             // One digit to spare, so the box size never hints the answer.
             blanks: [{ id: 'r', maxDigits: digitCount(b1) + 1 }],

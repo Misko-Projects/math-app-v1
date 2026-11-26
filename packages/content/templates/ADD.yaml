@@ -434,7 +434,14 @@ templates:
     representation: double-ten-frame
     generator: addsub.facts
     params:
-      { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, maxSum: 20, family: make-ten }
+      {
+        a: { int: [2, 9] },
+        b: { int: [2, 9] },
+        op: "+",
+        unknown: result,
+        maxSum: 20,
+        family: make-ten,
+      }
     difficulty: { base: -1.84, features: { size: 0.6 } }
     narration: { prompt: p.add.what-is, hints: [h.addsub.make-ten.nudge, h.addsub.picture] }
 
@@ -445,7 +452,14 @@ templates:
     representation: symbols
     generator: addsub.facts
     params:
-      { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, maxSum: 20, family: make-ten }
+      {
+        a: { int: [2, 9] },
+        b: { int: [2, 9] },
+        op: "+",
+        unknown: result,
+        maxSum: 20,
+        family: make-ten,
+      }
     difficulty: { base: -1.84, features: { size: 0.6 } }
     narration:
       prompt: p.add.what-is
@@ -458,7 +472,14 @@ templates:
     representation: symbols
     generator: addsub.facts
     params:
-      { a: { int: [6, 10] }, b: { int: [6, 10] }, op: "+", unknown: result, maxSum: 20, family: doubles }
+      {
+        a: { int: [6, 10] },
+        b: { int: [6, 10] },
+        op: "+",
+        unknown: result,
+        maxSum: 20,
+        family: doubles,
+      }
     difficulty: { base: -1.14 }
     narration: { prompt: p.add.what-is, hints: [h.add.double-same, h.add.double-think] }
 
@@ -485,7 +506,14 @@ templates:
     representation: symbols
     generator: addsub.facts
     params:
-      { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, maxSum: 20, family: make-ten }
+      {
+        a: { int: [2, 9] },
+        b: { int: [2, 9] },
+        op: "+",
+        unknown: result,
+        maxSum: 20,
+        family: make-ten,
+      }
     difficulty: { base: -1.89, features: { size: 0.6 } }
     narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.make-ten.nudge] }
     distractors:
@@ -1296,7 +1324,14 @@ templates:
     representation: double-ten-frame
     generator: addsub.facts
     params:
-      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, maxSum: 20, family: back-to-ten }
+      {
+        a: { int: [11, 18] },
+        b: { int: [2, 9] },
+        op: "-",
+        unknown: result,
+        maxSum: 20,
+        family: back-to-ten,
+      }
     constraints: ["result <= 9"]
     difficulty: { base: -1.59 }
     narration: { prompt: p.sub.what-is, hints: [h.sub.back-to-ten, h.addsub.picture] }
@@ -1308,7 +1343,14 @@ templates:
     representation: symbols
     generator: addsub.facts
     params:
-      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, maxSum: 20, family: back-to-ten }
+      {
+        a: { int: [11, 18] },
+        b: { int: [2, 9] },
+        op: "-",
+        unknown: result,
+        maxSum: 20,
+        family: back-to-ten,
+      }
     constraints: ["result <= 9"]
     difficulty: { base: -1.59 }
     narration: { prompt: p.sub.what-is, hints: [h.sub.back-to-ten, h.sub.then-more] }
@@ -1320,7 +1362,14 @@ templates:
     representation: symbols
     generator: addsub.facts
     params:
-      { a: { int: [11, 18] }, b: { int: [6, 9] }, op: "-", unknown: result, maxSum: 20, family: count-up }
+      {
+        a: { int: [11, 18] },
+        b: { int: [6, 9] },
+        op: "-",
+        unknown: result,
+        maxSum: 20,
+        family: count-up,
+      }
     difficulty: { base: -1.59 }
     narration: { prompt: p.sub.what-is, hints: [h.sub.count-up, h.sub.count-up-ten] }
 
@@ -1331,7 +1380,14 @@ templates:
     representation: symbols
     generator: addsub.facts
     params:
-      { a: { int: [11, 20] }, b: { int: [2, 10] }, op: "-", unknown: result, maxSum: 20, family: think-add }
+      {
+        a: { int: [11, 20] },
+        b: { int: [2, 10] },
+        op: "-",
+        unknown: result,
+        maxSum: 20,
+        family: think-add,
+      }
     difficulty: { base: -1.47 }
     narration: { prompt: p.sub.what-is, hints: [h.sub.think-add, h.sub.fact-family] }
 
@@ -1342,7 +1398,14 @@ templates:
     representation: symbols
     generator: addsub.facts
     params:
-      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, maxSum: 20, family: think-add }
+      {
+        a: { int: [11, 18] },
+        b: { int: [2, 9] },
+        op: "-",
+        unknown: result,
+        maxSum: 20,
+        family: think-add,
+      }
     difficulty: { base: -1.76 }
     narration: { prompt: p.sub.what-is, hints: [h.addsub.check-sign, h.sub.think-add] }
     distractors:
