@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { area, placeCorners } from '../../check/state/pieces';
 import { initContent, resetContent } from '../../content/binding';
 import { checkResponse } from '../../items/check';
-import { generateItem, generateItemFromParams } from '../../items/generate';
+import { generateItem, generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { geoCompose } from './compose';
 import { geoDraw, gridOf } from './draw';
@@ -409,6 +409,28 @@ describe('geo.draw', () => {
     expect(it.widget.cards.some((c) => 'shape' in c.card && c.card.shape === 'open-figure')).toBe(
       true,
     );
+  });
+
+  it('shape-sort with square corners (GEO.15): the squares and rectangles, turned or not', () => {
+    const t = tpl('geo.draw', 'shape-sort');
+    let turned = 0;
+    for (let seed = 1; seed <= 30; seed += 1) {
+      const it = generateItemFromParams(
+        t,
+        { sides: 0, rightAngles: 4, cards: 5, hits: 2, nonPrototypical: true },
+        { seed },
+      );
+      if (it.widget.format !== 'shape-sort' || it.answer.kind !== 'state') throw new Error('sort');
+      const shapes = it.widget.cards.map((c) => ('shape' in c.card ? c.card : null));
+      const hits = it.widget.cards
+        .filter((_, i) => ['square', 'rectangle'].includes(shapes[i]?.shape ?? ''))
+        .map((c) => c.id);
+      expect([...(it.answer.target.ids as string[])].sort()).toEqual(hits.sort());
+      expect(it.widget.namesGiven).toBeUndefined();
+      turned += shapes.filter((s) => s && s.rotationDeg !== 0).length;
+      expect(itemFeatures(it, t)).toMatchObject({ nonPrototypical: 1 });
+    }
+    expect(turned).toBeGreaterThan(0);
   });
 
   it('features: a triangle is 0, a square needs sides, square corners and equal sides', () => {
