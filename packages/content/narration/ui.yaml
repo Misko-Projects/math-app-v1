@@ -243,6 +243,12 @@ ui.widget.supply:
 ui.widget.picture:
   text: "Look at the picture"
   level: K
+ui.widget.jumps:
+  text: "A number line. From {start}, {count} jumps of {size}."
+  level: K
+ui.widget.jumps-mixed:
+  text: "A number line. From {start}, jumps of {sizes}."
+  level: K
 # A picture graph's key (ChartView), when one picture stands for more than one.
 ui.widget.chart.key:
   text: "Each picture is {n}"

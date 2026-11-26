@@ -28,6 +28,29 @@ import './kit.css';
  * picture"), never the quantity the child is asked for.
  */
 
+type NumberLineSpec = Extract<StimulusSpec, { kind: 'number-line' }>;
+
+/**
+ * The words for a number line's jumps (Refs #35): where they start, how big they are and how
+ * many, never where they land (the landing is what such a picture usually asks). Null when the
+ * line has no jumps.
+ */
+export function jumpsDescription(
+  spec: NumberLineSpec,
+): { key: string; vars: Record<string, string | number> } | null {
+  const jumps = spec.jumps ?? [];
+  const first = jumps[0];
+  if (!first) return null;
+  const sizes = jumps.map((j) => j.to - j.from);
+  const start = first.from;
+  if (sizes.every((d) => d === sizes[0]))
+    return {
+      key: 'ui.widget.jumps',
+      vars: { start, count: sizes.length, size: sizes[0] as number },
+    };
+  return { key: 'ui.widget.jumps-mixed', vars: { start, sizes: sizes.join(', ') } };
+}
+
 export interface StimulusViewProps {
   spec: StimulusSpec;
   /** Box the picture fits in, in CSS px. */
@@ -107,9 +130,16 @@ export function StimulusView({
           <RekenrekView rows={spec.rows} label={name} />
         </div>
       );
-    case 'number-line':
+    case 'number-line': {
+      // A line with jumps says where they start, their size and how many (the drawing is
+      // hidden from assistive technology; a sighted child reads the same from the arcs).
+      const jumps = jumpsDescription(spec);
       return (
-        <div className={cls} data-kind="number-line">
+        <div
+          className={cls}
+          data-kind="number-line"
+          {...(jumps ? pictureProps(t(jumps.key, jumps.vars)) : {})}
+        >
           <NumberLineView
             min={spec.min}
             max={spec.max}
@@ -122,6 +152,7 @@ export function StimulusView({
           />
         </div>
       );
+    }
     case 'number-bond':
       return (
         <div className={cls} data-kind="number-bond">
