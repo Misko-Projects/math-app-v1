@@ -60,7 +60,11 @@ const coinsSpec: StimulusSpec = {
 export const CoinsStimulus: Story = {
   render: () => <StimulusView spec={coinsSpec} />,
   play: async ({ canvasElement }) => {
-    const pic = within(canvasElement).getByRole('img', { name: 'Look at the picture' });
+    // Named by what it shows, never by an amount (PR #132: MON.01 asks a coin's value).
+    const pic = within(canvasElement).getByRole('img', {
+      name: /^8 pieces of money: a dollar bill, /,
+    });
+    await expect(pic.getAttribute('aria-label') ?? '').not.toMatch(/¢|cent|\$|\d{2,}/);
     await expect(pic).toHaveAttribute('data-cents', '168');
     await expect(canvasElement.querySelectorAll('.ni-coin-art')).toHaveLength(7);
     await expect(canvasElement.querySelectorAll('.ni-bill-art')).toHaveLength(1);
