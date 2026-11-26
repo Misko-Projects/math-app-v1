@@ -745,6 +745,37 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
     expect(failing, `${id} steps that do not fit`).toEqual([]);
   });
 
+  // Principle 4 (#35): the three-digit compute slice (MDA.05, MDA.17) will draw disks in three
+  // columns. Its fullest, 990 − 15 with a column of 20 ones, does not fit the two steps at the
+  // disks' floor (276 px too wide, layout.steps.test.ts): it keeps the usual layout and scrolls,
+  // with disks of 25 px (one under DISK_FLOOR). Measured here so the slice starts from the number.
+  it('a three-column compute mat of disks (no shipped item) keeps the usual layout', async () => {
+    await page.viewport(960, 600);
+    const base = engine.generateItem(content.store.graph.templates['MDA.12.t1'] as ItemTemplate, 1);
+    const item = {
+      ...base,
+      widget: {
+        format: 'base-ten-trade',
+        start: { hundreds: 9, tens: 9, ones: 0 },
+        operation: { op: '-', operand: { hundreds: 0, tens: 1, ones: 5 } },
+        goal: 'compute',
+        showAlgorithm: false,
+        thenAsk: true,
+      },
+    } as GeneratedItem;
+    show(item, 'g1-up');
+    await measure('990 − 15');
+    expect(stepsRoot()?.dataset.arrange).toBe('tall');
+    button('[data-trade="trade-tens-ones"]')?.click();
+    await measure('990 − 15');
+    button('[data-trade="trade-tens-ones"]')?.click();
+    await measure('990 − 15');
+    expect(tradeMat()).toEqual([9, 7, 20]);
+    const disk = document.querySelector('.ni-btt__mat [data-piece^="ones-"]');
+    expect(Math.round(disk?.getBoundingClientRect().width ?? 0)).toBe(25);
+    await shot('disks-990-15', 'column-of-20');
+  });
+
   it('the usual layout stays at 1280 × 800', async () => {
     await page.viewport(1280, 800);
     for (const id of STEP_TEMPLATES) {
@@ -756,30 +787,20 @@ describe('regrouping in a short room: the pieces, then the answer (#35)', () => 
     }
   });
 
-  it('every hint picture of these templates fits its card on every seed', async () => {
-    await page.viewport(960, 600);
-    const failing: string[] = [];
-    let checked = 0;
+  // Review round 1 (#126): these templates are concrete, and the hint builder draws no picture
+  // overlay for a concrete tier, so their hints are lines only: measured on every seed with the
+  // look-again cue above. Should one ever draw a picture, this fails and its fit is to be checked.
+  it('these concrete templates show no hint picture on any seed (their hints are lines)', () => {
+    const pictures: string[] = [];
     for (const id of STEP_TEMPLATES) {
       const template = content.store.graph.templates[id] as ItemTemplate;
       for (const seed of SEEDS) {
         const item = engine.generateItem(template, seed);
         const picture = item.hints.find((h) => h.overlay && h.overlay.kind !== 'none')?.overlay;
-        if (!picture) continue;
-        show(item, ageModeOf(template), { picture });
-        expect(await measure(id)).toEqual([]);
-        let card: HTMLElement | null = null;
-        for (let i = 0; i < SETTLE_LIMIT_FRAMES && !card?.querySelector('.ni-stimulus'); i += 1) {
-          await frame();
-          card = document.querySelector<HTMLElement>('[data-testid="pier-hint-picture"]');
-        }
-        checked += 1;
-        const misfit = card?.querySelector('.ni-stimulus') ? cardMisfits(card) : ['not drawn'];
-        if (misfit.length > 0) failing.push(`${id} seed ${seed}: ${misfit.join('; ')}`);
+        if (picture) pictures.push(`${id} seed ${seed}: ${picture.kind}`);
       }
     }
-    console.info(`regrouping hint pictures at 960x600: ${checked} checked`);
-    expect(failing).toEqual([]);
+    expect(pictures).toEqual([]);
   });
 
   it.each(['MDA.03', 'MDA.12'])('the %s lesson, step by step, fits', async (skillId) => {

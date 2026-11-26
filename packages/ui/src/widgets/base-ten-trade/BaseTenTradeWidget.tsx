@@ -85,6 +85,7 @@ import {
   standingGroups,
   stateCaps,
   stepsCaps,
+  stepsHold,
   stripWidth,
   unitRange,
 } from './layout';
@@ -1791,6 +1792,16 @@ function TradeMat({
     );
   };
 
+  // Every piece of the item after splitting one `larger` into ten `smaller` (layout.ts stepsHold).
+  const splitHolds = (larger: Column, smaller: Column) => {
+    if (!stepsPlan) return true;
+    const all = { hundreds: 0, tens: 0, ones: 0 };
+    for (const c of COLUMNS) all[c] = state.mat[c] + state.taken[c] + state.pending[c];
+    all[larger] -= 1;
+    all[smaller] += 10;
+    return stepsHold({ age, plan: stepsPlan, base: baseCaps, all });
+  };
+
   const strips = (larger: Column) => {
     const smaller = smallerOf(larger) as Column;
     return (
@@ -1803,7 +1814,10 @@ function TradeMat({
               dir: 'split' as const,
               // A column of disks holds two tens (DISK_COLUMN_MAX): no split past that.
               enabled:
-                state.mat[larger] >= 1 && (!disks || state.mat[smaller] + 10 <= DISK_COLUMN_MAX),
+                state.mat[larger] >= 1 &&
+                (!disks || state.mat[smaller] + 10 <= DISK_COLUMN_MAX) &&
+                // A short room's steps: only while every piece still fits its fixed room.
+                (!stepsPlan || splitHolds(larger, smaller)),
             },
             { from: smaller, to: larger, dir: 'group' as const, enabled: state.mat[smaller] >= 10 },
           ] as const

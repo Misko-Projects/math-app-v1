@@ -381,6 +381,9 @@ export function NumberPadKeys({
       } else if (e.key === 'Enter' && l.onEnter) {
         // Enter on a focused button activates that button instead.
         if (el?.closest('button')) return;
+        // A held Enter is one press: its repeats never submit (a held Enter on a step's Next
+        // lands here once the pad mounts, #35).
+        if (e.repeat) return;
         e.preventDefault();
         l.onEnter();
       }

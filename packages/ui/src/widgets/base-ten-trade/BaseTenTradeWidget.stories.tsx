@@ -2209,8 +2209,68 @@ export const PierSmallTakeSteps: Story = {
     await expectAnswerStep(canvasElement, root);
     await expect(root.querySelector('.ni-btt__answer')).toHaveFocus();
     await expect(root.querySelector('[role="status"]')).toHaveTextContent('Your answer');
-    await userEvent.keyboard('79{Enter}');
+    await userEvent.keyboard('79');
+    // Review round 1 (#126): the Enter held on Next repeats onto the answer step; a repeat never
+    // submits, only a fresh press does.
+    const answer = q(root, '.ni-btt__answer');
+    answer.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true }),
+    );
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    await expect(answer).toHaveTextContent('79');
+    await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(args.onResponse).toHaveBeenCalledTimes(1));
+  },
+};
+
+/**
+ * Review round 1 (#126): split after split on 98 − 19. Splits stop while every piece still fits
+ * (layout.ts stepsHold): the pieces stay countable, the mat stays above the pad row in the answer
+ * step, and with every one taken the take-away box holds them all.
+ */
+export const PierSmallSplitsStayInRoom: Story = {
+  args: { config: pierTake, tier: 'concrete' },
+  tags: ['!visual'],
+  render: inRoom('small'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stableLayout(root);
+    await expect(root).toHaveAttribute('data-arrange', 'steps');
+    let splits = 0;
+    while (!trade(root, 'tens', 'ones').disabled && splits < 10) {
+      await userEvent.click(trade(root, 'tens', 'ones'));
+      await settled(root);
+      splits += 1;
+    }
+    await expect(splits).toBeGreaterThan(1);
+    await expect(splits).toBeLessThan(9);
+    await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+    await expectCountable(root, 18);
+    // Every one taken: the box holds them, the room does not overflow.
+    const ones = mat(root).ones;
+    for (let i = 0; i < ones; i++) {
+      await userEvent.click(grabItem(root, 'ones'));
+      await userEvent.click(nest(root));
+      await settled(root);
+    }
+    await expect(takenPieces(root, 'ones')).toBe(ones);
+    await expectFitsRoom(canvasElement, root, 'g1-up', PIER_ACTIONS);
+    const box = q(root, '.ni-btt__takebox').getBoundingClientRect();
+    for (const p of root.querySelectorAll('.ni-btt__takebox [data-piece]')) {
+      const r = p.getBoundingClientRect();
+      await expect(r.left >= box.left && r.right <= box.right).toBe(true);
+      await expect(r.top >= box.top && r.bottom <= box.bottom).toBe(true);
+    }
+    // Every one back on the mat, then the answer step: the mat stays above the pad row.
+    for (let i = 0; i < ones; i++) {
+      await userEvent.click(backButton(root, 'ones') as HTMLButtonElement);
+      await settled(root);
+    }
+    await userEvent.click(stepCue(root, 'next'));
+    await expectAnswerStep(canvasElement, root);
+    const matBottom = q(root, '.ni-btt__mat').getBoundingClientRect().bottom;
+    await expect(matBottom).toBeLessThanOrEqual(q(root, '.ni-pad').getBoundingClientRect().top);
+    await expectCountable(root, 18);
   },
 };
 export const PierQuarterAdd: Story = { ...pierAddIn('quarter'), tags: ['!visual'] };

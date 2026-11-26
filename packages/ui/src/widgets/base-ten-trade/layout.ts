@@ -1309,6 +1309,22 @@ export interface StepsPlan {
 }
 
 /**
+ * Whether the steps' room holds `all` (every piece of the item, wherever it is now: on the mat, in
+ * the take-away box, or waiting in the tray) at the plan's unit: on the mat as it would be with all
+ * of them on it, and in the take-away box with all of them taken. A split that would make this
+ * false is not offered (as a column of disks stops at DISK_COLUMN_MAX): the mat's room is fixed,
+ * with the pad row under it, so pieces must never outgrow it. Grouping only makes fewer pieces.
+ */
+export function stepsHold(o: { age: AgeMode; plan: StepsPlan; base: MatCaps; all: Hto }): boolean {
+  const { age, plan, base, all } = o;
+  const caps = stateCaps(stepsCaps(base), all, null, null);
+  if (!firstFit({ age, width: plan.matW, height: plan.matH, caps }, plan.unit)) return false;
+  if (!base.taken) return true;
+  const box = stepsTakeSize(all, plan.unit, age, base.disks === true);
+  return box.w <= plan.sideW && box.h <= plan.boxH;
+}
+
+/**
  * Plans the two steps in `width` × `height` (the widget's content box) from the item's plan
  * (`base`, `path`; never the mat as it is now): the largest unit, down to the floor, at which the
  * mat, the pad row under it and the side column of both steps fit. When none does, the least

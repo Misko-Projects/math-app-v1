@@ -12,6 +12,7 @@ import {
   planSteps,
   type StepsParts,
   stepsCaps,
+  stepsHold,
   stepsTakeSize,
   stepsTraySize,
   U_FLOOR,
@@ -87,6 +88,28 @@ describe('planSteps at 960 × 600', () => {
     const add = plan(compute(19, '+', 79));
     expect(add.sideW).toBe(383);
     expect(W - 12 - add.sideW).toBeGreaterThanOrEqual(449);
+  });
+
+  it('98 − 19: splits are offered only while every piece fits the mat and the take-away box', () => {
+    // Review round 1 (#126): split after split on the fixed mat once overlapped the pad row.
+    const c = compute(98, '-', 19);
+    const p = plan(c);
+    const base = planCaps(c);
+    const hold = (tens: number, ones: number) =>
+      stepsHold({ age: 'g1-up', plan: p, base, all: { hundreds: 0, tens, ones } });
+    // The start and the expected split hold.
+    expect(hold(9, 8)).toBe(true);
+    expect(hold(8, 18)).toBe(true);
+    // Splitting on: the last state that holds, and the first that does not.
+    let tens = 9;
+    let ones = 8;
+    while (tens > 0 && hold(tens - 1, ones + 10)) {
+      tens -= 1;
+      ones += 10;
+    }
+    expect(tens).toBeGreaterThan(0);
+    expect(hold(tens - 1, ones + 10)).toBe(false);
+    console.info(`98 − 19 in steps: splits stop at ${tens} tens ${ones} ones`);
   });
 
   it('a three-column mat of disks does not fit: the report says by how much', () => {
