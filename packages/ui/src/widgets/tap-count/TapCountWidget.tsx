@@ -1,4 +1,5 @@
 import { formatModel } from '@number-island/engine';
+import { createRng } from '@number-island/engine/shell';
 import type { WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
@@ -284,7 +285,206 @@ const RING_OUT = 2 + 6;
  * ringed object in the row above by 12 px (`clear` includes the ring).
  */
 const BADGE_ORDINAL = { w: 76, above: 64, below: -20, clear: 12 + RING_OUT } as const;
-type BadgeFootprint = typeof BADGE | typeof BADGE_ORDINAL;
+/**
+ * Badges inside the object (`.ni-tapc[data-marks="inset"]`, where a band above each row does not
+ * fit the room): a 44 px pebble with a 32 px numeral in the box's top-right corner, 4 px in, so no
+ * row needs room above it. Only on tappable objects (a box of 64 px or more holds the pebble).
+ */
+const BADGE_INSET = { w: 64, above: -4, below: 48, clear: 4 } as const;
+/** The picture card's top padding with the badges inside the objects (tap-count.css). */
+const INSET_CARD_TOP = 20;
+interface BadgeFootprint {
+  w: number;
+  above: number;
+  below: number;
+  clear: number;
+}
+
+/** The answer column a picture is planned beside or above, and whether its width is exact. */
+interface AnswerBox {
+  w: number;
+  h: number;
+  exact: boolean;
+  /** The column is one step button (Next while counting, or Check alone). */
+  lone: boolean;
+}
+
+/** How a picture is drawn: its badges inside the objects, the widget's chrome tight. */
+interface PictureStyle {
+  inset: boolean;
+  /**
+   * The chrome of the compact pad (tap-count.css `data-room="tight"`): 12 px at the widget's
+   * sides, a 32 px column gap, 16 px inside the card's sides; a lone step button planned at the
+   * size it is drawn (the age's big target) instead of the 120 px budget.
+   */
+  tight: boolean;
+}
+
+/** The kit's scatter grid pitch (layout.ts `scatterCells`) and the jitter a re-dealt one keeps. */
+const SCATTER_PITCH = 1.25;
+const SCATTER_JITTER = 0.1;
+
+/** A layout's bounding size in cells from its objects' cells (each object centred in its cell). */
+function boundsOf(objects: readonly PlacedObject[]): { width: number; height: number } {
+  const cellOf = (o: PlacedObject, at: number) => at - (1 - o.scale) / 2 + 1;
+  return {
+    width: Math.max(1, ...objects.map((o) => cellOf(o, o.x))),
+    height: Math.max(1, ...objects.map((o) => cellOf(o, o.y))),
+  };
+}
+
+/**
+ * A scatter (kit `scatterCells`) dealt again on wider grids with fewer rows, for rooms too short
+ * for the kit's: the kit's column count first, then each wider grid that saves a row. Each is a
+ * loose grid with some cells left empty, jittered by at most 0.1 cell, so neighbours stay at least
+ * 1.15 cells apart (the kit's 0.25 can bring two a full cell close, which makes every tap target's
+ * cell bigger). Objects keep their order (reading order; distractors in the kit's slots) and size.
+ * Deterministic from the set's `layoutSeed`.
+ */
+function scatterRegrids(layout: ObjectLayout, seed: number): ObjectLayout[] {
+  const total = layout.objects.length;
+  if (total < 2) return [];
+  const kitCols = Math.max(2, Math.ceil(Math.sqrt(total * 1.6)));
+  const out: ObjectLayout[] = [];
+  let lastRows = Number.POSITIVE_INFINITY;
+  for (let cols = kitCols; cols <= total; cols++) {
+    const rows = Math.max(1, Math.ceil((total * 1.25) / cols));
+    if (rows >= lastRows) continue;
+    lastRows = rows;
+    const rng = createRng(((seed ^ 0x2c1b3c6d) + cols) >>> 0);
+    const free: { x: number; y: number }[] = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) free.push({ x: c, y: r });
+    const cells = rng
+      .shuffle(free)
+      .slice(0, total)
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+    const objects = layout.objects.map((o, i) => {
+      const cell = cells[i] as { x: number; y: number };
+      const inset = (1 - o.scale) / 2;
+      return {
+        ...o,
+        x: cell.x * SCATTER_PITCH + rng.float() * SCATTER_JITTER + inset,
+        y: cell.y * SCATTER_PITCH + rng.float() * SCATTER_JITTER + inset,
+      };
+    });
+    out.push({ ...layout, objects, ...boundsOf(objects) });
+  }
+  return out;
+}
+
+/**
+ * A line of objects in two, three or four rows (`wrapRow` of the one-row line, reading order), for
+ * rooms where the rows the width alone allows leave the picture too wide to stand beside the
+ * answer and too tall to stand above it (sixteen K objects as 8 + 8 at 960 × 600: 6 + 6 + 4).
+ */
+function lineInRows(layout: ObjectLayout): ObjectLayout[] {
+  const flat = flattenLine(layout);
+  const out: ObjectLayout[] = [];
+  for (let rows = 2; rows <= 4 && Math.ceil(flat.objects.length / rows) >= 2; rows++) {
+    out.push(wrapRow(flat, rows, 'left'));
+  }
+  return out;
+}
+
+/** A flattened ring's half-height in cells: 3.4 cells tall in all (the kit's ring of 6 is 3.8). */
+const RING_HALF_H = 1.2;
+/** Its shape: a superellipse of this exponent (2 is an ellipse; 3 squares the sides a little). */
+const RING_SHAPE = 3;
+
+/** `n` points evenly spaced along a superellipse of half-sizes `a` × `b`, clockwise from the top. */
+function ringPoints(n: number, a: number, b: number, phase: number): { x: number; y: number }[] {
+  const samples = 720;
+  const along: { x: number; y: number }[] = [];
+  for (let i = 0; i <= samples; i++) {
+    const t = (i / samples) * 2 * Math.PI - Math.PI / 2;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    along.push({
+      x: a * Math.sign(c) * Math.abs(c) ** (2 / RING_SHAPE),
+      y: b * Math.sign(s) * Math.abs(s) ** (2 / RING_SHAPE),
+    });
+  }
+  const run = [0];
+  for (let i = 1; i <= samples; i++) {
+    const p = along[i] as { x: number; y: number };
+    const q = along[i - 1] as { x: number; y: number };
+    run.push((run[i - 1] as number) + Math.hypot(p.x - q.x, p.y - q.y));
+  }
+  const length = run[samples] as number;
+  const points: { x: number; y: number }[] = [];
+  let j = 0;
+  for (let k = 0; k < n; k++) {
+    const want = ((k + phase) / n) * length;
+    while (j < samples && (run[j + 1] as number) < want) j++;
+    points.push(along[j] as { x: number; y: number });
+  }
+  return points;
+}
+
+/**
+ * A ring of objects (kit `circle`) as a flatter oval for short rooms: 3.4 cells tall, as narrow as
+ * keeps every two objects `step` apart, evenly spaced from the top and clockwise like the kit's
+ * (obj-0 at the top, or half a step on where that is narrower). Null where no width does.
+ */
+function flatRing(layout: ObjectLayout, step: number): ObjectLayout | null {
+  const n = layout.objects.length;
+  if (n < 3) return null;
+  for (let a = RING_HALF_H; a <= 6; a += 0.05) {
+    for (const phase of [0, 0.5]) {
+      const points = ringPoints(n, a, RING_HALF_H, phase);
+      const objects = layout.objects.map((o, i) => {
+        const p = points[i] as { x: number; y: number };
+        const inset = (1 - o.scale) / 2;
+        return { ...o, x: a + p.x + inset, y: RING_HALF_H + p.y + inset };
+      });
+      if (minObjectStep({ objects }) >= step - 1e-9) {
+        return { ...layout, objects, width: 2 * a + 1, height: 2 * RING_HALF_H + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Equal-groups plates (kit `groups`) with their objects in two rows a plate (ten as two rows of
+ * five, the kit's are about square: ten as 4 + 4 + 2), so plates in two rows fit a shorter room.
+ * The kit's plate geometry otherwise (1.05-cell pitch, 0.35 inset, 0.6 between plates). Null for
+ * a set with distractors (they sit in a loose row under the kit's plates).
+ */
+function platesInTwoRows(layout: ObjectLayout): ObjectLayout | null {
+  if (layout.frames.length < 2 || layout.objects.some((o) => o.kind !== 'object')) return null;
+  const pitch = 1.05;
+  const inset = 0.35;
+  const moved = new Map<PlacedObject, PlacedObject>();
+  const frames: ObjectLayout['frames'] = [];
+  let x0 = 0;
+  let tallest = 0;
+  layout.frames.forEach((_, g) => {
+    const members = layout.objects.filter((o) => o.group === g);
+    const cols = Math.max(1, Math.ceil(members.length / 2));
+    const rows = Math.max(1, Math.ceil(members.length / cols));
+    const w = (cols - 1) * pitch + 1 + 2 * inset;
+    const h = (rows - 1) * pitch + 1 + 2 * inset;
+    frames.push({ x: x0, y: 0, cols: w, rows: h, kind: 'plate' });
+    members.forEach((o, i) => {
+      moved.set(o, {
+        ...o,
+        x: x0 + inset + (i % cols) * pitch,
+        y: inset + Math.floor(i / cols) * pitch,
+      });
+    });
+    x0 += w + 0.6;
+    tallest = Math.max(tallest, h);
+  });
+  if (moved.size !== layout.objects.length) return null;
+  return {
+    ...layout,
+    objects: layout.objects.map((o) => moved.get(o) ?? o),
+    frames,
+    width: Math.max(1, x0 - 0.6),
+    height: Math.max(1, tallest),
+  };
+}
 
 /**
  * Pictures whose objects sit in places (ten-frames' cells, equal-groups plates): the next row's
@@ -502,11 +702,11 @@ export function TapCountWidget({
   // ---------- sizes (06 §4: K ≥ 80 px, G1 ≥ 64 px, ≥ 12 px apart) ----------
 
   const target = MIN_TARGET_PX[ageMode];
-  const step = Math.min(1.5, minObjectStep(baseLayout));
+  /** The closest two objects of a layout are, centre to centre, in cells (at most 1.5). */
+  const stepOf = (set: ObjectLayout) => Math.min(1.5, minObjectStep(set));
   // Tappable objects: a cell big enough that `step × cell − gap` is a full target.
-  const minCell = objectsTappable
-    ? Math.max(target, Math.ceil((target + TARGET_GAP_PX) / step))
-    : 32;
+  const minCellOf = (step: number) =>
+    objectsTappable ? Math.max(target, Math.ceil((target + TARGET_GAP_PX) / step)) : 32;
   const trayValues = config.input === 'pick' ? (config.pickOptions ?? []) : autoTrayValues(n);
   // Numeral cards in an even grid (NumeralTray `columns`): 0–10 as 6 over 5, 0–20 as 7 × 3, pick
   // options up to 4 a row.
@@ -523,6 +723,21 @@ export function TapCountWidget({
   // "Start here" pebble: not a target, so it stays compact enough for a row of ten K targets.
   const cueSize = Math.min(64, Math.round(target * 0.9));
   const empty = baseLayout.objects.length === 0;
+  /** The objects in other arrangements of the same kind, for rooms the kit's does not fit. */
+  const reshapedLayouts = useMemo(() => {
+    if (ordinal) return [];
+    const reshaped =
+      config.set.layout === 'scatter'
+        ? scatterRegrids(baseLayout, config.set.layoutSeed)
+        : config.set.layout === 'circle'
+          ? [flatRing(baseLayout, (target + TARGET_GAP_PX) / target)]
+          : config.set.layout === 'groups'
+            ? [platesInTwoRows(baseLayout)]
+            : config.set.layout === 'line'
+              ? lineInRows(baseLayout)
+              : [];
+    return reshaped.filter((l): l is ObjectLayout => l !== null);
+  }, [baseLayout, config.set.layout, config.set.layoutSeed, ordinal, target]);
   // The widget's own width and the height its host gives it (container-relative, 06 §1),
   // measured before the first paint; until they are known, the 1280 × 800 budgets apply. The
   // height is Infinity where the host grows with its content (a plain story stage).
@@ -645,9 +860,8 @@ export function TapCountWidget({
         ? CHECK_W
         : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
   /** The picture card's padding and border top to bottom (tap-count.css), and the column gap. */
-  const cardY = (onDots ? 68 : 52) + 20 + 2 * 3 + (targetCells ? 24 : 0);
-  const gapX = compactPad ? 32 : 56;
-  const cardPadX = compactPad ? CARD_PAD_X_COMPACT : CARD_PAD_X;
+  const cardYOf = (inset: boolean) =>
+    (onDots ? 68 : inset ? INSET_CARD_TOP : 52) + 20 + 2 * 3 + (targetCells ? 24 : 0);
   /** The largest cell a picture in places may take (frames and plates grow into the room). */
   const fitPicture = (set: ObjectLayout, w: number, h: number) =>
     onDots
@@ -665,152 +879,223 @@ export function TapCountWidget({
   // obj-10 under obj-0, away from a right-hand marker), then wrapped below in reading order.
   // So is a how-many line whose rows of ten are wider than the widget at full target size (ten K
   // targets are 920 px): it wraps into rows that fit instead of running off the side.
-  const reflowLine =
-    config.set.layout === 'line' && (ordinal || baseLayout.width * minCell > rowLimit);
-  const lineLayout = useMemo(
-    () => (reflowLine ? flattenLine(baseLayout) : baseLayout),
-    [baseLayout, reflowLine],
-  );
   /**
-   * An ordinal line in a host that sets a height (a widget area) grows into the room: the rows,
-   * arrangement (Check beside or under) and cell that give the biggest objects inside the area
-   * (≤ 112 px cells), each row's badges 12 px clear (BADGE_ORDINAL), more rows only for objects
-   * ≥ 8 % bigger. A host that grows with its content keeps the designed one-row layout.
+   * The picture for one arrangement of the objects (`base`, the kit's or a reshaped one) with its
+   * count badges above each object or inside its corner, in the usual or the tight chrome
+   * (`PictureStyle`): line wrapping, plates in rows, the cell and the row bands, beside or above
+   * `answer`; and whether it fits the room.
    */
-  const ordinalFit = (() => {
-    if (!ordinal || config.set.layout !== 'line' || !Number.isFinite(hostH) || widgetW === null) {
-      return null;
-    }
-    const count = lineLayout.objects.length;
-    const w = Math.min(ORDINAL_AREA_W, widgetW) - 2 * 16;
-    const pitchExtra = BADGE_ORDINAL.above + BADGE_ORDINAL.clear;
-    const cardW = cueSize + 16 + 2 * (20 + 3);
-    const cardH = 76 + 24 + 2 * 3;
-    // Check as drawn (K: icon-only, narrower than the designed pill) and the column gap.
-    const checkBeside = checkW > 0 ? Math.min(ORDINAL_CHECK_W, checkW + 56) : ORDINAL_CHECK_W;
-    const search = (h: number, flush: boolean) => {
-      let best: {
-        rows: number;
-        arrange: 'side' | 'stack';
-        cell: number;
-        flush: boolean;
-      } | null = null;
-      for (let rows = 1; rows <= Math.min(4, count); rows++) {
-        const perRow = Math.ceil(count / rows);
-        const units = (perRow - 1) * 1.12 + 1;
-        for (const arrange of ['side', 'stack'] as const) {
-          const cw = ((arrange === 'side' ? w - checkBeside : w) - cardW) / units;
-          const ch =
-            ((arrange === 'side' ? h : h - 16 - CHECK_W) - cardH - (rows - 1) * pitchExtra) / rows;
-          const c = Math.floor(Math.min(cw, ch, 112));
-          if (c < minCell) continue;
-          if (!best || c > best.cell * (rows > best.rows ? 1.08 : 1))
-            best = { rows, arrange, cell: c, flush };
-        }
+  const planPicture = (base: ObjectLayout, style: PictureStyle, answer: AnswerBox) => {
+    const { inset, tight } = style;
+    const step = stepOf(base);
+    const minCell = minCellOf(step);
+    const cardY = cardYOf(inset);
+    const narrow = compactPad || tight;
+    const gapX = narrow ? 32 : 56;
+    const cardPadX = narrow ? CARD_PAD_X_COMPACT : CARD_PAD_X;
+    const besideW = tight && answer.lone ? TARGET_PX[ageMode].big : answer.w;
+    const reflowLine = config.set.layout === 'line' && (ordinal || base.width * minCell > rowLimit);
+    const lineLayout = reflowLine ? flattenLine(base) : base;
+    /**
+     * An ordinal line in a host that sets a height (a widget area) grows into the room: the rows,
+     * arrangement (Check beside or under) and cell that give the biggest objects inside the area
+     * (≤ 112 px cells), each row's badges 12 px clear (BADGE_ORDINAL), more rows only for objects
+     * ≥ 8 % bigger. A host that grows with its content keeps the designed one-row layout.
+     */
+    const ordinalFit = (() => {
+      if (!ordinal || config.set.layout !== 'line' || !Number.isFinite(hostH) || widgetW === null) {
+        return null;
       }
-      return best;
-    };
-    // With the widget's padding top and bottom; where that leaves no full-size targets (ten K
-    // objects in two rows on the smallest landscape area), with the area's whole height.
-    return search(hostH - 2 * PAD_Y, false) ?? search(hostH, true);
-  })();
-  const wrapRows = (() => {
-    if (ordinalFit) return ordinalFit.rows;
-    if (config.set.layout !== 'line' || lineLayout.height > 1 || lineLayout.frames.length > 0) {
+      const count = lineLayout.objects.length;
+      const w = Math.min(ORDINAL_AREA_W, widgetW) - 2 * 16;
+      const pitchExtra = BADGE_ORDINAL.above + BADGE_ORDINAL.clear;
+      const cardW = cueSize + 16 + 2 * (20 + 3);
+      const cardH = 76 + 24 + 2 * 3;
+      // Check as drawn (K: icon-only, narrower than the designed pill) and the column gap.
+      const checkBeside = checkW > 0 ? Math.min(ORDINAL_CHECK_W, checkW + 56) : ORDINAL_CHECK_W;
+      const search = (h: number, flush: boolean) => {
+        let best: {
+          rows: number;
+          arrange: 'side' | 'stack';
+          cell: number;
+          flush: boolean;
+        } | null = null;
+        for (let rows = 1; rows <= Math.min(4, count); rows++) {
+          const perRow = Math.ceil(count / rows);
+          const units = (perRow - 1) * 1.12 + 1;
+          for (const arrange of ['side', 'stack'] as const) {
+            const cw = ((arrange === 'side' ? w - checkBeside : w) - cardW) / units;
+            const ch =
+              ((arrange === 'side' ? h : h - 16 - CHECK_W) - cardH - (rows - 1) * pitchExtra) /
+              rows;
+            const c = Math.floor(Math.min(cw, ch, 112));
+            if (c < minCell) continue;
+            if (!best || c > best.cell * (rows > best.rows ? 1.08 : 1))
+              best = { rows, arrange, cell: c, flush };
+          }
+        }
+        return best;
+      };
+      // With the widget's padding top and bottom; where that leaves no full-size targets (ten K
+      // objects in two rows on the smallest landscape area), with the area's whole height.
+      return search(hostH - 2 * PAD_Y, false) ?? search(hostH, true);
+    })();
+    const wrapRows = (() => {
+      if (ordinalFit) return ordinalFit.rows;
+      if (config.set.layout !== 'line' || lineLayout.height > 1 || lineLayout.frames.length > 0) {
+        return 1;
+      }
+      for (let rows = 1; rows < lineLayout.objects.length; rows++) {
+        const perRow = Math.ceil(lineLayout.objects.length / rows);
+        const w = rows === 1 ? lineLayout.width : (perRow - 1) * 1.12 + 1;
+        if (w * minCell <= rowLimit) return rows;
+      }
+      return lineLayout.objects.length;
+    })();
+    // Equal-groups plates side by side that cannot keep full-size targets in one row at this
+    // width go into as few rows of plates as fit, each row centred (29 crabs on three G1 plates:
+    // 2 + 1).
+    const platesPerRow = (() => {
+      if (config.set.layout !== 'groups' || base.frames.length < 2) return Infinity;
+      for (let per = base.frames.length; per > 1; per--) {
+        if (wrapPlates(base, per).width * minCell <= stackW) return per;
+      }
       return 1;
-    }
-    for (let rows = 1; rows < lineLayout.objects.length; rows++) {
-      const perRow = Math.ceil(lineLayout.objects.length / rows);
-      const w = rows === 1 ? lineLayout.width : (perRow - 1) * 1.12 + 1;
-      if (w * minCell <= rowLimit) return rows;
-    }
-    return lineLayout.objects.length;
-  })();
-  // Equal-groups plates side by side that cannot keep full-size targets in one row at this width
-  // go into as few rows of plates as fit, each row centred (29 crabs on three G1 plates: 2 + 1).
-  const platesPerRow = (() => {
-    if (config.set.layout !== 'groups' || baseLayout.frames.length < 2) return Infinity;
-    for (let per = baseLayout.frames.length; per > 1; per--) {
-      if (wrapPlates(baseLayout, per).width * minCell <= stackW) return per;
-    }
-    return 1;
-  })();
-  const fitLayout = useMemo(() => {
+    })();
     // Ordinal objects render in counting order (DOM = Tab = reading order), from the marker.
     const counted = ordinal ? inCountingOrder(lineLayout, from) : lineLayout;
-    if (platesPerRow < counted.frames.length) return wrapPlates(counted, platesPerRow);
-    return wrapRows > 1 ? wrapRow(counted, wrapRows, ordinal ? from : 'left') : counted;
-  }, [lineLayout, wrapRows, ordinal, from, platesPerRow]);
-  // Wrapped rows keep the size the one-row layout gets at 1280 × 800, so a narrower screen never
-  // draws bigger objects than a wide one.
-  const wrappedCap =
-    wrapRows > 1
-      ? Math.max(
-          minCell,
-          fitCell(
-            lineLayout,
-            ordinal ? ORDINAL_AREA_W - ORDINAL_CHROME_W - cueSize : 1000,
-            ordinal ? 360 : Math.max(120, 520 - answerH),
-            32,
-          ),
-        )
-      : Number.POSITIVE_INFINITY;
-  const sizeFor = (set: ObjectLayout): { arrange: 'side' | 'stack'; cell: number } => {
-    // Nothing to count: an empty dish centred above the answer.
-    if (empty) return { arrange: 'stack', cell: 32 };
-    if (ordinal && ordinalFit) return { arrange: ordinalFit.arrange, cell: ordinalFit.cell };
-    if (ordinal) {
-      // The row card (cue + objects) and Check side by side when the row still gets full-size
-      // targets; otherwise Check sits centred under the row, which then takes the full width.
-      const sideW = ordinalRowW - ORDINAL_CHECK_W;
-      const sideFit = Math.min(wrappedCap, fitCell(set, sideW, 360, 32));
-      if (sideFit >= minCell && set.width * sideFit <= sideW) {
-        return { arrange: 'side', cell: sideFit };
+    const fitLayout =
+      platesPerRow < counted.frames.length
+        ? wrapPlates(counted, platesPerRow)
+        : wrapRows > 1
+          ? wrapRow(counted, wrapRows, ordinal ? from : 'left')
+          : counted;
+    // Wrapped rows keep the size the one-row layout gets at 1280 × 800, so a narrower screen never
+    // draws bigger objects than a wide one.
+    const wrappedCap =
+      wrapRows > 1
+        ? Math.max(
+            minCell,
+            fitCell(
+              lineLayout,
+              ordinal ? ORDINAL_AREA_W - ORDINAL_CHROME_W - cueSize : 1000,
+              ordinal ? 360 : Math.max(120, 520 - answer.h),
+              32,
+            ),
+          )
+        : Number.POSITIVE_INFINITY;
+    const roomH = Number.isFinite(hostH) ? hostH - 2 * PAD_Y - cardY : Number.POSITIVE_INFINITY;
+    // Side by side (picture left, answer right) when both fit the ~1100 px widget area;
+    // otherwise the picture spans the width above the answer. Either way the objects grow into
+    // the room left. A picture in places, or any picture beside a compact pad or a lone button,
+    // in a narrow widget (the 960 × 600 minimum) takes the width actually left beside the answer:
+    // the widget's padding (2 × 24), the column gap, the card's padding and border (2 × 31) and
+    // 8 px to spare. Where the host sets a height, the picture also keeps inside it.
+    const sideW =
+      (onDots || compactPad || answer.exact) && widgetW !== null
+        ? widgetW - besideW - 2 * (narrow ? 12 : 24) - gapX - 2 * (cardPadX + 3) - 8
+        : 1100 - besideW - 240 - shortfall;
+    const sizeFor = (set: ObjectLayout): { arrange: 'side' | 'stack'; cell: number } => {
+      // Nothing to count: an empty dish centred above the answer.
+      if (empty) return { arrange: 'stack', cell: 32 };
+      if (ordinal && ordinalFit) return { arrange: ordinalFit.arrange, cell: ordinalFit.cell };
+      if (ordinal) {
+        // The row card (cue + objects) and Check side by side when the row still gets full-size
+        // targets; otherwise Check sits centred under the row, which then takes the full width.
+        const sideW = ordinalRowW - ORDINAL_CHECK_W;
+        const sideFit = Math.min(wrappedCap, fitCell(set, sideW, 360, 32));
+        if (sideFit >= minCell && set.width * sideFit <= sideW) {
+          return { arrange: 'side', cell: sideFit };
+        }
+        return {
+          arrange: 'stack',
+          cell: Math.max(minCell, Math.min(wrappedCap, fitCell(set, ordinalRowW, 360, 32))),
+        };
       }
+      const sideH = Math.min(340, roomH);
+      const sideCell = Math.max(minCell, Math.min(wrappedCap, fitPicture(set, sideW, sideH)));
+      if (set.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
+      const stackH = Math.min(Math.max(120, 520 - answer.h), roomH - answer.h - 16);
       return {
         arrange: 'stack',
-        cell: Math.max(minCell, Math.min(wrappedCap, fitCell(set, ordinalRowW, 360, 32))),
+        cell: Math.max(minCell, Math.min(wrappedCap, fitPicture(set, stackW, stackH))),
       };
-    }
-    // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
-    // the picture spans the width above the answer. Either way the objects grow into the room left.
-    // A picture in places, or any picture beside a compact pad, in a narrow widget (the 960 × 600
-    // minimum) takes the width actually left beside the answer: the widget's padding (2 × 24),
-    // the column gap, the card's padding and border (2 × 31) and 8 px to spare. Where the host
-    // sets a height, the picture also keeps inside it.
-    const sideW =
-      (onDots || compactPad || stepOnly) && widgetW !== null
-        ? widgetW - answerW - 2 * (compactPad ? 12 : 24) - gapX - 2 * (cardPadX + 3) - 8
-        : 1100 - answerW - 240 - shortfall;
-    const roomH = Number.isFinite(hostH) ? hostH - 2 * PAD_Y - cardY : Number.POSITIVE_INFINITY;
-    const sideH = Math.min(340, roomH);
-    const sideCell = Math.max(minCell, Math.min(wrappedCap, fitPicture(set, sideW, sideH)));
-    if (set.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
-    const stackH = Math.min(Math.max(120, 520 - answerH), roomH - answerH - 16);
-    return {
-      arrange: 'stack',
-      cell: Math.max(minCell, Math.min(wrappedCap, fitPicture(set, stackW, stackH))),
     };
+    // A picture (P) keeps full-size objects; tap targets leave the 12 px gap between them.
+    const boxFor = (c: number) =>
+      objectsTappable ? Math.min(c, Math.floor(step * c - TARGET_GAP_PX)) : c;
+    // Rows get a band for the count badges (any tier: Pip's demo marks pictures too), unless the
+    // badges sit inside the objects. Spreading the rows can shrink the cell, which needs a little
+    // more spread: settle in a few passes.
+    const footprint = ordinal ? BADGE_ORDINAL : inset ? BADGE_INSET : BADGE;
+    let layout = fitLayout;
+    let { arrange, cell } = sizeFor(layout);
+    for (let pass = 0; pass < 4; pass++) {
+      const next = stretchRows(
+        fitLayout,
+        badgeRowStretch(fitLayout, cell, boxFor(cell), footprint),
+      );
+      const sized = sizeFor(next);
+      const settled = next === layout || sized.cell === cell;
+      layout = next;
+      ({ arrange, cell } = sized);
+      if (settled) break;
+    }
+    // Inside the room: the objects beside the answer, or above it (`stackW` is the objects' room
+    // across the widget, inside its padding and the card's).
+    const w = layout.width * cell;
+    const h = layout.height * cell;
+    const fits =
+      arrange === 'side'
+        ? w <= sideW + 1 && h <= roomH + 1
+        : w <= stackW + 1 && h + answer.h + 16 <= roomH + 1;
+    return { layout, arrange, cell, hitSize: boxFor(cell), wrapRows, ordinalFit, fits };
   };
-  // A picture (P) keeps full-size objects; tap targets leave the 12 px gap between them.
-  const boxFor = (c: number) =>
-    objectsTappable ? Math.min(c, Math.floor(step * c - TARGET_GAP_PX)) : c;
-  // Rows get a band for the count badges (any tier: Pip's demo marks pictures too). Spreading the
-  // rows can shrink the cell, which needs a little more spread: settle in a few passes.
-  let layout = fitLayout;
-  let { arrange, cell } = sizeFor(layout);
-  for (let pass = 0; pass < 4; pass++) {
-    const next = stretchRows(
-      fitLayout,
-      badgeRowStretch(fitLayout, cell, boxFor(cell), ordinal ? BADGE_ORDINAL : BADGE),
-    );
-    const sized = sizeFor(next);
-    const settled = next === layout || sized.cell === cell;
-    layout = next;
-    ({ arrange, cell } = sized);
-    if (settled) break;
-  }
-  const hitSize = boxFor(cell);
+  const answerBox: AnswerBox = { w: answerW, h: answerH, exact: stepOnly, lone: buttonOnly };
+  /**
+   * The arrangement of the objects (06 §1: plan from the measured room; change the arrangement
+   * rather than scroll, never under a full target). The kit's layout with the count badges above
+   * each object where it fits; else the first that fits of: the kit's layout in the tight chrome;
+   * the same objects reshaped (`reshapedLayouts`: a scatter in fewer rows, a ring as a flatter
+   * oval, plates of ten as two rows of five), in the usual then the tight chrome; then, for
+   * tappable objects not in places, the kit's and the reshaped layouts with the badges inside
+   * each object's corner (a 44 px pebble in a box of 64 px or more), in the tight chrome. Nothing
+   * fits: the kit's layout, as before (the area scrolls).
+   *
+   * Planned for the counting screen: where the item counts, then answers (`canSplit`), the answer
+   * column while counting is one button; otherwise the answer as drawn. So the arrangement is the
+   * same on both steps and while the tray is still hidden.
+   */
+  const shapeAnswer: AnswerBox = canSplit
+    ? { w: CHECK_W, h: CHECK_W, exact: true, lone: true }
+    : answerBox;
+  const usual: PictureStyle = { inset: false, tight: false };
+  const chosen = (() => {
+    if (ordinal || !Number.isFinite(hostH) || widgetW === null) return null;
+    if (planPicture(baseLayout, usual, shapeAnswer).fits) return null;
+    const tight: PictureStyle = { inset: false, tight: true };
+    const inset: PictureStyle = { inset: true, tight: true };
+    const tries: [ObjectLayout, PictureStyle][] = [
+      [baseLayout, tight],
+      ...reshapedLayouts.flatMap((l): [ObjectLayout, PictureStyle][] => [
+        [l, usual],
+        [l, tight],
+      ]),
+      ...(objectsTappable && !onDots
+        ? [baseLayout, ...reshapedLayouts].map((l): [ObjectLayout, PictureStyle] => [l, inset])
+        : []),
+    ];
+    for (const [base, style] of tries) {
+      if (planPicture(base, style, shapeAnswer).fits) return { base, style };
+    }
+    return null;
+  })();
+  const pictureStyle = chosen?.style ?? usual;
+  const { layout, arrange, cell, hitSize, wrapRows, ordinalFit } = planPicture(
+    chosen?.base ?? baseLayout,
+    pictureStyle,
+    answerBox,
+  );
 
   // ---------- child actions ----------
 
@@ -1312,6 +1597,8 @@ export function TapCountWidget({
       data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
       data-dots={onDots ? 'true' : undefined}
+      data-marks={pictureStyle.inset ? 'inset' : undefined}
+      data-room={pictureStyle.tight && !compactPad ? 'tight' : undefined}
       data-cells={targetCells ? 'targets' : undefined}
       data-pad={compactPad ? 'compact' : undefined}
       data-disabled={disabled ? 'true' : undefined}
