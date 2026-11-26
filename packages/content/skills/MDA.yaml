@@ -55,6 +55,17 @@ skills:
     gateway: false
     representations: [base-ten, open-number-line, expanded, symbols]
 
+  # K02 slice 4d (#17): story problems within 100 with the bar model (as built: no open number line).
+  - id: MDA.06
+    name: One-step story problems within 100
+    kind: problem-solving
+    grade: 2
+    standards: { ccss: [2.OA.A.1] }
+    prerequisites: [ADD.12, MDA.03, MDA.12]
+    encompasses: { MDA.03: 0.5, MDA.12: 0.5 }
+    gateway: false
+    representations: [story, bar-model]
+
   # 03 §3: pv-chart is the trade mat with the column algorithm written beside it (showAlgorithm).
   - id: MDA.07
     name: Add within 1000 with the standard algorithm
@@ -168,6 +179,16 @@ skills:
     prerequisites: [MDA.17]
     gateway: false
     representations: [base-ten, pv-chart, symbols]
+
+  # K02 slice 4d (#17): two steps, add and take away, one answer (story.twostep).
+  - id: MDA.19
+    name: Two-step story problems within 100
+    kind: problem-solving
+    grade: 2
+    standards: { ccss: [2.OA.A.1] }
+    prerequisites: [MDA.06]
+    gateway: false
+    representations: [story, bar-model]
 
   - id: MDA.21
     name: Subtract within 1000 with the standard algorithm

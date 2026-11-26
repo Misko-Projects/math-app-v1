@@ -537,3 +537,91 @@ templates:
     narration:
       prompt: tp.MEA.10.t3.prompt
       hints: [h.length.diff-count-on, h.length.diff-take-away]
+
+  # ---------- MEA.04 length story problems within 100 (K02 slice 4d) ----------
+  # Planks at the sawmill in inches or centimeters (story.addsub, sawmill-planks): joined, cut,
+  # laid end to end and compared. The question names the unit.
+
+  - id: MEA.04.t1
+    skillId: MEA.04
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          - add-to/result
+          - add-to/change
+          - add-to/start
+          - take-from/result
+          - take-from/change
+          - take-from/start
+          - put-together/total
+          - put-together/addend
+          - compare/difference-more
+          - compare/difference-fewer
+          - compare/bigger-more
+          - compare/smaller-fewer
+        weights: [2, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1]
+      context: sawmill-planks
+      unit: { choice: [in, cm] }
+      a: { int: [11, 89] }
+      b: { int: [11, 89] }
+      picture: bar-model
+      workspace: none
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -3.0 }
+    narration:
+      { prompt: p.story.listen, hints: [h.len.same-unit, h.bar.find-missing, h.story.check] }
+
+  - id: MEA.04.t2
+    skillId: MEA.04
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: story.addsub
+    params:
+      situation: take-from/result
+      context: sawmill-planks
+      unit: { choice: [in, cm] }
+      a: { int: [31, 99] }
+      b: { int: [11, 69] }
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -2.4 }
+    narration: { prompt: tp.MEA.04.t2.prompt, hints: [h.len.same-unit, h.bar.find-missing] }
+
+  - id: MEA.04.t3
+    skillId: MEA.04
+    format: story-problem
+    tier: abstract
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          - add-to/result
+          - add-to/change
+          - add-to/start
+          - take-from/result
+          - take-from/change
+          - take-from/start
+          - put-together/total
+          - put-together/addend
+          - compare/difference-more
+          - compare/difference-fewer
+          - compare/bigger-more
+          - compare/smaller-fewer
+        weights: [1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1]
+      context: sawmill-planks
+      unit: { choice: [in, cm] }
+      a: { int: [11, 89] }
+      b: { int: [11, 89] }
+      workspace: none
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -3.0 }
+    narration:
+      { prompt: p.story.listen, hints: [h.len.same-unit, h.bar.find-missing, h.story.check] }

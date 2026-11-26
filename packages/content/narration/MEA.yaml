@@ -71,3 +71,9 @@ tp.MEA.10.t2.prompt:
   text: "One rope is {long} {unit|unit:many} long. The other is {short} {unit|unit:many} long. How much longer is the long rope?"
 tp.MEA.10.t3.prompt:
   text: "One rope is {long} {unit|unit:many} long. The other is {short} {unit|unit:many} long. How much longer is the long rope?"
+sk.MEA.04.intro:
+  text: "Lengths can be put together and taken apart, like numbers."
+  level: "2"
+tp.MEA.04.t2.prompt:
+  text: "A plank is {a} {unit|unit:a} long. {who|name} cuts off {b} {unit|unit:b}. How many {unit|unit:many} long is it now?"
+  level: "2"

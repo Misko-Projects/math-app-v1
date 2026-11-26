@@ -956,3 +956,15 @@ wider
 narrower
 x
 xs
+cost
+costs
+step
+steps
+stories
+nail
+nails
+leaves
+happens
+taken
+solve
+blank

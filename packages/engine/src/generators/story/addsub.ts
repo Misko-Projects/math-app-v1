@@ -220,14 +220,19 @@ function valid(p: ParamValues, t: ItemTemplate): boolean {
   // copy from the story (a K–1 template keeps its draws and stats).
   if ((maxN > 20 || ctx.measure) && [s.a, s.b, s.c].includes(s.result)) return false;
   const workspace = asStr(p.workspace, 'counters');
-  if ((workspace === 'counters' || workspace === 'ten-frame') && maxN > 20) return false;
+  const board = workspace === 'counters' || workspace === 'ten-frame';
+  if (t.format === 'story-problem' && board && maxN > 20) return false;
   const picture = asStr(p.picture, 'scene');
   if (picture === 'bar-model' && (t.format !== 'story-problem' || t.tier !== 'pictorial'))
     return false;
   if (ctx.measure) {
-    if (t.format !== 'story-problem' || s.c > 0) return false;
+    if ((t.format !== 'story-problem' && t.format !== 'number-pad') || s.c > 0) return false;
     if (!MEASURE_UNITS[ctx.measure].includes(asStr(p.unit, 'in'))) return false;
-    if (t.tier === 'pictorial' && picture !== 'bar-model') return false;
+    // A measured story has no things to draw: its picture is the bar model.
+    if (t.tier !== 'abstract') {
+      if (t.format === 'story-problem' && picture !== 'bar-model') return false;
+      if (t.format === 'number-pad' && t.representation !== 'bar-model') return false;
+    }
   }
   const dollar = asNum(p.dollar, 0);
   if (dollar !== 0) {
@@ -717,6 +722,7 @@ export const storyAddsub: GeneratorDef = {
       who: '@resident',
       item,
       other: sc.other,
+      unit: asStr(params.unit, 'in'),
       a: s.a,
       b: s.b,
       c: s.c,
@@ -726,8 +732,8 @@ export const storyAddsub: GeneratorDef = {
     switch (t.format) {
       case 'story-problem': {
         const both = s.situation === 'put-together/both';
-        /** The box holds the largest number the template can ask: 3 digits only when that is 100. */
-        const digits = asNum(params.maxN, 20) >= 100 ? 3 : 2;
+        /** The box holds the largest possible answer: 3 digits only when 100 can be asked (a dollar story spends some of 100). */
+        const digits = asNum(params.maxN, 20) >= 100 && asNum(params.dollar, 0) === 0 ? 3 : 2;
         const workspace = asStr(params.workspace, 'counters') as (typeof WORKSPACES)[number];
         p = {
           params,

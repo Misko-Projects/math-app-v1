@@ -210,3 +210,15 @@ tp.MDA.21.t1.prompt:
 tp.MDA.21.t2.prompt:
   text: "{a} − {b} = ?"
   say: "{a} minus {b} equals what number?"
+sk.MDA.06.intro:
+  text: "Read the story. Draw a bar: find the parts and the whole."
+  level: "2"
+sk.MDA.19.intro:
+  text: "Some stories have two steps. Do the first step, then the next one."
+  level: "2"
+tp.MDA.06.t2.prompt:
+  text: "{who|name} has {a} {item|noun:a}. {who|name} finds some more and now has {b}. How many did {who|name} find?"
+  level: "2"
+tp.MDA.19.t2.prompt:
+  text: "{who|name} has {a} shells, finds {b} more, then gives away {c}. How many shells are left?"
+  level: "2"

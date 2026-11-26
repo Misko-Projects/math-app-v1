@@ -1,5 +1,6 @@
 // story.twostep (03 §5.6): two-step addition and subtraction stories within 100 (MDA.19; MDA.20
-// adds × and ÷ later). Format: story-problem, one answer box (`steps: 2`).
+// adds × and ÷ later). Formats: story-problem (one answer box, `steps: 2`) and number-pad (the
+// template prompt tells the story beside the bar model).
 //
 // The story tells a start `a`, then two changes in turn: `b` by the first operation of `ops`, `c`
 // by the second ("+-": finds b more, gives away c). The answer is (a op1 b) op2 c; the first step's
@@ -151,7 +152,7 @@ const stepLine = (x: number, op: string, y: number, n: number, parts: number[]) 
 
 export const storyTwostep: GeneratorDef = {
   id: 'story.twostep',
-  formats: ['story-problem'],
+  formats: ['story-problem', 'number-pad'],
   params: PARAMS,
   derived: ['result'],
   features: {
@@ -192,26 +193,32 @@ export const storyTwostep: GeneratorDef = {
     const context = asStr(params.context, 'beach-shells');
     const unit = asStr(params.unit, 'in');
     const bar = twoStepBar(s);
+    const picture = t.tier === 'abstract' ? ({ kind: 'none' } as const) : bar;
+    const digits = asNum(params.maxN, 100) >= 100 ? 3 : 2;
     return finish(storyTwostep, ctx, {
       params,
-      vars: { a: s.a, b: s.b, c: s.c },
+      vars: { who: '@resident', item: 'shell', unit, many: 2, a: s.a, b: s.b, c: s.c },
       math: {
         'ops.mixed': s.ops[0] === s.ops[1] ? 0 : 1,
         mulDiv: 0,
         reasonable: 0,
         size: Math.max(s.a, s.b, s.c, s.r1, s.result) / 20,
       },
-      widget: {
-        format: 'story-problem',
-        context,
-        scene: t.tier === 'abstract' ? { kind: 'none' } : bar,
-        lines: twoStepLines(s, context, unit),
-        situation: 'two-step',
-        steps: 2,
-        workspace: 'none',
-        blanks: [{ id: 'x', maxDigits: asNum(params.maxN, 100) >= 100 ? 3 : 2 }],
-        showText: true,
-      },
+      // number-pad: the template's prompt tells the story (it fixes ops and context).
+      widget:
+        t.format === 'number-pad'
+          ? { format: 'number-pad', stimulus: picture, blanks: [{ id: 'x', maxDigits: digits }], unit: null }
+          : {
+              format: 'story-problem',
+              context,
+              scene: picture,
+              lines: twoStepLines(s, context, unit),
+              situation: 'two-step',
+              steps: 2,
+              workspace: 'none',
+              blanks: [{ id: 'x', maxDigits: digits }],
+              showText: true,
+            },
       answer: { kind: 'number', value: s.result },
       overlay: bar,
     });
@@ -219,12 +226,26 @@ export const storyTwostep: GeneratorDef = {
   solution(out): LessonStep[] {
     const s = twoStep(out.params);
     const w = out.widget;
-    const lines = w.format === 'story-problem' ? w.lines.length : 1;
     const [op1, op2] = [s.ops[0] as string, s.ops[1] as string];
-    return [
-      say('gen.story.twostep.listen', {}, { op: 'highlight-line', args: { index: lines - 1 } }),
+    const steps = [
       stepLine(s.a, op1, s.b, s.r1, op1 === '+' ? [s.a, s.b] : [s.b, s.r1]),
       stepLine(s.r1, op2, s.c, s.result, op2 === '+' ? [s.r1, s.c] : [s.c, s.result]),
+    ];
+    if (w.format === 'number-pad') {
+      // The pad has no bar to draw on: the lines alone, then the answer typed.
+      return [
+        ...steps.map((st) => ({ actor: st.actor, say: st.say, vars: st.vars }) as LessonStep),
+        say(
+          'gen.story.twostep.answer',
+          { n: s.result },
+          { op: 'type', args: { blank: 'x', value: s.result } },
+        ),
+      ];
+    }
+    const lines = w.format === 'story-problem' ? w.lines.length : 1;
+    return [
+      say('gen.story.twostep.listen', {}, { op: 'highlight-line', args: { index: lines - 1 } }),
+      ...steps,
       say(
         'gen.story.twostep.answer',
         { n: s.result },

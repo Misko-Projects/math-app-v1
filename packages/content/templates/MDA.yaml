@@ -773,3 +773,149 @@ templates:
     difficulty: { base: -3.12 }
     narration:
       { prompt: tp.MDA.21.t2.prompt, hints: [h.mda.line-up-places, h.mda.split-when-short] }
+
+  # ---------- MDA.06 one-step story problems within 100 (K02 slice 4d) ----------
+  # Every add-to, take-from, put-together and compare type with two-digit numbers. The pictorial
+  # template shows the story's bar model with "?" beside it; the abstract one tells the story alone
+  # and shows the bar model only in the hint ladder.
+
+  - id: MDA.06.t1
+    skillId: MDA.06
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          - add-to/result
+          - add-to/change
+          - add-to/start
+          - take-from/result
+          - take-from/change
+          - take-from/start
+          - put-together/total
+          - put-together/addend
+          - compare/difference-more
+          - compare/difference-fewer
+          - compare/bigger-more
+          - compare/bigger-fewer
+          - compare/smaller-fewer
+          - compare/smaller-more
+        weights: [2, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1]
+      context: { choice: [beach-shells, lighthouse-lanterns] }
+      a: { int: [11, 89] }
+      b: { int: [11, 89] }
+      picture: bar-model
+      workspace: none
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -3.0 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.which-part, h.bar.find-missing, h.story.check] }
+
+  - id: MDA.06.t2
+    skillId: MDA.06
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: story.addsub
+    params:
+      situation: add-to/change
+      context: beach-shells
+      a: { int: [11, 79] }
+      b: { int: [21, 99] }
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -2.4 }
+    narration: { prompt: tp.MDA.06.t2.prompt, hints: [h.story.which-part, h.bar.find-missing] }
+
+  - id: MDA.06.t3
+    skillId: MDA.06
+    format: story-problem
+    tier: abstract
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          - add-to/result
+          - add-to/change
+          - add-to/start
+          - take-from/result
+          - take-from/change
+          - take-from/start
+          - put-together/total
+          - put-together/addend
+          - compare/difference-more
+          - compare/difference-fewer
+          - compare/bigger-more
+          - compare/bigger-fewer
+          - compare/smaller-fewer
+          - compare/smaller-more
+        weights: [1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2]
+      context: { choice: [beach-shells, lighthouse-lanterns] }
+      a: { int: [11, 89] }
+      b: { int: [11, 89] }
+      workspace: none
+      maxN: 99
+      maxTold: 99
+    difficulty: { base: -3.0 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.which-part, h.bar.find-missing, h.story.check] }
+
+  # ---------- MDA.19 two-step story problems within 100 (K02 slice 4d) ----------
+  # story.twostep: a start and two changes (add or take away), one answer. The bar model is two
+  # bars, the first step over the second (pictorial up front, abstract in the hints only).
+
+  - id: MDA.19.t1
+    skillId: MDA.19
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.twostep
+    params:
+      ops: { choice: ["++", "+-", "--", "-+"] }
+      context: { choice: [beach-shells, sawmill-planks, market-stall] }
+      unit: { choice: [in, cm, cent] }
+      a: { int: [15, 70] }
+      b: { int: [5, 40] }
+      c: { int: [5, 40] }
+      maxN: 99
+    difficulty: { base: -2.3 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.two-steps, h.bar.find-missing, h.story.check] }
+
+  - id: MDA.19.t2
+    skillId: MDA.19
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: story.twostep
+    params:
+      ops: "+-"
+      context: beach-shells
+      a: { int: [15, 70] }
+      b: { int: [5, 40] }
+      c: { int: [5, 40] }
+      maxN: 99
+    difficulty: { base: -1.65 }
+    narration: { prompt: tp.MDA.19.t2.prompt, hints: [h.story.two-steps, h.bar.find-missing] }
+
+  - id: MDA.19.t3
+    skillId: MDA.19
+    format: story-problem
+    tier: abstract
+    representation: story
+    generator: story.twostep
+    params:
+      ops: { choice: ["++", "+-", "--", "-+"] }
+      context: { choice: [beach-shells, sawmill-planks, market-stall] }
+      unit: { choice: [in, cm, cent] }
+      a: { int: [15, 70] }
+      b: { int: [5, 40] }
+      c: { int: [5, 40] }
+      maxN: 99
+    difficulty: { base: -2.25 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.two-steps, h.bar.find-missing, h.story.check] }

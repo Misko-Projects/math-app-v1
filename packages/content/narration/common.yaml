@@ -915,6 +915,16 @@ h.story.extra-ones:
   text: "Match them up. Count the ones left over."
 h.story.count-groups:
   text: "Count each group. Then count them all."
+# K02 slice 4d (#17): grade 2 story problems.
+h.story.two-steps:
+  text: "What happens first? Find that. Then do the next step."
+  level: "2"
+h.len.same-unit:
+  text: "All the lengths use the same unit. Is the length you need a part or the whole?"
+  level: "2"
+h.money.dollar-cents:
+  text: "One dollar is the same as one hundred cents."
+  level: "2"
 
 # ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
 # Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
@@ -2427,6 +2437,10 @@ fb.mc.keyword-more-means-add:
   text: "Match them up. How many are left over?"
 fb.mc.start-unknown-reversed:
   text: "Put your number in the box. Is it true?"
+fb.mc.first-step-only:
+  text: "That is the first step. There is one more."
+fb.mc.dollar-as-one:
+  text: "A dollar is one hundred cents."
 # K02 (#17) slice 1b: skip counting, counting across a hundred, number lines to 1000, closer to
 # which, partners of 100 and rounding. No line names a number an item asks for.
 p.count.skip-to:
