@@ -26,6 +26,8 @@ export interface Decorate {
   used: boolean;
   /** The cap closed the mode, or kept it closed: said until the child leaves the island. */
   capped: boolean;
+  /** The pieces are read: until then `items` is empty and no decorate line is said or shown. */
+  ready: boolean;
   /** Every owned piece, with where it stands. */
   items: DecorItem[];
   /** The piece in hand. */
@@ -90,6 +92,20 @@ export function useDecorate(child: ChildProfile): Decorate {
     () => (island && collection ? decorItems(gameData, island, collection) : NONE),
     [gameData, island, collection],
   );
+  /** The pieces are read (the island and the collection): until then `items` is empty, not "all placed". */
+  const known = island !== undefined && collection !== undefined;
+  const opening = useCallback(
+    (list: DecorItem[]) => say(list.some((i) => i.pos === null) ? 'ui.decor.pick' : 'ui.decor.all'),
+    [say],
+  );
+  // Opened before the pieces were read (a fast tap as the island opens): the line comes once they
+  // are, so the guide never says everything is placed when nothing was read yet (#35).
+  const [lineDue, setLineDue] = useState(false);
+  useEffect(() => {
+    if (!lineDue || !known) return;
+    setLineDue(false);
+    if (open) opening(items);
+  }, [lineDue, known, open, items, opening]);
   const selected = items.find((i) => i.instanceId === selectedId) ?? null;
   const anchors = useMemo(
     () => (island && selected ? decorAnchors(gameData, island, items, selected) : []),
@@ -113,6 +129,7 @@ export function useDecorate(child: ChildProfile): Decorate {
     open,
     used,
     capped,
+    ready: known,
     items,
     selected,
     anchors,
@@ -126,7 +143,8 @@ export function useDecorate(child: ChildProfile): Decorate {
       setUsed(true);
       setOpen(true);
       audio.stop();
-      say(items.some((i) => i.pos === null) ? 'ui.decor.pick' : 'ui.decor.all');
+      if (known) opening(items);
+      else setLineDue(true);
     },
     done: close,
     select(instanceId) {

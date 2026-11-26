@@ -220,7 +220,7 @@ export function IslandHub({
     ? 'ui.build.place'
     : build.construction
       ? 'ui.build.working'
-      : decorate.open
+      : decorate.open && decorate.ready
         ? decorate.selected
           ? 'ui.decor.place'
           : decorate.items.some((i) => i.pos === null)

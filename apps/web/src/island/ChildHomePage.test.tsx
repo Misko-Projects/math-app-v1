@@ -1269,6 +1269,48 @@ describe('decorate mode and its caps (05 §6, §8; 06 §2; #22 part 4)', () => {
     expect(clock.pending()).toBe(0);
   });
 
+  it('Decorate tapped before the pieces are read: the line waits for them, never "all on the island" (#35)', async () => {
+    clockFor();
+    const home = await renderHome();
+    const { app, router, say, tick } = home;
+    const [first] = await bubbles();
+    fireEvent.click(first as HTMLElement);
+    await waitFor(async () => expect(await types(app)).toContain('request.accepted'));
+    tick(6 * 60_000);
+    // The island opens again; its pieces are not read yet (a slow device, a fast tap).
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const read = app.store.collection.bind(app.store);
+    const held = vi.spyOn(app.store, 'collection').mockImplementation(async () => {
+      await gate;
+      return read();
+    });
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await waitFor(async () => expect(await types(app)).toContain('request.completed'));
+    await bubbles();
+    say.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Decorate' }));
+    expect(say).not.toHaveBeenCalledWith('ui.decor.all', undefined);
+    expect(screen.queryByText('All your things are on the island!')).toBeNull();
+    await act(async () => {
+      release();
+      await gate;
+    });
+    const tray = await screen.findByTestId('decor-tray');
+    await waitFor(() => expect(say).toHaveBeenCalledWith('ui.decor.pick', undefined));
+    expect(say).not.toHaveBeenCalledWith('ui.decor.all', undefined);
+    await waitFor(() =>
+      expect(within(tray).getAllByRole('button', { name: /^Thing \d+$/ }).length).toBeGreaterThan(
+        0,
+      ),
+    );
+    held.mockRestore();
+  });
+
   it('"Okay" leaves the mode, and the requests come back', async () => {
     clockFor();
     const home = await renderHome();
