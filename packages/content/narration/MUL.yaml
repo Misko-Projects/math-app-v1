@@ -29,7 +29,7 @@ tp.MUL.01.t2.prompt:
 tp.MUL.01.t3.prompt:
   text: "Pair them up, two by two. How many are left with no partner?"
 tp.MUL.01.t4.prompt:
-  text: "Sort the numbers. Is each one even or odd?"
+  text: "Find every even number."
 tp.MUL.02.t1.prompt:
   text: "There are {groups} groups of {perGroup}. How many in all?"
 tp.MUL.02.t2.prompt:

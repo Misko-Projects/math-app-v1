@@ -1773,15 +1773,6 @@ gen.parity.odd:
 gen.parity.left:
   text: "One is left over. The seagull gets it."
   level: "2"
-gen.parity.sort:
-  text: "Even numbers go in one bin, odd numbers in the other."
-  level: "2"
-gen.parity.bin-even:
-  text: "Even"
-  level: "2"
-gen.parity.bin-odd:
-  text: "Odd"
-  level: "2"
 gen.geo.partition.rows:
   text: "Draw a line across. Make {rows} rows."
   level: "2"

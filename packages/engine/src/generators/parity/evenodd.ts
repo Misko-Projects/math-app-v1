@@ -3,12 +3,13 @@
 // - equal-share: share `n` between two. `ask: even-odd` then answers `even` | `odd` (a choice);
 //   `ask: leftover` answers `share.fair` with the typed number left without a partner (0 or 1).
 // - number-pad: `n` on ten-frames; type how many are left without a partner (0 or 1).
-// - shape-sort: `cards` number cards, each from 1 to `n`, at least one even and one odd, sorted
-//   into an even bin and an odd bin (`sort.byRule` on the card's `even` prop).
+// - shape-sort `find-all`: `cards` number cards, each from 1 to `n`, at least one even and one
+//   odd; find every `find` (even or odd) number (`select.exactSet`). Not a two-bin sort: a sort's
+//   bins show the first card each takes as their picture, which would give two cards away.
 // Bounds: n is 1–20 on ten-frames and equal-share (SHARE_ITEMS_MAX 24); shape-sort takes 4–6 cards.
 // Not built yet: the spec's `display` param (how n is shown beyond the representation).
 
-import type { LessonStep, ResponseValue, SortRule, StimulusSpec } from '@number-island/shared';
+import type { LessonStep, ResponseValue, StimulusSpec } from '@number-island/shared';
 import {
   asNum,
   asStr,
@@ -31,11 +32,6 @@ const say = (
   action?: LessonStep['action'],
 ): LessonStep =>
   action ? { actor: 'demo', say: key, vars, action } : { actor: 'demo', say: key, vars };
-
-const BINS: { id: string; label: string; rule: SortRule }[] = [
-  { id: 'even', label: 'gen.parity.bin-even', rule: { prop: 'even', op: '==', value: true } },
-  { id: 'odd', label: 'gen.parity.bin-odd', rule: { prop: 'even', op: '==', value: false } },
-];
 
 /** `cards` distinct numbers from 1 to n, at least one even and one odd, in draw order. */
 export function parityCards(n: number, cards: number, rng: BuildContext['rng']): number[] {
@@ -66,7 +62,13 @@ export const parityEvenOdd: GeneratorDef = {
     cards: {
       type: 'int',
       default: { kind: 'const', value: 5 },
-      doc: 'shape-sort: number cards to sort (4–6)',
+      doc: 'shape-sort: number cards (4–6)',
+    },
+    find: {
+      type: 'string',
+      values: ['even', 'odd'],
+      default: { kind: 'const', value: 'even' },
+      doc: 'shape-sort: find every even or every odd number',
     },
     sprite: {
       type: 'string',
@@ -78,15 +80,7 @@ export const parityEvenOdd: GeneratorDef = {
   features: {
     'n.over10': { weight: 0.4, doc: 'n is above 10 (shape-sort: the largest card)' },
   },
-  narration: [
-    'gen.parity.pair-up',
-    'gen.parity.even',
-    'gen.parity.odd',
-    'gen.parity.left',
-    'gen.parity.sort',
-    'gen.parity.bin-even',
-    'gen.parity.bin-odd',
-  ],
+  narration: ['gen.parity.pair-up', 'gen.parity.even', 'gen.parity.odd', 'gen.parity.left'],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
   accepts(p, t) {
@@ -103,7 +97,8 @@ export const parityEvenOdd: GeneratorDef = {
     const n = asNum(params.n);
     const rest = n % 2;
     const sprite = asStr(params.sprite, 'shell') as (typeof SHARE_SPRITES)[number];
-    const vars = pickVars(t, { n, sprite });
+    const find = asStr(params.find, 'even');
+    const vars = pickVars(t, { n, sprite, find: find === 'even' ? 'even' : 'odd' });
     const math = { 'n.over10': n > 10 ? 1 : 0 };
     let p: PartialOutput;
     if (t.format === 'equal-share') {
@@ -152,18 +147,14 @@ export const parityEvenOdd: GeneratorDef = {
         widget: {
           format: 'shape-sort',
           cards: cards.map((c) => ({ id: c.id, card: { kind: 'number', value: c.value } })),
-          bins: BINS,
-          mode: 'sort',
+          bins: null,
+          mode: 'find-all',
         },
         answer: {
           kind: 'state',
-          checker: 'sort.byRule',
+          checker: 'select.exactSet',
           target: {
-            cards: cards.map((c) => ({
-              id: c.id,
-              props: { value: c.value, even: c.value % 2 === 0 },
-            })),
-            bins: BINS.map((b) => ({ id: b.id, rule: b.rule })),
+            ids: cards.filter((c) => (c.value % 2 === 0) === (find === 'even')).map((c) => c.id),
           },
         },
       };
@@ -180,16 +171,7 @@ export const parityEvenOdd: GeneratorDef = {
       const half = Math.floor(n / 2);
       return { kind: 'state', value: { shares: [half, half], leftover: n % 2, value: n % 2 } };
     }
-    const w = out.widget;
-    const bins: Record<string, string[]> = { even: [], odd: [] };
-    if (w.format === 'shape-sort') {
-      for (const c of w.cards) {
-        if ('kind' in c.card && c.card.kind === 'number') {
-          (bins[c.card.value % 2 === 0 ? 'even' : 'odd'] as string[]).push(c.id);
-        }
-      }
-    }
-    return { kind: 'state', value: { bins } };
+    return { kind: 'state', value: { ids: [...(a.target.ids as string[])] } };
   },
   solution(out): LessonStep[] {
     const w = out.widget;
@@ -215,15 +197,16 @@ export const parityEvenOdd: GeneratorDef = {
           say('gen.parity.pair-up', {}, { op: 'show-stimulus' }),
           say(verdict, { n }, { op: 'type', args: { blank: 'x', value: rest } }),
         ];
-      case 'shape-sort':
+      case 'shape-sort': {
+        const even = asStr(out.params.find, 'even') === 'even';
         return w.cards.map((c) => {
           const v = 'kind' in c.card && c.card.kind === 'number' ? c.card.value : 0;
-          return say(
-            v % 2 === 0 ? 'gen.parity.even' : 'gen.parity.odd',
-            { n: v },
-            { op: 'drag-card', args: { id: c.id, bin: v % 2 === 0 ? 'even' : 'odd' } },
-          );
+          const key = v % 2 === 0 ? 'gen.parity.even' : 'gen.parity.odd';
+          return (v % 2 === 0) === even
+            ? say(key, { n: v }, { op: 'drag-card', args: { id: c.id } })
+            : say(key, { n: v });
         });
+      }
       default:
         return [];
     }

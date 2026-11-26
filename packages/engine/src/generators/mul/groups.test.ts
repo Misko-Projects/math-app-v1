@@ -187,8 +187,8 @@ describe('parity.evenodd', () => {
       ['equal-share', 'concrete', 'objects', { ask: 'even-odd' }],
       ['equal-share', 'concrete', 'groups', { ask: 'leftover' }],
       ['number-pad', 'pictorial', 'ten-frame', {}],
-      ['shape-sort', 'pictorial', 'symbols', { cards: 4 }],
-      ['shape-sort', 'pictorial', 'symbols', { cards: 6 }],
+      ['shape-sort', 'pictorial', 'symbols', { cards: 4, find: 'even' }],
+      ['shape-sort', 'pictorial', 'symbols', { cards: 6, find: 'odd' }],
     ];
     for (const [format, tier, rep, extra] of fmts) {
       const t = tpl('parity.evenodd', format, tier, rep);

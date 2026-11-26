@@ -7,7 +7,7 @@ strand: MUL
 templates:
   # ---------- K02 (#17) slice 3a ----------
   # MUL.01 even and odd on parity.evenodd: share between two (say even or odd; type how many are
-  # left without a partner), the same on ten-frames, then sort number cards.
+  # left without a partner), the same on ten-frames, then find every even number card.
   - id: MUL.01.t1
     skillId: MUL.01
     format: equal-share
@@ -50,7 +50,7 @@ templates:
     tier: pictorial
     representation: symbols
     generator: parity.evenodd
-    params: { n: { int: [8, 20] }, cards: { int: [4, 6] } }
+    params: { n: { int: [8, 20] }, cards: { int: [4, 6] }, find: even }
     difficulty: { base: -0.5 }
     narration:
       prompt: tp.MUL.01.t4.prompt
