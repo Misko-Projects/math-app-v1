@@ -576,6 +576,44 @@ describe.each(FIT_VIEWPORTS)(
       expect(document.querySelectorAll('[data-hop]').length).toBeGreaterThan(0);
     });
 
+    it('number-pad (MDA.04.t2): four addends on one line of the equation card, at the usual size', async () => {
+      await page.viewport(width, height);
+      const nums = () => [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-testid="pier-stage"] .ni-npw__expr .ni-expr__num',
+        ),
+      ];
+      const two = drawn('MDA.03.t4', () => true);
+      show(two.item, ageModeOf(two.template));
+      expect(await measure('MDA.03.t4')).toEqual([]);
+      const usual = nums()[0]?.getBoundingClientRect().height ?? 0;
+      const template = content.store.graph.templates['MDA.04.t2'] as ItemTemplate;
+      let item: GeneratedItem | null = null;
+      for (let seed = 1; seed < 5000 && !item; seed += 1) {
+        const it4 = engine.generateItem(template, seed);
+        if (it4.params.addends === 4) item = it4;
+      }
+      if (!item) throw new Error('MDA.04.t2: no four-addend item in 5000 seeds');
+      show(item, ageModeOf(template));
+      expect(await measure('MDA.04.t2')).toEqual([]);
+      await shot('MDA.04.t2', 'four-addends');
+      const shown = nums();
+      expect(shown.length).toBe(4);
+      const tops = shown.map((el) => el.getBoundingClientRect().top);
+      expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(4);
+      // The card scales a long sum to keep it on one line: at 960 × 600 four addends are drawn at
+      // 63% of a two-addend item's numerals (decided on #17 slice 2a; a stacked layout is a
+      // follow-up), at 1280 × 800 at 83%.
+      const least = width < 1280 ? 0.6 : 0.8;
+      const el0 = shown[0] as HTMLElement;
+      const drawnFont =
+        (Number.parseFloat(getComputedStyle(el0).fontSize) * el0.getBoundingClientRect().height) /
+        el0.offsetHeight;
+      // The project bar for numerals: at least 32 px as drawn (37.5 px here at 960 × 600).
+      expect(drawnFont, viewport).toBeGreaterThanOrEqual(32);
+      expect(shown[0]?.getBoundingClientRect().height ?? 0).toBeGreaterThanOrEqual(usual * least);
+    });
+
     it('PV.24.t1 shows no goal card: the mat that lacks one digit does not name what it is worth', async () => {
       await page.viewport(width, height);
       const template = content.store.graph.templates['PV.24.t1'] as ItemTemplate;
