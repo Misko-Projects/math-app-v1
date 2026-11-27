@@ -2319,106 +2319,112 @@ describe.each(FIT_VIEWPORTS)('grade 3 fraction states fit at %s (#17 slice 5a)',
   });
 });
 
-describe.each(FIT_VIEWPORTS)('fractions on the number line fit at %s (#17 slice 5b)', (viewport) => {
-  const [width, height] = viewport.split('x').map(Number) as [number, number];
-  const itemOf = (id: string, params: Record<string, string | number | boolean>) =>
-    engine.generateItemFromParams(content.store.graph.templates[id] as ItemTemplate, params);
-  const shot = async (id: string, state: string) => {
-    if (SHOTS.includes(id))
-      await page.screenshot({ path: `__fit__/${id}-${state}-${viewport}.png` });
-  };
-  const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
-  /** The fraction-line's drawn ticks, left to right, in px. */
-  const lineTicks = () =>
-    [...document.querySelectorAll<SVGLineElement>('.ni-fline line[data-tick]')]
-      .map((l) => l.getBoundingClientRect().left + l.getBoundingClientRect().width / 2)
-      .sort((a, b) => a - b);
-  const minGap = (xs: number[]) => Math.min(...xs.slice(1).map((x, i) => x - (xs[i] as number)));
-  /** Moves the line's dot by keyboard, k ticks from 0 (the way a screen-reader child places it). */
-  const placeBy = async (k: number) => {
-    let range: HTMLElement | null = null;
-    for (let i = 0; i < 120 && !range; i += 1) {
-      await frame();
-      range = document.querySelector<HTMLElement>('.ni-fline__range');
-    }
-    (range as HTMLElement).focus();
-    for (let i = 0; i < k; i += 1) await userEvent.keyboard('{ArrowRight}');
-    return range as HTMLElement;
-  };
-
-  it('FRA.04.t1: a strip in eighths, one eighth placed; each strip part is one jump', async () => {
-    await page.viewport(width, height);
-    show(itemOf('FRA.04.t1', { mode: 'place', skin: 'strip', den: 8, num: 1, max: 1 }), 'g1-up');
-    const range = await placeBy(1);
-    expect(range.getAttribute('aria-valuetext')).toBe('Tick 1 of 8 between 0 and 1');
-    expect(await measure('FRA.04.t1')).toEqual([]);
-    const xs = lineTicks();
-    expect(xs).toHaveLength(9);
-    expect(minGap(xs)).toBeGreaterThanOrEqual(64);
-    // The strip's parts are the jumps: its bar starts at 0 and ends at 1.
-    const bar = document.querySelector('.ni-fline__strip')?.getBoundingClientRect();
-    expect(Math.abs((bar?.left ?? 0) - (xs[0] as number))).toBeLessThan(2);
-    expect(Math.abs((bar?.right ?? 0) - (xs[8] as number))).toBeLessThan(2);
-    expect(document.querySelector('.ni-fline__dot--on')).not.toBeNull();
-    await shot('FRA.04.t1', 'eighths-one-placed');
-  });
-
-  it.each([
-    ['FRA.11.t2', { mode: 'place', skin: 'line', den: 4, num: 7, max: 2 }, 7],
-    ['FRA.11.t2', { mode: 'place', skin: 'line', den: 2, num: 5, max: 3 }, 5],
-    ['FRA.11.t1', { mode: 'place', skin: 'strip', den: 4, num: 7, max: 2 }, 7],
-    ['FRA.12.t1', { mode: 'place', skin: 'strip', den: 2, num: 4, max: 3 }, 4],
-  ] as const)('%s %o: the longest lines past 1, the dot placed, ticks ≥ 64 px', async (id, params, k) => {
-    await page.viewport(width, height);
-    show(itemOf(id, params), 'g1-up');
-    await placeBy(k);
-    expect(await measure(id)).toEqual([]);
-    expect(minGap(lineTicks())).toBeGreaterThanOrEqual(64);
-    await shot(id, `placed-${params.num}-${params.den}-to-${params.max}`);
-  });
-
-  it.each([
-    ['FRA.11.t3', { mode: 'read', skin: 'line', den: 4, num: 7, max: 2 }],
-    ['FRA.12.t2', { mode: 'read', skin: 'line', den: 4, num: 4, max: 2 }],
-    ['FRA.04.t2', { mode: 'read', skin: 'ruler', den: 8, num: 1, max: 1 }],
-  ] as const)('%s %o: a read line, ticks ≥ 22 px', async (id, params) => {
-    await page.viewport(width, height);
-    show(itemOf(id, params), 'g1-up');
-    for (let i = 0; i < 120 && lineTicks().length === 0; i += 1) await frame();
-    expect(await measure(id)).toEqual([]);
-    expect(minGap(lineTicks())).toBeGreaterThanOrEqual(22);
-    await shot(id, `read-${params.num}-${params.den}`);
-  });
-
-  it('FRA.10.t3: a number line in eighths with a dot, ticks ≥ 22 px beside the pads', async () => {
-    await page.viewport(width, height);
-    show(itemOf('FRA.10.t3', { mode: 'name', den: 8, num: 7, max: 1 }), 'g1-up');
-    const ticks = () =>
-      [...document.querySelectorAll<SVGLineElement>('.ni-numberline__tick')]
-        .map((l) => l.getBoundingClientRect().left)
+describe.each(FIT_VIEWPORTS)(
+  'fractions on the number line fit at %s (#17 slice 5b)',
+  (viewport) => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    const itemOf = (id: string, params: Record<string, string | number | boolean>) =>
+      engine.generateItemFromParams(content.store.graph.templates[id] as ItemTemplate, params);
+    const shot = async (id: string, state: string) => {
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-${state}-${viewport}.png` });
+    };
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    /** The fraction-line's drawn ticks, left to right, in px. */
+    const lineTicks = () =>
+      [...document.querySelectorAll<SVGLineElement>('.ni-fline line[data-tick]')]
+        .map((l) => l.getBoundingClientRect().left + l.getBoundingClientRect().width / 2)
         .sort((a, b) => a - b);
-    for (let i = 0; i < 120 && ticks().length === 0; i += 1) await frame();
-    const misfit = await measure('FRA.10.t3');
-    await shot('FRA.10.t3', 'eighths-dot-7');
-    expect(misfit).toEqual([]);
-    expect(ticks()).toHaveLength(9);
-    expect(minGap(ticks())).toBeGreaterThanOrEqual(22);
-    expect(
-      document.querySelector(
-        '[aria-label="A number line from 0 to 1. Each whole is cut into 8 equal parts. A dot is on tick 7 after 0."]',
-      ),
-    ).not.toBeNull();
-  });
+    const minGap = (xs: number[]) => Math.min(...xs.slice(1).map((x, i) => x - (xs[i] as number)));
+    /** Moves the line's dot by keyboard, k ticks from 0 (the way a screen-reader child places it). */
+    const placeBy = async (k: number) => {
+      let range: HTMLElement | null = null;
+      for (let i = 0; i < 120 && !range; i += 1) {
+        await frame();
+        range = document.querySelector<HTMLElement>('.ni-fline__range');
+      }
+      (range as HTMLElement).focus();
+      for (let i = 0; i < k; i += 1) await userEvent.keyboard('{ArrowRight}');
+      return range as HTMLElement;
+    };
 
-  it('a wrong placement stays with its line (FRA.11.t2): seven fourths put at three fourths', async () => {
-    await page.viewport(width, height);
-    const item = itemOf('FRA.11.t2', { mode: 'place', skin: 'line', den: 4, num: 7, max: 2 });
-    show(item, 'g1-up');
-    await placeBy(3);
-    show(item, 'g1-up', { line: { say: 'fb.mc.fraction-over-one' } }, undefined, true);
-    await frame();
-    expect(document.querySelector('.ni-fline__dot--on')).not.toBeNull();
-    expect(await measure('FRA.11.t2')).toEqual([]);
-    await shot('FRA.11.t2', 'wrong-3-4');
-  });
-});
+    it('FRA.04.t1: a strip in eighths, one eighth placed; each strip part is one jump', async () => {
+      await page.viewport(width, height);
+      show(itemOf('FRA.04.t1', { mode: 'place', skin: 'strip', den: 8, num: 1, max: 1 }), 'g1-up');
+      const range = await placeBy(1);
+      expect(range.getAttribute('aria-valuetext')).toBe('Tick 1 of 8 between 0 and 1');
+      expect(await measure('FRA.04.t1')).toEqual([]);
+      const xs = lineTicks();
+      expect(xs).toHaveLength(9);
+      expect(minGap(xs)).toBeGreaterThanOrEqual(64);
+      // The strip's parts are the jumps: its bar starts at 0 and ends at 1.
+      const bar = document.querySelector('.ni-fline__strip')?.getBoundingClientRect();
+      expect(Math.abs((bar?.left ?? 0) - (xs[0] as number))).toBeLessThan(2);
+      expect(Math.abs((bar?.right ?? 0) - (xs[8] as number))).toBeLessThan(2);
+      expect(document.querySelector('.ni-fline__dot--on')).not.toBeNull();
+      await shot('FRA.04.t1', 'eighths-one-placed');
+    });
+
+    it.each([
+      ['FRA.11.t2', { mode: 'place', skin: 'line', den: 4, num: 7, max: 2 }, 7],
+      ['FRA.11.t2', { mode: 'place', skin: 'line', den: 2, num: 5, max: 3 }, 5],
+      ['FRA.11.t1', { mode: 'place', skin: 'strip', den: 4, num: 7, max: 2 }, 7],
+      ['FRA.12.t1', { mode: 'place', skin: 'strip', den: 2, num: 4, max: 3 }, 4],
+    ] as const)(
+      '%s %o: the longest lines past 1, the dot placed, ticks ≥ 64 px',
+      async (id, params, k) => {
+        await page.viewport(width, height);
+        show(itemOf(id, params), 'g1-up');
+        await placeBy(k);
+        expect(await measure(id)).toEqual([]);
+        expect(minGap(lineTicks())).toBeGreaterThanOrEqual(64);
+        await shot(id, `placed-${params.num}-${params.den}-to-${params.max}`);
+      },
+    );
+
+    it.each([
+      ['FRA.11.t3', { mode: 'read', skin: 'line', den: 4, num: 7, max: 2 }],
+      ['FRA.12.t2', { mode: 'read', skin: 'line', den: 4, num: 4, max: 2 }],
+      ['FRA.04.t2', { mode: 'read', skin: 'ruler', den: 8, num: 1, max: 1 }],
+    ] as const)('%s %o: a read line, ticks ≥ 22 px', async (id, params) => {
+      await page.viewport(width, height);
+      show(itemOf(id, params), 'g1-up');
+      for (let i = 0; i < 120 && lineTicks().length === 0; i += 1) await frame();
+      expect(await measure(id)).toEqual([]);
+      expect(minGap(lineTicks())).toBeGreaterThanOrEqual(22);
+      await shot(id, `read-${params.num}-${params.den}`);
+    });
+
+    it('FRA.10.t3: a number line in eighths with a dot, ticks ≥ 22 px beside the pads', async () => {
+      await page.viewport(width, height);
+      show(itemOf('FRA.10.t3', { mode: 'name', den: 8, num: 7, max: 1 }), 'g1-up');
+      const ticks = () =>
+        [...document.querySelectorAll<SVGLineElement>('.ni-numberline__tick')]
+          .map((l) => l.getBoundingClientRect().left)
+          .sort((a, b) => a - b);
+      for (let i = 0; i < 120 && ticks().length === 0; i += 1) await frame();
+      const misfit = await measure('FRA.10.t3');
+      await shot('FRA.10.t3', 'eighths-dot-7');
+      expect(misfit).toEqual([]);
+      expect(ticks()).toHaveLength(9);
+      expect(minGap(ticks())).toBeGreaterThanOrEqual(22);
+      expect(
+        document.querySelector(
+          '[aria-label="A number line from 0 to 1. Each whole is cut into 8 equal parts. A dot is on tick 7 after 0."]',
+        ),
+      ).not.toBeNull();
+    });
+
+    it('a wrong placement stays with its line (FRA.11.t2): seven fourths put at three fourths', async () => {
+      await page.viewport(width, height);
+      const item = itemOf('FRA.11.t2', { mode: 'place', skin: 'line', den: 4, num: 7, max: 2 });
+      show(item, 'g1-up');
+      await placeBy(3);
+      show(item, 'g1-up', { line: { say: 'fb.mc.fraction-over-one' } }, undefined, true);
+      await frame();
+      expect(document.querySelector('.ni-fline__dot--on')).not.toBeNull();
+      expect(await measure('FRA.11.t2')).toEqual([]);
+      await shot('FRA.11.t2', 'wrong-3-4');
+    });
+  },
+);

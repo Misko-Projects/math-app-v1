@@ -64,10 +64,7 @@ function right(item: GeneratedItem): ResponseValue | null {
 const place = (value: number): ResponseValue => ({ kind: 'placement', value });
 const numbers = (...values: number[]): ResponseValue => ({ kind: 'numbers', values });
 
-function rule(
-  id: string,
-  predicts: (l: LineItem) => ResponseValue[],
-): MisconceptionRule {
+function rule(id: string, predicts: (l: LineItem) => ResponseValue[]): MisconceptionRule {
   const list = (item: GeneratedItem): ResponseValue[] => {
     const l = lineItem(item);
     const r = right(item);

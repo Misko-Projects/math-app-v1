@@ -309,7 +309,11 @@ export const fracLine: GeneratorDef = {
     const k = a.kind === 'number' ? a.value : 0;
     return [
       say('gen.frac.line.one-whole', { w: whole }),
-      say('gen.frac.line.groups', { w: whole, f, k }, { op: 'type', args: { blank: 'x', value: k } }),
+      say(
+        'gen.frac.line.groups',
+        { w: whole, f, k },
+        { op: 'type', args: { blank: 'x', value: k } },
+      ),
     ];
   },
 };

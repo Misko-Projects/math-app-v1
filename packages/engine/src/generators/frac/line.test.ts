@@ -70,7 +70,7 @@ function roundTrip(item: GeneratedItem) {
   // No rule claims the right answer, and every prediction is wrong.
   for (const r of RULES) {
     expect(r.match(item, right, { latencyMs: 1000 })).toBe(false);
-    const p = r.predict(item);
+    const p = r.predict?.(item);
     if (p) expect(checkResponse(item, p as ResponseValue).correct).toBe(false);
   }
 }
@@ -150,12 +150,12 @@ describe('frac.line on fraction-line', () => {
     const twoHalves = { mode: 'place', skin: 'strip', den: 2, num: 2, max: 3 };
     expect(at(twoHalves, 2)).toEqual(['fractionWholeCount']);
     const read = build(line, { mode: 'read', skin: 'line', den: 4, num: 5, max: 2 });
-    expect(fractionLineWhole.match(read, { kind: 'numbers', values: [5, 8] }, { latencyMs: 1 })).toBe(
-      true,
-    );
-    expect(fractionLineTicks.match(read, { kind: 'numbers', values: [5, 5] }, { latencyMs: 1 })).toBe(
-      true,
-    );
+    expect(
+      fractionLineWhole.match(read, { kind: 'numbers', values: [5, 8] }, { latencyMs: 1 }),
+    ).toBe(true);
+    expect(
+      fractionLineTicks.match(read, { kind: 'numbers', values: [5, 5] }, { latencyMs: 1 }),
+    ).toBe(true);
     // An equal fraction is wrong and claims nothing (the prompt names the parts).
     const half = build(line, { mode: 'read', skin: 'line', den: 4, num: 2, max: 1 });
     expect(checkResponse(half, { kind: 'numbers', values: [1, 2] }).correct).toBe(false);
@@ -226,9 +226,9 @@ describe('frac.line on fraction-pick and number-pad', () => {
       const { num, den } = p as { num: number; den: number };
       const item = build(pad, p);
       expect(item.answer).toEqual({ kind: 'number', value: num / den });
-      expect(
-        fractionWholeCount.match(item, { kind: 'number', value: num }, { latencyMs: 1 }),
-      ).toBe(true);
+      expect(fractionWholeCount.match(item, { kind: 'number', value: num }, { latencyMs: 1 })).toBe(
+        true,
+      );
       roundTrip(item);
     }
   });
