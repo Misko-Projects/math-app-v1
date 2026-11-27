@@ -105,9 +105,7 @@
 }
 button.ni-hc__cell {
   cursor: pointer;
-  box-shadow:
-    0 4px 0 var(--color-pebble),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
 }
 button.ni-hc__cell:disabled {
   cursor: default;
@@ -191,9 +189,7 @@ button.ni-hc__cell:disabled {
   background: var(--color-sunshine-light);
 }
 button.ni-hc__cell[data-given="true"] {
-  box-shadow:
-    0 4px 0 var(--color-sunshine-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
 }
 .ni-hc__cell[data-given="true"]::after {
   content: "";
@@ -308,9 +304,7 @@ button.ni-hc__cell[data-given="true"] {
   border: 3px solid var(--color-ink);
   border-radius: var(--radius-pebble);
   background: var(--color-cloud);
-  box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;

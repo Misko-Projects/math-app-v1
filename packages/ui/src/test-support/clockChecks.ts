@@ -35,8 +35,8 @@ export async function expectNumeralsSolid(face: SVGSVGElement) {
   await expect(nums).toHaveLength(12);
   const fills = new Set(nums.map((n) => getComputedStyle(n).fill));
   await expect([...fills], 'one fill for every number').toHaveLength(1);
-  // --color-ink #264653.
-  await expect([...fills][0]).toBe('rgb(38, 70, 83)');
+  // --color-ink #3a2d29.
+  await expect([...fills][0]).toBe('rgb(58, 45, 41)');
   for (const n of nums) {
     await expect(effectiveOpacity(n), `number ${n.textContent} opacity`).toBe(1);
     for (const p of samples(n.getBoundingClientRect())) {

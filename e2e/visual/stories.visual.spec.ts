@@ -38,7 +38,13 @@ for (let chunk = 0; chunk < CHUNKS; chunk += 1) {
       await page.goto(`/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story`);
       await page.locator('#storybook-root > *').first().waitFor();
       await page.evaluate(() => document.fonts.ready);
-      await expect.soft(page).toHaveScreenshot(`${story.id}.png`, { fullPage: true });
+      // A story's play function may still be running (the coin-pay worst-trays stories tap dozens
+      // of coins, about 5 s on a slow runner): give the page 15 s to settle into two identical
+      // screenshots instead of the default 5 s.
+      await expect.soft(page).toHaveScreenshot(`${story.id}.png`, {
+        fullPage: true,
+        timeout: 15_000,
+      });
     }
   });
 }

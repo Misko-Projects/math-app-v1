@@ -14,38 +14,43 @@
  * The TypeScript mirror is src/tokens/tokens.ts; tokens.test.ts keeps the two in step.
  */
 @theme static {
-  /* Palette (05 §11). "-deep" is the 2–3 px outline / ledge shade of a fill. */
-  --color-sea: #2a9d8f;
-  --color-sea-deep: #1f7a8c;
-  --color-sea-dark: #17606e;
-  --color-shallows: #8fd3c7;
-  --color-foam: #f3fbf8;
-  --color-sky: #bfe4ee;
-  --color-sky-light: #e6f5f6;
-  --color-horizon: #fbeed3;
-  --color-sand: #f4e3c3;
-  --color-sand-deep: #d9bb87;
-  --color-sand-shadow: #e7cfa2;
-  --color-paper: #fffaf0;
-  --color-coral: #e76f51;
-  --color-coral-deep: #b9503a;
-  --color-sun: #f4a261;
-  --color-sun-deep: #d9833f;
-  --color-sunshine: #e9c46a;
-  --color-sunshine-light: #f6d58a;
-  --color-sunshine-deep: #c9a245;
-  --color-leaf: #5c9e4f;
-  --color-leaf-deep: #3f7537;
-  --color-leaf-dark: #2f5a29;
-  --color-leaf-light: #7dbb6a;
-  --color-wood: #c98a55;
-  --color-wood-deep: #8f5a31;
-  --color-cloud: #ffffff;
-  --color-pebble: #ece6da;
-  --color-pebble-deep: #a99f8c;
-  --color-ink: #264653;
-  --color-ink-soft: #3d6170;
-  --color-scrim: rgb(38 70 83 / 0.45);
+  /*
+   * Palette: Felt & Stitch (05 §11). The names are the island's (sea, sand, sunshine…); the values
+   * are felt: denim, linen, cream, mustard, sage, terracotta, wood and a warm ink. "-deep" is the
+   * outline shade of a fill. Sprites and scenes keep the pre-felt values until they are redrawn
+   * (see "Legacy art palette" below).
+   */
+  --color-sea: #5b7aa6;
+  --color-sea-deep: #3f5e8a;
+  --color-sea-dark: #2b4467;
+  --color-shallows: #a4bed5;
+  --color-foam: #eef2f2;
+  --color-sky: #bdd0df;
+  --color-sky-light: #e2e9ee;
+  --color-horizon: #f3e6cc;
+  --color-sand: #e9ddc4;
+  --color-sand-deep: #bfa27a;
+  --color-sand-shadow: #dccba8;
+  --color-paper: #f6eedb;
+  --color-coral: #c5633d;
+  --color-coral-deep: #9d4a2b;
+  --color-sun: #e39a5a;
+  --color-sun-deep: #b8743a;
+  --color-sunshine: #e2a62a;
+  --color-sunshine-light: #f0cb78;
+  --color-sunshine-deep: #b9821b;
+  --color-leaf: #7f9c78;
+  --color-leaf-deep: #4a6649;
+  --color-leaf-dark: #354d35;
+  --color-leaf-light: #b5c8a1;
+  --color-wood: #c89a69;
+  --color-wood-deep: #8e6741;
+  --color-cloud: #fffbf2;
+  --color-pebble: #e6ddcb;
+  --color-pebble-deep: #a0937c;
+  --color-ink: #3a2d29;
+  --color-ink-soft: #5a4a42;
+  --color-scrim: rgb(58 45 41 / 0.45);
 
   /* Type (05 §11): Baloo 2 for titles and numbers, Andika for child-facing text. */
   --font-display: "Baloo 2", ui-rounded, system-ui, sans-serif;
@@ -71,12 +76,16 @@
   --radius-bubble: 32px;
   --radius-pill: 9999px;
 
-  /* Shadows: a solid "ledge" under raised controls, a soft contact shadow, a lift for dragged items. */
-  --shadow-ledge: 0 6px 0 var(--ledge-color, var(--color-sea-dark));
-  --shadow-ledge-pressed: 0 2px 0 var(--ledge-color, var(--color-sea-dark));
-  --shadow-soft: 0 10px 24px -12px rgb(38 70 83 / 0.45);
-  --shadow-lift: 0 18px 30px -10px rgb(38 70 83 / 0.5);
-  --shadow-highlight: inset 0 3px 0 rgb(255 255 255 / 0.35);
+  /*
+   * Shadows (Felt & Stitch). A felt piece is lifted a little: a short, soft shadow from one light
+   * (above, slightly left), a faint lighter rim all round. Never a solid ledge or a dark slab under
+   * a shape. The "ledge" names stay so existing utilities keep working; they now draw the felt lift.
+   */
+  --shadow-ledge: 1px 2px 2px -1px rgb(58 34 16 / 0.3), 2px 5px 9px -5px rgb(58 34 16 / 0.32);
+  --shadow-ledge-pressed: 0 1px 2px -1px rgb(58 34 16 / 0.3);
+  --shadow-soft: 1px 3px 4px -2px rgb(58 34 16 / 0.22), 3px 8px 18px -10px rgb(58 34 16 / 0.3);
+  --shadow-lift: 3px 14px 22px -10px rgb(58 34 16 / 0.42);
+  --shadow-highlight: inset 0 0 0 1.5px rgb(255 246 226 / 0.22);
 
   /* Easing. */
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -235,6 +244,20 @@
   --target-big: 76px;
   --target-gap: 12px;
   --icon-size: 36px;
+
+  /*
+   * Felt & Stitch surfaces (05 §11). Every felt piece lays one baked grain tile over its token
+   * colour with background-blend-mode: soft-light (the tile is neutral grey, so the colour stays the
+   * token's). scripts/render-felt-grain.mjs renders the tile from the art-direction recipe. A stitch
+   * is a dashed line set in by the same distance on every side, in a thread a little lighter or
+   * darker than its felt.
+   */
+  --felt-grain: url("./felt-grain.webp");
+  --felt-grain-size: 192px;
+  --stitch-width: 2px;
+  --stitch-inset: 5px;
+  /* Pressed (the soft squish): an inner shadow all round, the border unchanged. */
+  --shadow-felt-pressed: inset 0 0 8px 1px rgb(42 22 8 / 0.38);
 }
 
 [data-age-mode="k"] {
@@ -245,13 +268,54 @@
 }
 
 /*
+ * Legacy art palette. Sprites, scenes and characters were drawn for the pre-felt palette and are
+ * redrawn in felt in later slices; until then their SVG roots keep these values, so the palette
+ * change recolours controls and widgets, not pictures. Mirrored as LEGACY_ART_PALETTE in tokens.ts.
+ */
+.ni-art,
+.ni-sprite,
+.ni-coin-art {
+  --color-sea: #2a9d8f;
+  --color-sea-deep: #1f7a8c;
+  --color-sea-dark: #17606e;
+  --color-shallows: #8fd3c7;
+  --color-foam: #f3fbf8;
+  --color-sky: #bfe4ee;
+  --color-sky-light: #e6f5f6;
+  --color-horizon: #fbeed3;
+  --color-sand: #f4e3c3;
+  --color-sand-deep: #d9bb87;
+  --color-sand-shadow: #e7cfa2;
+  --color-paper: #fffaf0;
+  --color-coral: #e76f51;
+  --color-coral-deep: #b9503a;
+  --color-sun: #f4a261;
+  --color-sun-deep: #d9833f;
+  --color-sunshine: #e9c46a;
+  --color-sunshine-light: #f6d58a;
+  --color-sunshine-deep: #c9a245;
+  --color-leaf: #5c9e4f;
+  --color-leaf-deep: #3f7537;
+  --color-leaf-dark: #2f5a29;
+  --color-leaf-light: #7dbb6a;
+  --color-wood: #c98a55;
+  --color-wood-deep: #8f5a31;
+  --color-cloud: #ffffff;
+  --color-pebble: #ece6da;
+  --color-pebble-deep: #a99f8c;
+  --color-ink: #264653;
+  --color-ink-soft: #3d6170;
+}
+
+/*
  * Lighting (05 §3, §11): the island's day/sunset variant. Art components read the palette through
  * var(--color-*), so a scene marked data-lighting="sunset" warms the sky, sea, sand and grass by
  * remapping only those environment colours. Ink, pebble, paper and cloud keep their values, so
  * numerals and controls keep their 06 §7 contrast at sunset. Mirrored as SUNSET_PALETTE in
  * tokens.ts.
  */
-[data-lighting="sunset"] {
+[data-lighting="sunset"],
+[data-lighting="sunset"] :is(.ni-art, .ni-sprite, .ni-coin-art) {
   --color-sky: #f3b98f;
   --color-sky-light: #fbdcbc;
   --color-horizon: #f8cd9c;

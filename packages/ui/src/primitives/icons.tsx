@@ -3,10 +3,11 @@ import type { ReactElement, SVGProps } from 'react';
 /**
  * Chunky, rounded icons in the island style (05 §11): flat fills, a 3 px darker outline and one
  * soft highlight. All original. Icons are decorative (aria-hidden); the control around them carries
- * the accessible name. `tone="light"` draws a white glyph for dark buttons.
+ * the accessible name. `tone="light"` draws a white glyph for dark buttons; `tone="navy"` a navy
+ * glyph for the wood buttons (Felt & Stitch: navy on wood is 3.9:1, ≥ 3:1 for a graphic).
  */
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
-  tone?: 'color' | 'light';
+  tone?: 'color' | 'light' | 'navy';
 }
 
 function Svg({
@@ -33,25 +34,31 @@ function Svg({
 
 const INK = 'var(--color-ink)';
 
+/**
+ * A one-colour glyph: its main colour and the colour of the cut-outs inside it (a door, a glint),
+ * or null for the full-colour icon.
+ */
+function mono(tone: IconProps['tone']): { fg: string; cut: string } | null {
+  if (tone === 'light') return { fg: '#fff', cut: 'var(--color-sea-deep)' };
+  if (tone === 'navy') return { fg: 'var(--color-sea-dark)', cut: 'var(--color-wood)' };
+  return null;
+}
+
 export function HomeIcon({ tone = 'color', ...props }: IconProps) {
-  const light = tone === 'light';
+  const m = mono(tone);
   return (
     <Svg {...props}>
       <path
         d="M10 23.5 24 11l14 12.5V38a2.5 2.5 0 0 1-2.5 2.5h-23A2.5 2.5 0 0 1 10 38V23.5Z"
-        fill={light ? '#fff' : 'var(--color-paper)'}
-        stroke={light ? '#fff' : INK}
+        fill={m ? m.fg : 'var(--color-paper)'}
+        stroke={m ? m.fg : INK}
         strokeWidth="3"
       />
-      <path
-        d="M6 25 24 9l18 16"
-        stroke={light ? '#fff' : 'var(--color-coral-deep)'}
-        strokeWidth="4.5"
-      />
+      <path d="M6 25 24 9l18 16" stroke={m ? m.fg : 'var(--color-coral-deep)'} strokeWidth="4.5" />
       <path
         d="M20 40.5v-9a4 4 0 0 1 8 0v9"
-        fill={light ? 'var(--color-sea-deep)' : 'var(--color-sea)'}
-        stroke={light ? 'var(--color-sea-deep)' : INK}
+        fill={m ? m.cut : 'var(--color-sea)'}
+        stroke={m ? m.cut : INK}
         strokeWidth="3"
       />
     </Svg>
@@ -59,22 +66,22 @@ export function HomeIcon({ tone = 'color', ...props }: IconProps) {
 }
 
 export function LightbulbIcon({ tone = 'color', ...props }: IconProps) {
-  const light = tone === 'light';
+  const m = mono(tone);
   return (
     <Svg {...props}>
       <path
         d="M24 6.5c-7.5 0-13 5.6-13 12.6 0 4.5 2.3 7.6 4.7 10 1.4 1.4 2.3 3 2.3 5v1.4h12v-1.4c0-2 .9-3.6 2.3-5 2.4-2.4 4.7-5.5 4.7-10 0-7-5.5-12.6-13-12.6Z"
-        fill={light ? '#fff' : 'var(--color-sunshine)'}
-        stroke={light ? '#fff' : INK}
+        fill={m ? m.fg : 'var(--color-sunshine)'}
+        stroke={m ? m.fg : INK}
         strokeWidth="3"
       />
       <path
         d="M18.5 15.5c1-2.4 3-3.8 5.5-4.1"
-        stroke={light ? 'var(--color-sea-deep)' : '#fff'}
+        stroke={m ? m.cut : '#fff'}
         strokeWidth="3"
-        opacity={light ? 0.6 : 0.85}
+        opacity={m ? 0.6 : 0.85}
       />
-      <path d="M18.5 40h11M20.5 44h7" stroke={light ? '#fff' : INK} strokeWidth="3" />
+      <path d="M18.5 40h11M20.5 44h7" stroke={m ? m.fg : INK} strokeWidth="3" />
     </Svg>
   );
 }
@@ -84,13 +91,13 @@ export function SpeakerIcon({
   waves = 2,
   ...props
 }: IconProps & { waves?: 0 | 1 | 2 }) {
-  const light = tone === 'light';
-  const stroke = light ? '#fff' : INK;
+  const m = mono(tone);
+  const stroke = m ? m.fg : INK;
   return (
     <Svg {...props}>
       <path
         d="M8 19.5a2.5 2.5 0 0 1 2.5-2.5H16l9-7.5v29L16 31h-5.5A2.5 2.5 0 0 1 8 28.5v-9Z"
-        fill={light ? '#fff' : 'var(--color-sea)'}
+        fill={m ? m.fg : 'var(--color-sea)'}
         stroke={stroke}
         strokeWidth="3"
       />

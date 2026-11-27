@@ -93,7 +93,7 @@
   stroke-linejoin: round;
 }
 .ni-scomp[data-tier="concrete"] .ni-scomp__board .ni-scomp__piece {
-  filter: drop-shadow(0 3px 0 rgb(38 70 83 / 0.25));
+  filter: drop-shadow(1px 3px 3px rgb(58 34 16 / 0.28));
 }
 /* The tray: one column per piece kind (count badge, tile, turn button); gaps set inline. */
 .ni-scomp__tray {
@@ -127,7 +127,7 @@
 }
 .ni-scomp[data-tier="concrete"] .ni-scomp__tile {
   background: var(--color-horizon);
-  box-shadow: 0 5px 0 var(--color-sand-shadow);
+  box-shadow: var(--shadow-ledge);
 }
 .ni-scomp__tile[aria-disabled="true"] {
   opacity: 0.4;
@@ -286,7 +286,7 @@
   stroke: var(--color-wood);
   stroke-width: 12px;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 0 var(--color-wood-deep)) drop-shadow(0 2px 0 var(--color-wood-deep));
+  filter: drop-shadow(0 0 0 var(--color-wood-deep)) drop-shadow(1px 3px 3px rgb(58 34 16 / 0.28));
 }
 .ni-scomp__corner {
   fill: var(--color-coral);

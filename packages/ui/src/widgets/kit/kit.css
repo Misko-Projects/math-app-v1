@@ -88,7 +88,7 @@
   display: block;
   border-width: 3px;
   border-radius: 18%;
-  box-shadow: 0 5px 0 var(--color-pebble-deep);
+  box-shadow: var(--shadow-ledge);
 }
 /* An equal-groups plate: a round sand dish. */
 .ni-objects__frame[data-kind="plate"] {
@@ -422,13 +422,15 @@
   margin: 0 0 6px;
   padding: 10px 18px;
   appearance: none;
-  border: 3px solid var(--color-ink);
+  border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--color-cloud);
+  /* Felt (theme.css): the grain soft-lit over the card's colour. */
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--pick-bg, var(--color-cloud));
+  background-blend-mode: soft-light;
   color: var(--color-ink);
-  box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-highlight), var(--shadow-ledge);
   cursor: pointer;
   touch-action: manipulation;
   transition:
@@ -436,11 +438,24 @@
     box-shadow var(--duration-tap) ease-out;
   -webkit-tap-highlight-color: transparent;
 }
-.ni-pick:active:not(:disabled) {
-  transform: translateY(4px);
-  box-shadow:
-    0 2px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+/* The stitch, set in evenly from the edge, close to it so a wide numeral stays clear of it. */
+.ni-pick::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: var(--stitch-width) dashed rgb(63 94 138 / 0.55);
+  border-radius: calc(var(--radius-pebble) - 6px);
+  pointer-events: none;
+}
+/* Numeral tray cards are as narrow as a target: a two-digit numeral fills them, so no stitch. */
+.ni-tray-numerals .ni-pick::before {
+  display: none;
+}
+/* Pressed: the soft squish (96% × 94% about the centre, inner shadow all round). */
+.ni-pick:active:not(:disabled),
+.ni-pick[data-preview="pressed"] {
+  transform: scale(0.96, 0.94);
+  box-shadow: var(--shadow-felt-pressed), var(--shadow-ledge-pressed);
 }
 .ni-pick:focus-visible {
   outline: 4px solid var(--color-sea-deep);
@@ -451,11 +466,11 @@
  * badge (never colour alone, 06 §7).
  */
 .ni-pick[data-selected="true"] {
-  background: var(--color-sunshine-light);
+  --pick-bg: var(--color-sunshine-light);
   box-shadow:
     inset 0 0 0 4px var(--color-ink),
-    0 6px 0 var(--color-ink),
-    var(--shadow-highlight);
+    var(--shadow-felt-pressed),
+    var(--shadow-ledge-pressed);
 }
 .ni-pick:disabled {
   cursor: default;
@@ -464,6 +479,9 @@
 .ni-pick:disabled:not([data-selected="true"]) {
   border-style: dashed;
   box-shadow: none;
+}
+.ni-pick:disabled:not([data-selected="true"])::before {
+  opacity: 0.4;
 }
 .ni-pick__face {
   display: inline-flex;
@@ -560,9 +578,13 @@
   margin: 0 0 4px;
   padding: 0;
   appearance: none;
-  border: 3px solid var(--color-ink);
+  position: relative;
+  border: 3px solid var(--color-wood-deep);
   border-radius: var(--radius-pebble);
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--key-bg, var(--color-wood));
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   font-family: var(--font-display);
   /* `--pad-digit` lets a pad of minimum-size keys keep its digit clear of Pip's fingertip. */
@@ -570,8 +592,9 @@
   font-weight: 800;
   line-height: 1;
   box-shadow:
-    0 5px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+    inset 0 0 0 1px var(--color-wood-deep),
+    var(--shadow-highlight),
+    var(--shadow-ledge);
   cursor: pointer;
   touch-action: manipulation;
   transition:
@@ -579,24 +602,46 @@
     box-shadow var(--duration-tap) ease-out;
   -webkit-tap-highlight-color: transparent;
 }
+/* The stitch: a cream thread set in evenly from the edge. */
+.ni-pad__key::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed rgb(246 238 219 / 0.75);
+  border-radius: calc(var(--radius-pebble) - 3px - var(--stitch-inset));
+  pointer-events: none;
+}
+/* Disabled: an unlifted piece (as .ni-btn): flat, faded felt, a dashed edge (ink-soft ≥ 3:1). */
+.ni-pad__key:disabled {
+  --key-bg: var(--color-pebble);
+  border-style: dashed;
+  border-color: var(--color-ink-soft);
+  color: var(--color-ink-soft);
+  box-shadow: none;
+}
+.ni-pad__key:disabled::before {
+  display: none;
+}
 .ni-pad__digit {
   padding-top: 0.12em;
 }
 .ni-pad__key:disabled {
   cursor: default;
 }
-.ni-pad__key:active:not(:disabled) {
-  transform: translateY(3px);
+.ni-pad__key:active:not(:disabled),
+.ni-pad__key[data-preview="pressed"] {
+  transform: scale(0.96, 0.94);
   box-shadow:
-    0 2px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+    inset 0 0 0 1px var(--color-wood-deep),
+    var(--shadow-felt-pressed),
+    var(--shadow-ledge-pressed);
 }
 .ni-pad__key:focus-visible {
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 3px;
 }
 .ni-pad__key[data-key="back"] {
-  background: var(--color-sand);
+  --key-bg: var(--color-sand);
 }
 .ni-pad__icon {
   display: block;
@@ -621,6 +666,22 @@
  */
 .ni-pad__key.ni-invite {
   outline-offset: -7px;
+  /* On the wood face the ring is navy: 3.9:1 (denim would be 2.6:1). */
+  outline-color: var(--color-sea-dark);
+}
+
+/*
+ * While a control is squished, an invisible margin keeps its hit area where its edges were, so a
+ * press held near an edge still lands on it when the finger or mouse lifts (06 §4).
+ */
+.ni-pad__key:active:not(:disabled)::after,
+.ni-pad__key[data-preview="pressed"]::after,
+.ni-pick:active:not(:disabled)::after,
+.ni-pick[data-preview="pressed"]::after {
+  content: "";
+  position: absolute;
+  /* Measured from the padding box, so the 3 px border is added back. */
+  inset: calc(-3.5% - 3px) calc(-2.5% - 3px);
 }
 
 [data-reduced-motion="true"] .ni-pick,
@@ -632,6 +693,23 @@
   .ni-pad__key {
     transition-duration: 0ms;
   }
+}
+/* 06 §7 reduced motion: a pressed card or key changes colour only; it keeps its size and place. */
+@media (prefers-reduced-motion: reduce) {
+  .ni-pick:active:not(:disabled),
+  .ni-pick[data-preview="pressed"],
+  .ni-pad__key:active:not(:disabled),
+  .ni-pad__key[data-preview="pressed"] {
+    transform: none;
+    filter: brightness(0.9);
+  }
+}
+[data-reduced-motion="true"] .ni-pick:active:not(:disabled),
+[data-reduced-motion="true"] .ni-pick[data-preview="pressed"],
+[data-reduced-motion="true"] .ni-pad__key:active:not(:disabled),
+[data-reduced-motion="true"] .ni-pad__key[data-preview="pressed"] {
+  transform: none;
+  filter: brightness(0.9);
 }
 
 /* A compact Check (icon only in a short room): a square, no pill padding around the tick. */

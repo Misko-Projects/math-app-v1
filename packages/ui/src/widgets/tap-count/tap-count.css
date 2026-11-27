@@ -65,7 +65,7 @@
   border: 3px solid var(--color-ink);
   border-radius: 50%;
   background: var(--color-sunshine);
-  box-shadow: 0 4px 0 var(--color-sunshine-deep);
+  box-shadow: var(--shadow-ledge);
 }
 .ni-tapc__cue[data-from="right"] svg {
   transform: scaleX(-1);
@@ -138,7 +138,7 @@ button.ni-tapc__obj:focus-visible {
   line-height: 1;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
-  box-shadow: 0 3px 0 rgb(38 70 83 / 0.25);
+  box-shadow: var(--shadow-ledge);
   animation: var(--animate-pop-in);
 }
 
@@ -246,7 +246,7 @@ button.ni-tapc__obj:focus-visible {
   line-height: 1;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
-  box-shadow: 0 3px 0 rgb(38 70 83 / 0.25);
+  box-shadow: var(--shadow-ledge);
   animation: var(--animate-pop-in);
 }
 
@@ -325,7 +325,7 @@ button.ni-tapc__obj:focus-visible {
   border: 3px solid var(--color-sand-deep);
   border-radius: 50%;
   background: var(--color-cloud);
-  box-shadow: 0 6px 0 var(--color-sand-deep);
+  box-shadow: var(--shadow-ledge);
 }
 .ni-tapc__empty::after {
   content: "";

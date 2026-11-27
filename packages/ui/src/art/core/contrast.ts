@@ -1,4 +1,4 @@
-import { contrastRatio, type Lighting, litColor, type PaletteColor } from '../../tokens/tokens';
+import { artColor, contrastRatio, type Lighting, type PaletteColor } from '../../tokens/tokens';
 
 export interface ArtContrastPair {
   use: string;
@@ -28,7 +28,10 @@ export const ART_CONTRAST_PAIRS: readonly ArtContrastPair[] = [
   { use: 'Selected plot check (cloud on ink)', fg: 'cloud', bg: 'ink', min: 3 },
 ];
 
-/** The contrast of a pair under a lighting (the sunset remap applies to both colours). */
+/**
+ * The contrast of a pair under a lighting (the sunset remap applies to both colours). Art is drawn
+ * in the legacy art palette pinned on its root (theme.css), so the pair is measured in it.
+ */
 export function pairRatio(p: Pick<ArtContrastPair, 'fg' | 'bg'>, lighting: Lighting): number {
-  return contrastRatio(litColor(p.fg, lighting), litColor(p.bg, lighting));
+  return contrastRatio(artColor(p.fg, lighting), artColor(p.bg, lighting));
 }

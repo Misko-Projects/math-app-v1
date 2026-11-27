@@ -6,6 +6,7 @@ import {
   CONTRAST_PAIRS,
   contrastRatio,
   DURATION_MS,
+  LEGACY_ART_PALETTE,
   litColor,
   MIN_TARGET_PX,
   PALETTE,
@@ -20,6 +21,10 @@ const css = readFileSync(fileURLToPath(new URL('./theme.css', import.meta.url)),
   /\/\*[\s\S]*?\*\//g,
   '',
 );
+
+/** The sunset remap applies to a lit scene and to art and sprites inside one (their legacy pin). */
+const SUNSET_SELECTOR =
+  '[data-lighting="sunset"],\n[data-lighting="sunset"] :is(.ni-art, .ni-sprite, .ni-coin-art)';
 
 /** The value of `--name` inside the first block whose selector matches `selector`. */
 function cssVar(name: string, selector = ':root'): string | undefined {
@@ -43,18 +48,41 @@ describe('design tokens', () => {
     }
   });
 
-  it('includes the 05 §11 palette', () => {
+  it('includes the 05 §11 Felt & Stitch palette', () => {
     for (const hex of [
-      '#1f7a8c',
-      '#2a9d8f',
-      '#f4e3c3',
-      '#e76f51',
-      '#f4a261',
-      '#e9c46a',
-      '#5c9e4f',
-      '#264653',
+      '#3f5e8a', // denim
+      '#2b4467', // navy
+      '#e9ddc4', // linen
+      '#f6eedb', // cream
+      '#e2a62a', // mustard
+      '#c5633d', // terracotta
+      '#4a6649', // sage (deep)
+      '#c89a69', // wood
+      '#3a2d29', // ink
     ]) {
       expect(Object.values(PALETTE)).toContain(hex);
+    }
+  });
+
+  it('pins the legacy palette on art and sprite roots until they are redrawn in felt', () => {
+    for (const [name, hex] of Object.entries(LEGACY_ART_PALETTE)) {
+      expect(cssVar(`color-${name}`, '.ni-art,\n.ni-sprite,\n.ni-coin-art'), name).toBe(hex);
+    }
+    expect(Object.keys(LEGACY_ART_PALETTE).sort()).toEqual(Object.keys(PALETTE).sort());
+  });
+
+  it('draws every felt edge and glyph the controls use at ≥ 3:1 (06 §7)', () => {
+    for (const [use, fg, bg] of [
+      ['navy glyph on a wood button', 'sea-dark', 'wood'],
+      ['wood button edge on linen', 'wood-deep', 'sand'],
+      ['Check edge on linen', 'sea-dark', 'sand'],
+      ['disabled dashed edge on linen', 'ink-soft', 'sand'],
+      ['disabled dashed edge on its faded felt', 'ink-soft', 'pebble'],
+      ['focus ring on linen', 'ink', 'sand'],
+      ['invite ring on linen', 'sea-deep', 'sand'],
+      ['pad key invite ring (inside the key) on wood', 'sea-dark', 'wood'],
+    ] as const) {
+      expect(contrastRatio(PALETTE[fg], PALETTE[bg]), use).toBeGreaterThanOrEqual(3);
     }
   });
 
@@ -119,7 +147,7 @@ describe('design tokens', () => {
 
   it('mirrors the sunset lighting remap of theme.css', () => {
     for (const [name, hex] of Object.entries(SUNSET_PALETTE)) {
-      expect(cssVar(`color-${name}`, '[data-lighting="sunset"]'), name).toBe(hex);
+      expect(cssVar(`color-${name}`, SUNSET_SELECTOR), name).toBe(hex);
       expect(PALETTE).toHaveProperty(name);
     }
     expect(litColor('sky', 'sunset')).toBe(SUNSET_PALETTE.sky);

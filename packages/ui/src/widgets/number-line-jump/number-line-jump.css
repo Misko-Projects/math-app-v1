@@ -106,9 +106,7 @@
   border-radius: 46% 54% 50% 50% / 54% 48% 52% 46%;
   background: var(--color-pebble);
   color: var(--color-ink);
-  box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -153,7 +151,7 @@ button.ni-nlj__stone:disabled {
 .ni-nlj__stone[data-here="true"] {
   box-shadow:
     inset 0 0 0 4px var(--color-ink),
-    0 6px 0 var(--color-ink);
+    var(--shadow-ledge);
 }
 /* A demo highlight: a dashed sea ring and a soft pulse (not the invite ring, nothing to press). */
 .ni-nlj__stone[data-highlight="true"] {
@@ -257,9 +255,7 @@ button.ni-nlj__stone:disabled {
   border-radius: var(--radius-pebble);
   background: var(--color-cloud);
   color: var(--color-ink);
-  box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   cursor: pointer;
   touch-action: manipulation;
   transition:
@@ -269,9 +265,7 @@ button.ni-nlj__stone:disabled {
 }
 .ni-nlj__jump:active:not(:disabled) {
   transform: translateY(4px);
-  box-shadow:
-    0 2px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge-pressed), var(--shadow-highlight);
 }
 .ni-nlj__jump:focus-visible {
   outline: 4px solid var(--color-sea-deep);
@@ -381,9 +375,7 @@ button.ni-nlj__stone:disabled {
   font-size: var(--text-numeral);
   font-weight: 800;
   line-height: 1;
-  box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -391,7 +383,7 @@ button.ni-nlj__stone:disabled {
   background: var(--color-sunshine-light);
   box-shadow:
     inset 0 0 0 4px var(--color-ink),
-    0 6px 0 var(--color-ink);
+    var(--shadow-ledge);
 }
 .ni-nlj__sign:focus-visible {
   outline: 4px solid var(--color-sea-deep);

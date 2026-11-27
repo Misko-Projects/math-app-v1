@@ -66,7 +66,8 @@ export function ArtSvg({
       height={fill ? '100%' : undefined}
       preserveAspectRatio={fill ? 'xMidYMid meet' : undefined}
       style={{ display: 'block', overflow: 'visible', height: fill ? '100%' : 'auto', ...style }}
-      className={className}
+      // `ni-art` pins the legacy art palette (theme.css) until the piece is redrawn in felt.
+      className={className ? `ni-art ${className}` : 'ni-art'}
       data-lighting={lighting}
       data-fit={fill ? 'fill' : undefined}
       focusable="false"

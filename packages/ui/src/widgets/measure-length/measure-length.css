@@ -41,7 +41,7 @@
   border: 3px solid var(--color-sand-deep);
   border-radius: 18px;
   background: var(--color-horizon);
-  box-shadow: 0 4px 0 var(--color-sand-shadow);
+  box-shadow: var(--shadow-ledge);
 }
 .ni-mlen__pile-units {
   display: flex;

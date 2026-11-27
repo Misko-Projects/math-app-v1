@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useNarrationText, useUiPreferences } from '../preferences/UiProvider';
 import { type SpeakLabel, usePress } from './usePress';
 
-export type ButtonTone = 'sea' | 'sun' | 'leaf' | 'cloud';
+export type ButtonTone = 'sea' | 'sun' | 'leaf' | 'cloud' | 'wood';
 
 export interface BigButtonProps {
   /** Narration key: the accessible name, the spoken label and (in text mode) the visible text. */
