@@ -3330,3 +3330,96 @@ fb.mc.function-backwards:
   text: "The machine goes from In to Out. Go that way."
 fb.mc.function-add-for-take:
   text: "This machine takes away. Each Out is smaller than its In."
+# K02 slice 5b (#17): frac.line hints, worked solutions and misconception feedback. Hints hold
+# no digit; fractions are words (`fracw`).
+h.frac.line.parts-whole:
+  text: "Count the equal parts between zero and one."
+  level: "3"
+h.frac.line.one-part:
+  text: "One part is one jump from zero. Put the dot at the end of the first part."
+  level: "3"
+h.frac.line.spaces:
+  text: "Count the spaces between the ticks, not the ticks."
+  level: "3"
+h.frac.line.read-bottom:
+  text: "Count the equal parts in one whole. That number goes on the bottom."
+  level: "3"
+h.frac.line.read-top:
+  text: "Count the parts from zero to the flag. That number goes on the top."
+  level: "3"
+h.frac.line.read-top-past:
+  text: "Count every part from zero to the flag, past one too. That number goes on the top."
+  level: "3"
+h.frac.line.dot-top:
+  text: "Count the parts from zero to the dot. That number goes on the top."
+  level: "3"
+h.frac.line.hop-top:
+  text: "Start at zero. Hop one part at a time, as many hops as the top number."
+  level: "3"
+h.frac.line.past-one:
+  text: "This fraction is more than one whole. Keep hopping past one."
+  level: "3"
+h.frac.line.path-bottom:
+  text: "How many equal steps make the whole path? That number goes on the bottom."
+  level: "3"
+h.frac.line.path-top:
+  text: "How many steps did you take? That number goes on the top."
+  level: "3"
+h.frac.line.one-whole:
+  text: "When the top number is the same as the bottom number, that is one whole."
+  level: "3"
+h.frac.line.count-wholes:
+  text: "How many times does the bottom number fit in the top number?"
+  level: "3"
+h.frac.line.whole-group:
+  text: "As many parts as the bottom number make one whole."
+  level: "3"
+gen.frac.line.parts:
+  text: "Each whole is cut into equal parts. One part is {u|fracw}."
+  level: "3"
+gen.frac.line.hop:
+  text: "Start at 0 and hop one part at a time."
+  level: "3"
+gen.frac.line.here:
+  text: "Here is {f|fracw}."
+  level: "3"
+gen.frac.line.count-bottom:
+  text: "Count the equal parts in one whole. That number goes on the bottom."
+  level: "3"
+gen.frac.line.count-top:
+  text: "Count the parts from 0 to the mark. That number goes on the top."
+  level: "3"
+gen.frac.line.flag-at:
+  text: "The flag is at {f|fracw}."
+  level: "3"
+gen.frac.line.dot-at:
+  text: "The dot is at {f|fracw}."
+  level: "3"
+gen.frac.line.path-bottom:
+  text: "Count the equal steps on the whole path. That number goes on the bottom."
+  level: "3"
+gen.frac.line.path-top:
+  text: "Count the steps you took. That number goes on the top."
+  level: "3"
+gen.frac.line.path-walked:
+  text: "You walked {f|fracw} of the path."
+  level: "3"
+gen.frac.line.one-whole:
+  text: "One whole is {w|fracw}."
+  level: "3"
+gen.frac.line.between:
+  text: "It is more than {lo} and less than {hi}."
+  level: "3"
+gen.frac.line.groups:
+  text: "In {f|fracw}, count the groups of {w|fracw}: {k}."
+  level: "3"
+fb.mc.fraction-line-ticks:
+  text: "Count the spaces, not the ticks. Start at 0."
+fb.mc.fraction-line-whole:
+  text: "One whole goes from 0 to 1, not the whole line."
+fb.mc.fraction-line-at-whole:
+  text: "The top number is not a spot. Hop parts from 0."
+fb.mc.fraction-over-one:
+  text: "A fraction can be more than one. Keep going past 1."
+fb.mc.fraction-whole-count:
+  text: "Count the wholes, not the parts."

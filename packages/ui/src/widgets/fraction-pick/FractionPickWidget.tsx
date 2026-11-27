@@ -270,6 +270,21 @@ export function FractionPickWidget({
 
   const stimulus = config.stimulus;
   const stimFraction = fractionOf(stimulus);
+  // A name item's number line (#17 slice 5b, FRA.10): 0 to 1 cut into equal parts with a dot,
+  // named by its parts and the dot's counted tick, never the fraction.
+  const dot = stimulus?.kind === 'number-line' ? stimulus.marks?.[0] : undefined;
+  const lineName =
+    config.mode === 'name' &&
+    stimulus?.kind === 'number-line' &&
+    stimulus.ticksEvery !== null &&
+    dot &&
+    dot.label === undefined
+      ? t('ui.frac.dot-line', {
+          max: stimulus.max,
+          n: Math.round(1 / stimulus.ticksEvery),
+          k: Math.round(dot.at / stimulus.ticksEvery),
+        })
+      : undefined;
   const k = ageMode === 'k';
   // Option pictures share one box (abstract tier with labels: a small one beside the symbols), so
   // every option's whole is drawn the same size.
@@ -329,7 +344,12 @@ export function FractionPickWidget({
           counting={counting}
         />
       ) : (
-        <StimulusView spec={stimulus} maxWidth={stimBox.w} maxHeight={stimBox.h} />
+        <StimulusView
+          spec={stimulus}
+          maxWidth={stimBox.w}
+          maxHeight={stimBox.h}
+          {...(lineName ? { label: lineName } : {})}
+        />
       )}
     </div>
   ) : null;

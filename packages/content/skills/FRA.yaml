@@ -89,3 +89,41 @@ skills:
     gateway: false
     representations: [fraction-strip, symbols]
     encompasses: { FRA.08: 0.5 }
+
+  # K02 slice 5b (#17): fractions on the number line (frac.line). FRA.15 stays planned.
+  - id: FRA.04
+    name: Unit fractions on the number line
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.2a] }
+    prerequisites: [FRA.03, MEA.04]
+    gateway: true
+    representations: [fraction-strip, ruler, fraction-line, symbols]
+
+  - id: FRA.10
+    name: Place any fraction a/b on a number line
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.2b] }
+    prerequisites: [FRA.04, FRA.09]
+    gateway: false
+    representations: [fraction-strip, fraction-line]
+    encompasses: { FRA.04: 1.0, FRA.09: 0.5 }
+
+  - id: FRA.11
+    name: Fractions greater than 1 on the number line
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.2b] }
+    prerequisites: [FRA.10]
+    gateway: false
+    representations: [fraction-strip, fraction-line, symbols]
+
+  - id: FRA.12
+    name: "Whole numbers as fractions (3 = 3/1; 4/4 = 1)"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.3c] }
+    prerequisites: [FRA.10]
+    gateway: false
+    representations: [fraction-strip, fraction-line, symbols]

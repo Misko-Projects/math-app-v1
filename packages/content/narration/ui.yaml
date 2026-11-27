@@ -357,6 +357,9 @@ ui.frac.flag-line-at:
 ui.frac.flag-ruler-tick:
   text: "A ruler from 0 to {max}. The flag is on tick {k} of {n} between {lo} and {hi}."
   level: "3"
+ui.frac.dot-line:
+  text: "A number line from 0 to {max}. Each whole is cut into {n} equal parts. A dot is on tick {k} after 0."
+  level: "3"
 ui.frac.flag-ruler-at:
   text: "A ruler from 0 to {max}. The flag is on {n}."
   level: "3"
