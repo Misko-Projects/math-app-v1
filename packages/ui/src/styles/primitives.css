@@ -35,7 +35,8 @@
   /* Kept as room below the button (layouts are built around it); nothing is drawn there now. */
   --ledge: 6px;
   /* The felt edge: the 3 px border plus a ring of the same colour inside it, even on every side. */
-  --btn-edge: inset 0 0 0 2px var(--btn-outline);
+  --btn-ring: 2px;
+  --btn-edge: inset 0 0 0 var(--btn-ring) var(--btn-outline);
 
   appearance: none;
   position: relative;
@@ -72,14 +73,31 @@
     filter var(--duration-base) ease-out;
 }
 
+/*
+ * An icon-only action button is wider than tall (its padding), so a pill radius would draw an
+ * oval. It takes one corner radius instead: a rounded rectangle. Round icon buttons are square.
+ */
+.ni-btn[aria-label]:not(.ni-iconbtn) {
+  border-radius: var(--radius-card);
+}
+
 /* The stitch: a dashed thread set in evenly from the felt edge on every side. */
 .ni-btn::before {
   content: "";
   position: absolute;
-  inset: calc(1px + var(--stitch-inset));
+  inset: calc(var(--btn-ring) + var(--stitch-inset) - 1px);
   border: var(--stitch-width) dashed var(--btn-stitch);
-  border-radius: inherit;
+  border-radius: max(
+    0px,
+    calc(var(--btn-radius, var(--radius-pill)) - 3px - var(--btn-ring) - var(--stitch-inset))
+  );
   pointer-events: none;
+}
+.ni-btn[aria-label]:not(.ni-iconbtn) {
+  --btn-radius: var(--radius-card);
+}
+.ni-iconbtn::before {
+  border-radius: 50%;
 }
 
 /*
@@ -136,24 +154,26 @@
   outline-offset: 11px;
 }
 
-/* Disabled: faded, and also hatched with a dashed edge, so it doesn't rely on colour alone. */
+/*
+ * Disabled: an unlifted piece. Flat (no shadow, no inner ring), faded felt, a dashed edge and a
+ * grey glyph, so it differs from an enabled button by shape and depth, not by colour alone. The
+ * dashed edge is ink-soft: 6.4:1 on the faded felt, 6.2:1 on linen.
+ */
 .ni-btn:disabled {
+  --btn-bg: var(--color-pebble);
+  --btn-fg: var(--color-ink-soft);
+  --btn-outline: var(--color-ink-soft);
+  --btn-ring: 0px;
   cursor: default;
-  filter: saturate(0.25) brightness(1.06);
-  /* Faded but still legible: its icon and word stay readable (contrast-exempt, not invisible). */
-  opacity: 0.82;
   border-style: dashed;
-  /* Light and dark stripes, so the hatch shows on light and dark tones alike. */
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgb(255 255 255 / 0.5) 0 6px,
-    rgb(58 45 41 / 0.1) 6px 12px
-  );
-  background-blend-mode: normal;
-  box-shadow: var(--shadow-highlight);
+  box-shadow: none;
 }
 .ni-btn:disabled::before {
-  opacity: 0.5;
+  display: none;
+}
+.ni-btn:disabled .ni-btn__icon {
+  filter: grayscale(1);
+  opacity: 0.7;
 }
 
 .ni-btn__icon {
@@ -179,12 +199,20 @@
   --btn-outline: var(--color-leaf-dark);
   --btn-stitch: var(--color-leaf-light);
 }
-/* Mustard felt, navy edge and navy thread (the Check button). */
+/* Mustard felt on a wide navy backing, navy thread (the Check button: the strongest piece). */
 .ni-tone-sun {
+  --btn-ring: 5px;
   --btn-bg: var(--color-sunshine);
   --btn-fg: var(--color-sea-dark);
   --btn-outline: var(--color-sea-dark);
   --btn-stitch: var(--color-sea-dark);
+}
+/* Wood disc, navy glyph (3.9:1), cream thread: Go home, Help me, the sound button. */
+.ni-tone-wood {
+  --btn-bg: var(--color-wood);
+  --btn-fg: var(--color-sea-dark);
+  --btn-outline: var(--color-wood-deep);
+  --btn-stitch: var(--color-paper);
 }
 .ni-tone-cloud {
   --btn-bg: var(--color-paper);
@@ -664,16 +692,14 @@ button.ni-number {
  * 1.6:1 on the box, the ink rule is 9:1) and the blinking ink caret.
  */
 .ni-number[data-state="active"] {
-  /* The writing line sits inside the box, set in from both sides and the bottom, so the box's
-     edge stays even all round. */
+  /* The writing line is a stitched ink line inside the box (9:1), set in from both sides and the
+     bottom, so the box's border stays even on all four sides. */
   background:
-    linear-gradient(var(--color-ink), var(--color-ink)) center bottom 13px / calc(100% - 28px) 2px
-      no-repeat,
-    linear-gradient(var(--color-sunshine), var(--color-sunshine)) center bottom 7px /
-      calc(100% - 28px) 6px no-repeat,
+    repeating-linear-gradient(90deg, var(--color-ink) 0 7px, transparent 7px 12px) center bottom
+      9px / calc(100% - 28px) 3px no-repeat,
     var(--felt-grain) 0 0 / var(--felt-grain-size),
     var(--number-bg, var(--color-cloud));
-  background-blend-mode: normal, normal, soft-light, normal;
+  background-blend-mode: normal, soft-light, normal;
 }
 /* A correct answer: more than a colour change. A heavier ink border, a pop and a star badge. */
 .ni-number[data-state="celebrate"] {
@@ -693,6 +719,19 @@ button.ni-number {
   pointer-events: none;
 }
 
+/*
+ * In the active box the digit slots are the writing line: ink stitches (9:1) where each digit
+ * goes. A box without slots draws one stitched line instead (above).
+ */
+.ni-number[data-state="active"]:has(.ni-number__slot) {
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--number-bg, var(--color-cloud));
+  background-blend-mode: soft-light, normal;
+}
+.ni-number[data-state="active"] .ni-number__slot {
+  background: var(--color-ink);
+}
 .ni-number__slot {
   display: inline-block;
   width: 0.55em;
@@ -732,13 +771,15 @@ button.ni-number {
   max-width: 100%;
   min-height: calc(var(--slot) * 2 + 28px);
   padding: 10px 14px;
-  border: 3px solid var(--color-wood-deep);
+  /* Felt & Stitch tray: cream felt on a sage edge, even on every side, lifted a little. */
+  border: 3px solid var(--color-leaf-deep);
   border-radius: 24px;
-  background: var(--color-wood);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--color-paper);
+  background-blend-mode: soft-light;
   box-shadow:
-    inset 0 4px 0 rgb(255 255 255 / 0.25),
-    inset 0 -5px 0 rgb(143 90 49 / 0.35),
-    0 6px 0 var(--color-wood-deep);
+    inset 0 0 0 2px var(--color-leaf-deep),
+    var(--shadow-highlight),
+    var(--shadow-ledge);
 }
 [data-age-mode="k"] .ni-tray {
   --slot: 46px;
@@ -747,7 +788,7 @@ button.ni-number {
 .ni-tray__label {
   padding: 4px 12px;
   border-radius: 12px;
-  background: var(--color-paper);
+  background: var(--color-sand);
   color: var(--color-ink);
   font-family: var(--font-body);
   font-size: 1.0625rem;
@@ -761,15 +802,15 @@ button.ni-number {
   gap: 4px;
   padding: 5px;
   border-radius: 14px;
-  background: rgb(143 90 49 / 0.45);
+  background: rgb(191 162 122 / 0.45);
 }
 
 .ni-tray__slot {
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: rgb(255 250 240 / 0.28);
-  box-shadow: inset 0 2px 0 rgb(38 70 83 / 0.18);
+  background: rgb(255 251 242 / 0.6);
+  box-shadow: inset 0 0 4px rgb(42 22 8 / 0.18);
 }
 .ni-tray__slot:nth-child(5n) {
   margin-right: 0;

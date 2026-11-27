@@ -7,8 +7,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { contentAssets } from './content-assets';
 
 // Palette (05 §11); mirrors the design tokens in packages/ui/src/tokens/theme.css.
-const THEME_COLOR = '#1f7a8c';
-const BACKGROUND_COLOR = '#f4e3c3';
+const THEME_COLOR = '#3f5e8a';
+const BACKGROUND_COLOR = '#e9ddc4';
 
 const MB = 1024 * 1024;
 /** 02 §6: shell + content + K–3 narration audio ≤ 60 MB. The build fails above it. */

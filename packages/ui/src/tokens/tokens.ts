@@ -176,7 +176,9 @@ export function litColor(color: PaletteColor, lighting: Lighting = 'day'): strin
 export const CONTRAST_PAIRS: readonly { use: string; fg: PaletteColor; bg: PaletteColor }[] = [
   { use: 'sea button label', fg: 'cloud', bg: 'sea-deep' },
   { use: 'leaf button label', fg: 'cloud', bg: 'leaf-deep' },
-  { use: 'sun button label', fg: 'ink', bg: 'sunshine' },
+  { use: 'sun button label (navy on mustard)', fg: 'sea-dark', bg: 'sunshine' },
+  { use: 'pad key numeral (ink on wood)', fg: 'ink', bg: 'wood' },
+  { use: 'disabled label (ink-soft on faded felt)', fg: 'ink-soft', bg: 'pebble' },
   { use: 'cloud button label', fg: 'ink', bg: 'cloud' },
   { use: 'panel text', fg: 'ink', bg: 'paper' },
   { use: 'sand panel text', fg: 'ink', bg: 'sand' },

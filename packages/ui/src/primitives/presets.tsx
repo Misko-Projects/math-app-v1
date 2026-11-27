@@ -17,7 +17,7 @@ interface PresetProps {
 
 /** 05 §4 rule 6: the big "home" button returns to the island at any time. */
 export function HomeButton({ label = 'ui.btn.home', ...props }: PresetProps) {
-  return <IconButton label={label} icon={<HomeIcon />} tone="cloud" {...props} />;
+  return <IconButton label={label} icon={<HomeIcon tone="navy" />} tone="wood" {...props} />;
 }
 
 export interface HintButtonProps extends PresetProps {
@@ -35,8 +35,8 @@ export function HintButton({
   return (
     <IconButton
       label={label}
-      icon={<LightbulbIcon />}
-      tone="cloud"
+      icon={<LightbulbIcon tone="navy" />}
+      tone="wood"
       className={['ni-hint', className].filter(Boolean).join(' ')}
       data={{ 'data-glow': glow ? 'true' : undefined }}
       {...props}
@@ -63,8 +63,8 @@ export function ReplayButton({
   return (
     <IconButton
       label={label}
-      icon={<SpeakerIcon tone="light" />}
-      tone="sea"
+      icon={<SpeakerIcon tone="navy" />}
+      tone="wood"
       speak={speak}
       className={['ni-replay', className].filter(Boolean).join(' ')}
       data={{ 'data-playing': playing ? 'true' : undefined }}

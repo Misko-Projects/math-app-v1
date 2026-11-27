@@ -448,7 +448,8 @@
   pointer-events: none;
 }
 /* Pressed: the soft squish (96% × 94% about the centre, inner shadow all round). */
-.ni-pick:active:not(:disabled) {
+.ni-pick:active:not(:disabled),
+.ni-pick[data-preview="pressed"] {
   transform: scale(0.96, 0.94);
   box-shadow:
     var(--shadow-felt-pressed),
@@ -606,8 +607,16 @@
   border-radius: calc(var(--radius-pebble) - 3px - var(--stitch-inset));
   pointer-events: none;
 }
+/* Disabled: an unlifted piece (as .ni-btn): flat, faded felt, a dashed edge (ink-soft ≥ 3:1). */
+.ni-pad__key:disabled {
+  --key-bg: var(--color-pebble);
+  border-style: dashed;
+  border-color: var(--color-ink-soft);
+  color: var(--color-ink-soft);
+  box-shadow: none;
+}
 .ni-pad__key:disabled::before {
-  opacity: 0.45;
+  display: none;
 }
 .ni-pad__digit {
   padding-top: 0.12em;
@@ -615,7 +624,8 @@
 .ni-pad__key:disabled {
   cursor: default;
 }
-.ni-pad__key:active:not(:disabled) {
+.ni-pad__key:active:not(:disabled),
+.ni-pad__key[data-preview="pressed"] {
   transform: scale(0.96, 0.94);
   box-shadow:
     inset 0 0 0 1px var(--color-wood-deep),
