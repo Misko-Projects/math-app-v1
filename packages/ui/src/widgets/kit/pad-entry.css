@@ -10,7 +10,7 @@
   font-size: var(--text-numeral);
 }
 .ni-padbox[data-empty="true"] {
-  background: var(--color-sky-light);
+  --number-bg: var(--color-sky-light);
 }
 .ni-padbox:disabled {
   cursor: default;

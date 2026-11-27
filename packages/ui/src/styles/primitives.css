@@ -630,7 +630,7 @@ button.ni-bubble:active {
   padding: 0.16em 28px 0.02em;
   border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--color-cloud);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--number-bg, var(--color-cloud));
   background-blend-mode: soft-light;
   color: var(--color-ink);
   /* An entry box is sunk into the felt: an even inner shade all round, no lip. */
@@ -664,16 +664,22 @@ button.ni-number {
  * 1.6:1 on the box, the ink rule is 9:1) and the blinking ink caret.
  */
 .ni-number[data-state="active"] {
-  box-shadow:
-    inset 0 -8px 0 var(--color-sunshine),
-    inset 0 -10px 0 var(--color-ink),
-    0 5px 0 rgb(38 70 83 / 0.16);
+  /* The writing line sits inside the box, set in from both sides and the bottom, so the box's
+     edge stays even all round. */
+  background:
+    linear-gradient(var(--color-ink), var(--color-ink)) center bottom 13px / calc(100% - 28px) 2px
+      no-repeat,
+    linear-gradient(var(--color-sunshine), var(--color-sunshine)) center bottom 7px /
+      calc(100% - 28px) 6px no-repeat,
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--number-bg, var(--color-cloud));
+  background-blend-mode: normal, normal, soft-light, normal;
 }
 /* A correct answer: more than a colour change. A heavier ink border, a pop and a star badge. */
 .ni-number[data-state="celebrate"] {
   position: relative;
   border-width: 5px;
-  background: var(--color-sunshine-light);
+  --number-bg: var(--color-sunshine-light);
   animation: var(--animate-pop-in);
 }
 .ni-number__sparkle {
