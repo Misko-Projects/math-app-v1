@@ -25,7 +25,7 @@ misconceptions:
     name: Thinks bigger units give a bigger count
     detect: { kind: answer, rule: biggerUnitMore }
     appliesTo: { generators: [mea.length] }
-    skills: [MEA.22]
+    skills: [MEA.22, MEA.09]
     remediation: [MEA.22]
     feedback: fb.mc.bigger-unit-more
     priority: 50

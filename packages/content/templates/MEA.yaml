@@ -489,6 +489,42 @@ templates:
       prompt: tp.MEA.03.t4.prompt
       hints: [h.ruler.start-zero, h.ruler.count-spaces, h.ruler.end-number]
 
+  # ---------- K02 slice 4c-1 (#17): MEA.09 one plank in centimeters and inches ----------
+  # Whole centimeters under 10 whose inch reading is clear of a half (2, 3, 5, 7, 8 cm; about 1,
+  # 1, 2, 3, 3 in): the inches are always "about". The pad tells the inches and asks the
+  # centimeters on a ruler picture from 0 (5, 7, 8 cm, so the inches are never 1).
+  - id: MEA.09.t1
+    skillId: MEA.09
+    format: measure-length
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: two-units
+      unit: cm
+      altUnit: in
+      length: { int: [2, 8] }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.MEA.09.t1.prompt
+      hints: [h.two-rulers.start-zero, h.two-rulers.nearest-inch, h.two-rulers.small-more]
+
+  - id: MEA.09.t2
+    skillId: MEA.09
+    format: number-pad
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: two-units
+      unit: cm
+      altUnit: in
+      length: { int: [5, 8] }
+    difficulty: { base: -0.25 }
+    narration:
+      prompt: tp.MEA.09.t2.prompt
+      hints: [h.ruler.start-zero, h.ruler.end-number, h.two-rulers.small-more]
+
   # ---------- K02 slice 4b (#17): MEA.10 how much longer ----------
   # Two lengths on a ruler from 0 (pick, then type), then the two lengths in words only (two-digit
   # lengths: subtract within 100). compare-length how-much-longer waits: its pad overflows

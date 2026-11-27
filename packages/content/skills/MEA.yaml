@@ -49,6 +49,17 @@ skills:
     gateway: false
     representations: [objects, symbols]
 
+  # K02 slice 4c-1 (#17): MEA.09 on two rulers (inches above, centimeters below). As built: the
+  # rulers alone (no laid units, which are MEA.22), and number-pad beside measure-length for V27.
+  - id: MEA.09
+    name: Measure one thing in two units; smaller unit, bigger number
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.MD.A.2] }
+    prerequisites: [MEA.03, MEA.22]
+    gateway: false
+    representations: [ruler]
+
   - id: MEA.10
     name: How much longer? Find the difference in length
     kind: procedure

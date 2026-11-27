@@ -230,6 +230,10 @@ export const meaLength: GeneratorDef = {
       doc: 'shorter ÷ longer of the closest pair (compare, order, indirect, difference); smaller ÷ bigger unit (two-units on compare)',
     },
     misaligned: { weight: 0.5, doc: 'the ends are not lined up (offset > 0)' },
+    'inch.nearHalf': {
+      weight: 0.5,
+      doc: 'centimeters and inches: how near the inch reading is to a half (0 far, 1 at the 0.2 in limit)',
+    },
     'objects.over2': { weight: 0.3, doc: 'objects − 2 (compare-length)' },
     indirect: { weight: 0.5, doc: 'compared through a third object (a string)' },
     'ask.difference': { weight: 0.5, doc: 'how much longer' },
@@ -581,6 +585,13 @@ export const meaLength: GeneratorDef = {
     const whole = wholeUnits(length, precision);
     const value = whole;
     math['length.over10'] = whole > 10 ? 1 : 0;
+    if (mode === 'two-units' && isCmIn(unit, altUnit)) {
+      const exact = length / CM_PER_INCH;
+      const fromHalf = Math.abs(exact - Math.floor(exact) - 0.5);
+      math['inch.nearHalf'] = ratio100(
+        Math.max(0, 1 - (fromHalf - TWO_RULER_HALF_CLEAR) / (0.5 - TWO_RULER_HALF_CLEAR)),
+      );
+    }
     if (mode === 'iterate' || (mode === 'two-units' && !isCmIn(unit, altUnit))) {
       math['units.over5'] = ratio100(Math.max(0, Math.max(length, altLength) - 5) / 5);
     }
@@ -865,7 +876,7 @@ export const meaLength: GeneratorDef = {
             say('gen.mea.length.two-rulers-cm', { n }, { op: 'read-end' }),
             say(
               'gen.mea.length.two-rulers-in',
-              { n, m },
+              { n, m, alt: altUnit },
               { op: 'answer', args: { values: [n, m] } },
             ),
           ];

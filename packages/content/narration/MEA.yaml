@@ -77,3 +77,10 @@ sk.MEA.04.intro:
 tp.MEA.04.t2.prompt:
   text: "A plank is {a} {unit|unit:a} long. {who|name} cuts off {b} {unit|unit:b}. How many {unit|unit:many} long is it now?"
   level: "2"
+# K02 slice 4c-1 (#17): MEA.09.
+sk.MEA.09.intro:
+  text: "Let's measure one thing two ways: in inches and in centimeters!"
+tp.MEA.09.t1.prompt:
+  text: "Read both rulers. How many centimeters long is it? About how many inches?"
+tp.MEA.09.t2.prompt:
+  text: "It is about {inches} {altUnit|unit:inches} long. How many centimeters long is it? Use the ruler."

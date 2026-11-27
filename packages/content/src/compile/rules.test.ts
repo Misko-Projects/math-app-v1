@@ -204,6 +204,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.03',
       'MEA.04',
       'MEA.07',
+      'MEA.09',
       'MEA.10',
       'MEA.15',
       'MEA.16',
@@ -1951,8 +1952,8 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // skills, 13 templates, MC.first-step-only and MC.dollar-as-one; grade 2 patterns and puzzles
       // (K02 slice 4e) added 7 skills, 19 templates, MC.grow-as-repeat, MC.cage-repeat-digit,
       // MC.digit-order-reversed and MC.way-counted-twice.
-      skills: 200,
-      templates: 728,
+      skills: 201,
+      templates: 730,
       misconceptions: 52,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

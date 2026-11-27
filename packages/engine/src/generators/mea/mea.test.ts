@@ -863,3 +863,67 @@ describe('MC.ruler-count-ticks and MC.ruler-read-end (rulerReading, K02 MEA.03)'
     expect(rulerReadEnd.applies?.(iterate)).toBe(false);
   });
 });
+
+// K02 slice 4c-1 (MEA.09): one plank in centimeters and inches. Fixed template ids (the shared
+// counter above numbers other tests' templates).
+describe('mea.length two-units in centimeters and inches (MEA.09)', () => {
+  const ml: ItemTemplate = {
+    id: 'T.mea09.measure-length',
+    ...tplShape('mea.length', 'measure-length'),
+  };
+  const pad: ItemTemplate = { id: 'T.mea09.number-pad', ...tplShape('mea.length', 'number-pad') };
+  const params = (length: number): ParamValues => ({
+    mode: 'two-units',
+    ask: 'longer',
+    unit: 'cm',
+    altUnit: 'in',
+    length,
+  });
+  const accepted = (t: ItemTemplate) =>
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((n) => {
+      const p = params(n);
+      return registry
+        .get('mea.length')
+        ?.accepts?.({ ...p, ...registry.get('mea.length')?.derive?.(p) }, t);
+    });
+
+  it('draws only whole centimeters under 10 whose inch reading is 0.2 in or more from a half', () => {
+    expect(accepted(ml)).toEqual([2, 3, 5, 7, 8]);
+    expect(accepted(pad)).toEqual([2, 3, 5, 7, 8]);
+    for (const n of accepted(ml)) {
+      const inches = n / 2.54;
+      expect(Math.abs(inches - Math.floor(inches) - 0.5)).toBeGreaterThanOrEqual(0.2);
+      expect(Number.isInteger(inches)).toBe(false);
+    }
+  });
+
+  it('measure-length: two rulers, answer [cm, nearest inch]; the solution reads both', () => {
+    const item = generateItemFromParams(ml, params(8));
+    expect(item.widget).toMatchObject({
+      tool: 'ruler',
+      unit: 'cm',
+      altUnit: 'in',
+      mode: 'two-units',
+    });
+    expect(item.answer).toEqual({ kind: 'numbers', values: [8, 3], ordered: true });
+    expect(checkResponse(item, itemExampleCorrect(item, ml)).correct).toBe(true);
+    const steps = itemSolution(item, ml);
+    expect(steps.map((s) => s.action?.op)).toEqual(['align-zero', 'read-end', 'answer']);
+    const r = replaySteps(item, steps);
+    if (r) expect(checkResponse(item, r).correct).toBe(true);
+    expect(biggerUnitMore.match(item, { kind: 'numbers', values: [3, 8] })).toBe(true);
+  });
+
+  it('number-pad: a centimeter ruler picture from 0, the centimeters asked, the inches told', () => {
+    const item = generateItemFromParams(pad, params(7));
+    expect(item.answer).toEqual({ kind: 'number', value: 7 });
+    expect(item.params.altLength).toBe(3);
+    expect(item.widget).toMatchObject({
+      format: 'number-pad',
+      unit: 'cm',
+      stimulus: { kind: 'number-line', min: 0, max: 8, marks: [{ at: 0 }, { at: 7, arrow: true }] },
+    });
+    expect(biggerUnitMore.match(item, { kind: 'number', value: 3 })).toBe(true);
+    expect(biggerUnitMore.match(item, { kind: 'number', value: 7 })).toBe(false);
+  });
+});

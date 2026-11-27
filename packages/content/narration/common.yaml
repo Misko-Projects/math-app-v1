@@ -1412,6 +1412,18 @@ gen.mea.length.lay-first:
   text: "Start right at the end. {n}."
 gen.mea.length.lay-next:
   text: "No gap. {n}."
+gen.mea.length.two-rulers-zero:
+  text: "Both rulers start at 0, right where it starts."
+  level: "2"
+gen.mea.length.two-rulers-cm:
+  text: "On the centimeter ruler, it ends at {n}."
+  level: "2"
+gen.mea.length.two-rulers-in:
+  text: "On the inch ruler, it ends closest to {m}. It is {n} centimeters, and about {m} {alt|unit:m}."
+  level: "2"
+gen.mea.length.two-rulers-more:
+  text: "It is {n} centimeters: more centimeters than inches, because centimeters are smaller."
+  level: "2"
 gen.mea.length.units-long:
   text: "It is {n} {unit|unit:n} long."
 gen.mea.length.use-unit:
@@ -2885,6 +2897,15 @@ gen.money.coins.compare-amounts:
 # No hint names a number: each is true for every item its templates draw. h.ruler.start-zero and
 # h.ruler.end-number go only on rulers from 0; h.ruler.not-zero and h.ruler.take-start only on
 # objects that start at 1 or more.
+h.two-rulers.start-zero:
+  text: "Both rulers start at 0, right where it starts."
+  level: "2"
+h.two-rulers.nearest-inch:
+  text: "On the inch ruler, it ends between two numbers. Which one is it closer to?"
+  level: "2"
+h.two-rulers.small-more:
+  text: "Centimeters are small, so it takes more of them than inches."
+  level: "2"
 h.ruler.start-zero:
   text: "One end is at 0, so the number at the other end tells how long."
   level: "2"

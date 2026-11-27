@@ -2018,3 +2018,72 @@ describe.each(FIT_VIEWPORTS)('DAT.03 line plots fit at %s (#17 slice 4c-1)', (vi
     expect(failing).toEqual([]);
   });
 });
+
+// K02 slice 4c-1 (#17): MEA.09 two rulers. Every length the template draws (2, 3, 5, 7, 8 cm) at
+// both viewports, first render and with both boxes typed: it fits, every centimeter (0–10) and
+// every inch (0–4) keeps its numeral, 12+ px apart. The pad item on seeds 1–9.
+describe.each(FIT_VIEWPORTS)('MEA.09 two rulers fit at %s (#17 slice 4c-1)', (viewport) => {
+  const [width, height] = viewport.split('x').map(Number) as [number, number];
+  const labelIssues = (scope: string, last: number): string[] => {
+    const nums = [...document.querySelectorAll(`${scope} .ni-ruler__numeral`)];
+    const out: string[] = [];
+    if (
+      nums.map((n) => n.textContent).join(',') !==
+      Array.from({ length: last + 1 }, (_, i) => i).join(',')
+    )
+      out.push(`${scope} labels ${nums.map((n) => n.textContent).join(',')}`);
+    const boxes = nums.map((n) => n.getBoundingClientRect());
+    for (let i = 1; i < boxes.length; i += 1) {
+      const gap = (boxes[i] as DOMRect).left - (boxes[i - 1] as DOMRect).right;
+      if (gap < 12) out.push(`${scope} numerals ${i - 1}/${i} ${gap.toFixed(1)} px apart`);
+    }
+    return out;
+  };
+
+  it('MEA.09.t1: every drawn length, before and after typing', async () => {
+    await page.viewport(width, height);
+    const id = 'MEA.09.t1';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const failing: string[] = [];
+    for (const length of [2, 3, 5, 7, 8]) {
+      const item = engine.generateItemFromParams(template, {
+        mode: 'two-units',
+        ask: 'longer',
+        unit: 'cm',
+        altUnit: 'in',
+        length,
+      });
+      show(item, ageModeOf(template));
+      const first = [
+        ...(await measure(id)),
+        ...labelIssues('.ni-mlen__ruler', 10),
+        ...labelIssues('.ni-mlen__inch-ruler', 4),
+      ];
+      if (first.length > 0) failing.push(`${length} cm first: ${first.join('; ')}`);
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-${length}cm-${viewport}.png` });
+      const answer = item.answer.kind === 'numbers' ? item.answer.values : [];
+      for (const [box, v] of answer.entries()) {
+        await userEvent.click(document.querySelector(`button[data-box="${box}"]`) as Element);
+        for (const d of String(v))
+          await userEvent.click(document.querySelector(`.ni-pad__key[data-key="${d}"]`) as Element);
+      }
+      const typed = await measure(id);
+      if (typed.length > 0) failing.push(`${length} cm typed: ${typed.join('; ')}`);
+    }
+    expect(failing).toEqual([]);
+  });
+
+  it('MEA.09.t2: the pad item fits on seeds 1–9', async () => {
+    await page.viewport(width, height);
+    const id = 'MEA.09.t2';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const failing: string[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      show(engine.generateItem(template, seed), ageModeOf(template));
+      const misfit = await measure(id);
+      if (misfit.length > 0) failing.push(`seed ${seed}: ${misfit.join('; ')}`);
+    }
+    expect(failing).toEqual([]);
+  });
+});
