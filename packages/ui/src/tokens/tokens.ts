@@ -101,7 +101,7 @@ export type PaletteColor = keyof typeof PALETTE;
 
 /**
  * The pre-felt palette. Sprites, scenes and characters are still drawn for it, so theme.css pins
- * these values on their SVG roots (`.ni-art`, `.ni-sprite`) until each is redrawn in felt.
+ * these values on their SVG roots (`.ni-art`, `.ni-sprite`, `.ni-coin-art`) until each is redrawn in felt.
  */
 export const LEGACY_ART_PALETTE = {
   sea: '#2a9d8f',
@@ -160,6 +160,17 @@ export const SUNSET_PALETTE = {
   'leaf-light': '#79a65f',
   'leaf-deep': '#3e6b36',
 } as const satisfies Partial<Record<PaletteColor, string>>;
+
+/**
+ * The hex value an art piece (sprite, scene, character, coin) is drawn in: the legacy art palette
+ * pinned on its root, under the given lighting. Art contrast checks use this, not PALETTE.
+ */
+export function artColor(color: PaletteColor, lighting: Lighting = 'day'): string {
+  if (lighting === 'sunset' && color in SUNSET_PALETTE) {
+    return SUNSET_PALETTE[color as keyof typeof SUNSET_PALETTE];
+  }
+  return LEGACY_ART_PALETTE[color];
+}
 
 /** The hex value of a palette colour under the given lighting. */
 export function litColor(color: PaletteColor, lighting: Lighting = 'day'): string {

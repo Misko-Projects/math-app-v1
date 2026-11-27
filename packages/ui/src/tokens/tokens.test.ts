@@ -24,7 +24,7 @@ const css = readFileSync(fileURLToPath(new URL('./theme.css', import.meta.url)),
 
 /** The sunset remap applies to a lit scene and to art and sprites inside one (their legacy pin). */
 const SUNSET_SELECTOR =
-  '[data-lighting="sunset"],\n[data-lighting="sunset"] :is(.ni-art, .ni-sprite)';
+  '[data-lighting="sunset"],\n[data-lighting="sunset"] :is(.ni-art, .ni-sprite, .ni-coin-art)';
 
 /** The value of `--name` inside the first block whose selector matches `selector`. */
 function cssVar(name: string, selector = ':root'): string | undefined {
@@ -66,7 +66,7 @@ describe('design tokens', () => {
 
   it('pins the legacy palette on art and sprite roots until they are redrawn in felt', () => {
     for (const [name, hex] of Object.entries(LEGACY_ART_PALETTE)) {
-      expect(cssVar(`color-${name}`, '.ni-art,\n.ni-sprite'), name).toBe(hex);
+      expect(cssVar(`color-${name}`, '.ni-art,\n.ni-sprite,\n.ni-coin-art'), name).toBe(hex);
     }
     expect(Object.keys(LEGACY_ART_PALETTE).sort()).toEqual(Object.keys(PALETTE).sort());
   });

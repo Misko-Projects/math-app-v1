@@ -273,7 +273,8 @@
  * change recolours controls and widgets, not pictures. Mirrored as LEGACY_ART_PALETTE in tokens.ts.
  */
 .ni-art,
-.ni-sprite {
+.ni-sprite,
+.ni-coin-art {
   --color-sea: #2a9d8f;
   --color-sea-deep: #1f7a8c;
   --color-sea-dark: #17606e;
@@ -314,7 +315,7 @@
  * tokens.ts.
  */
 [data-lighting="sunset"],
-[data-lighting="sunset"] :is(.ni-art, .ni-sprite) {
+[data-lighting="sunset"] :is(.ni-art, .ni-sprite, .ni-coin-art) {
   --color-sky: #f3b98f;
   --color-sky-light: #fbdcbc;
   --color-horizon: #f8cd9c;
