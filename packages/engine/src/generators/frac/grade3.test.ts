@@ -12,7 +12,8 @@ import {
 } from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../../content/binding';
-import { checkResponse } from '../../items/check';
+import { checkResponse, retryFeedback } from '../../items/check';
+
 import { generateItemFromParams } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { fractionBiggerDenominator } from '../../misconceptions/rules/fractionBiggerDenominator';
@@ -319,6 +320,19 @@ describe('frac.compare with symbols (FRA.06, FRA.13)', () => {
     refused(pictures, { kind: 'sameDen', den: 4, num: 4, num2: 1 });
     refused(pictures, { kind: 'sameNum', num: 4, den: 6, den2: 8 });
     refused(pictures, { kind: 'sameDen', den: 8, num: 1, num2: 2, num3: 3 });
+  });
+
+  it('a wrong order says a line true for its cards (PR #139 review)', () => {
+    const den = tpl('frac.compare', 'order', { representation: 'fraction-strip' });
+    const num = tpl('frac.compare', 'order', { representation: 'fraction-strip' });
+    resetContent();
+    initContent({ templates: [den, num], narration: {}, misconceptions: [] });
+    // Same denominator: the pieces are one size, so not "find the biggest pieces".
+    const a = build(den, { kind: 'sameDen', symbols: true, shape: 'bar', den: 8, num: 1, num2: 7 });
+    expect(retryFeedback(a)).toBe('fb.order.retry-desc');
+    // Same numerator: the biggest pieces make the biggest fraction.
+    const b = build(num, { kind: 'sameNum', symbols: true, shape: 'bar', num: 2, den: 3, den2: 8 });
+    expect(retryFeedback(b)).toBe('fb.order.retry-pieces');
   });
 
   it('K01 items are unchanged: no symbols, one part each, counts on the symbols tier', () => {

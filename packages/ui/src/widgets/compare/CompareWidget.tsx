@@ -1123,11 +1123,13 @@ export function CompareWidget({
       const f = `${frac.a}/${frac.b}`;
       return { name: fractionWords(t, frac.a, frac.b), speak: () => say('ui.frac.value', { f }) };
     }
+    // A picture side gains an accessible name only: a tap stays silent, as it was (FRA.08),
+    // so a sighted child's tap never hears the counts read out (PR #139 review).
     if (spec.kind === 'fraction' && spec.equalParts) {
       const key = `ui.frac.picture-shaded-${spec.shape}`;
-      const vars = { n: spec.parts, s: spec.shaded };
-      return { name: t(key, vars), speak: () => say(key, vars) };
+      return { name: t(key, { n: spec.parts, s: spec.shaded }), speak: () => {} };
     }
+
     if (spec.kind === 'number-line') {
       const labels = (spec.marks ?? []).filter((m) => m.label !== undefined);
       const v = labels.length === 1 ? Number(labels[0]?.label) : Number.NaN;

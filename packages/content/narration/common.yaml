@@ -2899,7 +2899,9 @@ h.frac.same-bottom:
   text: "The bottom numbers are the same, so the parts are the same size. Look at the top numbers."
   level: "3"
 h.frac.sign-open:
-  text: "The open side of the sign faces the bigger one."
+  # Equal draws answer =: the line holds for them too (PR #139 review).
+  text: "Equal? Use =. If not, the open side of the sign faces the bigger one."
+
   level: "3"
 h.frac.most-filled:
   text: "The strip with the most shaded parts is the biggest."

@@ -2132,7 +2132,10 @@ export const FractionSymbols: Story = {
 export const FractionStripsSameWhole: Story = {
   render: inArea('landscapeMin'),
   args: { config: g3Strips as WidgetConfig, tier: 'pictorial' },
-  play: async ({ canvasElement }) => {
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
     await expectFractionPictures(root);
     const svgs = [...root.querySelectorAll<SVGElement>('.ni-fraction svg')].map((s) =>
@@ -2148,5 +2151,8 @@ export const FractionStripsSameWhole: Story = {
     await expect(labels[0]).toContain('A strip in 3 equal parts, 2 of them shaded');
     await expect(labels[1]).toContain('A strip in 8 equal parts, 2 of them shaded');
     for (const l of labels) await expect(l).not.toMatch(/third|eighth/);
+    // A tap picks the side and stays silent, as FRA.08's taps were (PR #139 review).
+    await userEvent.click(root.querySelector('[data-id="left"]') as HTMLElement);
+    await expect(audio.say).not.toHaveBeenCalled();
   },
 };
