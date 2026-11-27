@@ -600,6 +600,10 @@ export const BehindConcrete: Story = {
     await expect(getComputedStyle(front).clipPath, 'the crate drawn whole over the fish').toBe(
       'none',
     );
+    // No grey oval under the concrete crate (Felt & Stitch: the lift, never a shadow shape).
+    for (const shadow of root.querySelectorAll('.ni-scomp__shadow')) {
+      await expect(getComputedStyle(shadow).display, 'no oval under a thing').toBe('none');
+    }
     const c = crate.getBoundingClientRect();
     const fr = front.getBoundingClientRect();
     for (const k of ['left', 'top', 'right', 'bottom'] as const) {

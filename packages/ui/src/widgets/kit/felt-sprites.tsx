@@ -443,7 +443,9 @@ const crab: FeltDraw = ({ c, grain, variant }) => (
     <circle cx={10} cy={-8} r={7.4} fill="#F6EEDB" stroke={c.edge} strokeWidth={1.4} />
     <Bead cx={-9.4} cy={-7.4} r={4.4} />
     <Bead cx={10.6} cy={-7.4} r={4.4} />
-    <g className="ni-felt-md" data-face={variant % CRAB_FACES}>
+    {/* 32-47 px: every crab the same smile; from 48 px its own face (identity, not place). */}
+    <g className="ni-felt-md ni-felt-sm">{crabFace(0, c)}</g>
+    <g className="ni-felt-lg" data-face={variant % CRAB_FACES}>
       {crabFace(variant, c)}
     </g>
   </g>

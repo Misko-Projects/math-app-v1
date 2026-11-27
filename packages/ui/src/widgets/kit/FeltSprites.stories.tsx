@@ -256,7 +256,7 @@ export const CountersColourVision: Story = {
 export const CrabFaces: Story = {
   render: () => (
     <div style={{ ...MAT, display: 'grid', gap: 10 }}>
-      {[24, 72].map((px) => (
+      {[24, 40, 72].map((px) => (
         <Row key={px} label={`${px} px`}>
           {Array.from({ length: CRAB_FACES }, (_, v) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: one cell per face
@@ -266,6 +266,19 @@ export const CrabFaces: Story = {
       ))}
     </div>
   ),
+  play: async ({ canvasElement }) => {
+    // Faces are a 48 px detail: under it every crab wears the same face (identity never shows).
+    const shown = (px: number, sel: string) =>
+      [...canvasElement.querySelectorAll(`[data-px="${px}"] .ni-sprite ${sel}`)].filter(
+        (el) => getComputedStyle(el).display !== 'none',
+      ).length;
+    await expect(shown(40, '[data-face]')).toBe(0);
+    await expect(shown(24, '[data-face]')).toBe(0);
+    await expect(shown(72, '[data-face]')).toBe(CRAB_FACES);
+    // 32-47 px: the one shared smile (and the stitch) shows; from 48 px it gives way to the face.
+    await expect(shown(40, '.ni-felt-md.ni-felt-sm')).toBe(CRAB_FACES);
+    await expect(shown(72, '.ni-felt-md.ni-felt-sm')).toBe(0);
+  },
 };
 
 /**
@@ -293,5 +306,33 @@ export const NoContainerQueries: Story = {
       await expect(svg.querySelectorAll('[data-felt-piece]').length).toBeGreaterThan(0);
     }
     await expect(canvasElement.querySelector('[data-mark="ring"]')).not.toBeNull();
+    // The real fallback is the base rules, outside every @container block: tiers hidden, the
+    // small tier shown and a 3 px edge. Read them from the stylesheet itself, so this story cannot
+    // stay green on its own .ni-felt-nocq copy if a base rule changes.
+    const base = new Map<string, CSSStyleDeclaration>();
+    for (const sheet of document.styleSheets) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of rules) {
+        if (rule instanceof CSSStyleRule && rule.selectorText.includes('.ni-sprite .ni-felt')) {
+          base.set(rule.selectorText, rule.style);
+        }
+      }
+    }
+    const tiers = [...base.entries()].find(
+      ([sel]) => sel.includes('.ni-felt-md') && sel.includes('.ni-felt-lg'),
+    );
+    await expect(tiers?.[1].display).toBe('none');
+    await expect(base.get('.ni-sprite .ni-felt-edge')?.strokeWidth).toBe('3px');
+    // Nothing outside @container shows a detail tier or hides the small one.
+    for (const [sel, style] of base) {
+      if (sel.startsWith('.ni-felt-nocq')) continue;
+      if (sel.includes('.ni-felt-sm')) await expect(style.display, sel).not.toBe('none');
+      if (/\.ni-felt-(md|lg)/.test(sel)) await expect(style.display, sel).not.toBe('inline');
+    }
   },
 };

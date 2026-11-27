@@ -144,7 +144,7 @@
 .ni-felt-nocq .ni-sprite .ni-felt-lg {
   display: none;
 }
-.ni-felt-nocq .ni-sprite .ni-felt-sm {
+.ni-felt-nocq .ni-sprite .ni-felt-sm:not(.ni-felt-md) {
   display: inline;
 }
 .ni-felt-nocq .ni-sprite .ni-felt-edge {

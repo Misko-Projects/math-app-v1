@@ -688,6 +688,17 @@ async function expectTenToken(root: HTMLElement) {
     await expect(d.right, 'the tag covers no counter').toBeLessThanOrEqual(t.left + 0.5);
   }
   await expect(t.right).toBeLessThanOrEqual(box.right);
+  // Neighbouring counters never touch: a clear gap along each row and between the two rows.
+  for (let i = 0; i < 10; i += 1) {
+    const d = discs[i] as DOMRect;
+    const right = discs[i + 1];
+    if (i % 5 !== 4 && right) {
+      await expect(right.left - d.right, 'gap to the next counter').toBeGreaterThanOrEqual(2);
+    }
+    const below = discs[i + 5];
+    if (below)
+      await expect(below.top - d.bottom, 'gap to the counter below').toBeGreaterThanOrEqual(2);
+  }
   const frame = (root.querySelector('.ni-tf__frame') as HTMLElement).getBoundingClientRect();
   // The token keeps its frame's place: above the frame in front (frame 1) or below it (frame 2).
   const gap = Math.max(box.top - frame.bottom, frame.top - box.bottom);
