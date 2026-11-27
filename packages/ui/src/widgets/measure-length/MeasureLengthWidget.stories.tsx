@@ -1416,3 +1416,57 @@ export const TwoRulersTablet: Story = {
   render: inArea('tablet'),
   play: twoRulersPlay,
 };
+
+/** MEA.08: an estimate, the object and one unit at one scale, three options a factor apart. */
+const estimate = (unit: 'in' | 'cm' | 'ft' | 'm', length: number): Config => ({
+  ...base,
+  object: { sprite: 'rope', length },
+  unit,
+  mode: 'estimate',
+  input: 'pick',
+  options: [Math.max(1, Math.round(length / 3)), length, 3 * length],
+});
+
+/**
+ * The object is exactly `length` units of the reference's width (one scale), no ruler or tick
+ * is drawn, the picture names the object and the unit and no number, and the options fit.
+ */
+function estimatePlay(length: number, name: string) {
+  return async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const object = (root.querySelector('.ni-mlen__object') as HTMLElement).getBoundingClientRect();
+    const ref = (
+      root.querySelector('.ni-mlen__reference .ni-unit') as SVGElement
+    ).getBoundingClientRect();
+    await expect(Math.abs(object.width - length * ref.width)).toBeLessThan(1.5);
+    await expect(ref.width).toBeGreaterThanOrEqual(22);
+    await expect(root.querySelectorAll('.ni-ruler, .ni-ruler__tick')).toHaveLength(0);
+    await expect(within(root).getByRole('img')).toHaveAccessibleName(name);
+    const options = [...root.querySelectorAll<HTMLElement>('.ni-mlen__options .ni-pick')];
+    await expect(options).toHaveLength(3);
+    await expectFitsArea(areaBox(canvasElement), [
+      ...options,
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    for (const o of options) await expectTargetSize(o, 'g1-up');
+    await expectTargetGaps(options);
+  };
+}
+
+export const EstimateFeetLandscapeMin: Story = {
+  args: { config: estimate('ft', 8), tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: estimatePlay(8, 'A rope, and one foot under it to compare'),
+};
+
+export const EstimateCentimetersTablet: Story = {
+  args: { config: estimate('cm', 12), tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: estimatePlay(12, 'A rope, and one centimeter under it to compare'),
+};
+
+export const EstimateCentimetersLandscapeMin: Story = {
+  args: { config: estimate('cm', 12), tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: estimatePlay(12, 'A rope, and one centimeter under it to compare'),
+};

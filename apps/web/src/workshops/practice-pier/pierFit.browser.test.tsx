@@ -2087,3 +2087,40 @@ describe.each(FIT_VIEWPORTS)('MEA.09 two rulers fit at %s (#17 slice 4c-1)', (vi
     expect(failing).toEqual([]);
   });
 });
+
+// K02 slice 4c-1 (#17): MEA.08. The sorts and the estimates on seeds 1–9 at both viewports; an
+// estimate draws the object exactly `length` units of the reference's width (one scale), with
+// no ruler, and the reference at least 22 px.
+describe.each(FIT_VIEWPORTS)(
+  'MEA.08 estimates and unit sorts fit at %s (#17 slice 4c-1)',
+  (viewport) => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    it('MEA.08.t1–t4 on seeds 1–9', async () => {
+      await page.viewport(width, height);
+      const failing: string[] = [];
+      for (const id of ['MEA.08.t1', 'MEA.08.t2', 'MEA.08.t3', 'MEA.08.t4']) {
+        const template = content.store.graph.templates[id] as ItemTemplate;
+        for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+          const item = engine.generateItem(template, seed);
+          show(item, ageModeOf(template));
+          const misfit = await measure(id);
+          if (item.widget.format === 'measure-length') {
+            const obj = document.querySelector('.ni-mlen__object')?.getBoundingClientRect();
+            const ref = document
+              .querySelector('.ni-mlen__reference .ni-unit')
+              ?.getBoundingClientRect();
+            const length = item.widget.object.length;
+            if (!obj || !ref || Math.abs(obj.width - length * ref.width) > 1.5)
+              misfit.push(`object ${obj?.width} is not ${length} × ${ref?.width}`);
+            if ((ref?.width ?? 0) < 22) misfit.push(`reference ${ref?.width} px`);
+            if (document.querySelector('.ni-mlen .ni-ruler')) misfit.push('a ruler is drawn');
+          }
+          if (misfit.length > 0) failing.push(`${id} seed ${seed}: ${misfit.join('; ')}`);
+          if (SHOTS.includes(id) && seed <= 2)
+            await page.screenshot({ path: `__fit__/${id}-s${seed}-${viewport}.png` });
+        }
+      }
+      expect(failing).toEqual([]);
+    });
+  },
+);
