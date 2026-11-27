@@ -1412,6 +1412,21 @@ gen.mea.length.lay-first:
   text: "Start right at the end. {n}."
 gen.mea.length.lay-next:
   text: "No gap. {n}."
+gen.mea.length.estimate-unit:
+  text: "Picture the 1 {unit|unit:one} piece put down along it, again and again."
+  level: "2"
+gen.mea.length.estimate-about:
+  text: "It is about {n} {unit|unit:n} long."
+  level: "2"
+gen.mea.length.sort-look:
+  text: "Think how big each thing is."
+  level: "2"
+gen.mea.length.sort-inches:
+  text: "This one is small. Measure it in inches."
+  level: "2"
+gen.mea.length.sort-feet:
+  text: "This one is big. Measure it in feet."
+  level: "2"
 gen.mea.length.two-rulers-zero:
   text: "Both rulers start at 0, right where it starts."
   level: "2"
@@ -2897,6 +2912,24 @@ gen.money.coins.compare-amounts:
 # No hint names a number: each is true for every item its templates draw. h.ruler.start-zero and
 # h.ruler.end-number go only on rulers from 0; h.ruler.not-zero and h.ruler.take-start only on
 # objects that start at 1 or more.
+h.unit-sort.small-inches:
+  text: "Small things, like a shoe, are measured in inches."
+  level: "2"
+h.unit-sort.big-feet:
+  text: "Big things, like a door, are measured in feet."
+  level: "2"
+h.unit-sort.compare-you:
+  text: "Is it about as long as a shoe, or shorter? Use inches. As big as you or bigger: use feet."
+  level: "2"
+h.estimate.picture-unit:
+  text: "Picture the 1 {unit|unit:one} piece put down along it, again and again."
+  level: "2"
+h.estimate.check-unit:
+  text: "Each number counts the piece under it. Look at how big that piece is."
+  level: "2"
+h.estimate.few-or-many:
+  text: "Would it take a small number of pieces, or a big number? Pick the closest one."
+  level: "2"
 h.two-rulers.start-zero:
   text: "Both rulers start at 0, right where it starts."
   level: "2"

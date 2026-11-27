@@ -293,3 +293,21 @@
   font-size: 28px;
   color: var(--color-ink);
 }
+
+/* MEA.08: the object above one unit at the same scale, its label beside it. */
+.ni-mlen__stage--estimate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+.ni-mlen__reference {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ni-mlen__reference-label {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--color-ink);
+}

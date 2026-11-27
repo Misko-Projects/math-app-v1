@@ -49,6 +49,18 @@ skills:
     gateway: false
     representations: [objects, symbols]
 
+  # K02 slice 4c-1 (#17): MEA.08 estimates with one unit drawn beside the object (no ruler) and
+  # sorts everyday things by the unit to measure them in (shape-sort, added for V27). As built:
+  # no numeral-pick template (the estimate pick is measure-length's).
+  - id: MEA.08
+    name: Estimate lengths in inches, feet, centimeters and meters
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.MD.A.3] }
+    prerequisites: [MEA.03]
+    gateway: false
+    representations: [objects, units]
+
   # K02 slice 4c-1 (#17): MEA.09 on two rulers (inches above, centimeters below). As built: the
   # rulers alone (no laid units, which are MEA.22), and number-pad beside measure-length for V27.
   - id: MEA.09

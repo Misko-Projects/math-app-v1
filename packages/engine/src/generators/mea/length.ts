@@ -21,6 +21,13 @@
 //               number-pad tells the inches ("about") and asks the centimeters on a ruler
 //               picture from 0                                                           MEA.09
 // - read        read a ruler (measure-length, number-pad, numeral-pick)                 MEA.03
+// - estimate    K02 slice 4c-1: about how long? The object beside one unit drawn to the same scale
+//               (a 1-inch tile, a 1-centimeter cube, a 1-foot or 1-meter bar), no ruler; three
+//               options a factor of about 3 apart: round(length / 3), length, 3 × length
+//               (measure-length, pick)                                                    MEA.08
+// - unit-sort   K02 slice 4c-1: sort everyday things by the unit to measure them in, inches or
+//               feet (shape-sort; things a child knows the size of: INCH_THINGS, FOOT_THINGS)
+//                                                                                         MEA.08
 //
 // Every object length is a param (`length`, and the derived `length2`…`length4` drawn from the
 // same domain), so the item key and every feature follow from the params alone (03 §5.3).
@@ -31,6 +38,7 @@ import type {
   ParamValue,
   ParamValues,
   ResponseValue,
+  SortRule,
   StimulusSpec,
   WidgetConfigOf,
 } from '@number-island/shared';
@@ -59,6 +67,8 @@ export const LENGTH_MODES = [
   'iterate',
   'two-units',
   'read',
+  'estimate',
+  'unit-sort',
 ] as const;
 export type LengthMode = (typeof LENGTH_MODES)[number];
 const ASKS = ['longer', 'shorter', 'more', 'fewer'] as const;
@@ -86,7 +96,8 @@ const FORMAT_MODES: Record<string, readonly LengthMode[]> = {
   'compare-length': ['compare', 'order', 'indirect', 'difference'],
   compare: ['compare', 'two-units'],
   order: ['order'],
-  'measure-length': ['iterate', 'two-units', 'read'],
+  'measure-length': ['iterate', 'two-units', 'read', 'estimate'],
+  'shape-sort': ['unit-sort'],
   'number-pad': ['iterate', 'read', 'difference', 'two-units'],
   'numeral-pick': ['iterate', 'read', 'difference'],
 };
@@ -94,6 +105,15 @@ const FORMAT_MODES: Record<string, readonly LengthMode[]> = {
 const OBJECT_MODES = new Set<LengthMode>(['compare', 'order', 'indirect', 'difference']);
 const PRECISIONS = [1, 2, 4];
 const SIXTEENTHS = 16;
+
+/** Things measured in inches, and in feet (MEA.08 unit-sort): sizes a second-grader knows. */
+export const INCH_THINGS = ['pencil', 'shoe', 'spoon', 'cup', 'button'] as const;
+export const FOOT_THINGS = ['door', 'table', 'fishing-rod'] as const;
+
+/** The three estimate options: about a third, the length, three times (MEA.08). */
+export function estimateOptions(length: number): number[] {
+  return [Math.max(1, Math.round(length / 3)), length, 3 * length];
+}
 
 /** Centimeters and inches on rulers (MEA.09): the inches to the nearest inch. */
 const isCmIn = (unit: string, alt: string): boolean => unit === 'cm' && alt === 'in';
@@ -170,7 +190,15 @@ function isAsk(v: ParamValue | undefined): v is (typeof ASKS)[number] {
 
 export const meaLength: GeneratorDef = {
   id: 'mea.length',
-  formats: ['measure-length', 'compare-length', 'numeral-pick', 'number-pad', 'order', 'compare'],
+  formats: [
+    'measure-length',
+    'compare-length',
+    'numeral-pick',
+    'number-pad',
+    'order',
+    'compare',
+    'shape-sort',
+  ],
   params: {
     mode: {
       type: 'string',
@@ -194,6 +222,16 @@ export const meaLength: GeneratorDef = {
       type: 'int',
       default: { kind: 'const', value: 2 },
       doc: 'how many objects to compare or order (2–4)',
+    },
+    cards: {
+      type: 'int',
+      default: { kind: 'const', value: 4 },
+      doc: 'unit-sort: things to sort (3–6)',
+    },
+    hits: {
+      type: 'int',
+      default: { kind: 'const', value: 2 },
+      doc: 'unit-sort: how many of them are measured in feet (1–3, leaving at least one in inches)',
     },
     same: {
       type: 'bool',
@@ -230,6 +268,11 @@ export const meaLength: GeneratorDef = {
       doc: 'shorter ÷ longer of the closest pair (compare, order, indirect, difference); smaller ÷ bigger unit (two-units on compare)',
     },
     misaligned: { weight: 0.5, doc: 'the ends are not lined up (offset > 0)' },
+    'estimate.long': {
+      weight: 0.5,
+      doc: 'estimate: max(0, length − 2) / 8 (a longer object is more units to picture)',
+    },
+    'unitSort.cards': { weight: 0.3, doc: 'unit-sort: cards − 3' },
     'inch.nearHalf': {
       weight: 0.5,
       doc: 'centimeters and inches: how near the inch reading is to a half (0 far, 1 at the 0.2 in limit)',
@@ -275,6 +318,11 @@ export const meaLength: GeneratorDef = {
     'gen.mea.length.lay-first',
     'gen.mea.length.lay-next',
     'gen.mea.length.units-long',
+    'gen.mea.length.estimate-unit',
+    'gen.mea.length.estimate-about',
+    'gen.mea.length.sort-look',
+    'gen.mea.length.sort-inches',
+    'gen.mea.length.sort-feet',
     'gen.mea.length.two-rulers-zero',
     'gen.mea.length.two-rulers-cm',
     'gen.mea.length.two-rulers-in',
@@ -370,6 +418,23 @@ export const meaLength: GeneratorDef = {
           unitSize(alt) !== undefined &&
           unitSize(unit) !== undefined &&
           asNum(p.altLength) > 0
+        );
+      }
+      case 'estimate':
+        return (
+          t.format === 'measure-length' && STANDARD.has(unit) && length >= 2 && 3 * length <= 99
+        );
+      case 'unit-sort': {
+        const cards = asNum(p.cards, 4);
+        const hits = asNum(p.hits, 2);
+        return (
+          t.format === 'shape-sort' &&
+          cards >= 3 &&
+          cards <= 6 &&
+          hits >= 1 &&
+          hits <= FOOT_THINGS.length &&
+          cards - hits >= 1 &&
+          cards - hits <= INCH_THINGS.length
         );
       }
       case 'read': {
@@ -581,6 +646,76 @@ export const meaLength: GeneratorDef = {
       return finish(meaLength, ctx, p);
     }
 
+    if (mode === 'unit-sort') {
+      const cards = asNum(params.cards, 4);
+      const hits = asNum(params.hits, 2);
+      const draw = rng.fork('cards');
+      const feet = draw.shuffle([...FOOT_THINGS]).slice(0, hits);
+      const inches = draw.shuffle([...INCH_THINGS]).slice(0, cards - hits);
+      const shown = rng
+        .fork('layout')
+        .shuffle([
+          ...feet.map((sprite) => ({ sprite, unit: 'ft' })),
+          ...inches.map((sprite) => ({ sprite, unit: 'in' })),
+        ]);
+      const bins: { id: string; label: string; rule: SortRule }[] = [
+        { id: 'b0', label: 'unit.in.many', rule: { prop: 'unit', op: '==', value: 'in' } },
+        { id: 'b1', label: 'unit.ft.many', rule: { prop: 'unit', op: '==', value: 'ft' } },
+      ];
+      const cardList = shown.map((c, i) => ({
+        id: `c${i}`,
+        sprite: c.sprite,
+        props: { unit: c.unit },
+      }));
+      p = {
+        params,
+        vars,
+        math: { 'unitSort.cards': Math.max(0, cards - 3) },
+        widget: {
+          format: 'shape-sort',
+          cards: cardList.map((c) => ({
+            id: c.id,
+            card: { kind: 'object', sprite: c.sprite, props: c.props },
+          })),
+          bins,
+          mode: 'sort',
+          // A thing's name is what the child sees; the bins ask the unit to measure it in.
+          namesGiven: true,
+        },
+        answer: {
+          kind: 'state',
+          checker: 'sort.byRule',
+          target: {
+            cards: cardList.map((c) => ({ id: c.id, props: c.props })),
+            bins: bins.map((b) => ({ id: b.id, rule: b.rule })),
+          },
+        },
+      };
+      return finish(meaLength, ctx, p);
+    }
+
+    if (mode === 'estimate') {
+      const options = estimateOptions(length);
+      p = {
+        params,
+        vars,
+        math: { 'estimate.long': ratio100(Math.max(0, length - 2) / 8) },
+        widget: {
+          format: 'measure-length',
+          object: { sprite, length },
+          tool: 'units',
+          unit,
+          startOffset: 0,
+          precision: 1,
+          mode: 'estimate',
+          input: 'pick',
+          options,
+        },
+        answer: { kind: 'choice', id: numberOptionId(length) },
+      };
+      return finish(meaLength, ctx, p);
+    }
+
     // Measuring: iterate, two-units, read.
     const whole = wholeUnits(length, precision);
     const value = whole;
@@ -712,6 +847,19 @@ export const meaLength: GeneratorDef = {
   },
   exampleCorrect(out): ResponseValue {
     const a = out.answer;
+    if (a.kind === 'state' && a.checker === 'sort.byRule') {
+      // unit-sort (MEA.08): each card in the bin of its unit.
+      const cards = a.target.cards as { id: string; props: { unit: string } }[];
+      return {
+        kind: 'state',
+        value: {
+          bins: {
+            b0: cards.filter((c) => c.props.unit === 'in').map((c) => c.id),
+            b1: cards.filter((c) => c.props.unit === 'ft').map((c) => c.id),
+          },
+        },
+      };
+    }
     if (a.kind === 'state' && a.checker === 'units.iterate') {
       const length = asNum(a.target.length as ParamValue);
       return {
@@ -845,7 +993,34 @@ export const meaLength: GeneratorDef = {
           return say(key, { n: v }, { op: 'drag', args: { id, slot } });
         });
       }
+      case 'shape-sort': {
+        if (w.bins === null) return [];
+        const steps: LessonStep[] = [say('gen.mea.length.sort-look', {})];
+        for (const card of w.cards) {
+          if (!('sprite' in card.card)) continue;
+          const bin = card.card.props.unit === 'ft' ? 'b1' : 'b0';
+          steps.push(
+            say(
+              bin === 'b1' ? 'gen.mea.length.sort-feet' : 'gen.mea.length.sort-inches',
+              {},
+              { op: 'drag-card', args: { id: card.id, bin } },
+            ),
+          );
+        }
+        return steps;
+      }
       case 'measure-length': {
+        if (w.mode === 'estimate' && a.kind === 'choice') {
+          // Picture the unit along it; the first step says no number.
+          return [
+            say('gen.mea.length.estimate-unit', { unit, one: 1 }),
+            say(
+              'gen.mea.length.estimate-about',
+              { n: w.object.length, unit },
+              { op: 'answer', args: { id: a.id } },
+            ),
+          ];
+        }
         if (w.mode === 'read') {
           const end =
             w.startOffset + (w.precision < 1 ? w.object.length / SIXTEENTHS : w.object.length);

@@ -547,6 +547,9 @@ export function choiceOptions(item: GeneratedItem): string[] {
   if (w.format === 'clock-read' && w.input === 'pick' && w.ampm) return ['am', 'pm'];
   if (w.format === 'clock-read' && w.input === 'pick') return (w.options ?? []).map((o) => o.id);
   if (w.format === 'bar-graph-read') return w.chart.categories.map((c) => c.id);
+  // measure-length estimate or pick (MEA.08): one of its numbers.
+  if (w.format === 'measure-length' && (w.mode === 'estimate' || w.input === 'pick'))
+    return (w.options ?? []).map((n) => `opt-${n}`);
   return [];
 }
 

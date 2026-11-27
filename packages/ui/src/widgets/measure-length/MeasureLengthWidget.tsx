@@ -67,7 +67,8 @@ import './measure-length.css';
  *   it, both from 0 on one px scale and both to 10 cm (every centimeter keeps its numeral at
  *   960 × 600); the child types the centimeters and the inches (each box says its unit). Pictorial
  *   only: both rulers are a fixed picture from 0.
- * - `estimate`: pick an option.
+ * - `estimate` (MEA.08): the object and one unit at the same scale (a tile for inches and
+ *   centimeters, a bar for feet and meters), no ruler; pick an option.
  * Every response comes from the engine model (`formatModel('measure-length')`).
  *
  * Demo ops: `lay-unit {index, unit?}`, `slide-ruler {to}`, `align-zero`, `count-units`,
@@ -714,6 +715,32 @@ export function MeasureLengthWidget({
           </button>
         ) : null}
       </fieldset>
+    );
+  } else if (config.mode === 'estimate') {
+    // MEA.08: the object and one unit drawn to the same scale, no ruler and nothing to count: a
+    // tile (inches, centimeters) or a bar (feet, meters) under the object's start.
+    const estPx = Math.max(8, Math.min(96, Math.floor((trackW - 8) / whole)));
+    const refUnit = config.unit === 'ft' || config.unit === 'm' ? 'stick' : 'cube';
+    picture = (
+      <div
+        className="ni-mlen__stage ni-mlen__stage--estimate"
+        role="img"
+        aria-label={t('ui.mlen.estimate-picture', {
+          thing: name.toLowerCase(),
+          unit: unitName(config.unit, false),
+        })}
+        data-unit-px={estPx}
+      >
+        <div className="ni-mlen__object" style={{ width: whole * estPx }}>
+          <LengthObject sprite={config.object.sprite} width={whole * estPx} height={44} />
+        </div>
+        <div className="ni-mlen__reference">
+          <UnitPiece unit={refUnit} width={estPx} />
+          <span className="ni-mlen__reference-label" aria-hidden="true">
+            {t('ui.mlen.one-unit', { unit: unitName(config.unit, false) })}
+          </span>
+        </div>
+      </div>
     );
   } else {
     const shown = Math.min(slideMax, Math.max(0, rulerDrag ?? state.rulerStart));
