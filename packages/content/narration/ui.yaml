@@ -1980,6 +1980,15 @@ ui.frac.picture-shaded-rect:
 ui.frac.picture-shaded-bar:
   text: "A strip in {n|num} equal parts, {s|num} of them shaded"
   level: "3"
+ui.frac.two-strips:
+  text: "Two strips of the same length, one above the other."
+  level: "3"
+ui.frac.two-strips-top:
+  text: "The top strip is in {n|num} equal parts, {s|num} of them shaded."
+  level: "3"
+ui.frac.two-strips-bottom:
+  text: "The bottom strip is in {n|num} equal parts, {s|num} of them shaded."
+  level: "3"
 ui.frac.picture-shaded-loaf:
   text: "A loaf in {n|num} equal parts, {s|num} of them shaded"
   level: "3"

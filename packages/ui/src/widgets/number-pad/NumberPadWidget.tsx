@@ -1,5 +1,5 @@
 import { formatModel } from '@number-island/engine';
-import type { WidgetAction } from '@number-island/shared';
+import type { ExpressionToken, WidgetAction } from '@number-island/shared';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
@@ -300,10 +300,8 @@ export function NumberPadWidget({
   const expressionInStimulus = stimulus.kind === 'expression';
   const expression = config.expression;
   const blankIdsInText = new Set([
-    ...(expression?.tokens ?? []).flatMap((tok) => (tok.t === 'blank' ? [tok.id] : [])),
-    ...(expressionInStimulus
-      ? stimulus.expr.tokens.flatMap((tok) => (tok.t === 'blank' ? [tok.id] : []))
-      : []),
+    ...tokenBlankIds(expression?.tokens ?? []),
+    ...(expressionInStimulus ? tokenBlankIds(stimulus.expr.tokens) : []),
   ]);
   const looseBlanks = blanks.filter((b) => !blankIdsInText.has(b.id));
   const hasText = Boolean(expression) || looseBlanks.length > 0;
@@ -374,6 +372,21 @@ export function NumberPadWidget({
       {inviteHand}
     </div>
   );
+}
+
+/**
+ * The blank ids an expression draws in its text: `blank` tokens, and a stacked fraction's blank top
+ * or bottom (`frac-<token index>-a` / `-b`, as ExpressionView names them; K02 slice 5c, FRA.05).
+ */
+function tokenBlankIds(tokens: readonly ExpressionToken[]): string[] {
+  return tokens.flatMap((tok, i) => {
+    if (tok.t === 'blank') return [tok.id];
+    if (tok.t !== 'frac') return [];
+    return [
+      ...(tok.a === 'blank' ? [`frac-${i}-a`] : []),
+      ...(tok.b === 'blank' ? [`frac-${i}-b`] : []),
+    ];
+  });
 }
 
 export default NumberPadWidget;

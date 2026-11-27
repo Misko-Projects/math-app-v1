@@ -829,3 +829,11 @@
   font-weight: 800;
   line-height: 40px;
 }
+
+/* Two strips of one whole (K02 slice 5c, FRA.05): stacked on one left edge, 10 px apart. */
+.ni-stimulus--two-strips {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 10px;
+}
