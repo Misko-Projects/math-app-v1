@@ -80,6 +80,6 @@ lessons:
       - { seed: 3117250401, target: easy }
     faded:
       - { seed: 3117250402, target: typical, childSteps: 1 }
-      - { seed: 3117250403, target: typical, childSteps: 2 }
+      - { seed: 3117250403, target: typical, childSteps: 1 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [FRA.04.t3, FRA.04.t4] }

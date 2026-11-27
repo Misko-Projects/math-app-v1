@@ -120,7 +120,7 @@ tp.FRA.04.t1.prompt:
   text: "Put the dot at {f|fracw} on the strip."
   level: "3"
 tp.FRA.04.t2.prompt:
-  text: "Where is the flag on the ruler? Type the top number and the bottom number."
+  text: "Where is the flag on the ruler? Count the equal parts drawn on the ruler for the bottom number."
   level: "3"
 tp.FRA.04.t3.prompt:
   text: "Put the dot at {f|fracw} on the number line."

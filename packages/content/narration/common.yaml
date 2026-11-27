@@ -1981,6 +1981,10 @@ fb.fraction-pick.retry:
   text: "Let's look at the parts again."
 fb.fraction-line.retry:
   text: "Let's look at the parts of the strip again."
+fb.fraction-line.retry-line:
+  text: "Let's look at the parts of the line again."
+fb.fraction-line.retry-ruler:
+  text: "Let's look at the parts of the ruler again."
 fb.mc.fraction-unequal-parts:
   text: "Fair parts are all the same size. Look at each part again."
 fb.mc.fraction-bigger-denominator:

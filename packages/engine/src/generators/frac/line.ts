@@ -270,11 +270,14 @@ export const fracLine: GeneratorDef = {
     const unit = frac(1, den);
     const whole = frac(den, den);
     // Steps before the last name no asked number: the worked-step hint (level 4) plays them.
+    // Placing, only the last step acts: its hops put the dot (a hop moves it), so neither a hint
+    // nor the demo before a faded example's child step places the dot for the child (PR #140
+    // review).
     if (w.format === 'fraction-line' && w.mode === 'place') {
       return [
         say('gen.frac.line.parts', { u: unit }),
-        say('gen.frac.line.hop', {}, { op: 'hop', args: { k: num } }),
-        say('gen.frac.line.here', { f }, { op: 'drop', args: { at: num / den } }),
+        say('gen.frac.line.hop', {}),
+        say('gen.frac.line.here', { f }, { op: 'hop', args: { k: num } }),
       ];
     }
     const answer = { op: 'answer', args: { values: [num, den] } } as const;

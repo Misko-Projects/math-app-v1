@@ -13,7 +13,7 @@ import {
 } from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../../content/binding';
-import { checkResponse } from '../../items/check';
+import { checkResponse, retryFeedback } from '../../items/check';
 import { generateItemFromParams } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import {
@@ -121,6 +121,23 @@ describe('frac.line on fraction-line', () => {
       );
       roundTrip(item);
     }
+  });
+
+  it('placing: only the last solution step acts, so no demo or hint places the dot first (PR #140)', () => {
+    for (const p of draws(line, { mode: 'place', skin: 'strip' })) {
+      const item = build(line, p);
+      const steps = itemSolution(item, owner.get(item));
+      expect(steps.slice(0, -1).every((s) => s.action === undefined)).toBe(true);
+      expect(steps.at(-1)?.action).toEqual({ op: 'hop', args: { k: p.num } });
+    }
+  });
+
+  it('an unexplained wrong answer gets the retry line of what is drawn (PR #140)', () => {
+    const at = (skin: string, mode: string) =>
+      retryFeedback(build(line, { mode, skin, den: 4, num: 3, max: 1 }));
+    expect(at('line', 'place')).toBe('fb.fraction-line.retry-line');
+    expect(at('ruler', 'read')).toBe('fb.fraction-line.retry-ruler');
+    expect(at('strip', 'place')).toBe('fb.fraction-line.retry');
   });
 
   it('refuses what does not fit: eighths or sixths past 1, thirds or fourths to 3, a read strip', () => {
