@@ -339,6 +339,34 @@ const LENGTH_K02: Case[] = [
     },
     lastOp: 'tap',
   },
+  // K02 slice 4c-1 (MEA.08): sort things into inches and feet; estimate beside one unit.
+  {
+    name: 'shape-sort: two feet things and two inch things into inches and feet (MEA.08)',
+    t: k02('shape-sort', 4, { representation: 'objects' }),
+    params: { mode: 'unit-sort', cards: 4, hits: 2 },
+    answer: (item) => {
+      const w = item.widget as { cards: { id: string; card: { props: { unit: string } } }[] };
+      const feet = w.cards.filter((c) => c.card.props.unit === 'ft');
+      expect(feet).toHaveLength(2);
+      return item.answer;
+    },
+    widget: {
+      mode: 'sort',
+      bins: [
+        { id: 'b0', label: 'unit.in.many', rule: { prop: 'unit', op: '==', value: 'in' } },
+        { id: 'b1', label: 'unit.ft.many', rule: { prop: 'unit', op: '==', value: 'ft' } },
+      ],
+    },
+    lastOp: 'drag-card',
+  },
+  {
+    name: 'measure-length: about how many feet, beside one foot; 2, 7 or 21 (MEA.08)',
+    t: k02('measure-length', 5, { representation: 'units' }),
+    params: { mode: 'estimate', unit: 'ft', length: 7 },
+    answer: { kind: 'choice', id: 'opt-7' },
+    widget: { mode: 'estimate', input: 'pick', options: [2, 7, 21] },
+    lastOp: 'answer',
+  },
 ];
 
 describe.each([
