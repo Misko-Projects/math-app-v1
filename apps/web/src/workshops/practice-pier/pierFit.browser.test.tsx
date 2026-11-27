@@ -2220,3 +2220,101 @@ describe.each(FIT_VIEWPORTS)(
     });
   },
 );
+
+// K02 (#17) slice 5a. Grade 3 fractions: the hardest draws and the states a child reaches by
+// acting (a shape cut into eighths with one part filled, a typed name, a wrong answer with its
+// line), at both viewports; `VITE_FIT_SHOTS` captures them for the evidence.
+describe.each(FIT_VIEWPORTS)('grade 3 fraction states fit at %s (#17 slice 5a)', (viewport) => {
+  const [width, height] = viewport.split('x').map(Number) as [number, number];
+  const itemOf = (id: string, params: Record<string, string | number | boolean>) =>
+    engine.generateItemFromParams(content.store.graph.templates[id] as ItemTemplate, params);
+  const shot = async (id: string, state: string) => {
+    if (SHOTS.includes(id))
+      await page.screenshot({ path: `__fit__/${id}-${state}-${viewport}.png` });
+  };
+  const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+  const typeName = async (top: number, bottom: number) => {
+    const tap = async (sel: string, text?: string) => {
+      const el = [...document.querySelectorAll<HTMLElement>(sel)].find(
+        (k) => text === undefined || k.textContent?.trim() === text,
+      );
+      if (!el) throw new Error(`no ${sel} ${text ?? ''}`);
+      await userEvent.click(el);
+    };
+    // The item renders on the next frames.
+    const boxes = () => [...document.querySelectorAll<HTMLElement>('.ni-fentry__box')];
+    for (let k = 0; k < 120 && boxes().length < 2; k += 1) await frame();
+    await userEvent.click(boxes()[0] as HTMLElement);
+    await tap('.ni-fentry__key', String(top));
+    await userEvent.click(boxes()[1] as HTMLElement);
+    await tap('.ni-fentry__key', String(bottom));
+  };
+
+  it('fraction-cut (FRA.03.t1): a rectangle cut into eighths, one part filled', async () => {
+    await page.viewport(width, height);
+    show(itemOf('FRA.03.t1', { mode: 'cut', shape: 'rect', den: 8, num: 1 }), 'g1-up');
+    expect(await measure('FRA.03.t1')).toEqual([]);
+    for (let line = 0; line < 7; line += 1) {
+      document.querySelector<HTMLElement>(`.ni-fcut__knife[data-knife="${line}"]`)?.click();
+      await frame();
+    }
+    const parts = document.querySelectorAll<SVGPathElement>('path.ni-fcut__part');
+    expect(parts.length).toBe(8);
+    parts[0]?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    parts[0]?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    parts[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await frame();
+    expect(await measure('FRA.03.t1')).toEqual([]);
+    await shot('FRA.03.t1', 'eighths-one-filled');
+  });
+
+  it('fraction-pick name (FRA.09.t2): a strip in eighths, 3/8 typed on the pads', async () => {
+    await page.viewport(width, height);
+    show(itemOf('FRA.09.t2', { mode: 'name', shape: 'bar', den: 8, num: 3 }), 'g1-up');
+    await typeName(3, 8);
+    expect([...document.querySelectorAll('.ni-fentry__digits')].map((d) => d.textContent)).toEqual([
+      '3',
+      '8',
+    ]);
+    expect(await measure('FRA.09.t2')).toEqual([]);
+    await shot('FRA.09.t2', 'typed-3-8');
+  });
+
+  it('fraction-pick name (FRA.09.t3): a circle in sixths, half shaded', async () => {
+    await page.viewport(width, height);
+    show(itemOf('FRA.09.t3', { mode: 'name', shape: 'circle', den: 6, num: 3 }), 'g1-up');
+    expect(await measure('FRA.09.t3')).toEqual([]);
+    await shot('FRA.09.t3', 'sixths-half');
+  });
+
+  it.each([
+    ['FRA.06.t1', { kind: 'sameDen', symbols: true, shape: 'bar', den: 8, num: 3, num2: 4 }],
+    ['FRA.13.t1', { kind: 'sameNum', symbols: true, shape: 'bar', num: 2, den: 6, den2: 8 }],
+    ['FRA.06.t2', { kind: 'sameDen', symbols: true, shape: 'bar', den: 8, num: 3, num2: 4 }],
+    ['FRA.13.t3', { kind: 'sameNum', symbols: true, shape: 'bar', num: 2, den: 6, den2: 8 }],
+  ] as const)('%s: the closest pair', async (id, params) => {
+    await page.viewport(width, height);
+    show(itemOf(id, params), 'g1-up');
+    expect(await measure(id)).toEqual([]);
+    // Strips of one whole: one width, every part at least 22 px.
+    const strips = [...document.querySelectorAll<SVGElement>('.ni-fraction svg')].map(
+      (s) => s.getBoundingClientRect().width,
+    );
+    if (strips.length > 0) {
+      expect(Math.max(...strips) - Math.min(...strips)).toBeLessThan(1);
+      expect(Math.min(...strips) / 8).toBeGreaterThanOrEqual(22);
+    }
+    await shot(id, 'closest');
+  });
+
+  it('a wrong name with its line (FRA.09.t2): 3/5 typed for 3 of 8', async () => {
+    await page.viewport(width, height);
+    const item = itemOf('FRA.09.t2', { mode: 'name', shape: 'bar', den: 8, num: 3 });
+    show(item, 'g1-up');
+    await typeName(3, 5);
+    show(item, 'g1-up', { line: { say: 'fb.mc.fraction-part-to-part' } }, undefined, true);
+    await frame();
+    expect(await measure('FRA.09.t2')).toEqual([]);
+    await shot('FRA.09.t2', 'wrong-3-5');
+  });
+});
