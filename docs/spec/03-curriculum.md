@@ -1580,6 +1580,7 @@ interface FractionLineConfig extends WidgetBase { format: 'fraction-line'; max: 
 - **Features:** `denominator` (0.1 per step above 2), `beyondOne` (0.6), `ticks.hidden` (0.6), `mode.partition` (0.4), `mode.read` (0.2), `equivalent` (0.5).
 - **Tiers:** P. **Ops:** `partition {b}`, `hop {k}`, `label {a, b}`, `drop {at}`.
 - **K01 `partition` response** (no engine model yet; engine README): `{ cuts: number[] }`, the marks placed, in units from 0 (any order, 0 < x < max). A mark on a whole inside the strip (1 … max − 1) is ignored; the others must match the points k/denominator that are not wholes, one to one, each within 2% of the unit. A mark next to an end of the strip is not ignored: it counts as an extra mark.
+- **K02 slice 5b (screen reader):** with ticks shown, a `place` line's slider says where its point is as a counted tick between the two labelled numbers around it ("Tick 3 of 8 between 0 and 1", "Tick 1 of 4 between 1 and 2"; with `ends`, between 0 and the end), and a labelled number by its number ("1"); a `read` line or ruler names its picture the same way ("A number line from 0 to 2. The flag is on tick 1 of 4 between 1 and 2."). Neither ever says the fraction (`tickPlace`, `ui.frac.tick`, `ui.frac.flag-*`).
 
 #### `clock-set`
 ```ts

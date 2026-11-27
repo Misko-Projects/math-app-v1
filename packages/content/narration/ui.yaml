@@ -340,6 +340,26 @@ ui.frac.mark:
 ui.frac.dot:
   text: "Your dot"
   level: K
+# Where a point is on a line with ticks (#17 slice 5b): the slider's value and a read line's
+# picture, counted from the labelled numbers, never the fraction.
+ui.frac.at:
+  text: "{n}"
+  level: K
+ui.frac.tick:
+  text: "Tick {k} of {n} between {lo} and {hi}"
+  level: "3"
+ui.frac.flag-line-tick:
+  text: "A number line from 0 to {max}. The flag is on tick {k} of {n} between {lo} and {hi}."
+  level: "3"
+ui.frac.flag-line-at:
+  text: "A number line from 0 to {max}. The flag is on {n}."
+  level: "3"
+ui.frac.flag-ruler-tick:
+  text: "A ruler from 0 to {max}. The flag is on tick {k} of {n} between {lo} and {hi}."
+  level: "3"
+ui.frac.flag-ruler-at:
+  text: "A ruler from 0 to {max}. The flag is on {n}."
+  level: "3"
 
 # Object names (U03 widget sprites): spoken when a child taps an object.
 ui.sprite.shell:
