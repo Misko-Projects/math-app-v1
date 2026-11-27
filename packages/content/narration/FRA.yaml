@@ -51,3 +51,54 @@ tp.FRA.16.t2.prompt:
 tp.FRA.16.t3.prompt:
   text: "Are these parts equal shares?"
   level: "2"
+
+# K02 slice 5a (#17): grade 3 fractions as parts of a whole. A story prompt names the part it
+# asks about (the eaten parts); prompts never say the fraction asked for.
+sk.FRA.03.intro:
+  text: "Cut a whole into equal parts. One of those parts is a unit fraction, like one fourth."
+  level: "3"
+sk.FRA.09.intro:
+  text: "Three fourths is three parts, and each part is one fourth."
+  level: "3"
+sk.FRA.06.intro:
+  text: "When the parts are the same size, more parts make more."
+  level: "3"
+sk.FRA.13.intro:
+  text: "Same number of parts? The whole cut into fewer parts has bigger parts."
+  level: "3"
+tp.FRA.03.t1.prompt:
+  text: "Cut it into {den} equal parts. Then fill one part."
+  level: "3"
+tp.FRA.03.t2.prompt:
+  text: "Cut the strip into {den} equal parts. Then fill one part."
+  level: "3"
+tp.FRA.03.t3.prompt:
+  text: "What fraction is shaded? Type the top number and the bottom number."
+  level: "3"
+tp.FRA.03.t4.prompt:
+  text: "A pie is cut into {den} equal parts. You eat 1 part. What fraction of the pie did you eat?"
+  level: "3"
+tp.FRA.09.t1.prompt:
+  text: "Cut it into {den} equal parts. Then fill {num} parts."
+  level: "3"
+tp.FRA.09.t2.prompt:
+  text: "What fraction of the strip is shaded? Type the top number and the bottom number."
+  level: "3"
+tp.FRA.09.t4.prompt:
+  text: "A pie is cut into {den} equal parts. You eat {num} parts. What fraction of the pie did you eat?"
+  level: "3"
+tp.FRA.06.t1.prompt:
+  text: "Which strip shows more? They may be the same."
+  level: "3"
+tp.FRA.06.t3.prompt:
+  text: "Which sign goes between them: <, > or =?"
+  level: "3"
+tp.FRA.06.t2.prompt:
+  text: "Put them in order. Start with the biggest."
+  level: "3"
+tp.FRA.06.t4.prompt:
+  text: "Put the fractions in order. Start with the biggest."
+  level: "3"
+tp.FRA.13.t1.prompt:
+  text: "The strips are the same size. Which one shows more? They may be the same."
+  level: "3"

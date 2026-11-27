@@ -25,22 +25,19 @@ coverageGrades: [K, 1]
 # ALG.09 (waits for a table layout), PUZ.05 and PUZ.08 as gaps.
 # Slice 4c-1 authored DAT.03 (line plots), MEA.08 (estimates, unit sort) and MEA.09 (two rulers).
 # Slice 4c-2 authored FRA.16 (equal shares that look different) and ALG.09 (input–output machines),
-# which adds FRA.09–FRA.15 as gaps below FRA.16.
+# which adds FRA.09–FRA.15 as gaps below FRA.16. Slice 5a authored FRA.03, FRA.06, FRA.09 and FRA.13
+# (fractions as parts of a whole); FRA.14 stays planned for the area slice.
 plannedIds:
   [
     ALG.08,
     DAT.06,
     DAT.07,
     DAT.08,
-    FRA.03,
     FRA.04,
     FRA.05,
-    FRA.06,
-    FRA.09,
     FRA.10,
     FRA.11,
     FRA.12,
-    FRA.13,
     FRA.14,
     FRA.15,
     GEO.13,

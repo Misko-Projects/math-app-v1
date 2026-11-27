@@ -45,8 +45,10 @@ misconceptions:
   - id: MC.symbol-reversed
     name: Writes the less-than and greater-than signs the wrong way round
     detect: { kind: answer, rule: symbolReversed }
-    appliesTo: { generators: [compare.numbers] }
-    skills: [CMP.08, PV.06]
+    # K02 slice 5a: also a/b ? c/b in symbols (frac.compare, FRA.06). On FRA.13 the mirrored sign
+    # is MC.fraction-bigger-denominator's answer, so the two cannot be told apart there.
+    appliesTo: { generators: [compare.numbers, frac.compare] }
+    skills: [CMP.08, PV.06, FRA.06]
     remediation: [CMP.08]
     feedback: fb.mc.symbol-reversed
     parentTip: >-

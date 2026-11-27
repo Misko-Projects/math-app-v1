@@ -297,8 +297,9 @@ ui.widget.key.point:
 
 # Fraction widgets (U05 #14: fraction-cut, fraction-pick, fraction-line). Accessible names and
 # spoken labels; the prompts themselves are the templates' tp.* keys.
-ui.frac.over:
-  text: "{a} over {b}"
+# A fraction said as words ("three fourths"; 03 §8.3), on a tap of a symbol card (K02 slice 5a).
+ui.frac.value:
+  text: "{f|frac}"
   level: K
 ui.frac.cut-line:
   text: "Cut here {n}"
@@ -1946,3 +1947,16 @@ ui.frac.picture-equal-loaf:
 ui.frac.picture-unequal-loaf:
   text: "A loaf in {n|num} parts that are not the same size"
   level: "1"
+# A name item's picture (K02 slice 5a): what is seen, never the fraction's name.
+ui.frac.picture-shaded-circle:
+  text: "A circle in {n|num} equal parts, {s|num} of them shaded"
+  level: "3"
+ui.frac.picture-shaded-rect:
+  text: "A rectangle in {n|num} equal parts, {s|num} of them shaded"
+  level: "3"
+ui.frac.picture-shaded-bar:
+  text: "A strip in {n|num} equal parts, {s|num} of them shaded"
+  level: "3"
+ui.frac.picture-shaded-loaf:
+  text: "A loaf in {n|num} equal parts, {s|num} of them shaded"
+  level: "3"

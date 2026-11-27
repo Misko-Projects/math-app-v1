@@ -85,17 +85,50 @@ export function FractionView({
  * A fraction written as stacked numerals, a over b with a bar (each digit ≥ 32 px, 05 §11). The
  * caller names it (its parent's label); the digits themselves are hidden from assistive tech.
  */
+/**
+ * A fraction's name in words, as it is said (03 §8.3: "three fourths", "one half"), from the
+ * number and denominator clips' text; never "3/4" or "3 over 4" (K02 slice 5a).
+ */
+export function fractionWords(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  a: number,
+  b: number,
+): string {
+  return `${t(`num.${a}`)} ${t(`den.${b}.${a === 1 ? 'one' : 'many'}`)}`;
+}
+
+/** Reads "a/b" (whole numbers only) as {a, b}, or null. */
+export function fractionLabel(label: string | undefined): { a: number; b: number } | null {
+  const m = /^(\d+)\/(\d+)$/.exec(label ?? '');
+  return m ? { a: Number(m[1]), b: Number(m[2]) } : null;
+}
+
 export function FracNumeral({
   a,
   b,
   className,
+  drawn = false,
 }: {
   a: ReactNode;
   b: ReactNode;
   className?: string;
+  /**
+   * Draw the numbers as generated content, not text (K02 slice 5a): the control around it is
+   * named in words ("three eighths"), and a text "3 8" inside would not match that name (axe
+   * label-content-name-mismatch). Numbers only.
+   */
+  drawn?: boolean;
 }) {
+  const cls = ['ni-frac-num', className].filter(Boolean).join(' ');
+  if (drawn) {
+    return (
+      <span className={cls} aria-hidden="true" data-drawn="true">
+        <span data-slot="a" data-n={String(a)} /> <span data-slot="b" data-n={String(b)} />
+      </span>
+    );
+  }
   return (
-    <span className={['ni-frac-num', className].filter(Boolean).join(' ')} aria-hidden="true">
+    <span className={cls} aria-hidden="true">
       <span data-slot="a">{a}</span> <span data-slot="b">{b}</span>
     </span>
   );

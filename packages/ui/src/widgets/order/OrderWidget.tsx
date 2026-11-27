@@ -17,6 +17,9 @@ import {
   countLayout,
   describeCoins,
   FitPicture,
+  FracNumeral,
+  fractionLabel,
+  fractionWords,
   LINE_BARE_PAD,
   naturalPictureSize,
   numberLineHeight,
@@ -84,6 +87,10 @@ const FACE_MARGIN = 16;
 const PIC_PAD = FACE_MARGIN;
 /** The numeral above a picture (40 px numeral: well above the 32 px floor, 05 §11). */
 const TAG_H = 40;
+/** Between a fraction and its strip on a card (the fraction stands at the strip's left). */
+const FRAC_SIDE_GAP = 10;
+/** Type size of a stacked fraction on a card: its digits are 0.62 em, so ≥ 28 px. */
+const FRAC_PX = 46;
 /**
  * Above and below a tagged picture (number-path cards): the card border and padding, and 2 px more
  * below, so Pip's hand under the card (fingertip just inside its bottom edge) stays off the path.
@@ -367,6 +374,12 @@ const cardPicture = (spec: StimulusSpec): StimulusSpec =>
 const markShows = (spec: StimulusSpec | undefined, label: string | undefined) =>
   spec?.kind === 'number-line' && (spec.marks ?? []).some((m) => m.label === label);
 
+/** A card's label as drawn: a fraction "a/b" stacked (K02 slice 5a), anything else as it is. */
+const fracGlyph = (label: string | undefined) => {
+  const f = fractionLabel(label);
+  return f ? <FracNumeral a={f.a} b={f.b} className="ni-ord__fracnum" drawn /> : label;
+};
+
 // ---------- art ----------
 
 /** A pebble for the direction cue (decorative; the cue row carries the name). */
@@ -467,7 +480,12 @@ export function OrderWidget({
   const n = config.items.length;
   const complete = slots.every((s) => s !== null);
 
-  const itemName = (it: Item) =>
+  const itemName = (it: Item) => {
+    // A fraction is named as it is said ("three eighths"), never "3/8" (03 §8.3).
+    const frac = fractionLabel(it.label);
+    return frac ? fractionWords(t, frac.a, frac.b) : itemNameOf(it);
+  };
+  const itemNameOf = (it: Item) =>
     it.label ??
     (it.stimulus?.kind === 'coins'
       ? describeCoins(it.stimulus.coins, it.stimulus.bills ?? [], t)
@@ -479,7 +497,9 @@ export function OrderWidget({
     // Numerals speak their name (06 §5): the numeral the card shows, which need not be the value
     // it sorts by (FRA.08.t4 shows a part count and sorts by piece size). A card of objects names
     // its thing ("apple"), never how many or how much: a picture's quantity is the child's to find.
-    if (it.label !== undefined && isNumeral(it.label)) sayNumber(Number(it.label));
+    const frac = fractionLabel(it.label);
+    if (frac) say('ui.frac.value', { f: `${frac.a}/${frac.b}` });
+    else if (it.label !== undefined && isNumeral(it.label)) sayNumber(Number(it.label));
     else if (!it.label && !it.stimulus) sayNumber(it.value);
     else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
     // Money (MON.08, PR #132 review): an amount card says its amount; a purse card says how many
@@ -699,7 +719,7 @@ export function OrderWidget({
 
   // ---------- layout ----------
 
-  const target = MIN_TARGET_PX[ageMode];
+  const baseTarget = MIN_TARGET_PX[ageMode];
   const [checkSize, setCheckSize] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
     const el = checkRef.current;
@@ -718,10 +738,34 @@ export function OrderWidget({
   }, []);
 
   const hasPictures = config.items.some((it) => it.stimulus && it.stimulus.kind !== 'none');
+  // Fraction labels (K02 slice 5a) are drawn stacked: at a strip's left (a tag above it would
+  // make the card too tall for two rows at 960 × 600), or alone on a card two rows high.
+  const fractions = config.items.every((it) => fractionLabel(it.label) !== null);
+  const fracSide = fractions && hasPictures;
   const tagRow =
-    hasPictures && config.items.some((it) => it.label && !markShows(it.stimulus, it.label));
-  const longest = Math.max(...config.items.map((it) => (it.label ?? String(it.value)).length));
-  const words = !hasPictures && config.items.some((it) => it.label && !isNumeral(it.label));
+    hasPictures &&
+    !fracSide &&
+    config.items.some((it) => it.label && !markShows(it.stimulus, it.label));
+  // A stacked fraction is as wide as its longer number.
+  const longest = Math.max(
+    ...config.items.map((it) => {
+      const f = fractionLabel(it.label);
+      return f
+        ? Math.max(String(f.a).length, String(f.b).length)
+        : (it.label ?? String(it.value)).length;
+    }),
+  );
+  const words =
+    !hasPictures && !fractions && config.items.some((it) => it.label && !isNumeral(it.label));
+  // The room a fraction takes at its strip's left: its widest number (46 px type) and the gap.
+  const fracSideW = fracSide ? Math.ceil(longest * 0.62 * FRAC_PX) + 4 + FRAC_SIDE_GAP : 0;
+  /** Inside a card: its 5 px padding and 3 px border each side (a strip card fills it). */
+  const cardInset = fracSide ? 16 : 2 * PIC_PAD;
+  // A fraction card is at least as tall as its stacked fraction needs (two 0.8 em rows and the
+  // bar, inside the card's padding), so its digits never drop under 28 px.
+  const target = fractions
+    ? Math.max(baseTarget, Math.ceil(1.8 * FRAC_PX) + 2 * (hasPictures ? PIC_PAD : FACE_MARGIN))
+    : baseTarget;
   const cardPics = config.items.map((it) =>
     it.stimulus && it.stimulus.kind !== 'none' ? cardPicture(it.stimulus) : null,
   );
@@ -755,7 +799,9 @@ export function OrderWidget({
       }),
     );
   /** A numeral card fits its longest label at ≥ 32 px (0.62 em a digit). */
-  const numeralW = (h: number) => Math.max(h, Math.ceil(longest * 0.62 * 32) + 2 * FACE_MARGIN);
+  const numeralW = (h: number) =>
+    Math.max(h, Math.ceil(longest * 0.62 * (fractions ? FRAC_PX : 32)) + 2 * FACE_MARGIN);
+
   const cardWidth = (pictures: boolean) => (h: number) => {
     if (words) {
       const w = Math.max(h, longest * 14 + 2 * CARD_PAD + 8);
@@ -766,10 +812,17 @@ export function OrderWidget({
       const w = numeralW(h);
       return { min: w, max: Math.max(w, Math.round(1.6 * h)) };
     }
+    // A strip with its fraction at its left: the strip is short, so the card's height does not
+    // set its width; it takes what the row has, at least 120 px of strip.
+    if (fracSide) {
+      const min = fracSideW + cardInset + 176;
+      return { min, max: Math.max(min, Math.round(3.4 * h)) };
+    }
     const pic = Math.min(
-      Math.round(2.4 * h),
-      Math.max(h, Math.round(picHeight(h) * aspect) + 2 * PIC_PAD),
+      Math.round((fracSide ? 3.4 : 2.4) * h),
+      Math.max(h, Math.round(picHeight(h) * aspect) + 2 * PIC_PAD + fracSideW),
     );
+
     if (lines.length === 0) return { min: pic, max: Math.max(pic, Math.round(1.6 * h)) };
     const max = Math.max(pic, Math.min(3 * h, lineWidth(h)));
     return { min: Math.min(max, Math.max(pic, Math.round(1.4 * h))), max };
@@ -825,7 +878,7 @@ export function OrderWidget({
   // points at it), drawn with every unit tick and its numeral, as wide as the row allows.
   const pictures = hasPictures;
   const plan = planFor(pictures);
-  const picW = plan.w - 2 * PIC_PAD;
+  const picW = plan.w - cardInset - fracSideW;
   const picH = picHeight(plan.h);
   /**
    * A card's path: drawn to the card's scale with every unit tick when they are ≥ 8 px apart;
@@ -905,11 +958,35 @@ export function OrderWidget({
           </span>
         );
       }
+      if (fracSide) {
+        return (
+          <span className="ni-ord__face" data-face="frac">
+            <span className="ni-ord__fracside ni-invite-glyph" aria-hidden="true">
+              {fracGlyph(it.label)}
+            </span>
+            <span className="ni-ord__pic ni-invite-glyph">
+              <FitPicture
+                spec={pic}
+                maxWidth={picW}
+                maxHeight={picH}
+                // A strip grows to the card's width: every strip shares one scale (one whole).
+                maxScale={4}
+                scale={shared.scale}
+                onFit={shared.report(it.id)}
+              />
+            </span>
+          </span>
+        );
+      }
       return (
         <span className="ni-ord__face">
           {tagRow ? (
-            <span className="ni-ord__tag ni-invite-glyph" aria-hidden="true">
-              {tag ? it.label : ''}
+            <span
+              className="ni-ord__tag ni-invite-glyph"
+              aria-hidden="true"
+              data-frac={fractions ? 'true' : undefined}
+            >
+              {tag ? fracGlyph(it.label) : ''}
             </span>
           ) : null}
           <span className="ni-ord__pic ni-invite-glyph">
@@ -931,6 +1008,9 @@ export function OrderWidget({
           </span>
         </span>
       );
+    }
+    if (fractionLabel(it.label)) {
+      return <span className="ni-ord__frac ni-invite-glyph">{fracGlyph(it.label)}</span>;
     }
     return it.label !== undefined && !isNumeral(it.label) ? (
       <span className="ni-ord__word ni-invite-glyph">{it.label}</span>

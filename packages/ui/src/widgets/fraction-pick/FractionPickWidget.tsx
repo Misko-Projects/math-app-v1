@@ -23,6 +23,7 @@ import {
   FracNumeral,
   FractionEntry,
   FractionView,
+  fractionWords,
   type PadKey,
   PickCard,
   padValue,
@@ -313,7 +314,17 @@ export function FractionPickWidget({
           equalParts={stimFraction.equalParts}
           maxWidth={stimBox.w}
           maxHeight={stimBox.h}
-          label={t('ui.widget.picture')}
+          label={
+            // A name item's picture says what a sighted child sees: the shape, its equal parts
+            // and how many are shaded, never the fraction's name (K02 slice 5a). Other modes
+            // keep "Picture": a fair-or-not item asks whether the parts are equal.
+            config.mode === 'name' && stimFraction.equalParts
+              ? t(`ui.frac.picture-shaded-${stimFraction.shape}`, {
+                  n: stimFraction.parts,
+                  s: stimFraction.shaded,
+                })
+              : t('ui.widget.picture')
+          }
           overlay={state.overlay}
           counting={counting}
         />
@@ -451,13 +462,13 @@ function OptionCard({
       })
     : undefined;
   const name = numeral
-    ? `${numeral.a}/${numeral.b}`
+    ? fractionWords(t, numeral.a, numeral.b)
     : (option.label ??
       (option.speak ? t(option.speak) : (described ?? t('ui.widget.choice', { n: index + 1 }))));
   const speak = option.speak
     ? () => say(option.speak as string)
     : numeral
-      ? () => say('ui.frac.over', numeral)
+      ? () => say('ui.frac.value', { f: `${numeral.a}/${numeral.b}` })
       : undefined;
   // Abstract tier leads with the symbols: a labelled option shows its label large.
   const symbolsFirst = tier === 'abstract' && option.label !== undefined;
@@ -478,7 +489,7 @@ function OptionCard({
   const text =
     option.label !== undefined || option.speak ? (
       numeral ? (
-        <FracNumeral a={numeral.a} b={numeral.b} />
+        <FracNumeral a={numeral.a} b={numeral.b} drawn />
       ) : (
         <span className="ni-fpick__word">{option.label ?? t(option.speak as string)}</span>
       )

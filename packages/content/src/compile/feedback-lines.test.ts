@@ -24,3 +24,10 @@ describe('column-bug feedback', () => {
     }
   });
 });
+
+describe('grade 3 fraction hints (K02 slice 5a)', () => {
+  it('the sign hint holds on an equal draw (FRA.06.t3 and FRA.13.t3 allow a/b = a/b): it names = (PR #139 review)', () => {
+    const line = common['h.frac.sign-open']?.text ?? '';
+    expect(line).toMatch(/^Equal\? Use =\./);
+  });
+});

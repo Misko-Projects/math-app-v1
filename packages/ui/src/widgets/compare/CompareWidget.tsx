@@ -25,6 +25,7 @@ import {
   countLayout,
   FitPicture,
   fittedLineNumeralPx,
+  fractionWords,
   LINE_BARE_PAD,
   minObjectStep,
   NumberLineView,
@@ -214,6 +215,15 @@ function sideNumeral(s: StimulusSpec): number | null {
   if (s.kind !== 'expression') return null;
   const [tok, ...rest] = s.expr.tokens;
   return tok?.t === 'num' && rest.length === 0 ? tok.v : null;
+}
+
+/** The fraction a side shows as one stacked fraction (a single `frac` token), or null. */
+function sideFraction(s: StimulusSpec): { a: number; b: number } | null {
+  if (s.kind !== 'expression' || s.expr.tokens.length !== 1) return null;
+  const tok = s.expr.tokens[0];
+  return tok?.t === 'frac' && typeof tok.a === 'number' && typeof tok.b === 'number'
+    ? { a: tok.a, b: tok.b }
+    : null;
 }
 
 const hasRelation = (s: StimulusSpec) =>
@@ -1105,6 +1115,21 @@ export function CompareWidget({
       const key = spriteNameKey(spec.set.sprite);
       return { name: t(key), speak: () => say(key) };
     }
+    // K02 slice 5a: a stacked fraction is named and said as words ("three eighths"), and a
+    // fraction picture by what is seen (its equal parts and how many are shaded), so a
+    // screen-reader child compares what a sighted child sees.
+    const frac = sideFraction(spec);
+    if (frac) {
+      const f = `${frac.a}/${frac.b}`;
+      return { name: fractionWords(t, frac.a, frac.b), speak: () => say('ui.frac.value', { f }) };
+    }
+    // A picture side gains an accessible name only: a tap stays silent, as it was (FRA.08),
+    // so a sighted child's tap never hears the counts read out (PR #139 review).
+    if (spec.kind === 'fraction' && spec.equalParts) {
+      const key = `ui.frac.picture-shaded-${spec.shape}`;
+      return { name: t(key, { n: spec.parts, s: spec.shaded }), speak: () => {} };
+    }
+
     if (spec.kind === 'number-line') {
       const labels = (spec.marks ?? []).filter((m) => m.label !== undefined);
       const v = labels.length === 1 ? Number(labels[0]?.label) : Number.NaN;

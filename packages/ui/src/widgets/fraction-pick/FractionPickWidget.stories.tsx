@@ -306,6 +306,10 @@ export const NamePadsLandscapeMin: Story = {
       check(root),
     ]);
     const picture = root.querySelector('.ni-fpick__stimulus') as HTMLElement;
+    // Named by what is seen, never by the fraction asked (K02 slice 5a).
+    const named = picture.querySelector('[aria-label]')?.getAttribute('aria-label') ?? '';
+    await expect(named).toBe('A circle in 4 equal parts, 3 of them shaded');
+    await expect(named).not.toMatch(/fourth/);
     await expectEqualShares(measuredShares(picture), 4);
     const filled = [...picture.querySelectorAll<SVGPathElement>('[data-fraction="filled"]')];
     const empty = [...picture.querySelectorAll<SVGPathElement>('[data-fraction="empty"]')];
@@ -328,6 +332,29 @@ export const NamePadsLandscapeMin: Story = {
       'tap:bottom',
       'tap:key-4',
     ]);
+  },
+};
+
+/**
+ * The abstract name (FRA.03.t4, FRA.09.t4): no picture, the prompt tells the parts; the pads
+ * alone fit the smallest area and answer [a, b].
+ */
+export const NamePadsNoPicture: Story = {
+  args: { config: { format: 'fraction-pick', mode: 'name', nameInput: 'pads' }, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await expect(root.querySelector('.ni-fpick__stimulus')).toBeNull();
+    const top = canvas.getByRole('button', { name: 'Top number' });
+    const bottom = canvas.getByRole('button', { name: 'Bottom number' });
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [top, bottom, check(root)]);
+    await userEvent.click(top);
+    await userEvent.click(canvas.getByRole('button', { name: '1' }));
+    await userEvent.click(bottom);
+    await userEvent.click(canvas.getByRole('button', { name: '6' }));
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [1, 6] });
   },
 };
 
@@ -382,7 +409,12 @@ export const CompareAbstract: Story = {
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
     const options = cards(root);
-    await expect(options.map((o) => o.getAttribute('aria-label'))).toEqual(['2/3', '2/6', '2/4']);
+    // Symbols are named as they are said (03 §8.3), never "2/3" (K02 slice 5a).
+    await expect(options.map((o) => o.getAttribute('aria-label'))).toEqual([
+      'two thirds',
+      'two sixths',
+      'two fourths',
+    ]);
     await expectNumeralInk(root.querySelectorAll('.ni-frac-num > span'));
     await expectPicturesTrue(root, compareSymbols);
     // Compared pictures share one whole: every strip is drawn the same width.
@@ -391,7 +423,7 @@ export const CompareAbstract: Story = {
     );
     await expect(new Set(strips).size).toBe(1);
     await userEvent.click(options[0] as HTMLElement);
-    await expect(audio.say).toHaveBeenCalledWith('ui.frac.over', { a: 2, b: 3 });
+    await expect(audio.say).toHaveBeenCalledWith('ui.frac.value', { f: '2/3' });
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'a' });
   },

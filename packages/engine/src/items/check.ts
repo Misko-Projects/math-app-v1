@@ -78,8 +78,12 @@ export function retryFeedback(item: GeneratedItem): NarrationKey {
   const w = item.widget;
   if (w.format === 'order') {
     const generator = boundTemplate(item.templateId)?.generator;
-    const own = generator ? GENERATOR_ORDER_RETRY[generator] : undefined;
+    // Same-denominator fractions (FRA.06) have pieces of one size: "find the biggest pieces"
+    // cannot tell the cards apart, so they get the plain biggest-first line (PR #139 review).
+    const sameParts = generator === 'frac.compare' && item.params.kind === 'sameDen';
+    const own = generator && !sameParts ? GENERATOR_ORDER_RETRY[generator] : undefined;
     if (own) return own;
+
     if (w.direction === 'desc') return 'fb.order.retry-desc';
   }
   // A mystery number has no next box: check the clues (#17 slice 4e).

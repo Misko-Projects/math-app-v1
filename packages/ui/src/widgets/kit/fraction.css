@@ -288,3 +288,8 @@
   align-items: center;
   gap: 20px;
 }
+/* Numbers drawn as generated content (FracNumeral `drawn`, K02 slice 5a): no text inside a
+   control named in words. */
+.ni-frac-num[data-drawn="true"] > span::before {
+  content: attr(data-n);
+}

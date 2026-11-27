@@ -425,8 +425,8 @@ export const FewerPictorial: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
-    const left = canvas.getByRole('button', { name: 'Left side' });
-    const right = canvas.getByRole('button', { name: 'Right side' });
+    const left = canvas.getByRole('button', { name: /^Left side/ });
+    const right = canvas.getByRole('button', { name: /^Right side/ });
     const same = canvas.getByRole('button', { name: 'The same' });
     for (const b of [left, right, same]) await expectTargetSize(b, 'g1-up');
     await expectTargetGaps([left, right, same]);
@@ -467,7 +467,7 @@ export const SameOrNotK: Story = {
     const canvas = within(root);
     // The sets are rows to match (the real ALG.05.t2 item): tidy lines, one cell, no side picks.
     await expect(root).toHaveAttribute('data-mode', 'match');
-    await expect(canvas.queryByRole('button', { name: 'Left side' })).toBeNull();
+    await expect(canvas.queryByRole('button', { name: /^Left side/ })).toBeNull();
     const same = canvas.getByRole('button', { name: 'The same' });
     const notSame = canvas.getByRole('button', { name: 'Not the same' });
     await expect(root.querySelector('.ni-cmp__caption')).toBeNull();
@@ -603,11 +603,11 @@ export const SidesKeyboard: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
-    canvas.getByRole('button', { name: 'Left side' }).focus();
+    canvas.getByRole('button', { name: /^Left side/ }).focus();
     await userEvent.tab();
-    await expect(canvas.getByRole('button', { name: 'Right side' })).toHaveFocus();
+    await expect(canvas.getByRole('button', { name: /^Right side/ })).toHaveFocus();
     await userEvent.keyboard(' ');
-    await expect(canvas.getByRole('button', { name: 'Right side' })).toHaveAttribute(
+    await expect(canvas.getByRole('button', { name: /^Right side/ })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -687,7 +687,7 @@ export const LineSidesSpeechK: Story = {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
-    const left = within(root).getByRole('button', { name: 'Left side' });
+    const left = within(root).getByRole('button', { name: /^Left side/ });
     await userEvent.click(left);
     await expect(left).toHaveAttribute('aria-pressed', 'true');
     await expect(audio.say).not.toHaveBeenCalled();
@@ -916,16 +916,16 @@ export const InviteSides: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     sideInvite.invite({ op: 'highlight', args: { side: 'left' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'Left side' }));
+    await expectInviteOn(root, within(root).getByRole('button', { name: /^Left side/ }));
     sideInvite.invite({ op: 'answer', args: { id: 'right' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
+    await expectInviteOn(root, within(root).getByRole('button', { name: /^Right side/ }));
     // A match invite has no object targets here (pictures): no cue.
     sideInvite.invite({ op: 'match', args: { left: 0, right: 0 } });
     await noInvite(root);
     // Following an invite ends it: the side picked, no ring left.
     sideInvite.invite({ op: 'answer', args: { id: 'right' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
-    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await expectInviteOn(root, within(root).getByRole('button', { name: /^Right side/ }));
+    await userEvent.click(within(root).getByRole('button', { name: /^Right side/ }));
     await noInvite(root);
     (document.activeElement as HTMLElement | null)?.blur();
   },
@@ -1039,7 +1039,7 @@ export const TenFramesK: Story = {
     await expect(frames).toHaveLength(4);
     const w = frames.map((f) => Math.round(f.getBoundingClientRect().width));
     await expect(new Set(w).size).toBe(1);
-    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await userEvent.click(within(root).getByRole('button', { name: /^Right side/ }));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'right' });
   },
@@ -1085,7 +1085,7 @@ export const HeavierK: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectPicturesInside(root);
-    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await userEvent.click(within(root).getByRole('button', { name: /^Right side/ }));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'right' });
   },
@@ -1185,9 +1185,9 @@ export const LongerKMin: Story = {
     await expect(Math.abs(ribbonBox(root, 'left').right - rulerTick(root, 7))).toBeLessThan(1);
     await expect(Math.abs(ribbonBox(root, 'right').right - rulerTick(root, 10))).toBeLessThan(1);
     longerInvite.invite({ op: 'highlight', args: { side: 'left' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'Left side' }));
+    await expectInviteOn(root, within(root).getByRole('button', { name: /^Left side/ }));
     longerInvite.invite({ op: 'highlight', args: { side: 'right' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
+    await expectInviteOn(root, within(root).getByRole('button', { name: /^Right side/ }));
     longerInvite.invite({ op: 'answer', args: { id: 'same' } });
     await expectInviteOn(root, within(root).getByRole('button', { name: 'The same' }));
     await expectNoScroll(areaBox(canvasElement));
@@ -1240,7 +1240,7 @@ export const ShapesK: Story = {
     await expectPicturesInside(root);
     await expect(root.querySelectorAll('[data-kind="shape"] .ni-shape')).toHaveLength(2);
     await expect(root.querySelector('[data-unsupported="true"]')).toBeNull();
-    await expect(within(root).getByRole('button', { name: 'Left side' })).toBeVisible();
+    await expect(within(root).getByRole('button', { name: /^Left side/ })).toBeVisible();
   },
 };
 
@@ -1250,7 +1250,7 @@ export const SumsMore: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectPicturesInside(root);
-    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await userEvent.click(within(root).getByRole('button', { name: /^Right side/ }));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'right' });
   },
@@ -1450,7 +1450,7 @@ export const MatchTenFallbackKMin: Story = {
     noteMeasure(canvasElement, 'fish', `fish ${fish.toFixed(0)} px wide, 10 + 9 in two lines`);
     await expectRowsInColumn(root);
     // Picking a side names its objects (06 §5).
-    await userEvent.click(within(root).getByRole('button', { name: 'Left side' }));
+    await userEvent.click(within(root).getByRole('button', { name: /^Left side/ }));
     await expect(audio.say).toHaveBeenCalledWith('ui.sprite.fish', undefined);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
@@ -1472,9 +1472,9 @@ export const MatchTenFallbackKMinInvite: Story = {
     // the lower card (and every other control); then the lower card, the hand in the room kept
     // under the content.
     fallbackInvite.invite({ op: 'highlight', args: { side: 'left' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'Left side' }));
+    await expectInviteOn(root, within(root).getByRole('button', { name: /^Left side/ }));
     fallbackInvite.invite({ op: 'highlight', args: { side: 'right' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
+    await expectInviteOn(root, within(root).getByRole('button', { name: /^Right side/ }));
   },
 };
 
@@ -1834,11 +1834,11 @@ async function expectPictureSides(
   await expect(root.querySelector('[data-unsupported]')).toBeNull();
   const canvas = within(root);
   // Each side is a named button (its spoken label); the picture's own name never says a number.
-  await expect(canvas.getByRole('button', { name: 'Left side' })).toBeVisible();
-  await expect(canvas.getByRole('button', { name: 'Right side' })).toBeVisible();
+  await expect(canvas.getByRole('button', { name: /^Left side/ })).toBeVisible();
+  await expect(canvas.getByRole('button', { name: /^Right side/ })).toBeVisible();
 }
 
-async function pickAndCheck(root: HTMLElement, name: string) {
+async function pickAndCheck(root: HTMLElement, name: string | RegExp) {
   const canvas = within(root);
   await userEvent.click(canvas.getByRole('button', { name }));
   await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
@@ -1869,7 +1869,7 @@ export const FractionStripsTablet: Story = {
       'wholes are one height',
     );
     noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
-    await pickAndCheck(root, 'Left side');
+    await pickAndCheck(root, /^Left side/);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
   },
 };
@@ -1907,7 +1907,7 @@ export const FractionCirclesTablet: Story = {
       'wholes are one size',
     );
     noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
-    await pickAndCheck(root, 'Left side');
+    await pickAndCheck(root, /^Left side/);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
   },
 };
@@ -1968,7 +1968,7 @@ export const BarChartsTablet: Story = {
     await expect(within(root).getByText('crabs')).toBeVisible();
     noteMeasure(canvasElement, 'unit', m[0]?.unit ?? 0);
     noteMeasure(canvasElement, 'numeral', Math.min(...m.map((c) => c.numeral)));
-    await pickAndCheck(root, 'Left side');
+    await pickAndCheck(root, /^Left side/);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
   },
 };
@@ -2064,5 +2064,95 @@ export const BarChartsWidestKPortrait: Story = {
       m.map((c) => c.unit),
       'px per count',
     );
+  },
+};
+
+// ---------- K02 slice 5a: grade 3 fractions ----------
+
+type CompareConfig = Extract<WidgetConfig, { format: 'compare' }>;
+const fracSide = (a: number, b: number): StimulusSpec => ({
+  kind: 'expression',
+  expr: { tokens: [{ t: 'frac', a, b }] },
+});
+const stripSide = (a: number, b: number): StimulusSpec => ({
+  kind: 'fraction',
+  shape: 'bar',
+  parts: b,
+  shaded: a,
+  equalParts: true,
+});
+/** FRA.06.t3: 3/8 ? 5/8 with <, > or =. */
+const fractionSigns: CompareConfig = {
+  format: 'compare',
+  left: fracSide(3, 8),
+  right: fracSide(5, 8),
+  ask: 'symbol',
+  allowMatchLines: false,
+};
+/** FRA.13.t1's closest pair: two of three parts and two of eight, strips of one whole. */
+const g3Strips: CompareConfig = {
+  format: 'compare',
+  left: stripSide(2, 3),
+  right: stripSide(2, 8),
+  ask: 'more',
+  allowMatchLines: false,
+};
+
+/**
+ * Two stacked fractions at 960 × 600: each side is named and said as words ("three eighths",
+ * never "3/8"), digits ≥ 28 px; the sign answers.
+ */
+export const FractionSymbols: Story = {
+  render: inArea('landscapeMin'),
+  args: { config: fractionSigns as WidgetConfig, tier: 'abstract' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const names = [...root.querySelectorAll<HTMLElement>('[data-operand]')].map(
+      (b) => b.getAttribute('aria-label') ?? '',
+    );
+    await expect(names).toHaveLength(2);
+    await expect(names[0]).toContain('three eighths');
+    await expect(names[1]).toContain('five eighths');
+    for (const n of names) await expect(n).not.toMatch(/\d/);
+    for (const d of root.querySelectorAll<HTMLElement>('.ni-expr__frac > span')) {
+      await expect(d.getBoundingClientRect().height).toBeGreaterThanOrEqual(28);
+    }
+    await userEvent.click(root.querySelector('[data-operand="left"]') as HTMLElement);
+    await expect(audio.say).toHaveBeenCalledWith('ui.frac.value', { f: '3/8' });
+  },
+};
+
+/**
+ * Two strips of one whole at 960 × 600: one length and height, every part ≥ 22 px; each side is
+ * named by what is seen (its equal parts and how many are shaded), never the fraction.
+ */
+export const FractionStripsSameWhole: Story = {
+  render: inArea('landscapeMin'),
+  args: { config: g3Strips as WidgetConfig, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFractionPictures(root);
+    const svgs = [...root.querySelectorAll<SVGElement>('.ni-fraction svg')].map((s) =>
+      s.getBoundingClientRect(),
+    );
+    await expect(svgs).toHaveLength(2);
+    await expect(Math.abs((svgs[0]?.width ?? 0) - (svgs[1]?.width ?? 1))).toBeLessThan(1);
+    await expect(Math.abs((svgs[0]?.height ?? 0) - (svgs[1]?.height ?? 1))).toBeLessThan(1);
+    await expect((svgs[1]?.width ?? 0) / 8).toBeGreaterThanOrEqual(22);
+    const labels = [
+      ...root.querySelectorAll<HTMLElement>('[data-id="left"], [data-id="right"]'),
+    ].map((c) => c.getAttribute('aria-label') ?? '');
+    await expect(labels[0]).toContain('A strip in 3 equal parts, 2 of them shaded');
+    await expect(labels[1]).toContain('A strip in 8 equal parts, 2 of them shaded');
+    for (const l of labels) await expect(l).not.toMatch(/third|eighth/);
+    // A tap picks the side and stays silent, as FRA.08's taps were (PR #139 review).
+    await userEvent.click(root.querySelector('[data-id="left"]') as HTMLElement);
+    await expect(audio.say).not.toHaveBeenCalled();
   },
 };
