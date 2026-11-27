@@ -513,8 +513,8 @@ button.ni-bubble:active {
  * quiet stitch set in evenly from its edge. The stitch is drawn by a pseudo-element, so the mat's
  * content box (the widget's room) does not change.
  */
+/* The element sets its own position (relative or absolute); the stitch needs it positioned. */
 .ni-mat {
-  position: relative;
   background:
     var(--felt-grain) 0 0 / var(--felt-grain-size),
     var(--mat-bg, var(--color-paper));
@@ -526,7 +526,7 @@ button.ni-bubble:active {
   position: absolute;
   inset: var(--stitch-inset);
   border: var(--stitch-width) dashed var(--color-sand-deep);
-  border-radius: calc(var(--radius-card) - 3px - var(--stitch-inset));
+  border-radius: calc(var(--radius-card) - var(--mat-border, 3px) - var(--stitch-inset));
   opacity: 0.7;
   pointer-events: none;
 }

@@ -6,7 +6,7 @@ import type { StimulusSpec } from '@number-island/shared';
 import { BigButton, icons, useNarrationText } from '@number-island/ui';
 // Its own entry: the drawing code needs the engine's item core, which the shell must not load (02 §6a).
 import { StimulusView } from '@number-island/ui/stimulus';
-import { useLayoutEffect, useState } from 'react';
+import { type CSSProperties, useLayoutEffect, useState } from 'react';
 
 export default function HintPicture({
   spec,
@@ -47,7 +47,9 @@ export default function HintPicture({
       role="dialog"
       aria-label={label}
       data-testid="pier-hint-picture"
-      className="absolute inset-0 z-10 flex flex-col items-center gap-3 rounded-card bg-sunshine-light p-4"
+      // A felt mat (primitives.css `ni-mat`) in the hint's warm colour, borderless.
+      className="ni-mat absolute inset-0 z-10 flex flex-col items-center gap-3 rounded-card p-4"
+      style={{ '--mat-bg': 'var(--color-sunshine-light)', '--mat-border': '0px' } as CSSProperties}
     >
       <div
         ref={setRoom}

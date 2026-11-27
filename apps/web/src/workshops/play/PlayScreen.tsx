@@ -245,7 +245,7 @@ export function PlayFrame({
         <main
           // The edge is a ring, not a wider border: the widget keeps its room and does not move.
           // `ni-mat` draws the felt and its stitch without changing the content box.
-          className={`ni-mat grid min-h-0 overflow-auto rounded-card border-[3px] p-6 ${
+          className={`ni-mat relative grid min-h-0 overflow-auto rounded-card border-[3px] p-6 ${
             lookAgain
               ? 'border-wood-deep ring-[6px] ring-sunshine motion-safe:animate-[ni-wiggle_450ms_ease-in-out_1]'
               : 'border-sand-deep'
