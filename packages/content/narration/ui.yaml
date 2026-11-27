@@ -1355,6 +1355,21 @@ ui.widget.pattern.jump:
 ui.widget.pattern.biggest:
   text: "That is the biggest one."
   level: K
+ui.widget.pattern.machine:
+  text: "The number machine"
+  level: "1"
+ui.widget.pattern.in:
+  text: "In"
+  level: K
+ui.widget.pattern.out:
+  text: "Out"
+  level: K
+ui.widget.pattern.pair:
+  text: "In {in}, out {out}"
+  level: K
+ui.widget.pattern.out-for:
+  text: "Out for {in}"
+  level: K
 ui.widget.chart.full:
   text: "{n} is the most here."
   level: K

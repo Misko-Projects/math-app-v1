@@ -1088,3 +1088,147 @@ export const GrowShapeWidestTablet: Story = {
     await expectFitsArea(areaBox(canvasElement), [...shownCells(root), cell(root, 3)], 'g1-up');
   },
 };
+
+// ---------- input–output machines (ALG.09): the table ----------
+
+/** ALG.09.t1: add 3; three pairs shown out of order, the output of 12 missing. */
+const machineAdd: Config = {
+  format: 'pattern-extend',
+  sequence: [],
+  palette: [],
+  mode: 'table',
+  kind: 'function',
+  table: { inputs: [3, 9, 5, 12], outputs: [6, 12, 8, null] },
+};
+/** ALG.09.t2's fullest: take away 7; two pairs shown, two outputs missing, two-digit numbers. */
+const machineTake: Config = {
+  format: 'pattern-extend',
+  sequence: [],
+  palette: [],
+  mode: 'table',
+  kind: 'function',
+  table: { inputs: [41, 15, 58, 23], outputs: [34, null, 51, null] },
+};
+
+const machineOf = (root: HTMLElement) => root.querySelector('.ni-pattern__machine') as HTMLElement;
+const tableParts = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('.ni-pattern__tcell'),
+];
+
+/** The table: numerals ≥ 32 px, cells ≥ 64 px and ≥ 12 px apart, names that never say the rule. */
+async function expectTable(root: HTMLElement, pairs: string[], blanksNamed: string[]) {
+  for (const n of root.querySelectorAll<HTMLElement>('.ni-pattern__tcell')) {
+    await expect(Number.parseFloat(getComputedStyle(n).fontSize)).toBeGreaterThanOrEqual(32);
+    const r = n.getBoundingClientRect();
+    await expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(64);
+  }
+  const named = [...root.querySelectorAll<HTMLElement>('.ni-pattern__table button')].map(
+    (b) => b.getAttribute('aria-label') ?? '',
+  );
+  await expect([...named].sort()).toEqual([...pairs, ...blanksNamed].sort());
+  for (const name of named) await expect(name).not.toMatch(/add|take|plus|minus|rule/i);
+}
+
+/**
+ * 960 × 600: the machine, "In" over "Out" and four columns, the pad in two rows under it and
+ * Check beside the pad; type the missing output and Check answers it.
+ */
+export const MachineAddLandscapeMin: Story = {
+  args: { config: machineAdd, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await expectTable(root, ['In 3, out 6', 'In 9, out 12', 'In 5, out 8'], ['Out for 12:']);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...tableParts(root), ...padKeys(root), check(root)],
+      'g1-up',
+      [machineOf(root)],
+    );
+    clearSpies(audio);
+    await userEvent.click(within(root).getByRole('button', { name: 'In 9, out 12' }));
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.pattern.pair', { in: 9, out: 12 });
+    await userEvent.keyboard('15');
+    const blank = within(root).getByRole('button', { name: 'Out for 12: 15' });
+    await expect(blank.textContent).toBe('15');
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...tableParts(root), ...padKeys(root), check(root)],
+      'g1-up',
+      [machineOf(root)],
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [15] });
+  },
+};
+
+/** Two blanks: type one, tap the other (or the pad moves on after two digits), Check answers both. */
+export const MachineTakeTwoBlanksLandscapeMin: Story = {
+  args: { config: machineTake, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectTable(root, ['In 41, out 34', 'In 58, out 51'], ['Out for 15:', 'Out for 23:']);
+    await userEvent.keyboard('8');
+    await userEvent.click(within(root).getByRole('button', { name: 'Out for 23:' }));
+    await userEvent.keyboard('16');
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...tableParts(root), ...padKeys(root), check(root)],
+      'g1-up',
+      [machineOf(root)],
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [8, 16] });
+  },
+};
+
+/** 1280 × 800: the same layout, roomier. */
+export const MachineTakeTablet: Story = {
+  args: { config: machineTake, tier: 'abstract' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...tableParts(root), ...padKeys(root), check(root)],
+      'g1-up',
+      [machineOf(root)],
+    );
+  },
+};
+
+/** Narrow (portrait): the pad in three columns under the table; everything fits. */
+export const MachineTakePortrait: Story = {
+  args: { config: machineTake, tier: 'abstract' },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...tableParts(root), ...padKeys(root), check(root)],
+      'g1-up',
+      [machineOf(root)],
+    );
+  },
+};
+
+/** Keyboard: Tab reaches the pairs and the blank; typing fills the chosen blank. */
+export const MachineKeyboard: Story = {
+  args: { config: machineTake, tier: 'abstract' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const second = within(root).getByRole('button', { name: 'Out for 23:' });
+    second.focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(second).toHaveAttribute('aria-current', 'true');
+    await userEvent.keyboard('16');
+    await userEvent.click(within(root).getByRole('button', { name: 'Out for 15:' }));
+    await userEvent.keyboard('8');
+    check(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [8, 16] });
+  },
+};

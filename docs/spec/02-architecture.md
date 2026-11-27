@@ -754,6 +754,7 @@ Contract adjustments made by K02 (#17 slice 4c-2, equal shares and function mach
 | # | Change | Why |
 |---|---|---|
 | K4 | **Order place names.** `OrderConfig` gains an optional `cue: 'size' \| 'places'` (03 §5.5). `size`, the default, is the pebble row every existing order item draws. `places` names each slot's place in words (hundreds, tens, ones), for 2 or 3 cards of one digit each (the format refuses anything else). | Digit-card puzzles (PUZ.06): big-to-small pebbles told the child the strategy. |
+| K5 | **Pattern-extend tables.** The `table` mode is accepted (03 §5.5). Before this it was refused because the widget had no layout for it. A table has `kind: 'function'`, an empty `sequence` and `palette`, 2–4 rows of distinct inputs, and at least one output shown and one missing. The ops and the `numbers` answer are unchanged. | Input–output machines (ALG.09). |
 
 ## 6. Performance budgets (enforced in CI where possible)
 

@@ -4,6 +4,7 @@ import {
   formatModel,
   MAX_TILES,
   type PatternExtendState,
+  tableBlanks,
   tokenFamily,
 } from '@number-island/engine';
 import type { PatternToken, WidgetAction } from '@number-island/shared';
@@ -65,7 +66,9 @@ import './pattern-extend.css';
  *
  * Layout: the controls sit under the pattern (the pad in two rows of six keys where the area is
  * wide), so every pattern the model accepts fits the smallest widget area at kindergarten sizes.
- * The model does not accept `table` yet (it needs its own layout there).
+ * `table` (an input–output machine): the machine, "In" over "Out" and a column a pair, the pad
+ * under it; tap a missing output to choose it and type it. Growing tile stacks draw as one shape
+ * that adds a column a step, tiles ≥ 22 px.
  *
  * Demo ops: `place-token {index, token}`, `bracket-core {from, to}`, `highlight {index}`, plus
  * `answer {value | values}`.
@@ -88,6 +91,58 @@ function useModel(): FormatModel<'pattern-extend', PatternExtendState> {
 
 const sameToken = (a: PatternToken | null | undefined, b: PatternToken | null | undefined) =>
   Boolean(a && b) && JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * The number machine beside a table (decorative): a hopper the In row drops into, a body with a
+ * gear, and a chute the Out row leaves by, with an arrow from in to out.
+ */
+function MachineArt() {
+  return (
+    <svg viewBox="0 0 64 164" width="56" height="152" aria-hidden="true" focusable="false">
+      <path
+        d="M10 8h44l-10 22H20Z"
+        fill="var(--color-sea)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <rect
+        x="6"
+        y="30"
+        width="52"
+        height="104"
+        rx="12"
+        fill="var(--color-sun)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+      />
+      <circle
+        cx="32"
+        cy="62"
+        r="13"
+        fill="var(--color-cloud)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+      />
+      <circle cx="32" cy="62" r="4" fill="var(--color-ink)" />
+      <path
+        d="M32 86v30M23 107l9 10 9-10"
+        fill="none"
+        stroke="var(--color-ink)"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 134h24l8 22H12Z"
+        fill="var(--color-coral)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 /** A tile a child counts is at least 22 px (06 §4); a growing shape draws them up to 30. */
 export const GROW_TILE_MIN = 22;
@@ -182,7 +237,9 @@ export function PatternExtendWidget({
       ? config.sequence.map((_, i) => i)
       : mode === 'extend' || mode === 'fill'
         ? blankIndexes(config)
-        : [];
+        : mode === 'table'
+          ? tableBlanks(config)
+          : [];
 
   const [texts, setTexts] = useState<Record<number, string>>({});
   const [ruleText, setRuleText] = useState('');
@@ -783,12 +840,107 @@ export function PatternExtendWidget({
       </div>
     ) : null;
 
-  const main: ReactNode = (
-    <>
-      {sequenceRow(false)}
-      {mode === 'translate' ? sequenceRow(true) : null}
-    </>
-  );
+  /**
+   * An input–output machine (`table`): the machine, then "In" over "Out", then one column a pair.
+   * A shown pair is a button that says "In 7, out 10"; a missing output is a typed box named
+   * "Out for 12" (tap it to choose it). Cells show numbers only, never the rule.
+   */
+  const tableView = () => {
+    const rows = config.table;
+    if (!rows) return null;
+    return (
+      <fieldset
+        className="ni-pattern__rows ni-pattern__table"
+        aria-label={t('ui.widget.pattern.machine')}
+        data-row="pattern"
+      >
+        <div className="ni-pattern__row">
+          <span className="ni-pattern__machine" aria-hidden="true">
+            <MachineArt />
+          </span>
+          <span className="ni-pattern__col ni-pattern__heads" aria-hidden="true">
+            <span className="ni-pattern__head">{t('ui.widget.pattern.in')}</span>
+            <span className="ni-pattern__head">{t('ui.widget.pattern.out')}</span>
+          </span>
+          {rows.inputs.map((x, i) => {
+            const out = rows.outputs[i];
+            const invited = invitedIndex === i;
+            if (out !== null && out !== undefined) {
+              return (
+                <button
+                  // biome-ignore lint/suspicious/noArrayIndexKey: table columns are positional
+                  key={i}
+                  type="button"
+                  className={['ni-pattern__col', 'ni-pattern__pair', invited ? 'ni-invite' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  data-index={i}
+                  data-flash={flash === i || state.highlighted === i ? 'true' : undefined}
+                  aria-label={t('ui.widget.pattern.pair', { in: x, out })}
+                  disabled={!interactive}
+                  onClick={() => {
+                    if (!interactive) return;
+                    trace('tap', `tok-${i}`);
+                    if (speakOnTap) say('ui.widget.pattern.pair', { in: x, out });
+                  }}
+                >
+                  {/* The numbers print through CSS: the pair's name says them ("In 7, out 10"). */}
+                  <span className="ni-pattern__tcell" data-n={x} />
+                  <span className="ni-pattern__tcell" data-n={out} />
+                </button>
+              );
+            }
+            const text = texts[i] ?? '';
+            const isActive = active === i && !disabled;
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: table columns are positional
+              <span key={i} className="ni-pattern__col">
+                <span className="ni-pattern__tcell" data-n={x} aria-hidden="true" />
+                <button
+                  type="button"
+                  className={[
+                    'ni-pattern__tcell',
+                    'ni-pattern__blank',
+                    'ni-number',
+                    invited ? 'ni-invite' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  data-index={i}
+                  data-state={isActive ? 'active' : 'idle'}
+                  data-empty={text === '' ? 'true' : undefined}
+                  data-flash={flash === i ? 'true' : undefined}
+                  aria-label={`${t('ui.widget.pattern.out-for', { in: x })}: ${text}`.trim()}
+                  aria-current={isActive ? 'true' : undefined}
+                  disabled={!interactive}
+                  onClick={() => {
+                    trace('tap', `blank-${i}`);
+                    setActive(i);
+                  }}
+                >
+                  {text === '' ? (
+                    <span className="ni-number__slot" />
+                  ) : (
+                    <span className="ni-pattern__numeral">{text}</span>
+                  )}
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      </fieldset>
+    );
+  };
+
+  const main: ReactNode =
+    mode === 'table' ? (
+      tableView()
+    ) : (
+      <>
+        {sequenceRow(false)}
+        {mode === 'translate' ? sequenceRow(true) : null}
+      </>
+    );
 
   return (
     <div

@@ -119,7 +119,7 @@ const peRule: WidgetConfigOf<'pattern-extend'> = {
 };
 const peTable: WidgetConfigOf<'pattern-extend'> = {
   format: 'pattern-extend',
-  sequence: [{ n: 1 }, { n: 2 }],
+  sequence: [],
   palette: [],
   mode: 'table',
   kind: 'function',
@@ -527,11 +527,21 @@ describe('pattern-extend', () => {
   });
 
   it('accepts every mode and kind it supports', () => {
-    for (const c of [peBase, peFill, peCore, peNumber, peRule, peTranslate, peGrow]) {
+    for (const c of [peBase, peFill, peCore, peNumber, peRule, peTranslate, peGrow, peTable]) {
       expect(issuePaths(patternExtend, c), c.mode).toEqual([]);
     }
-    // A table has no layout in the widget yet: the schema refuses the mode (the ops stay).
-    expect(issuePaths(patternExtend, peTable)).toEqual(['mode']);
+  });
+
+  it('a table is a function machine with no pattern, distinct inputs and at most 4 rows', () => {
+    const bad = (over: Partial<WidgetConfigOf<'pattern-extend'>>) =>
+      issuePaths(patternExtend, { ...peTable, ...over });
+    expect(bad({ kind: 'number' })).toContain('kind');
+    expect(bad({ sequence: [{ n: 1 }, { n: 2 }] })).toContain('sequence');
+    expect(bad({ table: { inputs: [1, 1, 3], outputs: [3, 3, null] } })).toContain('table.inputs');
+    expect(bad({ table: { inputs: [1, 2, 3, 4, 5], outputs: [3, 4, 5, 6, null] } })).toContain(
+      'table',
+    );
+    expect(bad({ table: { inputs: [1, 2], outputs: [null, null] } })).toContain('table.outputs');
   });
 
   it('rejects patterns the widget cannot draw or the child cannot answer', () => {
