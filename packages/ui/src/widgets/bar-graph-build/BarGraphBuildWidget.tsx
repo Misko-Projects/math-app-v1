@@ -583,8 +583,11 @@ export function BarGraphBuildWidget({
               ) : (
                 // One list item per measurement (DAT.03): a screen reader steps through them in
                 // reading order, as a sighted child reads the cards.
+                // role="list": Safari drops list semantics from a list styled without bullets.
                 <ul
                   className="ni-bgb__lengths"
+                  // biome-ignore lint/a11y/noRedundantRoles: kept for Safari (list-style: none)
+                  role="list"
                   aria-label={t('ui.widget.chart.lengths')}
                   style={{ maxWidth: inner(dataArea).width }}
                 >

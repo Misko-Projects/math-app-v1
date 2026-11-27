@@ -1431,7 +1431,7 @@ gen.mea.length.two-rulers-zero:
   text: "Both rulers start at 0, right where it starts."
   level: "2"
 gen.mea.length.two-rulers-cm:
-  text: "On the centimeter ruler, it ends at {n}."
+  text: "On the centimeter ruler, find the number where it ends."
   level: "2"
 gen.mea.length.two-rulers-in:
   text: "On the inch ruler, it ends closest to {m}. It is {n} centimeters, and about {m} {alt|unit:m}."
@@ -2913,19 +2913,19 @@ gen.money.coins.compare-amounts:
 # h.ruler.end-number go only on rulers from 0; h.ruler.not-zero and h.ruler.take-start only on
 # objects that start at 1 or more.
 h.unit-sort.small-inches:
-  text: "Small things, like a shoe, are measured in inches."
+  text: "Things smaller than a book are measured in inches."
   level: "2"
 h.unit-sort.big-feet:
-  text: "Big things, like a door, are measured in feet."
+  text: "Things bigger than a chair are measured in feet."
   level: "2"
 h.unit-sort.compare-you:
-  text: "Is it about as long as a shoe, or shorter? Use inches. As big as you or bigger: use feet."
+  text: "Think how big each one is. Is it smaller than a book, or bigger than a chair?"
   level: "2"
 h.estimate.picture-unit:
   text: "Picture the 1 {unit|unit:one} piece put down along it, again and again."
   level: "2"
 h.estimate.check-unit:
-  text: "Each number counts the piece under it. Look at how big that piece is."
+  text: "Each number counts the one piece under the picture. Look at how big that piece is."
   level: "2"
 h.estimate.few-or-many:
   text: "Would it take a small number of pieces, or a big number? Pick the closest one."

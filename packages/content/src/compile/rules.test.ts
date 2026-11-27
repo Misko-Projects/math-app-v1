@@ -2141,4 +2141,17 @@ describe('line plots, units and estimates: lines that hold for every item (K02 s
       }
     }
   });
+
+  it('MEA.08 sort hints name no thing a card can show (R1)', () => {
+    const things = ['pencil', 'shoe', 'spoon', 'cup', 'button', 'door', 'table', 'fishing'];
+    const content = c();
+    for (const id of ['MEA.08.t1', 'MEA.08.t2']) {
+      const hints = content?.templates.find((t) => t.id === id)?.narration.hints ?? [];
+      expect(hints.length, id).toBe(3);
+      for (const h of hints) {
+        const text = (content?.narration[h]?.text ?? '').toLowerCase();
+        for (const thing of things) expect(text, `${id} ${h}`).not.toContain(thing);
+      }
+    }
+  });
 });

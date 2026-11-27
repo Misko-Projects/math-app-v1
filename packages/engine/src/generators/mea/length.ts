@@ -695,7 +695,8 @@ export const meaLength: GeneratorDef = {
     }
 
     if (mode === 'estimate') {
-      const options = estimateOptions(length);
+      // Shuffled (review R1): the answer is not always the middle button.
+      const options = layout.shuffle(estimateOptions(length));
       p = {
         params,
         vars,
@@ -1043,12 +1044,12 @@ export const meaLength: GeneratorDef = {
             ),
           );
         if (w.mode === 'two-units' && a.kind === 'numbers' && w.tool === 'ruler') {
-          // Two rulers (MEA.09): line up 0, read the centimeter end, then the nearest inch. The
-          // first two steps say no number (the worked-step hint plays the first).
+          // Two rulers (MEA.09): line up 0, read the centimeter end, then the nearest inch. Only the
+          // last step says a number (a faded lesson plays every step before the child's turn).
           const [n, m] = a.values as [number, number];
           return [
             say('gen.mea.length.two-rulers-zero', {}, { op: 'align-zero' }),
-            say('gen.mea.length.two-rulers-cm', { n }, { op: 'read-end' }),
+            say('gen.mea.length.two-rulers-cm', {}, { op: 'read-end' }),
             say(
               'gen.mea.length.two-rulers-in',
               { n, m, alt: altUnit },

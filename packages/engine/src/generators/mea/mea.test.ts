@@ -71,7 +71,7 @@ const LENGTH: Case[] = [
     t: tpl('mea.length', 'compare-length', { tier: 'concrete' }),
     params: { mode: 'compare', ask: 'longer', length: 4, length2: 9 },
     answer: (item) => {
-      const w = item.widget as { objects: { id: string; length: number }[] };
+      const w = item.widget as unknown as { objects: { id: string; length: number }[] };
       return { kind: 'choice', id: w.objects.find((o) => o.length === 9)?.id ?? '' };
     },
     widget: { ask: 'longer', aligned: true },
@@ -345,7 +345,9 @@ const LENGTH_K02: Case[] = [
     t: k02('shape-sort', 4, { representation: 'objects' }),
     params: { mode: 'unit-sort', cards: 4, hits: 2 },
     answer: (item) => {
-      const w = item.widget as { cards: { id: string; card: { props: { unit: string } } }[] };
+      const w = item.widget as unknown as {
+        cards: { id: string; card: { props: { unit: string } } }[];
+      };
       const feet = w.cards.filter((c) => c.card.props.unit === 'ft');
       expect(feet).toHaveLength(2);
       return item.answer;
@@ -364,7 +366,7 @@ const LENGTH_K02: Case[] = [
     t: k02('measure-length', 5, { representation: 'units' }),
     params: { mode: 'estimate', unit: 'ft', length: 7 },
     answer: { kind: 'choice', id: 'opt-7' },
-    widget: { mode: 'estimate', input: 'pick', options: [2, 7, 21] },
+    widget: { mode: 'estimate', input: 'pick' },
     lastOp: 'answer',
   },
 ];
@@ -940,6 +942,37 @@ describe('mea.length two-units in centimeters and inches (MEA.09)', () => {
     const r = replaySteps(item, steps);
     if (r) expect(checkResponse(item, r).correct).toBe(true);
     expect(biggerUnitMore.match(item, { kind: 'numbers', values: [3, 8] })).toBe(true);
+  });
+
+  it('no step before the last says a number (a faded lesson plays them before the turn; R1)', () => {
+    const item = generateItemFromParams(ml, params(8));
+    const steps = itemSolution(item, ml);
+    for (const s of steps.slice(0, -1)) expect(Object.values(s.vars ?? {})).toEqual([]);
+  });
+
+  it('estimates put the answer in every position across seeds (R1)', () => {
+    const est: ItemTemplate = {
+      id: 'T.mea08.estimate',
+      ...tplShape('mea.length', 'measure-length'),
+      params: {
+        mode: { kind: 'const', value: 'estimate' },
+        unit: { kind: 'const', value: 'ft' },
+        length: { kind: 'int', min: 2, max: 8 },
+      },
+    };
+    const positions = new Set<number>();
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const item = generateItem(est, seed);
+      if (item.widget.format !== 'measure-length' || item.answer.kind !== 'choice') continue;
+      const length = item.widget.object.length;
+      expect([...(item.widget.options ?? [])].sort((a, b) => a - b)).toEqual([
+        Math.max(1, Math.round(length / 3)),
+        length,
+        3 * length,
+      ]);
+      positions.add((item.widget.options ?? []).indexOf(length));
+    }
+    expect([...positions].sort()).toEqual([0, 1, 2]);
   });
 
   it('number-pad: a centimeter ruler picture from 0, the centimeters asked, the inches told', () => {
