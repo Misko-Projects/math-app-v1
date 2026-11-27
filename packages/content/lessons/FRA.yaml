@@ -54,3 +54,18 @@ lessons:
       - { seed: 2354819207, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [FRA.16.t2] }
+
+  # K02 slice 5a (#17): FRA.03 is a gateway. Its worked and faded examples cut a shape into equal
+  # parts and fill one (t1, concrete; the last step of each is a fill); the test-out names one part
+  # on the pads, under a picture (t3) and from a story with no picture (t4), so a child who tests
+  # out has written unit fractions in symbols.
+  - skillId: FRA.03
+    mode: authored
+    templateId: FRA.03.t1
+    worked:
+      - { seed: 2673446871, target: easy }
+    faded:
+      - { seed: 2673446872, target: typical, childSteps: 1 }
+      - { seed: 2673446873, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.03.t3, FRA.03.t4] }

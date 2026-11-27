@@ -155,7 +155,8 @@ const configSchema = fractionPickConfigSchema.superRefine((c, ctx) => {
       }
     });
   }
-  if ((c.mode === 'fair-or-not' || c.mode === 'name') && !c.stimulus) {
+  // A name item may have no picture (K02 slice 5a, the abstract tier): its prompt tells the parts.
+  if (c.mode === 'fair-or-not' && !c.stimulus) {
     ctx.addIssue({ code: 'custom', path: ['stimulus'], message: `${c.mode} shows a picture` });
   }
   // A fraction picture, or a grid cut into parts of any rectangular shapes (FRA.16).

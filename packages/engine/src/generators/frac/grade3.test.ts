@@ -101,9 +101,12 @@ describe('frac.partition name (FRA.03, FRA.09)', () => {
         expect(w.stimulus).toBeUndefined();
         const keys = itemSolution(item, owner.get(item)).map((s) => s.say);
         expect(keys[0]).toBe('gen.frac.partition.name-words-bottom');
-        expect(keys.at(-1)).toBe(num > 1 ? 'gen.frac.partition.name-copies' : 'gen.frac.partition.name-write');
+        expect(keys.at(-1)).toBe(
+          num > 1 ? 'gen.frac.partition.name-copies' : 'gen.frac.partition.name-write',
+        );
         // Steps before the last carry no vars: the level-4 hint plays them.
-        for (const s of itemSolution(item, owner.get(item)).slice(0, -1)) expect(s.vars).toEqual({});
+        for (const s of itemSolution(item, owner.get(item)).slice(0, -1))
+          expect(s.vars).toEqual({});
         roundTrip(item);
       }
     }
@@ -226,7 +229,12 @@ describe('frac.compare with symbols (FRA.06, FRA.13)', () => {
           const w = item.widget;
           if (w.format !== 'compare') throw new Error('format');
           expect(w.left).toMatchObject({ kind: 'fraction', shape: 'bar', parts: den, shaded: num });
-          expect(w.right).toMatchObject({ kind: 'fraction', shape: 'bar', parts: den2, shaded: num });
+          expect(w.right).toMatchObject({
+            kind: 'fraction',
+            shape: 'bar',
+            parts: den2,
+            shaded: num,
+          });
           expect(item.answer).toEqual({
             kind: 'choice',
             id: den === den2 ? 'same' : den < den2 ? 'left' : 'right',
@@ -276,7 +284,13 @@ describe('frac.compare with symbols (FRA.06, FRA.13)', () => {
           const [a, b] = (it.label ?? '').split('/').map(Number) as [number, number];
           expect(it.value).toBe(fractionSize(a, b));
           if (t === cards) expect(it.stimulus).toBeUndefined();
-          else expect(it.stimulus).toMatchObject({ kind: 'fraction', shape: 'bar', parts: b, shaded: a });
+          else
+            expect(it.stimulus).toMatchObject({
+              kind: 'fraction',
+              shape: 'bar',
+              parts: b,
+              shaded: a,
+            });
         }
         const values = w.items.map((x) => x.value).sort((x, y) => y - x);
         expect(item.answer).toEqual({ kind: 'numbers', values, ordered: true });

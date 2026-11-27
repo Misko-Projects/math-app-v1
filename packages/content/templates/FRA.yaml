@@ -353,3 +353,306 @@ templates:
     narration:
       prompt: tp.FRA.16.t3.prompt
       hints: [h.shares.count-each, h.shares.shape-ok]
+
+  # ---------- K02 slice 5a (#17): grade 3 fractions as parts of a whole ----------
+  # FRA.03 (gateway): cut a shape or a strip into b equal parts and fill one; name one shaded part
+  # on two stacked pads; name one part of a pie from a story (abstract: no picture). b is 2, 3, 4,
+  # 6 or 8 (the grade 3 limit).
+  - id: FRA.03.t1
+    skillId: FRA.03
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: { choice: [circle, rect] }
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 1] }
+      num: 1
+    difficulty: { base: -0.7 }
+    expectedLatencyMs: 18000
+    narration:
+      prompt: tp.FRA.03.t1.prompt
+      hints: [h.frac.same-size, h.frac.count-parts, h.frac.fill-one]
+
+  - id: FRA.03.t2
+    skillId: FRA.03
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-strip
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: bar
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 1] }
+      num: 1
+    difficulty: { base: -0.6 }
+    expectedLatencyMs: 18000
+    narration:
+      prompt: tp.FRA.03.t2.prompt
+      hints: [h.frac.same-size, h.frac.count-parts, h.frac.fill-one]
+
+  - id: FRA.03.t3
+    skillId: FRA.03
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: name
+      shape: { choice: [circle, rect] }
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 1] }
+      num: 1
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.03.t3.prompt
+      hints: [h.frac.name-bottom, h.frac.name-top]
+
+  - id: FRA.03.t4
+    skillId: FRA.03
+    format: fraction-pick
+    tier: abstract
+    representation: symbols
+    generator: frac.partition
+    params:
+      mode: name
+      words: true
+      shape: circle
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 1] }
+      num: 1
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.03.t4.prompt
+      hints: [h.frac.story-bottom, h.frac.story-top]
+
+  # FRA.09: a/b is a copies of 1/b. Fill more than one part; name a shaded strip or shape; name a
+  # story's eaten parts. a = b (the whole) is drawn only where a picture shows it (t1–t3).
+  - id: FRA.09.t1
+    skillId: FRA.09
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: { choice: [circle, rect] }
+      den: { choice: [3, 4, 6, 8], weights: [2, 2, 2, 1] }
+      num: { int: [2, 8] }
+    constraints: ["num <= den"]
+    difficulty: { base: -1.8 }
+    expectedLatencyMs: 22000
+    narration:
+      prompt: tp.FRA.09.t1.prompt
+      hints: [h.frac.same-size, h.frac.count-parts, h.frac.count-filled]
+
+  - id: FRA.09.t2
+    skillId: FRA.09
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.partition
+    params:
+      mode: name
+      shape: bar
+      den: { choice: [3, 4, 6, 8], weights: [2, 2, 2, 1] }
+      num: { int: [2, 8] }
+    constraints: ["num <= den"]
+    difficulty: { base: -1.1 }
+    narration:
+      prompt: tp.FRA.09.t2.prompt
+      hints: [h.frac.name-bottom, h.frac.name-top, h.frac.count-units]
+
+  - id: FRA.09.t3
+    skillId: FRA.09
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: name
+      shape: { choice: [circle, rect] }
+      den: { choice: [3, 4, 6, 8], weights: [2, 2, 2, 1] }
+      num: { int: [2, 8] }
+    constraints: ["num <= den"]
+    difficulty: { base: -1.1 }
+    narration:
+      prompt: tp.FRA.03.t3.prompt
+      hints: [h.frac.name-bottom, h.frac.name-top, h.frac.count-units]
+
+  - id: FRA.09.t4
+    skillId: FRA.09
+    format: fraction-pick
+    tier: abstract
+    representation: symbols
+    generator: frac.partition
+    params:
+      mode: name
+      words: true
+      shape: circle
+      den: { choice: [3, 4, 6, 8], weights: [2, 2, 2, 1] }
+      num: { int: [2, 7] }
+    constraints: ["num < den"]
+    difficulty: { base: -1.4 }
+    narration:
+      prompt: tp.FRA.09.t4.prompt
+      hints: [h.frac.story-bottom, h.frac.story-top]
+
+  # FRA.06: same denominator. Two strips of one whole (which shows more?), two strips with their
+  # fractions in order, biggest first, a/b ? c/b with a sign, and three fractions in order. The
+  # strip order has two cards: three strip cards beside Check leave a strip in sixths 20 px a part
+  # at 960 × 600, two leave eighths about 30 px (K02 slice 5a measurement).
+
+  - id: FRA.06.t1
+    skillId: FRA.06
+    format: compare
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      kind: sameDen
+      symbols: true
+      shape: bar
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [1, 7] }
+      num2: { int: [1, 7] }
+    constraints: ["num < den", "num2 < den"]
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.FRA.06.t1.prompt
+      hints: [h.frac.same-parts, h.frac.count-filled]
+
+  - id: FRA.06.t2
+    skillId: FRA.06
+    format: order
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      kind: sameDen
+      symbols: true
+      shape: bar
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [1, 7] }
+      num2: { int: [1, 7] }
+    constraints: ["num < den", "num2 < den", "num != num2"]
+    difficulty: { base: -1.2, features: { ratio: 1.5 } }
+    narration:
+      prompt: tp.FRA.06.t2.prompt
+      hints: [h.frac.same-parts, h.frac.most-filled]
+
+  - id: FRA.06.t3
+    skillId: FRA.06
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: frac.compare
+    params:
+      kind: sameDen
+      symbols: true
+      shape: bar
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [1, 7] }
+      num2: { int: [1, 7] }
+    constraints: ["num < den", "num2 < den"]
+    difficulty: { base: -0.76 }
+    narration:
+      prompt: tp.FRA.06.t3.prompt
+      hints: [h.frac.same-bottom, h.frac.sign-open]
+
+  - id: FRA.06.t4
+    skillId: FRA.06
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: frac.compare
+    params:
+      kind: sameDen
+      symbols: true
+      shape: bar
+      den: { choice: [4, 6, 8] }
+      num: { int: [1, 7] }
+      num2: { int: [1, 7] }
+      num3: { int: [1, 7] }
+    constraints: ["num < den", "num2 < den", "num3 < den", "num != num2", "num != num3", "num2 != num3"]
+    difficulty: { base: -1.2, features: { ratio: 1.5 } }
+    narration:
+      prompt: tp.FRA.06.t4.prompt
+      hints: [h.frac.same-bottom, h.frac.biggest-top]
+
+  # FRA.13: same numerator. The wholes are the same size, so fewer parts means bigger parts.
+  - id: FRA.13.t1
+    skillId: FRA.13
+    format: compare
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      kind: sameNum
+      symbols: true
+      shape: bar
+      num: { choice: [1, 2, 3] }
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+    constraints: ["num < den", "num < den2"]
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.FRA.13.t1.prompt
+      hints: [h.frac.same-filled, h.frac.more-parts]
+
+  - id: FRA.13.t2
+    skillId: FRA.13
+    format: order
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      kind: sameNum
+      symbols: true
+      shape: bar
+      num: { choice: [1, 2, 3] }
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+    constraints: ["num < den", "num < den2", "den != den2"]
+    difficulty: { base: -2.2, features: { ratio: 1.6 } }
+    narration:
+      prompt: tp.FRA.06.t2.prompt
+      hints: [h.frac.same-filled, h.frac.order-biggest]
+
+  - id: FRA.13.t3
+    skillId: FRA.13
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: frac.compare
+    params:
+      kind: sameNum
+      symbols: true
+      shape: bar
+      num: { choice: [1, 2, 3] }
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+    constraints: ["num < den", "num < den2"]
+    difficulty: { base: -1.3 }
+    narration:
+      prompt: tp.FRA.06.t3.prompt
+      hints: [h.frac.same-top, h.frac.sign-open]
+
+  - id: FRA.13.t4
+    skillId: FRA.13
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: frac.compare
+    params:
+      kind: sameNum
+      symbols: true
+      shape: bar
+      num: { choice: [1, 2, 3] }
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+      den3: { choice: [2, 3, 4, 6, 8] }
+    constraints: ["num < den", "num < den2", "num < den3", "den != den2", "den != den3", "den2 != den3"]
+    difficulty: { base: -2.2, features: { ratio: 1.6 } }
+    narration:
+      prompt: tp.FRA.06.t4.prompt
+      hints: [h.frac.same-top, h.frac.fewest-bottom]

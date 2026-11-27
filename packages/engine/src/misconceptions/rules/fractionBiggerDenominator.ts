@@ -26,7 +26,6 @@ function predict(item: GeneratedItem): ResponseValue | null {
     return { kind: 'choice', id: l > r ? '>' : '<' };
   }
   if (w.format === 'compare' && a.kind === 'choice') {
-
     if (w.left.kind !== 'fraction' || w.right.kind !== 'fraction') return null;
     if (w.left.parts === w.right.parts) return null;
     return { kind: 'choice', id: w.left.parts > w.right.parts ? 'left' : 'right' };

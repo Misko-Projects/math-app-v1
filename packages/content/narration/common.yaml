@@ -1985,6 +1985,12 @@ fb.mc.fraction-unequal-parts:
   text: "Fair parts are all the same size. Look at each part again."
 fb.mc.fraction-bigger-denominator:
   text: "More parts make smaller pieces. Think about the size of one piece."
+fb.mc.fraction-part-to-part:
+  text: "The bottom number counts all the parts, not just some of them."
+fb.mc.fraction-swapped:
+  text: "The parts you count go on top. All the parts go on the bottom."
+fb.mc.fraction-compare-tops:
+  text: "Same top number? Look at the size of the parts too."
 fb.mc.unequal-share:
   text: "Give one to each in turn, so each one gets the same."
 
@@ -2865,6 +2871,51 @@ h.frac.count-parts:
 h.frac.whole-fourths:
   text: "Fill every part. Four fourths make one whole."
   level: "2"
+
+# K02 slice 5a (#17): grade 3 fraction hints. No hint holds a number: the asked values are the
+# child's to find.
+h.frac.name-bottom:
+  text: "Count all the equal parts. That number goes on the bottom."
+  level: "3"
+h.frac.name-top:
+  text: "Count the shaded parts. That number goes on top."
+  level: "3"
+h.frac.story-bottom:
+  text: "How many equal parts is the pie cut into? That number goes on the bottom."
+  level: "3"
+h.frac.story-top:
+  text: "How many parts did you eat? That number goes on top."
+  level: "3"
+h.frac.count-filled:
+  text: "Count the shaded parts one at a time."
+  level: "3"
+h.frac.count-units:
+  text: "Each shaded part is one of the equal parts. Count them to find the top number."
+  level: "3"
+h.frac.same-parts:
+  text: "The parts are all the same size. Count the shaded parts in each."
+  level: "3"
+h.frac.same-bottom:
+  text: "The bottom numbers are the same, so the parts are the same size. Look at the top numbers."
+  level: "3"
+h.frac.sign-open:
+  text: "The open side of the sign faces the bigger one."
+  level: "3"
+h.frac.most-filled:
+  text: "The strip with the most shaded parts is the biggest."
+  level: "3"
+h.frac.biggest-top:
+  text: "The parts are the same size, so the biggest top number is the biggest."
+  level: "3"
+h.frac.same-filled:
+  text: "Each one has the same number of parts shaded. Look at how big the parts are."
+  level: "3"
+h.frac.same-top:
+  text: "The top numbers are the same. Fewer parts in the whole means bigger parts."
+  level: "3"
+h.frac.fewest-bottom:
+  text: "The smallest bottom number has the biggest parts, so it goes first."
+  level: "3"
 gen.time.clock.am:
   text: "This is in the morning. From midnight until noon, it is a.m."
   level: "2"

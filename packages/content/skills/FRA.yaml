@@ -1,5 +1,5 @@
-# K01 (#11): the grade-1 FRA rows of 03 §3.11. K02 slice 4a (#17) adds FRA.02; FRA.03–06 and
-# FRA.09–17 are grade 2–3 (K02; graph.yaml plannedIds).
+# K01 (#11): the grade-1 FRA rows of 03 §3.11. K02 slice 4a (#17) adds FRA.02, slice 5a FRA.03,
+# FRA.06, FRA.09 and FRA.13; the other grade 3 rows are planned (graph.yaml plannedIds).
 strand: FRA
 skills:
   - id: FRA.01
@@ -49,3 +49,43 @@ skills:
     prerequisites: [FRA.02]
     gateway: false
     representations: [fraction-shape, area-grid]
+
+  # K02 slice 5a (#17): grade 3 fractions as parts of a whole. The fraction-line representation
+  # and format of FRA.03 and FRA.06 come with the number-line slice (as built, 03 §3.11); FRA.06
+  # and FRA.13 add `order` (a constructed answer) for V27, as FRA.08 does.
+  - id: FRA.03
+    name: "Unit fractions: 1/b is one of b equal parts"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.1] }
+    prerequisites: [FRA.02, FRA.16, MUL.05]
+    gateway: true
+    representations: [fraction-shape, fraction-strip, symbols]
+
+  - id: FRA.09
+    name: "Non-unit fractions: a/b is a copies of 1/b"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.1] }
+    prerequisites: [FRA.03]
+    gateway: false
+    representations: [fraction-shape, fraction-strip, symbols]
+
+  - id: FRA.06
+    name: Compare fractions with the same denominator
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.3d] }
+    prerequisites: [FRA.09, PV.02]
+    gateway: false
+    representations: [fraction-strip, symbols]
+
+  - id: FRA.13
+    name: Compare fractions with the same numerator
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.3d] }
+    prerequisites: [FRA.06, FRA.08]
+    gateway: false
+    representations: [fraction-strip, symbols]
+    encompasses: { FRA.08: 0.5 }

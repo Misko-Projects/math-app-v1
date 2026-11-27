@@ -7,7 +7,7 @@ misconceptions:
     name: Calls unequal pieces halves or fourths, or an unequal share fair
     detect: { kind: answer, rule: fractionUnequalParts }
     appliesTo: { generators: [frac.partition, div.share, frac.shares] }
-    skills: [FRA.01, FRA.07, FRA.16]
+    skills: [FRA.01, FRA.03, FRA.07, FRA.16]
     remediation: [FRA.07]
     feedback: fb.mc.fraction-unequal-parts
     priority: 50
@@ -34,7 +34,8 @@ misconceptions:
     name: Thinks a whole cut into more parts has bigger parts
     detect: { kind: answer, rule: fractionBiggerDenominator }
     appliesTo: { generators: [frac.compare] }
-    skills: [FRA.08]
+    # K02 slice 5a: FRA.13 compares a/b with a/c (pictures, a sign, or an order).
+    skills: [FRA.08, FRA.13]
     remediation: [FRA.08]
     feedback: fb.mc.fraction-bigger-denominator
     priority: 50
@@ -49,7 +50,67 @@ misconceptions:
         response: { kind: choice, id: same }
         match: false
 
+  # K02 slice 5a (#17): naming a fraction on two pads (frac.partition `name`) and comparing two
+  # fractions with the same top number (frac.compare `sameNum` with symbols).
+  - id: MC.fraction-part-to-part
+    name: Names shaded parts against unshaded ones (3 of 8 as 3/5), or names the unshaded parts
+    detect: { kind: answer, rule: fractionPartToPart }
+    appliesTo: { generators: [frac.partition] }
+    skills: [FRA.03, FRA.09]
+    remediation: [FRA.03]
+    feedback: fb.mc.fraction-part-to-part
+    priority: 50
+    parentTip: >-
+      Cut a sandwich into four and eat one piece. Ask how many pieces the whole sandwich had: that
+      is the bottom number, eaten or not.
+    examples:
+      - params: { mode: name, shape: rect, den: 8, num: 3 }
+        response: { kind: numbers, values: [3, 5] }
+        match: true
+      - params: { mode: name, shape: rect, den: 8, num: 3 }
+        response: { kind: numbers, values: [3, 8] }
+        match: false
+
+  - id: MC.fraction-swapped
+    name: Puts the number of parts on top (3 of 8 shaded as 8/3)
+    detect: { kind: answer, rule: fractionSwapped }
+    appliesTo: { generators: [frac.partition] }
+    skills: [FRA.03, FRA.09]
+    remediation: [FRA.03]
+    feedback: fb.mc.fraction-swapped
+    priority: 40
+    parentTip: >-
+      Say a fraction aloud together: "three eighths" means three parts, each one of eight. The
+      parts you have go on top.
+    examples:
+      - params: { mode: name, shape: rect, den: 8, num: 3 }
+        response: { kind: numbers, values: [8, 3] }
+        match: true
+      - params: { mode: name, shape: rect, den: 8, num: 3 }
+        response: { kind: numbers, values: [3, 8] }
+        match: false
+
+  - id: MC.fraction-compare-tops
+    name: Calls two fractions equal because their top numbers match (2/3 = 2/8)
+    detect: { kind: answer, rule: fractionCompareTops }
+    appliesTo: { generators: [frac.compare] }
+    skills: [FRA.13]
+    remediation: [FRA.08]
+    feedback: fb.mc.fraction-compare-tops
+    priority: 40
+    parentTip: >-
+      Fold two same-size paper strips, one in thirds and one in eighths, and shade two parts of
+      each. Same top number, but are they the same size?
+    examples:
+      - params: { kind: sameNum, symbols: true, shape: bar, num: 2, den: 3, den2: 8 }
+        response: { kind: choice, id: same }
+        match: true
+      - params: { kind: sameNum, symbols: true, shape: bar, num: 2, den: 3, den2: 8 }
+        response: { kind: choice, id: left }
+        match: false
+
   # K02 slice 4c-2 (#17): equal shares that look different (FRA.16, frac.shares).
+
   - id: MC.equal-shares-look-alike
     name: Thinks equal shares must look alike (a longer part looks bigger)
     detect: { kind: answer, rule: equalSharesLookAlike }

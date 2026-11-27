@@ -278,7 +278,7 @@ export const fracPartition: GeneratorDef = {
       'shape.circle': shape === 'circle' ? 1 : 0,
       nonUnit: num > 1 ? 1 : 0,
     };
-    const vars = pickVars(t, { den, what: pickWord(ask, den) });
+    const vars = pickVars(t, { den, num, what: pickWord(ask, den) });
     let p: PartialOutput;
     if (t.format === 'fraction-cut') {
       math['parts.hard'] = den % 2 === 1 || den > 4 ? 1 : 0;
@@ -476,7 +476,6 @@ export const fracPartition: GeneratorDef = {
           ? say('gen.frac.partition.name-copies', { num, u: `1/${den}`, f }, answer)
           : say('gen.frac.partition.name-write', { f }, answer),
       ];
-
     }
     if (w.format === 'fraction-pick') {
       const a = out.answer;

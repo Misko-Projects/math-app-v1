@@ -315,8 +315,6 @@ export const fracCompare: GeneratorDef = {
       return w.ask === 'symbol' && !same
         ? [intro, say(why, {}), say('gen.frac.compare.symbol', {}, answer)]
         : [intro, say(why, {}, answer)];
-
-
     }
     if (w.format === 'order' && symbols && a.kind === 'numbers') {
       const used = new Set<string>();
@@ -338,7 +336,6 @@ export const fracCompare: GeneratorDef = {
     if (w.format === 'compare') {
       const id = a.kind === 'choice' ? a.id : 'same';
       return [
-
         // No highlight: the worked-step hint plays this step and must not point at the answer.
         say('gen.frac.compare.look', {}),
         say(
