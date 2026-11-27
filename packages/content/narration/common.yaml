@@ -1919,6 +1919,54 @@ gen.frac.compare.order-first:
 gen.frac.compare.order-next:
   text: "This one comes next."
 
+# K02 slice 5a (#17): naming and comparing grade 3 fractions. Steps before the last name no
+# number (the worked-step hint plays them); the last says the fraction.
+gen.frac.partition.name-bottom:
+  text: "Count all the equal parts. That number goes on the bottom."
+  level: "3"
+gen.frac.partition.name-top:
+  text: "Count the shaded parts. That number goes on top."
+  level: "3"
+gen.frac.partition.name-words-bottom:
+  text: "How many equal parts make the whole? That number goes on the bottom."
+  level: "3"
+gen.frac.partition.name-words-top:
+  text: "How many of those parts are asked about? That number goes on top."
+  level: "3"
+gen.frac.partition.name-write:
+  text: "One of the equal parts is {f|frac}."
+  level: "3"
+gen.frac.partition.name-copies:
+  text: "{num} parts of {u|frac} each make {f|frac}."
+  level: "3"
+gen.frac.compare.same-den:
+  text: "Both wholes are the same size, cut into the same number of equal parts."
+  level: "3"
+gen.frac.compare.same-den-more:
+  text: "The parts are all one size, so the one with more parts taken is more."
+  level: "3"
+gen.frac.compare.same-den-equal:
+  text: "Both have the same number of parts taken. They are equal."
+  level: "3"
+gen.frac.compare.same-num:
+  text: "Both wholes are the same size, with the same number of parts taken."
+  level: "3"
+gen.frac.compare.same-num-more:
+  text: "Fewer parts in a whole means bigger parts, so the whole with fewer parts gives more."
+  level: "3"
+gen.frac.compare.symbol:
+  text: "The open side of the sign faces the bigger one."
+  level: "3"
+gen.frac.compare.order-den:
+  text: "The parts are all one size. The one with the most parts taken is the biggest."
+  level: "3"
+gen.frac.compare.order-biggest:
+  text: "This one is the biggest. It goes first."
+  level: "3"
+gen.frac.compare.order-num:
+  text: "Each has the same number of parts taken. The whole with the fewest parts has the biggest parts."
+  level: "3"
+
 fb.equal-groups.retry:
   text: "Let's look at each group again."
 fb.array-build.retry:

@@ -19,6 +19,12 @@
 //   thirds to the set (four pictures), lets `den` be 3, and lets the unequal picture have 3 parts.
 // - `partition` (fraction-line partition on a strip, FRA.01): mark the strip into `den` equal
 //   parts. Answer `fraction.partition`.
+// - `name` (fraction-pick `name` on two stacked pads, FRA.03, FRA.09; K02 slice 5a): type the
+//   fraction [num, den] of a `shape` (circle, rect or bar) cut into `den` equal parts with `num`
+//   shaded (num = den: the whole). With `words` there is no picture: the prompt tells the parts
+//   in a story (a pie in 6 equal parts, you eat 1), the abstract tier. The answer is exactly
+//   [num, den]: an equal fraction (2/4 for a picture in halves) is wrong, and no misconception
+//   claims it.
 
 import type { LessonStep, ResponseValue, StimulusSpec } from '@number-island/shared';
 import { partitionPoints } from '../../check/state/fraction.partition';
@@ -83,7 +89,9 @@ export const NONCONGRUENT_DEMOS: readonly {
 
 const demoOf = (den: number, cols: number, rows: number) =>
   NONCONGRUENT_DEMOS.find((d) => d.den === den && d.cols === cols && d.rows === rows);
-const MODES = ['cut', 'fair-or-not', 'pick', 'partition'] as const;
+const MODES = ['cut', 'fair-or-not', 'pick', 'partition', 'name'] as const;
+/** The denominators a grade 3 name item draws (03 §3.11: 2, 3, 4, 6 and 8). */
+export const NAME_DENS = [2, 3, 4, 6, 8] as const;
 const ASKS = ['name', 'unequal'] as const;
 /** The fraction stimulus has no square; pictures of a square are drawn as a rectangle. */
 type PictureShape = 'circle' | 'rect' | 'bar';
@@ -147,8 +155,8 @@ export const fracPartition: GeneratorDef = {
       type: 'string',
       values: [...MODES],
       // Templates always set it; the default lets every format build from defaults.
-      default: { kind: 'choice', values: [...MODES] },
-      doc: 'cut (fraction-cut), fair-or-not or pick (fraction-pick), partition (fraction-line)',
+      default: { kind: 'choice', values: ['cut', 'fair-or-not', 'pick', 'partition'] },
+      doc: 'cut (fraction-cut), fair-or-not, pick or name (fraction-pick), partition (fraction-line)',
     },
     equalParts: {
       type: 'bool',
@@ -170,6 +178,11 @@ export const fracPartition: GeneratorDef = {
       type: 'bool',
       default: { kind: 'const', value: false },
       doc: 'pick (FRA.02): the set also shows thirds, and den may be 3',
+    },
+    words: {
+      type: 'bool',
+      default: { kind: 'const', value: false },
+      doc: 'name: no picture; the prompt tells the parts (abstract tier)',
     },
     acceptNonCongruent: {
       type: 'bool',
@@ -208,6 +221,12 @@ export const fracPartition: GeneratorDef = {
     'gen.frac.partition.grid-first',
     'gen.frac.partition.grid-other-way',
     'gen.frac.partition.grid-same-size',
+    'gen.frac.partition.name-bottom',
+    'gen.frac.partition.name-top',
+    'gen.frac.partition.name-words-bottom',
+    'gen.frac.partition.name-words-top',
+    'gen.frac.partition.name-copies',
+    'gen.frac.partition.name-write',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
@@ -217,8 +236,10 @@ export const fracPartition: GeneratorDef = {
     const mode = asStr(p.mode);
     const shape = asStr(p.shape);
     // A cut may shade every part (FRA.02: four fourths make the whole); nothing else shades all.
-    if (den < 2 || den > 8 || num < 0 || num > den || (num === den && mode !== 'cut')) return false;
+    if (den < 2 || den > 8 || num < 0 || num > den) return false;
+    if (num === den && mode !== 'cut' && mode !== 'name') return false;
     if (p.acceptNonCongruent === true && mode !== 'cut') return false;
+    if (p.words === true && mode !== 'name') return false;
     // A grid is the FRA.16 cut, and FRA.16's cut is a grid that has a worked solution.
     if ((shape === 'grid') !== (p.acceptNonCongruent === true)) return false;
     if (shape === 'grid' && !demoOf(den, asNum(p.cols), asNum(p.rows))) return false;
@@ -227,6 +248,9 @@ export const fracPartition: GeneratorDef = {
         return mode === 'cut';
       case 'fraction-pick':
         if (shape === 'square') return false;
+        if (mode === 'name') {
+          return shape !== 'grid' && (NAME_DENS as readonly number[]).includes(den) && num >= 1;
+        }
         if (mode === 'pick') {
           const u = asNum(p.unequalParts, 2);
           const thirds = p.thirds === true;
@@ -280,6 +304,20 @@ export const fracPartition: GeneratorDef = {
           checker: 'fraction.cut',
           target: { parts: den, shade: num, acceptNonCongruent },
         },
+      };
+    } else if (t.format === 'fraction-pick' && mode === 'name') {
+      const words = params.words === true;
+      p = {
+        params,
+        vars: pickVars(t, { den, num }),
+        math,
+        widget: {
+          format: 'fraction-pick',
+          mode: 'name',
+          nameInput: 'pads',
+          ...(words ? {} : { stimulus: fractionPicture(picShape, den, num, true) }),
+        },
+        answer: { kind: 'numbers', values: [num, den], ordered: true },
       };
     } else if (t.format === 'fraction-pick' && mode === 'fair-or-not') {
       const equal = params.equalParts === true;
@@ -424,8 +462,25 @@ export const fracPartition: GeneratorDef = {
       steps.push(say('gen.frac.partition.mark-parts', {}, { op: 'partition', args: { b: den } }));
       return steps;
     }
+    if (w.format === 'fraction-pick' && w.mode === 'name') {
+      const num = asNum(out.params.num);
+      const words = !w.stimulus;
+      const f = `${num}/${den}`;
+      // Steps before the last name no number: the worked-step hint (level 4) plays them. The
+      // last says the fraction; with more than one part, as copies of one part (FRA.09).
+      const answer = { op: 'answer', args: { values: [num, den] } } as const;
+      return [
+        say(words ? 'gen.frac.partition.name-words-bottom' : 'gen.frac.partition.name-bottom', {}),
+        say(words ? 'gen.frac.partition.name-words-top' : 'gen.frac.partition.name-top', {}),
+        num > 1
+          ? say('gen.frac.partition.name-copies', { num, u: `1/${den}`, f }, answer)
+          : say('gen.frac.partition.name-write', { f }, answer),
+      ];
+
+    }
     if (w.format === 'fraction-pick') {
       const a = out.answer;
+
       const id = a.kind === 'choice' ? a.id : 'yes';
       if (w.mode === 'fair-or-not') {
         return [

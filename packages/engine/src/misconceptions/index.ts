@@ -24,6 +24,7 @@ import { faceValue } from './rules/faceValue';
 import { firstStepOnly } from './rules/firstStepOnly';
 import { forgotTheTen } from './rules/forgotTheTen';
 import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
+import { fractionCompareTops, fractionPartToPart, fractionSwapped } from './rules/fractionNames';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
@@ -91,6 +92,10 @@ const RULES: Record<string, MisconceptionRule> = {
   hourHandNext: hourHandNext, // K01 time
   fractionUnequalParts: fractionUnequalParts, // K01 fractions
   fractionBiggerDenominator: fractionBiggerDenominator, // K01 fractions
+  // K02 (#17) slice 5a: naming and comparing grade 3 fractions
+  fractionPartToPart: fractionPartToPart,
+  fractionSwapped: fractionSwapped,
+  fractionCompareTops: fractionCompareTops,
   unequalShare: unequalShare, // K01 sharing
   patternRestart: patternRestart, // K01 patterns
   placeSwap: placeSwap,
