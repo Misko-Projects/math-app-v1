@@ -668,8 +668,9 @@ async function expectTenToken(root: HTMLElement) {
   const token = miniOf(root);
   await expect(token).toHaveAttribute('data-ten', 'true');
   const box = token.getBoundingClientRect();
-  const discs = [...token.querySelectorAll<SVGCircleElement>('.ni-tf__mini-cell svg')].map((svg) =>
-    (svg.querySelector('circle') as SVGCircleElement).getBoundingClientRect(),
+  // Each counter's disc: its felt piece.
+  const discs = [...token.querySelectorAll<SVGSVGElement>('.ni-tf__mini-cell svg')].map((svg) =>
+    (svg.querySelector('[data-felt-piece] > path') as SVGPathElement).getBoundingClientRect(),
   );
   await expect(discs).toHaveLength(10);
   const tag = token.querySelector('.ni-tf__mini-tag') as HTMLElement;

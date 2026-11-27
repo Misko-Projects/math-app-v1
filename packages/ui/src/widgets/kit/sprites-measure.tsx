@@ -469,7 +469,7 @@ const lantern: MeasureDraw = (tone) => {
   const c = tint(tone, CORAL);
   return (
     <>
-      <circle cx="32" cy="32" r="19" fill={v('sunshine-light')} opacity="0.45" />
+      <circle cx="32" cy="32" r="20.5" fill={v('sunshine-light')} opacity="0.45" />
       <circle cx="32" cy="8" r="4.5" {...stroked(c.line, 3)} />
       <path d="M17 21H47L40 12H24Z" {...painted(c)} />
       <rect

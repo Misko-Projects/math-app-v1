@@ -183,11 +183,12 @@ function fan(
   cy: number,
   R: number,
   inset = 0,
+  fy = 0.98,
 ): { edge: string; pts: [number, number][] } {
   const angs = [160, 132, 104, 76, 48, 20];
   const pts = angs.map(
     (a) =>
-      [cx + R * Math.cos((a * Math.PI) / 180), cy - R * 0.98 * Math.sin((a * Math.PI) / 180)] as [
+      [cx + R * Math.cos((a * Math.PI) / 180), cy - R * fy * Math.sin((a * Math.PI) / 180)] as [
         number,
         number,
       ],
@@ -370,12 +371,12 @@ const Only = ({ tier, children }: { tier: 'md' | 'lg'; children: ReactNode }) =>
 const CRAB_BODY =
   'M-26.5,2C-26.5,-13.5 -14.5,-19.5 0,-19.5C14.5,-19.5 26.5,-13.5 26.5,2C26.5,12.5 14.5,18 0,18C-14.5,18 -26.5,12.5 -26.5,2z';
 const CRAB_LIMBS = [
-  [24, 3, 40, 7],
-  [22, 11, 37, 20],
-  [16, 17, 27, 29],
+  [24, 3, 39, 11],
+  [22, 11, 35, 24],
+  [16, 17, 24, 33],
 ]
   .flatMap(([a, b, c, d]) => [`M${a},${b}L${c},${d}`, `M${-(a ?? 0)},${b}L${-(c ?? 0)},${d}`])
-  .concat(['M-22,-12L-33,-25', 'M22,-12L33,-25'])
+  .concat(['M-20,-12L-28,-30', 'M20,-12L28,-30'])
   .join('');
 // felt-r2 claw_path(r 11.5, mid -112°, half 27°)
 const CLAW = 'M1.5,2.5L1,-11.46A11.5,11.5 0 1 1 -8.68,-7.54z';
@@ -409,21 +410,21 @@ function crabFace(v: number, c: FeltColors) {
 }
 
 const crab: FeltDraw = ({ c, grain, variant }) => (
-  <g transform="translate(32 36) scale(0.6)">
+  <g transform="translate(32 41) scale(0.61)">
     {/* The legs' edge: under 48 px, and at every size where the felt cannot hold 3:1 alone. */}
     <path
       className={c.keepEdge ? undefined : 'ni-felt-sm'}
       d={CRAB_LIMBS}
       fill="none"
       stroke={c.edge}
-      strokeWidth={9}
+      strokeWidth={10.6}
       strokeLinecap="round"
     />
-    <path d={CRAB_LIMBS} fill="none" stroke={c.fill} strokeWidth={5.6} strokeLinecap="round" />
-    <g transform="translate(-33 -25) scale(-1 1)">
+    <path d={CRAB_LIMBS} fill="none" stroke={c.fill} strokeWidth={7.2} strokeLinecap="round" />
+    <g transform="translate(-28 -30) scale(-1 1)">
       <Piece d={CLAW} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     </g>
-    <g transform="translate(33 -25)">
+    <g transform="translate(28 -30)">
       <Piece d={CLAW} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     </g>
     <Piece d={CRAB_BODY} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
@@ -450,13 +451,17 @@ const crab: FeltDraw = ({ c, grain, variant }) => (
 
 // ---------------------------------------------------------------- the shell
 
-const SHELL = fan(32, 50, 29);
-const SHELL_INNER = fan(32, 50, 19.5, 2);
+/** Hinge y and the fan's height factor: a scallop about as tall as it is wide. */
+const HINGE = 53;
+const SHELL = fan(32, HINGE, 25.5, 0, 1.62);
+const SHELL_INNER = fan(32, HINGE, 17.3, 2, 1.62);
 
 const shell: FeltDraw = ({ c, grain }) => {
   const ribs = SHELL.pts
     .slice(1, -1)
-    .map(([x, y]) => `M32,47L${f1(32 + (x - 32) * 0.86)},${f1(50 + (y - 50) * 0.86)}`)
+    .map(
+      ([x, y]) => `M32,${HINGE - 3}L${f1(32 + (x - 32) * 0.86)},${f1(HINGE + (y - HINGE) * 0.86)}`,
+    )
     .join('');
   const dots = SHELL.pts.slice(0, -1).map(([x, y], i) => {
     const n = SHELL.pts[i + 1] as [number, number];
@@ -466,7 +471,7 @@ const shell: FeltDraw = ({ c, grain }) => {
       <circle
         key={`${mx}`}
         cx={f1(32 + (mx - 32) * 0.9)}
-        cy={f1(50 + (my - 50) * 0.9)}
+        cy={f1(HINGE + (my - HINGE) * 0.9)}
         r={1.6}
         fill={c.thread}
       />
@@ -475,7 +480,7 @@ const shell: FeltDraw = ({ c, grain }) => {
   return (
     <>
       <Piece
-        d="M23.5,48h17a4,4 0 0 1 4,4v2a4,4 0 0 1 -4,4h-17a4,4 0 0 1 -4,-4v-2a4,4 0 0 1 4,-4z"
+        d="M24.5,51h15a4,4 0 0 1 4,4v1a4,4 0 0 1 -4,4h-15a4,4 0 0 1 -4,-4v-1a4,4 0 0 1 4,-4z"
         fill={MUSTARD.fill}
         edge={MUSTARD.edge}
         keep
@@ -483,29 +488,29 @@ const shell: FeltDraw = ({ c, grain }) => {
       />
       <Piece d={SHELL.edge} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
       <Applique d={SHELL_INNER.edge} fill={c.accent} edge={c.edge} grain={grain} />
-      <Rim d="M9,38C10,30 15,25 21,22.5" />
+      <Rim d="M10,40C10,30 14,22 20,17" />
       <Stitch d={ribs} color={c.thread} width={1.5} dash="3 2.6" />
       <Only tier="lg">{dots}</Only>
-      <Stitch d="M27,55h10" color={MUSTARD.thread} width={1.4} dash="2.4 2.2" />
+      <Stitch d="M27,57.5h10" color={MUSTARD.thread} width={1.4} dash="2.4 2.2" />
     </>
   );
 };
 
 // ---------------------------------------------------------------- the fish
 
-const FISH_BODY = 'M14,32C18,22 27,16 38,16C47,16 54,23 57,32C54,41 47,48 38,48C27,48 18,42 14,32Z';
+const FISH_BODY = 'M14,32C18,20 27,13 38,13C47,13 54,21 57,32C54,43 47,51 38,51C27,51 18,44 14,32Z';
 
 const fish: FeltDraw = ({ c, grain }) => (
   <>
     <Piece
-      d="M5,20C10.5,23 14,27 17,32C14,37 10.5,41 5,44C6.5,36 6.5,28 5,20Z"
+      d="M5,18C10.5,22 14,27 17,32C14,37 10.5,42 5,46C6.5,37 6.5,27 5,18Z"
       fill={c.accent}
       edge={c.edge}
       keep
       grain={grain}
     />
     <Piece
-      d="M30,18C31,12 37,9.5 43,11C41,14.5 39,16.5 36,18Z"
+      d="M30,15C31,8.5 37,5.5 43,7C41,10.5 39,13 36,15Z"
       fill={c.accent}
       edge={c.edge}
       keep
@@ -513,16 +518,16 @@ const fish: FeltDraw = ({ c, grain }) => (
     />
     <Piece d={FISH_BODY} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Applique
-      d="M24,40C30,44.5 38,45.5 45,44C41,41 33,39.5 24,40Z"
+      d="M24,42C30,47.5 38,48.5 45,47C41,43.5 33,41.5 24,42Z"
       fill={c.accent}
       edge={c.edge}
       grain={grain}
     />
-    <Rim d="M22,23.5C26,20 31,18.5 36,18.3" />
-    <Stitch d="M33,21C30,27 30,37 33,43" color={c.thread} width={1.6} />
-    <circle cx={46} cy={29} r={4.8} fill="#F6EEDB" stroke={c.edge} strokeWidth={1.2} />
-    <Bead cx={46.6} cy={29.4} r={2.9} />
-    <Thread className="ni-felt-md" d="M49.5,37Q52,36 53.5,34" width={1.6} />
+    <Rim d="M21,22C25,18 31,15.5 36,15.3" />
+    <Stitch d="M33,18C29.5,25 29.5,39 33,46" color={c.thread} width={1.6} />
+    <circle cx={46} cy={27.5} r={5} fill="#F6EEDB" stroke={c.edge} strokeWidth={1.2} />
+    <Bead cx={46.6} cy={27.9} r={3} />
+    <Thread className="ni-felt-md" d="M49,37Q52,36.5 54,34" width={1.6} />
   </>
 );
 
@@ -583,20 +588,20 @@ const leaf: FeltDraw = ({ c, grain }) => (
 
 // ---------------------------------------------------------------- the pebble
 
-const PEBBLE = 'M9,34C9,21 19,12 33,12C46,12 55,20 55,32C55,44 45,52 32,52C18,52 9,45 9,34Z';
+const PEBBLE = 'M10,33C10,18 20,8 33,8C46,8 54,18 54,32C54,47 45,56 32,56C18,56 10,47 10,33Z';
 
 const pebble: FeltDraw = ({ c, grain }) => (
   <>
     <Piece d={PEBBLE} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Applique
-      d="M17,27C19,21 25,18 31,18C29,22 24,26 17,27Z"
+      d="M17,24C19,17 25,13.5 31,13.5C29,18 24,22.5 17,24Z"
       fill={c.accent}
       edge={c.fill}
       grain={grain}
     />
-    <Rim d="M14,37C14,31 16,26 20,22" />
+    <Rim d="M15,37C14.5,29 16.5,23 21,18" />
     <Stitch
-      d="M14,34C14,24 22,17 33,17C43,17 50,23 50,32C50,41 43,47 32,47C21,47 14,42 14,34Z"
+      d="M15,33C15,21 23,13 33,13C43,13 49,21 49,32C49,44 42,51 32,51C21,51 15,44 15,33Z"
       color={c.thread}
       width={1.5}
     />
@@ -608,14 +613,14 @@ const pebble: FeltDraw = ({ c, grain }) => (
 const firefly: FeltDraw = ({ c, grain }) => (
   <>
     <Piece
-      d="M20,10C29,9 33,17 31,25C24,26 17,21 20,10Z"
+      d="M13,12C24,7 32,15 31,25C22,28 12,23 13,12Z"
       fill={CREAM.fill}
       edge={CREAM.edge}
       keep
       grain={grain}
     />
     <Piece
-      d="M44,10C35,9 31,17 33,25C40,26 47,21 44,10Z"
+      d="M51,12C40,7 32,15 33,25C42,28 52,23 51,12Z"
       fill={CREAM.fill}
       edge={CREAM.edge}
       keep
@@ -644,26 +649,32 @@ const firefly: FeltDraw = ({ c, grain }) => (
 
 const dot: FeltDraw = ({ c, grain }) => (
   <>
-    <Piece d={circlePath(32, 33, 18)} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
-    <Rim d="M19,30C20,25 24,21 29,20" />
-    <Stitch d={circlePath(32, 33, 13)} color={c.thread} width={1.5} />
+    <Piece
+      d={circlePath(32, 32, 19.5)}
+      fill={c.fill}
+      edge={c.edge}
+      keep={c.keepEdge}
+      grain={grain}
+    />
+    <Rim d="M17,29C18,23 22,18.5 28,17.5" />
+    <Stitch d={circlePath(32, 32, 14.5)} color={c.thread} width={1.5} />
   </>
 );
 
-const STONE = 'M7,39C7,24 18,12 33,12C47,12 57,22 57,36C57,48 47,55 32,55C17,55 7,50 7,39Z';
+const STONE = 'M7,37C7,20 18,8 33,8C47,8 57,19 57,34C57,49 47,57 32,57C17,57 7,51 7,37Z';
 
 const stone: FeltDraw = ({ c, grain }) => (
   <>
     <Piece d={STONE} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Applique
-      d="M36,20C43,19 49,23 51,29C45,29 39,26 36,20Z"
+      d="M36,16C43,15 49,19 51,26C45,26 39,23 36,16Z"
       fill={c.accent}
       edge={c.accent}
       grain={grain}
     />
-    <Rim d="M13,38C13,29 18,22 25,18" />
+    <Rim d="M13,36C13,26 18,18 25,14" />
     <Stitch
-      d="M12,39C12,27 21,17 33,17C44,17 52,25 52,36C52,45 44,50 32,50C20,50 12,46 12,39Z"
+      d="M12,37C12,24 21,13 33,13C44,13 52,22 52,34C52,46 44,52 32,52C20,52 12,47 12,37Z"
       color={c.thread}
       width={1.5}
     />
@@ -679,21 +690,21 @@ const counter =
   ({ c, grain }) => (
     <>
       <Piece
-        d={circlePath(32, 32, 21)}
+        d={circlePath(32, 32, 23.5)}
         fill={c.fill}
         edge={c.edge}
         keep={c.keepEdge}
         grain={grain}
       />
-      <Rim d="M16,28C17,21 22,16 29,15" />
+      <Rim d="M14,28C15,20 21,14 29,12.5" />
       {tone === 'b' ? (
         <g data-mark="ring">
-          <circle cx={32} cy={32} r={11} fill="none" stroke="#2B4467" strokeWidth={4} />
-          <circle cx={32} cy={32} r={3.8} fill="#2B4467" />
-          <Stitch d={circlePath(32, 32, 16.5)} color={c.thread} width={1.4} dash="3 2.6" />
+          <circle cx={32} cy={32} r={12} fill="none" stroke="#2B4467" strokeWidth={4.4} />
+          <circle cx={32} cy={32} r={4.2} fill="#2B4467" />
+          <Stitch d={circlePath(32, 32, 18.5)} color={c.thread} width={1.4} dash="3 2.6" />
         </g>
       ) : (
-        <Stitch d={circlePath(32, 32, 15)} color={c.thread} width={1.6} />
+        <Stitch d={circlePath(32, 32, 17)} color={c.thread} width={1.6} />
       )}
     </>
   );

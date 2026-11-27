@@ -98,7 +98,16 @@ function Row({
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, ...style }}>
-      <span className="story-cell__name" style={{ width: 72, textAlign: 'right' }}>
+      <span
+        className="story-cell__name"
+        style={{
+          width: 72,
+          textAlign: 'right',
+          background: 'var(--color-paper)',
+          borderRadius: 6,
+          padding: '2px 6px',
+        }}
+      >
         {label}
       </span>
       {children}
