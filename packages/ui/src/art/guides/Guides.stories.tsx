@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect } from 'storybook/test';
 import { GalleryCell, GalleryGrid, GallerySection } from '../gallery/Gallery';
 import { Guide } from './Guide';
+import { GuideCheer } from './GuideCheer';
 import { GuideNameTag } from './GuideNameTag';
 import { GUIDES } from './registry';
 import { GUIDE_MOODS } from './types';
@@ -57,6 +58,45 @@ function close(guide: string): Story {
     ),
   };
 }
+
+/**
+ * On a right answer the guide cheers at the stage's bottom-left corner: an overlay that takes no
+ * layout room, no touch and nothing a screen reader reads, transparent again after about a second.
+ */
+export const CheerAtStageCorner: Story = {
+  render: () => (
+    <div style={{ display: 'grid', gap: 24, padding: 32 }}>
+      {['shelly', '22'].map((g) => (
+        <div
+          key={g}
+          data-testid={`stage-${g}`}
+          className="ni-mat"
+          style={{ position: 'relative', height: 220, borderRadius: 28, border: '3px solid' }}
+        >
+          <GuideCheer guide={g} />
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const g of ['shelly', '22']) {
+      const stage = canvasElement.querySelector<HTMLElement>(`[data-testid="stage-${g}"]`);
+      const cheer = stage?.querySelector<HTMLElement>('[data-testid="guide-cheer"]');
+      if (!stage || !cheer) throw new Error('no cheer');
+      await expect(cheer.getAttribute('aria-hidden')).toBe('true');
+      await expect(getComputedStyle(cheer).pointerEvents).toBe('none');
+      await expect(getComputedStyle(cheer).position).toBe('absolute');
+      // It takes no room: the stage's content box is all the stage's own.
+      await expect(stage.scrollHeight).toBeLessThanOrEqual(stage.clientHeight + 1);
+      // Its corner: the bottom-left of the stage, never its top (the look-again cue) or right.
+      const s = stage.getBoundingClientRect();
+      const c = cheer.getBoundingClientRect();
+      await expect(c.left).toBeLessThan(s.left + 40);
+      await expect(c.top).toBeGreaterThan(s.top + s.height / 3);
+      await expect(c.right).toBeLessThan(s.left + s.width / 2);
+    }
+  },
+};
 
 /** Shelly large, at rest and cheering (the look check captures it at device scale 2). */
 export const CloseShelly: Story = close('shelly');

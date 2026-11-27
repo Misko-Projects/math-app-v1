@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { expectTargetSize } from '../test-support/storyHelpers';
 import { GuideChooser } from './GuideChooser';
@@ -91,6 +91,52 @@ export const Keyboard: Story = {
     await expect(confirmed).toHaveBeenCalledWith('22');
   },
 };
+
+/** The chooser framed at a supported viewport: everything inside it, nothing scrolls. */
+function atViewport(w: number, h: number, initial: string | null): Story {
+  return {
+    render: () => (
+      <div
+        data-testid="frame"
+        style={
+          {
+            width: w,
+            height: h,
+            overflow: 'hidden',
+            position: 'relative',
+            '--guide-chooser-h': `${h}px`,
+          } as CSSProperties
+        }
+      >
+        <Chooser initial={initial} switching={initial !== null} />
+      </div>
+    ),
+    play: async ({ canvasElement }) => {
+      const frame = canvasElement.querySelector<HTMLElement>('[data-testid="frame"]');
+      const main = canvasElement.querySelector<HTMLElement>('.ni-guide-chooser__main');
+      if (!frame || !main) throw new Error('no chooser');
+      await expect(main.scrollHeight).toBeLessThanOrEqual(main.clientHeight + 1);
+      const box = frame.getBoundingClientRect();
+      const c = within(canvasElement);
+      for (const el of [
+        ...c.getAllByRole('button', { name: /, the / }),
+        c.getByRole('button', { name: "Let's go!" }),
+      ]) {
+        const r = el.getBoundingClientRect();
+        await expect(r.left).toBeGreaterThanOrEqual(box.left);
+        await expect(r.right).toBeLessThanOrEqual(box.right);
+        await expect(r.top).toBeGreaterThanOrEqual(box.top);
+        await expect(r.bottom).toBeLessThanOrEqual(box.bottom);
+        expectTargetSize(el, 'k');
+      }
+    },
+  };
+}
+
+/** The tablet minimum, 960 × 600, nothing picked. */
+export const At960x600: Story = atViewport(960, 600, null);
+/** The desktop, 1440 × 900, switching with the bunny picked. */
+export const At1440x900: Story = atViewport(1440, 900, '22');
 
 /** Switching from the island: Home leaves without changing; the current guide is picked. */
 export const Switching: Story = {

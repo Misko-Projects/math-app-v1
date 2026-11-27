@@ -12,6 +12,7 @@ import { useProfiles } from '@/data/hooks';
 import { ApiError } from './api';
 import { Button, Notice } from './kit';
 import { useParentApi, useParentGate } from './ParentContext';
+import { ParentGuides } from './ParentGuides';
 import { PicturePasswords } from './PicturePasswords';
 
 export function formatWhen(ts: number | null, now = Date.now()): string {
@@ -85,6 +86,8 @@ export function ParentHome() {
       </Panel>
 
       <PicturePasswords />
+
+      <ParentGuides />
 
       <Panel as="section" title="This device">
         {paired ? (
