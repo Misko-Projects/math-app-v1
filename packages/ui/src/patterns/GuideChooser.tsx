@@ -78,7 +78,7 @@ export function GuideChooser({
                   onClick={() => pick(g.id)}
                   className="ni-guide-card"
                 >
-                  <Guide guide={g.id} mood={on ? 'cheer' : 'idle'} height={232} />
+                  <Guide guide={g.id} mood={on ? 'cheer' : 'idle'} height={210} />
                   <GuideNameTag guide={g.id} decorative fontSize={30} />
                 </button>
               </li>

@@ -61,8 +61,8 @@ export const OnePicked: Story = {
   render: () => <Chooser initial="22" />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await expect(c.getByRole('radio', { name: '22, the bunny' })).toHaveAttribute(
-      'aria-checked',
+    await expect(c.getByRole('button', { name: '22, the bunny' })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
     await expect(c.getByRole('button', { name: "Let's go!" })).toBeEnabled();
@@ -79,10 +79,11 @@ export const Keyboard: Story = {
     const c = within(canvasElement);
     await userEvent.tab();
     await userEvent.tab();
-    await expect(c.getByRole('radio', { name: 'Shelly, the turtle' })).toHaveFocus();
-    await userEvent.keyboard('{ArrowRight}');
-    await expect(c.getByRole('radio', { name: '22, the bunny' })).toHaveAttribute(
-      'aria-checked',
+    await expect(c.getByRole('button', { name: 'Shelly, the turtle' })).toHaveFocus();
+    await userEvent.tab();
+    await userEvent.keyboard(' ');
+    await expect(c.getByRole('button', { name: '22, the bunny' })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
     await userEvent.tab();
@@ -118,17 +119,17 @@ function atViewport(w: number, h: number, initial: string | null): Story {
       await expect(main.scrollHeight).toBeLessThanOrEqual(main.clientHeight + 1);
       const box = frame.getBoundingClientRect();
       const c = within(canvasElement);
-      for (const el of [
-        ...c.getAllByRole('button', { name: /, the / }),
-        c.getByRole('button', { name: "Let's go!" }),
-      ]) {
+      const go = c.getByRole('button', { name: "Let's go!" });
+      // The story stage is in the default (grade 1 up) mode: the big button's size for it.
+      expectTargetSize(go, 'g1-up');
+      for (const el of [...c.getAllByRole('button', { name: /, the / }), go]) {
         const r = el.getBoundingClientRect();
         await expect(r.left).toBeGreaterThanOrEqual(box.left);
         await expect(r.right).toBeLessThanOrEqual(box.right);
         await expect(r.top).toBeGreaterThanOrEqual(box.top);
         await expect(r.bottom).toBeLessThanOrEqual(box.bottom);
-        expectTargetSize(el, 'k');
       }
+      for (const card of c.getAllByRole('button', { name: /, the / })) expectTargetSize(card, 'k');
     },
   };
 }

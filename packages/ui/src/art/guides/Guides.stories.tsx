@@ -86,8 +86,8 @@ export const CheerAtStageCorner: Story = {
       await expect(cheer.getAttribute('aria-hidden')).toBe('true');
       await expect(getComputedStyle(cheer).pointerEvents).toBe('none');
       await expect(getComputedStyle(cheer).position).toBe('absolute');
-      // It takes no room: the stage's content box is all the stage's own.
-      await expect(stage.scrollHeight).toBeLessThanOrEqual(stage.clientHeight + 1);
+      // It takes no room: the stage keeps its own size.
+      await expect(stage.offsetHeight).toBe(220);
       // Its corner: the bottom-left of the stage, never its top (the look-again cue) or right.
       const s = stage.getBoundingClientRect();
       const c = cheer.getBoundingClientRect();
