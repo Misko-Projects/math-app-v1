@@ -270,6 +270,11 @@
 .ni-pattern__tiles {
   overflow: visible;
 }
+/* A growing shape (ALG.10): the counter lies in one row (its number, then − and +), so the strip
+   keeps the height for 22 px tiles in the smallest area. */
+.ni-pattern[data-growth="true"] .ni-stepper {
+  flex-direction: row;
+}
 .ni-pattern__tile {
   fill: var(--color-sun);
   stroke: var(--color-sun-deep);

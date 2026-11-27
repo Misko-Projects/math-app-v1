@@ -877,10 +877,8 @@ export const StressBiggestTilesKLandscapeMin: Story = {
     await expectFitsArea(areaBox(canvasElement), [...shownCells(root), less, check(root)], 'k', [
       note() as HTMLElement,
     ]);
-    // Every tile of the biggest stack can be seen and counted (at least 8 px each).
-    for (const tile of cell(root, 3).querySelectorAll('.ni-pattern__tile')) {
-      await expect(tile.getBoundingClientRect().width).toBeGreaterThanOrEqual(8);
-    }
+    // Every tile a child counts is at least 22 px, in every step and the built stack.
+    await expectCountableTiles(root);
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
@@ -963,5 +961,130 @@ export const EraseKeyTakesTheBandOff: Story = {
     await expect(check(root)).toBeDisabled();
     const kinds = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
     await expect(kinds.filter((k) => k.startsWith('undo:'))).toEqual(['undo:tok-1']);
+  },
+};
+
+// ---------- growing shapes (ALG.10): one shape that grows a column a step ----------
+
+/** Every drawn tile is at least 22 px square (06 §4: a tile a child counts). */
+async function expectCountableTiles(root: HTMLElement) {
+  const all = [...root.querySelectorAll<SVGRectElement>('.ni-pattern__tile')];
+  await expect(all.length).toBeGreaterThan(0);
+  for (const tile of all) {
+    const r = tile.getBoundingClientRect();
+    await expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(22);
+  }
+}
+
+/**
+ * The tiles of cell `i` make the growing shape: the first column holds `start` tiles and every
+ * other column `step` (the last may be part-built), bottom-aligned, columns left to right.
+ */
+async function expectGrowthShape(root: HTMLElement, i: number, start: number, step: number) {
+  const rects = [...cell(root, i).querySelectorAll<SVGRectElement>('.ni-pattern__tile')].map((t) =>
+    t.getBoundingClientRect(),
+  );
+  const lefts = [...new Set(rects.map((r) => Math.round(r.left)))].sort((a, b) => a - b);
+  const perCol = lefts.map((x) => rects.filter((r) => Math.round(r.left) === x).length);
+  const want: number[] = [];
+  for (let left = rects.length; left > 0; ) {
+    const take = Math.min(left, want.length === 0 ? start : step);
+    want.push(take);
+    left -= take;
+  }
+  await expect(perCol).toEqual(want);
+  const bottom = Math.max(...rects.map((r) => r.bottom));
+  for (const x of lefts) {
+    const col = rects.filter((r) => Math.round(r.left) === x);
+    await expect(Math.abs(Math.max(...col.map((r) => r.bottom)) - bottom)).toBeLessThan(1);
+  }
+}
+
+/** ALG.10.t1's widest build: 2, 3, 4 squares (start 2, step 1) and a stack built up to 20. */
+const growWidest: Config = {
+  format: 'pattern-extend',
+  sequence: [{ tiles: 2 }, { tiles: 3 }, { tiles: 4 }, null],
+  palette: [],
+  mode: 'extend',
+  kind: 'grow',
+};
+/** ALG.10.t1's tallest: 4, 7, 10 squares (start 4, step 3) → 13. */
+const growTallest: Config = {
+  format: 'pattern-extend',
+  sequence: [{ tiles: 4 }, { tiles: 7 }, { tiles: 10 }, null],
+  palette: [],
+  mode: 'extend',
+  kind: 'grow',
+};
+
+/**
+ * 960 × 600: the steps are one shape growing a column a step, every tile ≥ 22 px; built past the
+ * answer to the biggest stack (20 tiles, 19 columns), the strip still fits on one line.
+ */
+export const GrowShapeWidestLandscapeMin: Story = {
+  args: { config: growWidest, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShowsSequence(root, growWidest.sequence);
+    for (const i of [0, 1, 2]) await expectGrowthShape(root, i, 2, 1);
+    await expectCountableTiles(root);
+    const more = within(root).getByRole('button', { name: 'One more' });
+    const less = within(root).getByRole('button', { name: 'One less' });
+    for (let i = 0; i < 5; i += 1) await userEvent.click(more);
+    await expectGrowthShape(root, 3, 2, 1);
+    for (let i = 0; i < 15; i += 1) await userEvent.click(more);
+    await expect(cell(root, 3).querySelectorAll('.ni-pattern__tile')).toHaveLength(20);
+    await expectGrowthShape(root, 3, 2, 1);
+    await expectCountableTiles(root);
+    const tops = shownCells(root).map((c) => Math.round(c.getBoundingClientRect().top));
+    await expect(
+      new Set([...tops, Math.round(cell(root, 3).getBoundingClientRect().top)]).size,
+    ).toBe(1);
+    const note = root.querySelector<HTMLElement>('.ni-pattern__note');
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...shownCells(root), cell(root, 3), less, check(root)],
+      'g1-up',
+      note ? [note] : [],
+    );
+  },
+};
+
+/** 960 × 600 at the tallest shipped shape (4 rows) and its answer built: 22 px tiles, fits. */
+export const GrowShapeTallestLandscapeMin: Story = {
+  args: { config: growTallest, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const i of [0, 1, 2]) await expectGrowthShape(root, i, 4, 3);
+    const more = within(root).getByRole('button', { name: 'One more' });
+    for (let i = 0; i < 13; i += 1) await userEvent.click(more);
+    await expectGrowthShape(root, 3, 4, 3);
+    await expectCountableTiles(root);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...shownCells(root), cell(root, 3), check(root)],
+      'g1-up',
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { tokens: [{ tiles: 13 }] },
+    });
+  },
+};
+
+/** 1280 × 800: the same shapes draw bigger tiles (up to 30 px), still one line. */
+export const GrowShapeWidestTablet: Story = {
+  args: { config: growWidest, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const i of [0, 1, 2]) await expectGrowthShape(root, i, 2, 1);
+    const more = within(root).getByRole('button', { name: 'One more' });
+    for (let i = 0; i < 20; i += 1) await userEvent.click(more);
+    await expectCountableTiles(root);
+    await expectFitsArea(areaBox(canvasElement), [...shownCells(root), cell(root, 3)], 'g1-up');
   },
 };
