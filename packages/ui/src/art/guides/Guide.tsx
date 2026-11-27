@@ -14,7 +14,7 @@ export interface GuideProps {
    * its accessible name ("22, the bunny").
    */
   labelled?: boolean;
-  /** A gentle idle bob (stopped under reduced motion by the theme). */
+  /** A gentle idle bob (stopped under reduced motion). */
   bob?: boolean;
   className?: string;
 }
@@ -30,7 +30,7 @@ export function Guide({
 }: GuideProps) {
   const def = guideById(guide);
   const { x, y, w, h } = def.box;
-  const classes = [bob ? 'motion-safe:animate-bob' : '', className ?? ''].join(' ').trim();
+  const classes = [bob ? 'ni-guide-bob' : '', className ?? ''].join(' ').trim();
   return (
     <ArtSvg
       originX={x}

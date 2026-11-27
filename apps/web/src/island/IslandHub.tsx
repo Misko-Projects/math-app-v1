@@ -601,7 +601,7 @@ export function IslandHub({
               data-testid="island-guide"
               className="-my-2 flex shrink-0 rounded-card p-1 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink active:brightness-95"
             >
-              <Guide guide={child.guide} mood="talk" height={112} bob />
+              <Guide guide={child.guide} mood="talk" height={132} bob />
             </button>
             <SpeechBubble say={line} tail="left" showText />
             {/* A long line wraps in its bubble; the speaker keeps its size beside it. */}
