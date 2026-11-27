@@ -25,6 +25,18 @@ const configSchema = orderConfigSchema.superRefine((c, ctx) => {
   if (c.items.length < 2) {
     ctx.addIssue({ code: 'custom', path: ['items'], message: 'order needs at least 2 items' });
   }
+  // Place names fit hundreds, tens and ones: two or three single-digit cards.
+  if (
+    c.cue === 'places' &&
+    (c.items.length > 3 ||
+      c.items.some((i) => !Number.isInteger(i.value) || i.value < 0 || i.value > 9))
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['cue'],
+      message: 'cue places needs 2 or 3 cards of one digit each',
+    });
+  }
   const ids = c.items.map((i) => i.id);
   if (new Set(ids).size !== ids.length) {
     ctx.addIssue({ code: 'custom', path: ['items'], message: 'item ids must be distinct' });

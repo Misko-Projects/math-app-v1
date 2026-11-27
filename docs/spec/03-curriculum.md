@@ -1395,9 +1395,10 @@ interface CompareConfig extends WidgetBase { format: 'compare'; left: StimulusSp
 #### `order`
 ```ts
 interface OrderConfig extends WidgetBase { format: 'order'; items: { id: string; value: number; stimulus?: StimulusSpec; label?: string }[];
-  direction: 'asc' | 'desc'; fixed?: Record<number, string> }
+  direction: 'asc' | 'desc'; fixed?: Record<number, string>; cue?: 'size' | 'places' }
 ```
 - **Answer:** `numbers`, `ordered: true`: the item values in slot order, sorted per `direction`. Equal values may swap. The response lists the values of the dropped items in slot order.
+- **Cue:** `size` (the default) draws pebbles growing (asc) or shrinking (desc) over the slots. `places` (K02 slice 4c-2, digit-card puzzles) names each slot's place in words instead (hundreds, tens, ones; the last slot is the ones), for 2 or 3 cards of one digit each, so nothing shows a big-to-small strategy. The slots say "The tens place" and a placed card says "7 in the tens place".
 - **Features:** `items` (count − 3; 0.3), `closeness` (smallest gap ÷ range < 0.1; 0.5), `desc` (0.3), `magnitude` (digits − 1; 0.3).
 - **Tiers:** P, A. **Ops:** `drag {id, slot}`, `highlight {id}`.
 

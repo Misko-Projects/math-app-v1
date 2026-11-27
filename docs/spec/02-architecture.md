@@ -749,6 +749,12 @@ Contract adjustment made by K02 (#17 slice 4d, grade 2 story problems, 2026-11-2
 |---|---|---|
 | K3 | **Two-step bar models.** The `bar-model` `StimulusSpec` (03 §5.1) gains an optional `lower: { parts; whole }`, a second bar drawn under the first, and its amounts may be `null` (only with `lower`): the first step's result, a blank piece both bars share, never told. `stimulusSpecSchema` accepts `null` in `parts` and `whole` and the `lower` object; the story-problem format accepts a `bar-model` scene (1–3 parts a bar, numbers 1–999, at least one `"?"`, a comparison or a second bar but not both, and `null` in both bars or neither). Existing specs are unchanged. | MDA.19's two-step stories show the order of their steps: what is found first feeds the second bar (story.twostep). |
 
+Contract adjustments made by K02 (#17 slice 4c-2, equal shares and function machines, 2026-11-26):
+
+| # | Change | Why |
+|---|---|---|
+| K4 | **Order place names.** `OrderConfig` gains an optional `cue: 'size' \| 'places'` (03 §5.5). `size`, the default, is the pebble row every existing order item draws. `places` names each slot's place in words (hundreds, tens, ones), for 2 or 3 cards of one digit each (the format refuses anything else). | Digit-card puzzles (PUZ.06): big-to-small pebbles told the child the strategy. |
+
 ## 6. Performance budgets (enforced in CI where possible)
 
 - Initial JS (app shell + island) ≤ 350 KB gzip; each workshop chunk ≤ 120 KB gzip; Pixi chunk loads only when needed. **Content JSON (`dist/*.json`) is never bundled into JS**: it is fetched as a precached static asset at startup.

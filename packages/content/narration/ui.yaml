@@ -1126,6 +1126,21 @@ ui.order.fixed:
 ui.order.picture:
   text: "Picture {n}"
   level: K
+ui.order.place.hundreds:
+  text: "hundreds"
+  level: "2"
+ui.order.place.tens:
+  text: "tens"
+  level: "1"
+ui.order.place.ones:
+  text: "ones"
+  level: "1"
+ui.order.place-slot:
+  text: "The {place} place"
+  level: "1"
+ui.order.in-place:
+  text: "{n} in the {place} place"
+  level: "1"
 
 # tenframe-fill, number-bond, rekenrek (U03, packages/ui/src/widgets/tenframe-fill, number-bond,
 # rekenrek). Accessible names and spoken labels.
