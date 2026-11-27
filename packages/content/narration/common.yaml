@@ -3408,8 +3408,8 @@ gen.frac.line.path-top:
 gen.frac.line.path-walked:
   text: "You walked {f|fracw} of the path."
   level: "3"
-gen.frac.line.one-whole:
-  text: "One whole is {w|fracw}."
+gen.frac.line.group-whole:
+  text: "The bottom number tells how many parts make one whole. Make groups of that many."
   level: "3"
 gen.frac.line.between:
   text: "It is more than {lo} and less than {hi}."

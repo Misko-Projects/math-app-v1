@@ -246,6 +246,13 @@ describe('frac.line on fraction-pick and number-pad', () => {
       expect(fractionWholeCount.match(item, { kind: 'number', value: num }, { latencyMs: 1 })).toBe(
         true,
       );
+      // The pad takes the top number (up to 24) whole, so the misconception can be typed (PR #140).
+      const w = item.widget;
+      if (w.format !== 'number-pad') throw new Error('format');
+      expect(w.blanks[0]?.maxDigits).toBeGreaterThanOrEqual(String(num).length);
+      // The first worked step names no fraction: on 4/4 it would be the answer (PR #140).
+      const steps = itemSolution(item, owner.get(item));
+      expect(steps.slice(0, -1).every((s) => Object.keys(s.vars ?? {}).length === 0)).toBe(true);
       roundTrip(item);
     }
   });

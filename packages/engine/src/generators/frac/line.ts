@@ -100,7 +100,7 @@ export const fracLine: GeneratorDef = {
     'gen.frac.line.path-bottom',
     'gen.frac.line.path-top',
     'gen.frac.line.path-walked',
-    'gen.frac.line.one-whole',
+    'gen.frac.line.group-whole',
     'gen.frac.line.between',
     'gen.frac.line.groups',
   ],
@@ -229,8 +229,8 @@ export const fracLine: GeneratorDef = {
             },
           },
           blanks: [
-            { id: 'lo', maxDigits: 1 },
-            { id: 'hi', maxDigits: 1 },
+            { id: 'lo', maxDigits: 2 },
+            { id: 'hi', maxDigits: 2 },
           ],
           unit: null,
         },
@@ -253,7 +253,7 @@ export const fracLine: GeneratorDef = {
             ],
           },
         },
-        blanks: [{ id: 'x', maxDigits: 1 }],
+        blanks: [{ id: 'x', maxDigits: 2 }],
         unit: null,
       },
       answer: { kind: 'number', value: num / den },
@@ -305,13 +305,13 @@ export const fracLine: GeneratorDef = {
     if (a.kind === 'numbers') {
       const [lo, hi] = a.values as [number, number];
       return [
-        say('gen.frac.line.one-whole', { w: whole }),
+        say('gen.frac.line.group-whole', {}),
         say('gen.frac.line.between', { f, lo, hi }, { op: 'answer', args: { values: [lo, hi] } }),
       ];
     }
     const k = a.kind === 'number' ? a.value : 0;
     return [
-      say('gen.frac.line.one-whole', { w: whole }),
+      say('gen.frac.line.group-whole', {}),
       say(
         'gen.frac.line.groups',
         { w: whole, f, k },
