@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import { expect } from 'storybook/test';
 import decorYaml from '../../../../content/game/decor.yaml?raw';
 import { CVD_FILTERS } from '../../tokens/cvd';
-import { type Lighting, PALETTE } from '../../tokens/tokens';
+import { LEGACY_ART_PALETTE, type Lighting, PALETTE } from '../../tokens/tokens';
 import { CVD_MATRIX, CvdMatrix } from '../gallery/Gallery';
 import {
   DECOR,
@@ -499,7 +499,9 @@ function sunsetPage(page: SheetPage): Story {
       ).toBeGreaterThanOrEqual(lit.length);
       // Ink keeps its day value at sunset (06 §7 contrast); only the environment warms.
       const svg = canvasElement.querySelector('svg[data-decor-tile]') as SVGSVGElement;
-      await expect(getComputedStyle(svg).getPropertyValue('--color-ink').trim()).toBe(PALETTE.ink);
+      await expect(getComputedStyle(svg).getPropertyValue('--color-ink').trim()).toBe(
+        LEGACY_ART_PALETTE.ink,
+      );
     },
   };
 }

@@ -124,6 +124,8 @@
  * ring surround it, and a check badge sits on its corner.
  */
 .ni-btn[aria-pressed="true"] {
+  /* Pressed in by 3 px, as before, so the glyph keeps its place. */
+  transform: translateY(3px);
   box-shadow:
     var(--btn-edge),
     var(--shadow-felt-pressed),
@@ -169,6 +171,8 @@
   cursor: default;
   border-style: dashed;
   box-shadow: none;
+  /* Sits 4 px lower, as it always has: the glyph keeps its place (a hand or hint may be beside it). */
+  transform: translateY(4px);
 }
 .ni-btn:disabled::before {
   display: none;

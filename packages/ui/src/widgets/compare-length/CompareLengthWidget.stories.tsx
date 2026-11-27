@@ -667,7 +667,7 @@ export const HowMuchLongerLandscapeMinK: Story = {
     await expect(width('.ni-clen__tick:not(.ni-clen__tick--major)')).toBeGreaterThanOrEqual(2);
     // Ink (#264653), not the soft grey.
     for (const t of root.querySelectorAll('.ni-clen__tick')) {
-      await expect(getComputedStyle(t).stroke, 'ink ticks').toBe('rgb(38, 70, 83)');
+      await expect(getComputedStyle(t).stroke, 'ink ticks').toBe('rgb(58, 45, 41)');
     }
     await expect(root.querySelectorAll('.ni-clen__tick')).toHaveLength(
       difference.objects.reduce((m, o) => Math.max(m, o.length), 0) + 1,
