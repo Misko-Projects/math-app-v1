@@ -135,7 +135,7 @@ tp.FRA.10.t2.prompt:
   text: "Put the dot at {f|fracw} on the number line."
   level: "3"
 tp.FRA.10.t3.prompt:
-  text: "This line is cut into {den} equal parts. What fraction is at the dot? Type the top number and the bottom number."
+  text: "What fraction is at the dot? Count the equal parts drawn on the line for the bottom number."
   level: "3"
 tp.FRA.11.t1.prompt:
   text: "Put the dot at {f|fracw}. Each strip is one whole."

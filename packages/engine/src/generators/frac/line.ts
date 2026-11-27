@@ -229,8 +229,8 @@ export const fracLine: GeneratorDef = {
             },
           },
           blanks: [
-            { id: 'lo', maxDigits: 2 },
-            { id: 'hi', maxDigits: 2 },
+            { id: 'lo', maxDigits: 1 },
+            { id: 'hi', maxDigits: 1 },
           ],
           unit: null,
         },

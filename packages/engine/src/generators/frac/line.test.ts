@@ -228,6 +228,10 @@ describe('frac.line on fraction-pick and number-pad', () => {
       const lo = Math.floor(num / den);
       expect(item.answer).toEqual({ kind: 'numbers', values: [lo, lo + 1], ordered: true });
       expect(checkResponse(item, { kind: 'numbers', values: [lo + 1, lo] }).correct).toBe(false);
+      // Every end is one digit, so a one-digit box moves on to the next by itself (PR #140 round 2).
+      const box = item.widget;
+      if (box.format !== 'number-pad') throw new Error('format');
+      expect(box.blanks.map((b) => b.maxDigits)).toEqual([1, 1]);
       expect(
         fractionOverOne.match(item, { kind: 'numbers', values: [0, 1] }, { latencyMs: 1 }),
       ).toBe(true);

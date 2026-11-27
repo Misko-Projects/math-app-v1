@@ -39,7 +39,8 @@ describe('fractions on the number line (K02 slice 5b)', () => {
 
   it('read prompts say which parts make the bottom number, so b/b-style equal answers are not invited (PR #140 review)', () => {
     expect(fra['tp.FRA.04.t2.prompt']?.text ?? '').toMatch(/equal parts drawn on the ruler/);
-    for (const key of ['tp.FRA.10.t3.prompt', 'tp.FRA.11.t3.prompt', 'tp.FRA.12.t2.prompt'])
+    expect(fra['tp.FRA.10.t3.prompt']?.text ?? '').toMatch(/equal parts drawn on the line/);
+    for (const key of ['tp.FRA.11.t3.prompt', 'tp.FRA.12.t2.prompt'])
       expect(fra[key]?.text ?? '', key).toMatch(/\{den\} equal parts/);
   });
 
