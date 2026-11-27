@@ -6,9 +6,11 @@
 //   1/2 = 1/4). A missing top answers a, a missing bottom b; placing a/b on a line cut into d parts
 //   a whole, the dot goes to tick a (a/d).
 // - MC.fraction-bigger-numbers: takes the fraction with bigger numbers for the bigger one: a
-//   symbols compare of a fraction equal to one half (2/4, 3/6, 4/8) answered >.
-// - MC.fraction-half-by-top: compares with one half by the top numbers alone: a/b ? 1/2 (not equal)
-//   answered with the sign of a against 1 (3/8 > 1/2, 1/4 = 1/2).
+//   fraction equal to one half (2/4, 3/6, 4/8) against one half answered > (signs), or its strip,
+//   with more parts, picked as showing more (pictures).
+// - MC.fraction-half-by-top: compares with one half by the top numbers alone (by the shaded part
+//   counts on pictures): a/b against 1/2 (not equal) answered as a against 1 (3/8 > 1/2,
+//   1/4 = 1/2; pictures: the a/b strip, or the same).
 // Each predicts responses and never the right answer, so no right answer is claimed: the adding
 // rule equals the answer only when a = b or b = d, which no item draws.
 
@@ -89,24 +91,30 @@ export const fractionEquivOneSide = rule('fractionEquivOneSide', (item) => {
   return [number(e.missingDen ? e.den : e.num)];
 });
 
-/** A frac.compare benchmark against one half with signs: [a, b], or null. */
-function halfSigns(item: GeneratedItem): [number, number] | null {
+/**
+ * A frac.compare benchmark against one half, a/b on the left: [a, b] and whether it asks a sign
+ * (or which picture shows more), or null.
+ */
+function halfCompare(item: GeneratedItem): { a: number; b: number; signs: boolean } | null {
   const p = item.params;
   const w = item.widget;
   if (p.kind !== 'benchmark' || (p.bench ?? 'half') !== 'half') return null;
-  if (w.format !== 'compare' || w.ask !== 'symbol') return null;
+  if (w.format !== 'compare' || (w.ask !== 'symbol' && w.ask !== 'more')) return null;
   if (typeof p.num !== 'number' || typeof p.den !== 'number') return null;
-  return [p.num, p.den];
+  return { a: p.num, b: p.den, signs: w.ask === 'symbol' };
 }
 
+const choice = (id: string): ResponseValue => ({ kind: 'choice', id });
+
 export const fractionBiggerNumbers = rule('fractionBiggerNumbers', (item) => {
-  const f = halfSigns(item);
-  if (!f || 2 * f[0] !== f[1]) return [];
-  return [{ kind: 'choice', id: '>' }];
+  const f = halfCompare(item);
+  if (!f || 2 * f.a !== f.b) return [];
+  return [choice(f.signs ? '>' : 'left')];
 });
 
 export const fractionHalfByTop = rule('fractionHalfByTop', (item) => {
-  const f = halfSigns(item);
-  if (!f || 2 * f[0] === f[1]) return [];
-  return [{ kind: 'choice', id: f[0] > 1 ? '>' : '=' }];
+  const f = halfCompare(item);
+  if (!f || 2 * f.a === f.b) return [];
+  if (f.signs) return [choice(f.a > 1 ? '>' : '=')];
+  return [choice(f.a > 1 ? 'left' : 'same')];
 });

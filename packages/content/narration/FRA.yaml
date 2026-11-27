@@ -158,3 +158,60 @@ tp.FRA.12.t2.prompt:
 tp.FRA.12.t3.prompt:
   text: "How many wholes make {f|fracw}?"
   level: "3"
+sk.FRA.05.intro:
+  text: "One amount can have two names. One half of a strip is the same as two fourths."
+  level: "3"
+sk.FRA.17.intro:
+  text: "Two fractions can sit at the same point on a number line."
+  level: "3"
+sk.FRA.15.intro:
+  text: "Is a fraction more or less than one half? More or less than 1?"
+  level: "3"
+sk.FRA.14.intro:
+  text: "Equal parts have the same area, even when their shapes are different."
+  level: "3"
+tp.FRA.05.t1.prompt:
+  text: "The strips are the same size. What top number makes the fractions equal?"
+  level: "3"
+tp.FRA.05.t2.prompt:
+  text: "This strip is cut into small parts. Put the dot at {f|fracw}."
+  level: "3"
+tp.FRA.05.t4.prompt:
+  text: "Type the missing number so the two fractions are equal."
+  level: "3"
+tp.FRA.05.t3.prompt:
+  text: "This number line is cut into small parts. Put the dot at {f|fracw}."
+  level: "3"
+tp.FRA.17.t1.prompt:
+  text: "The line is cut into small parts. Put the dot at {f|fracw}."
+  level: "3"
+tp.FRA.17.t2.prompt:
+  text: "Put the dot at {f|fracw}. Count the small parts."
+  level: "3"
+tp.FRA.17.t3.prompt:
+  text: "These fractions sit at the same point on a number line. Type the missing number."
+  level: "3"
+tp.FRA.15.t1.prompt:
+  text: "One strip shows one half. Which strip shows more? They may be the same."
+  level: "3"
+tp.FRA.15.t2.prompt:
+  text: "Put them in order. Start with the biggest."
+  level: "3"
+tp.FRA.15.t3.prompt:
+  text: "Compare with one half. Which sign goes between them: <, > or =?"
+  level: "3"
+tp.FRA.15.t4.prompt:
+  text: "Compare with 1. Which sign goes between them: <, > or =?"
+  level: "3"
+tp.FRA.15.t5.prompt:
+  text: "Put them in order. Start with the biggest."
+  level: "3"
+tp.FRA.14.t1.prompt:
+  text: "Cut the grid into {what|word} with the same area. The parts can have different shapes."
+  level: "3"
+tp.FRA.14.t3.prompt:
+  text: "What fraction of the whole grid is each part?"
+  level: "3"
+tp.FRA.14.t2.prompt:
+  text: "Are these parts equal shares of the grid?"
+  level: "3"

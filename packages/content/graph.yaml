@@ -28,15 +28,14 @@ coverageGrades: [K, 1]
 # which adds FRA.09–FRA.15 as gaps below FRA.16. Slice 5a authored FRA.03, FRA.06, FRA.09 and FRA.13
 # (fractions as parts of a whole); FRA.14 stays planned for the area slice. Slice 5b authored FRA.04,
 # FRA.10, FRA.11 and FRA.12 (fractions on the number line); FRA.15 stays planned (equivalence slice).
+# Slice 5c authored FRA.05, FRA.17, FRA.15 and FRA.14 (equivalence, benchmarks, equal areas): every
+# FRA row of 03 §3.11 is now authored.
 plannedIds:
   [
     ALG.08,
     DAT.06,
     DAT.07,
     DAT.08,
-    FRA.05,
-    FRA.14,
-    FRA.15,
     GEO.13,
     GEO.14,
     MDA.20,

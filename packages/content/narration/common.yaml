@@ -3466,7 +3466,7 @@ gen.frac.equiv.same:
   text: "So {f|fracw} is the same amount as {g|fracw}."
   level: "3"
 gen.frac.equiv.look-top:
-  text: "Look where the shading ends on the top strip."
+  text: "Look where the shaded part of the top strip ends."
   level: "3"
 gen.frac.equiv.count-bottom:
   text: "Count the parts of the bottom strip up to that line."
@@ -3481,3 +3481,60 @@ fb.mc.fraction-over-one:
   text: "A fraction can be more than one. Keep going past 1."
 fb.mc.fraction-whole-count:
   text: "Count the wholes, not the parts."
+h.frac.equiv.line-up:
+  text: "Look where the shaded part ends. Look straight down to the bottom strip."
+  level: "3"
+h.frac.equiv.count-small:
+  text: "Count the bottom parts from the left up to that line."
+  level: "3"
+h.frac.equiv.group:
+  text: "Put the small parts together in equal groups, one group for each part of the fraction."
+  level: "3"
+h.frac.equiv.count-groups:
+  text: "Count groups up to the top number. The dot goes at the end of the last group."
+  level: "3"
+h.frac.equiv.times:
+  text: "Look at the two bottom numbers, or the two top numbers. How many times bigger is one?"
+  level: "3"
+h.frac.equiv.same-way:
+  text: "Do the same to the other number: the top and the bottom grow the same way."
+  level: "3"
+h.frac.equiv.same-point:
+  text: "The same point on a line is the same amount, so the fractions are equal."
+  level: "3"
+h.frac.half-strip:
+  text: "Look at the strip that is half shaded. Where does its shaded part end?"
+  level: "3"
+h.frac.half-past:
+  text: "Does the other shaded part stop before that line, after it, or right on it?"
+  level: "3"
+h.frac.half-more-less:
+  text: "Is each fraction more or less than one half?"
+  level: "3"
+h.frac.half-of-bottom:
+  text: "One half takes half of the parts. Is the top number more or less than half the bottom number?"
+  level: "3"
+h.frac.one-same:
+  text: "When the top and bottom numbers are the same, the fraction is 1."
+  level: "3"
+h.frac.one-top:
+  text: "A top number bigger than the bottom number means more parts than one whole has."
+  level: "3"
+h.frac.area-equal:
+  text: "Every part has the same number of squares, so the parts are equal."
+  level: "3"
+h.frac.area-count:
+  text: "Count the parts in the whole. That number goes on the bottom."
+  level: "3"
+fb.mc.fraction-equiv-add:
+  text: "Do not add to the top and the bottom. Cut each part into smaller parts."
+  level: "3"
+fb.mc.fraction-equiv-one-side:
+  text: "Change the top and the bottom the same way. Then the amount stays the same."
+  level: "3"
+fb.mc.fraction-bigger-numbers:
+  text: "Big numbers do not make a big fraction. Look at half of the parts."
+  level: "3"
+fb.mc.fraction-half-by-top:
+  text: "Look at the bottom number too. Is the top more or less than half of it?"
+  level: "3"

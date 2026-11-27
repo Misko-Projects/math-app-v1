@@ -32,7 +32,17 @@ const configSchema = numberPadConfigSchema.superRefine((c, ctx) => {
   if (new Set(ids).size !== ids.length) {
     ctx.addIssue({ code: 'custom', path: ['blanks'], message: 'blank ids must be distinct' });
   }
-  const exprBlanks = (c.expression?.tokens ?? []).flatMap((t) => (t.t === 'blank' ? [t.id] : []));
+  // A stacked fraction's blank top or bottom is the box `frac-<token index>-a` / `-b` (FRA.05).
+  const exprBlanks = (c.expression?.tokens ?? []).flatMap((t, i) =>
+    t.t === 'blank'
+      ? [t.id]
+      : t.t === 'frac'
+        ? [
+            ...(t.a === 'blank' ? [`frac-${i}-a`] : []),
+            ...(t.b === 'blank' ? [`frac-${i}-b`] : []),
+          ]
+        : [],
+  );
   if (c.expression && exprBlanks.join('|') !== ids.join('|')) {
     ctx.addIssue({
       code: 'custom',

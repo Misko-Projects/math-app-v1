@@ -14,7 +14,8 @@
 // `placeTolerance(config)` is the 03 §5.5 tolerance of a `place` answer.
 //
 // A partition shows neither its ticks nor labels on them (they are the answer). A target placed
-// on shown ticks has `denominator < 2b`, so only its own tick is within the tolerance.
+// on shown ticks is on a tick, and the tolerance is half the finer of a tick space and a part of b,
+// so only its own tick is within it (K02 slice 5c: 1/2 on a line in fourths, FRA.05, FRA.17).
 // Supported domain (the schema and `apply` enforce it): `max` 1 to 3 wholes; 1 to
 // MAX_LINE_DENOMINATOR parts a whole (so at most MAX_LINE_TICKS parts on the whole line, which
 // the smallest area draws: story TwelfthsToThreeLandscapeMinK); `partition` 2 parts a whole or
@@ -94,12 +95,15 @@ export function snapPlacement(c: Config, at: number): number {
 }
 
 /**
- * The tolerance of a `place` answer (03 §5.5): 1/(2b) of a unit when ticks are shown (it must hit
- * the tick), 1/(4b) otherwise. Null without a target.
+ * The tolerance of a `place` answer (03 §5.5): when ticks are shown (it must hit the tick) half the
+ * finer of a tick space and a part of b, 1/(2·max(b, denominator)) (1/(2b) whenever the line is cut
+ * in b parts or fewer); 1/(4b) otherwise. Null without a target.
  */
 export function placeTolerance(c: Config): number | null {
   if (!c.target) return null;
-  return c.ticksShown ? 1 / (2 * c.target.b) : 1 / (4 * c.target.b);
+  return c.ticksShown
+    ? 1 / (2 * Math.max(c.target.b, c.denominator))
+    : 1 / (4 * c.target.b);
 }
 
 const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
@@ -164,17 +168,8 @@ const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
           message: 'the point sits on a tick',
         });
       }
-      // A point placed on shown ticks must hit its own tick (03 §5.5): the tick beside it lies
-      // 1/denominator away, the tolerance is 1/(2b) and inclusive, so the neighbour stays
-      // outside it only while denominator < 2b.
-      if (c.mode === 'place' && c.ticksShown && c.denominator >= 2 * b) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['target', 'b'],
-          message:
-            'the tick beside the target would pass: write the target in parts no coarser than twice the line’s',
-        });
-      }
+      // A point placed on shown ticks hits only its own tick (03 §5.5): it sits on a tick and the
+      // tolerance (`placeTolerance`) is at most half a tick space, so the neighbour stays outside.
       if (c.mode === 'read' && !c.decimalLabels && b !== c.denominator) {
         ctx.addIssue({
           code: 'custom',

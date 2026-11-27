@@ -608,10 +608,10 @@ describe('PR #100 review round 1 (s_1319069ce1c7)', () => {
   });
 
   it('placing on shown ticks: only the target’s own tick passes the 03 §5.5 tolerance', () => {
-    // The reported case: fourths shown, target 1/2, tolerance 1/(2·2): the 1/4 tick would pass.
-    expect(issues(fractionLine, line({ denominator: 4, target: { a: 1, b: 2 } }))).toEqual([
-      'target.b: the tick beside the target would pass: write the target in parts no coarser than twice the line’s',
-    ]);
+    // The reported case: fourths shown, target 1/2. The tolerance is half a tick space (1/8), so
+    // the 1/4 tick does not pass (K02 slice 5c places 1/2 on lines in fourths, FRA.05 and FRA.17).
+    expect(ok(fractionLine, line({ denominator: 4, target: { a: 1, b: 2 } }))).toBe(true);
+    expect(placeTolerance(line({ denominator: 4, target: { a: 1, b: 2 } }))).toBe(1 / 8);
     expect(ok(fractionLine, line({ denominator: 4, target: { a: 2, b: 4 } }))).toBe(true);
     // The class: every accepted place-on-ticks config, every tick, through the real checker.
     let checked = 0;

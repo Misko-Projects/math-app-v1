@@ -911,3 +911,294 @@ templates:
     narration:
       prompt: tp.FRA.12.t3.prompt
       hints: [h.frac.line.whole-group, h.frac.line.count-wholes]
+
+  # ---------- K02 slice 5c (#17): two names for one amount, benchmarks, equal areas ----------
+  # FRA.05 (gateway): two strips of one whole with a/b = ?/d on the pads (the bottom strip in d
+  # parts, unshaded), a strip in d parts filled to a/b, and a/b = ?/d or c/? with no picture.
+  # FRA.17: a line in d parts, the dot put at a/b (0–1, and halves on 0–2 in fourths), and the
+  # sentence of FRA.05.t3 with its own prompt. The pairs: 1/2 = 2/4 = 3/6 = 4/8, 1/3 = 2/6,
+  # 2/3 = 4/6, 1/4 = 2/8, 3/4 = 6/8 (d = m·b ≤ 8, a/b in lowest terms); every item gives the other
+  # number, so exactly one answer is true. Tapped ticks stay ≥ 64 px apart at 960 × 600.
+  - id: FRA.05.t1
+    skillId: FRA.05
+    format: number-pad
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.equiv
+    params:
+      mode: pad
+      missing: num
+      picture: true
+      den: { choice: [2, 3, 4] }
+      num: { int: [1, 3] }
+      mult: { choice: [2, 3, 4] }
+    constraints: ["num < den", "den * mult <= 8"]
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.FRA.05.t1.prompt
+      hints: [h.frac.equiv.line-up, h.frac.equiv.count-small]
+
+  - id: FRA.05.t2
+    skillId: FRA.05
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.equiv
+    params:
+      mode: place
+      skin: strip
+      max: 1
+      den: { choice: [2, 3, 4] }
+      num: { int: [1, 3] }
+      mult: { choice: [2, 3, 4] }
+    constraints: ["num < den", "den * mult <= 8"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.05.t2.prompt
+      hints: [h.frac.equiv.group, h.frac.equiv.count-groups]
+
+  - id: FRA.05.t3
+    skillId: FRA.05
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.equiv
+    params:
+      mode: place
+      skin: line
+      max: 1
+      den: { choice: [2, 3, 4] }
+      num: { int: [1, 3] }
+      mult: { choice: [2, 3, 4] }
+    constraints: ["num < den", "den * mult <= 8"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.05.t3.prompt
+      hints: [h.frac.equiv.group, h.frac.equiv.count-groups]
+
+  - id: FRA.05.t4
+    skillId: FRA.05
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: frac.equiv
+    params:
+      mode: pad
+      missing: { choice: [num, den] }
+      den: { choice: [2, 3, 4] }
+      num: { int: [1, 3] }
+      mult: { choice: [2, 3, 4] }
+    constraints: ["num < den", "den * mult <= 8"]
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.FRA.05.t4.prompt
+      hints: [h.frac.equiv.times, h.frac.equiv.same-way]
+
+  - id: FRA.17.t1
+    skillId: FRA.17
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.equiv
+    params:
+      mode: place
+      skin: line
+      max: 1
+      den: { choice: [2, 3, 4] }
+      num: { int: [1, 3] }
+      mult: { choice: [2, 3, 4] }
+    constraints: ["num < den", "den * mult <= 8"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.17.t1.prompt
+      hints: [h.frac.equiv.group, h.frac.equiv.count-groups]
+
+  - id: FRA.17.t2
+    skillId: FRA.17
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.equiv
+    params:
+      mode: place
+      skin: line
+      max: 2
+      den: 2
+      num: { choice: [1, 3] }
+      mult: 2
+    difficulty: { base: -0.2, features: { nonUnit: 0, beyondOne: 0 } }
+    narration:
+      prompt: tp.FRA.17.t2.prompt
+      hints: [h.frac.equiv.group, h.frac.equiv.count-groups]
+
+  - id: FRA.17.t3
+    skillId: FRA.17
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: frac.equiv
+    params:
+      mode: pad
+      missing: { choice: [num, den] }
+      den: { choice: [2, 3, 4] }
+      num: { int: [1, 3] }
+      mult: { choice: [2, 3, 4] }
+    constraints: ["num < den", "den * mult <= 8"]
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.FRA.17.t3.prompt
+      hints: [h.frac.equiv.same-point, h.frac.equiv.times]
+
+  # FRA.15: benchmarks. a/b against one half (two strips; signs; two strip cards in order; three
+  # symbol cards with a/b and c/d on different sides of one half, so every pair is decided by the
+  # benchmark), and against 1 (signs, a from b − 2 to b + 2, so b/b is equal to 1).
+  - id: FRA.15.t1
+    skillId: FRA.15
+    format: compare
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      kind: benchmark
+      bench: half
+      symbols: true
+      shape: bar
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [1, 7] }
+    constraints: ["num < den"]
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.FRA.15.t1.prompt
+      hints: [h.frac.half-strip, h.frac.half-past]
+
+  - id: FRA.15.t2
+    skillId: FRA.15
+    format: order
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      kind: benchmark
+      bench: half
+      symbols: true
+      shape: bar
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [1, 7] }
+    constraints: ["num < den", "2 * num != den"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.15.t2.prompt
+      hints: [h.frac.half-more-less, h.frac.half-of-bottom]
+
+  - id: FRA.15.t3
+    skillId: FRA.15
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: frac.compare
+    params:
+      kind: benchmark
+      bench: half
+      symbols: true
+      shape: bar
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [1, 7] }
+    constraints: ["num < den"]
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.FRA.15.t3.prompt
+      hints: [h.frac.half-of-bottom, h.frac.sign-open]
+
+  - id: FRA.15.t4
+    skillId: FRA.15
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: frac.compare
+    params:
+      kind: benchmark
+      bench: one
+      symbols: true
+      shape: bar
+      den: { choice: [2, 3, 4, 6, 8] }
+      num: { int: [1, 10] }
+    constraints: ["num >= den - 2", "num <= den + 2"]
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.FRA.15.t4.prompt
+      hints: [h.frac.one-same, h.frac.one-top]
+
+  - id: FRA.15.t5
+    skillId: FRA.15
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: frac.compare
+    params:
+      kind: benchmark
+      bench: half
+      pair: true
+      symbols: true
+      shape: bar
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [1, 7] }
+      den2: { choice: [3, 4, 6, 8] }
+      num2: { int: [1, 7] }
+    constraints: ["num < den", "num2 < den2", "2 * num < den", "2 * num2 > den2"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.15.t5.prompt
+      hints: [h.frac.half-more-less, h.frac.half-of-bottom]
+
+  # FRA.14: equal areas. The free grid cut (FRA.16.t1's grids: fourths of 4 × 4 or 8 × 2, thirds of
+  # 6 × 2), what fraction of the whole each part is under a grid-parts picture of equal parts with
+  # different shapes (any equal name is right: 1/4, 2/8, 4/16), and equal or unequal grid parts.
+  - id: FRA.14.t1
+    skillId: FRA.14
+    format: fraction-cut
+    tier: concrete
+    representation: area-grid
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: grid
+      acceptNonCongruent: true
+      den: { choice: [3, 4] }
+      cols: { choice: [4, 6, 8] }
+      rows: { choice: [2, 4] }
+      num: 0
+    difficulty: { base: -1.4, features: { parts.hard: 0.6 } }
+    expectedLatencyMs: 20000
+    narration:
+      prompt: tp.FRA.14.t1.prompt
+      hints: [h.shares.same-squares, h.shares.count-all]
+
+  - id: FRA.14.t2
+    skillId: FRA.14
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-shape
+    generator: frac.shares
+    params:
+      cut: { int: [0, 7] }
+      mirror: { choice: [true, false] }
+      equalParts: { choice: [true, false] }
+    difficulty: { base: -0.2, features: { lookDifferent: 0.2 } }
+    narration:
+      prompt: tp.FRA.14.t2.prompt
+      hints: [h.shares.count-each, h.shares.shape-ok]
+  - id: FRA.14.t3
+    skillId: FRA.14
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-shape
+    generator: frac.shares
+    params:
+      name: true
+      cut: { int: [0, 7] }
+      mirror: { choice: [true, false] }
+    difficulty: { base: 0.0 }
+    narration:
+      prompt: tp.FRA.14.t3.prompt
+      hints: [h.frac.area-equal, h.frac.area-count]
+
