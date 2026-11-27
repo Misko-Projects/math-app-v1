@@ -358,6 +358,54 @@ export const NamePadsNoPicture: Story = {
   },
 };
 
+/**
+ * #17 slice 5b (FRA.10.t3): name a dot on a number line in eighths at the smallest landscape area.
+ * The picture is named by its parts and the dot's counted tick, never the fraction; its ticks
+ * stay ≥ 22 px apart beside the pads.
+ */
+export const NameNumberLineLandscapeMin: Story = {
+  args: {
+    config: {
+      format: 'fraction-pick',
+      mode: 'name',
+      nameInput: 'pads',
+      stimulus: {
+        kind: 'number-line',
+        min: 0,
+        max: 1,
+        ticksEvery: 1 / 8,
+        labelsEvery: 1,
+        marks: [{ at: 7 / 8 }],
+      },
+    },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await expect(
+      canvas.getByRole('img', {
+        name: 'A number line from 0 to 1. Each whole is cut into 8 equal parts. A dot is on tick 7 after 0.',
+      }),
+    ).toBeVisible();
+    const xs = [...root.querySelectorAll('.ni-numberline__tick')]
+      .map((l) => l.getBoundingClientRect().left)
+      .sort((a, b) => a - b);
+    await expect(xs).toHaveLength(9);
+    for (let i = 1; i < xs.length; i += 1)
+      await expect((xs[i] as number) - (xs[i - 1] as number)).toBeGreaterThanOrEqual(22);
+    const top = canvas.getByRole('button', { name: 'Top number' });
+    const bottom = canvas.getByRole('button', { name: 'Bottom number' });
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [top, bottom, check(root)]);
+    await userEvent.click(top);
+    await userEvent.click(canvas.getByRole('button', { name: '7' }));
+    await userEvent.click(bottom);
+    await userEvent.click(canvas.getByRole('button', { name: '8' }));
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [7, 8] });
+  },
+};
+
 /** Keyboard (06 §7) on the pads: digits type, ArrowDown moves to the bottom box, Enter checks. */
 export const NamePadsKeyboard: Story = {
   args: { config: namePads, tier: 'abstract' },

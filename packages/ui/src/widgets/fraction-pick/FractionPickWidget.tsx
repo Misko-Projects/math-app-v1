@@ -23,6 +23,7 @@ import {
   FracNumeral,
   FractionEntry,
   FractionView,
+  NumberLineView,
   fractionWords,
   type PadKey,
   PickCard,
@@ -307,7 +308,11 @@ export function FractionPickWidget({
     ? optionPicBox
     : compact
       ? pads
-        ? { w: k ? 180 : 200, h: 220 }
+        ? // A number line (#17 slice 5b) is long and low: wide enough that eighths of its whole
+          // stay ≥ 22 px apart beside the pads at 960 × 600.
+          stimulus?.kind === 'number-line'
+          ? { w: k ? 230 : 256, h: 160 }
+          : { w: k ? 180 : 200, h: 220 }
         : { w: 280, h: 230 }
       : { w: 420, h: 330 };
 
@@ -343,13 +348,20 @@ export function FractionPickWidget({
           overlay={state.overlay}
           counting={counting}
         />
-      ) : (
-        <StimulusView
-          spec={stimulus}
-          maxWidth={stimBox.w}
-          maxHeight={stimBox.h}
-          {...(lineName ? { label: lineName } : {})}
+      ) : lineName && stimulus.kind === 'number-line' ? (
+        // Drawn without a second card and with narrow ends, so its parts get the room.
+        <NumberLineView
+          min={stimulus.min}
+          max={stimulus.max}
+          ticksEvery={stimulus.ticksEvery}
+          labelsEvery={stimulus.labelsEvery}
+          marks={stimulus.marks ?? []}
+          width={stimBox.w}
+          pad={30}
+          label={lineName}
         />
+      ) : (
+        <StimulusView spec={stimulus} maxWidth={stimBox.w} maxHeight={stimBox.h} />
       )}
     </div>
   ) : null;
