@@ -33,6 +33,8 @@ export type MaterialId = string;
 export type BuildingId = string;
 export type ResidentId = string;
 export type DecorId = string;
+/** A guide the child chose (05 §1): an id from the ui guide registry, e.g. `shelly`, `22`. */
+export type GuideId = string;
 
 export const uuidV7Schema = z.string().regex(UUID_V7_PATTERN, 'expected a UUIDv7');
 export const eventIdSchema = uuidV7Schema;
@@ -55,6 +57,7 @@ export const materialIdSchema = kebabIdSchema;
 export const buildingIdSchema = kebabIdSchema;
 export const residentIdSchema = kebabIdSchema;
 export const decorIdSchema = kebabIdSchema;
+export const guideIdSchema = kebabIdSchema;
 
 assertType<Equals<z.infer<typeof eventIdSchema>, EventId>>(true);
 assertType<Equals<z.infer<typeof skillIdSchema>, SkillId>>(true);

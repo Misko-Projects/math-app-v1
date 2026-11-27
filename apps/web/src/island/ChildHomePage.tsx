@@ -11,6 +11,7 @@ import { recordDiagnostic } from '@/app/diagnostics';
 import type { ActiveSession } from '@/app/session/SessionController';
 import { useSession } from '@/app/session/SessionProvider';
 import { useProfiles } from '@/data/hooks';
+import { GuideScreen } from './GuideScreen';
 import { IslandHub } from './IslandHub';
 import { emptyRecap, type Recap, recapPhrases, sessionRecap } from './recap';
 
@@ -31,6 +32,9 @@ export function ChildHomePage() {
   // The session that wound down: it is over by the time the sunset shows.
   const [sunset, setSunset] = useState<ActiveSession | null>(null);
   const windDown = useCallback(() => setSunset(session), [session]);
+  // Switching guides (tap the guide on the island, 05 §10); a child with no guide yet chooses first.
+  const [choosing, setChoosing] = useState(false);
+  const chooseGuide = useCallback(() => setChoosing(true), []);
   if (profiles === undefined) return null;
   const index = [...profiles]
     .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
@@ -40,11 +44,18 @@ export function ChildHomePage() {
   const playing = session !== null && sameId(session.childId, childId);
   if (!child || (!playing && sunset === null)) return <Navigate to="/" replace />;
   return (
-    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>
+    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'} guide={child.guide}>
       {sunset ? (
         <SunsetScreen child={child} session={sunset} />
+      ) : choosing || child.guide === undefined ? (
+        <GuideScreen child={child} onDone={() => setChoosing(false)} />
       ) : (
-        <IslandHub child={child} index={Math.max(0, index)} onWindDown={windDown} />
+        <IslandHub
+          child={child}
+          index={Math.max(0, index)}
+          onWindDown={windDown}
+          onChangeGuide={chooseGuide}
+        />
       )}
     </ChildUi>
   );

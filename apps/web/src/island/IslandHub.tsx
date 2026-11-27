@@ -27,6 +27,9 @@ import {
   BigButton,
   BuildingArtView,
   buildingArtFor,
+  Guide,
+  guideById,
+  guideLabel,
   HomeButton,
   IconButton,
   IslandScene,
@@ -156,10 +159,13 @@ export function IslandHub({
   child,
   index,
   onWindDown,
+  onChangeGuide,
 }: {
   child: ChildProfile;
   index: number;
   onWindDown: (reason: WindDownReason) => void;
+  /** Tapping the guide opens the guide chooser (05 §10). */
+  onChangeGuide?: () => void;
 }) {
   const { say } = useSpeech();
   const text = useNarrationText();
@@ -584,10 +590,20 @@ export function IslandHub({
             </div>
           </div>
           <div
-            className="flex min-w-0 flex-1 items-center justify-center gap-4"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1"
             data-testid="island-line"
           >
-            <SpeechBubble say={line} tail="none" showText />
+            {/* The child's guide says the island's line; tapping the guide switches it (05 §10). */}
+            <button
+              type="button"
+              onClick={onChangeGuide}
+              aria-label={text('ui.guide.change', { name: guideLabel(guideById(child.guide)) })}
+              data-testid="island-guide"
+              className="-my-2 flex shrink-0 rounded-card p-1 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink active:brightness-95"
+            >
+              <Guide guide={child.guide} mood="talk" height={112} bob />
+            </button>
+            <SpeechBubble say={line} tail="left" showText />
             {/* A long line wraps in its bubble; the speaker keeps its size beside it. */}
             <span className="flex shrink-0">
               <ReplayButton onPress={() => say(line)} />

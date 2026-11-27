@@ -7,6 +7,25 @@ ui.profile.who-is-playing:
   text: "Who is playing?"
   level: K
 
+# The guide chooser (05 §10): a child picks the friend who plays with them, and can switch later.
+# A guide's name is said only here, when its card is tapped (05 §1).
+ui.guide.choose:
+  text: "Who do you want to play with?"
+  level: K
+ui.guide.confirm:
+  text: "Let's go!"
+  level: K
+ui.guide.change:
+  text: "{name}. Tap to choose who plays with you."
+  level: K
+ui.guide.name.shelly:
+  text: "Shelly the turtle"
+  level: K
+ui.guide.name.22:
+  text: "22 the bunny"
+  say: "twenty-two the bunny"
+  level: K
+
 # Profile Picker, picture passwords and the play session (W00, apps/web/src/app/picker, session).
 ui.start.tap:
   text: "Tap to start!"

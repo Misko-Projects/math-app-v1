@@ -10,13 +10,11 @@ type Variant = 'primary' | 'secondary' | 'quiet' | 'danger';
 
 const VARIANTS: Record<Variant, string> = {
   // White on sea-deep is 5.3:1; ink on paper 9.8:1 (theme.css).
-  primary:
-    'bg-sea-deep text-cloud shadow-ledge active:shadow-ledge-pressed active:brightness-95',
+  primary: 'bg-sea-deep text-cloud shadow-ledge active:shadow-ledge-pressed active:brightness-95',
   secondary:
     'bg-paper text-ink ring-2 ring-sand-deep shadow-ledge active:shadow-ledge-pressed active:brightness-95',
   quiet: 'bg-transparent text-ink underline underline-offset-4 decoration-2 decoration-sand-deep',
-  danger:
-    'bg-coral-deep text-cloud shadow-ledge active:shadow-ledge-pressed active:brightness-95',
+  danger: 'bg-coral-deep text-cloud shadow-ledge active:shadow-ledge-pressed active:brightness-95',
 };
 
 export function Button({

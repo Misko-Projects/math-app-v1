@@ -1245,3 +1245,70 @@ button.ni-number {
   transition-timing-function: var(--ease-soft);
   filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.3));
 }
+
+/*
+ * A guide's name tag (05 §1): a denim felt tag with a cream running stitch, sewn beside the guide.
+ * The name is written here and nowhere on the character, so "22" never sits inside a prompt.
+ */
+.ni-name-tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 4.5em;
+  padding: 0.16em 0.8em 0.06em;
+  border: 3px solid var(--color-sea-dark);
+  border-radius: 14px;
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sea-deep);
+  background-blend-mode: soft-light;
+  color: var(--color-cloud);
+  box-shadow: var(--shadow-highlight), var(--shadow-ledge);
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.ni-name-tag::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed rgb(246 238 219 / 0.85);
+  border-radius: calc(14px - 3px - var(--stitch-inset));
+  pointer-events: none;
+}
+
+/*
+ * A guide's card in the chooser (05 §10): a paper felt card with its stitch. Picked, it takes the
+ * sea edge and stitch on a sunny felt and lifts a little; the border keeps its width.
+ */
+.ni-guide-card {
+  position: relative;
+  box-sizing: border-box;
+  border: 3px solid var(--color-sand-deep);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
+  cursor: pointer;
+}
+.ni-guide-card::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed var(--color-sand-deep);
+  border-radius: calc(var(--radius-card) - 3px - var(--stitch-inset));
+  pointer-events: none;
+}
+.ni-guide-card[aria-pressed="true"] {
+  border-color: var(--color-sea-deep);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sunshine-light);
+  background-blend-mode: soft-light;
+}
+.ni-guide-card[aria-pressed="true"]::before {
+  border-color: var(--color-sea-deep);
+}

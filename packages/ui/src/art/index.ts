@@ -21,6 +21,7 @@ export {
 } from './core/types';
 export * from './decor';
 export * from './effects';
+export * from './guides';
 export {
   type Box,
   gridToScene,

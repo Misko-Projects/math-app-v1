@@ -31,6 +31,8 @@ export {
   type TapToPlaceOptions,
   useTapToPlace,
 } from './interaction/useTapToPlace';
+// The guide chooser (05 §10).
+export { GuideChooser, type GuideChooserProps } from './patterns/GuideChooser';
 // Preferences: age mode, reduced motion, tap-only, snap radius, audio, narration text.
 export {
   type NarrationTextResolver,
