@@ -622,7 +622,8 @@ function Pier() {
 export function IslandScene({ className, title }: { className?: string; title: string }) {
   return (
     <svg
-      className={className}
+      // `ni-art` pins the legacy art palette (theme.css) until the island is redrawn in felt.
+      className={className ? `ni-art ${className}` : 'ni-art'}
       viewBox="0 0 1600 1000"
       preserveAspectRatio="xMidYMax slice"
       role="img"

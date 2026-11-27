@@ -65,6 +65,45 @@ export const Z_LAYER = {
 
 /** Palette (05 §11 plus outline shades), as in theme.css --color-*. */
 export const PALETTE = {
+  sea: '#5b7aa6',
+  'sea-deep': '#3f5e8a',
+  'sea-dark': '#2b4467',
+  shallows: '#a4bed5',
+  foam: '#eef2f2',
+  sky: '#bdd0df',
+  'sky-light': '#e2e9ee',
+  horizon: '#f3e6cc',
+  sand: '#e9ddc4',
+  'sand-deep': '#bfa27a',
+  'sand-shadow': '#dccba8',
+  paper: '#f6eedb',
+  coral: '#c5633d',
+  'coral-deep': '#9d4a2b',
+  sun: '#e39a5a',
+  'sun-deep': '#b8743a',
+  sunshine: '#e2a62a',
+  'sunshine-light': '#f0cb78',
+  'sunshine-deep': '#b9821b',
+  leaf: '#7f9c78',
+  'leaf-deep': '#4a6649',
+  'leaf-dark': '#354d35',
+  'leaf-light': '#b5c8a1',
+  wood: '#c89a69',
+  'wood-deep': '#8e6741',
+  cloud: '#fffbf2',
+  pebble: '#e6ddcb',
+  'pebble-deep': '#a0937c',
+  ink: '#3a2d29',
+  'ink-soft': '#5a4a42',
+} as const;
+
+export type PaletteColor = keyof typeof PALETTE;
+
+/**
+ * The pre-felt palette. Sprites, scenes and characters are still drawn for it, so theme.css pins
+ * these values on their SVG roots (`.ni-art`, `.ni-sprite`) until each is redrawn in felt.
+ */
+export const LEGACY_ART_PALETTE = {
   sea: '#2a9d8f',
   'sea-deep': '#1f7a8c',
   'sea-dark': '#17606e',
@@ -95,9 +134,7 @@ export const PALETTE = {
   'pebble-deep': '#a99f8c',
   ink: '#264653',
   'ink-soft': '#3d6170',
-} as const;
-
-export type PaletteColor = keyof typeof PALETTE;
+} as const satisfies Record<PaletteColor, string>;
 
 /** Island lighting (05 §3): art scenes are drawn by day or at sunset. */
 export type Lighting = 'day' | 'sunset';

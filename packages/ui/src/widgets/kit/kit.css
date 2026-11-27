@@ -422,13 +422,15 @@
   margin: 0 0 6px;
   padding: 10px 18px;
   appearance: none;
-  border: 3px solid var(--color-ink);
+  border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--color-cloud);
+  /* Felt (theme.css): the grain soft-lit over the card's colour. */
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--pick-bg, var(--color-cloud));
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+    var(--shadow-highlight),
+    var(--shadow-ledge);
   cursor: pointer;
   touch-action: manipulation;
   transition:
@@ -436,11 +438,21 @@
     box-shadow var(--duration-tap) ease-out;
   -webkit-tap-highlight-color: transparent;
 }
+/* The stitch, set in evenly from the edge. */
+.ni-pick::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed rgb(63 94 138 / 0.55);
+  border-radius: calc(var(--radius-pebble) - 3px - var(--stitch-inset));
+  pointer-events: none;
+}
+/* Pressed: the soft squish (96% × 94% about the centre, inner shadow all round). */
 .ni-pick:active:not(:disabled) {
-  transform: translateY(4px);
+  transform: scale(0.96, 0.94);
   box-shadow:
-    0 2px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+    var(--shadow-felt-pressed),
+    var(--shadow-ledge-pressed);
 }
 .ni-pick:focus-visible {
   outline: 4px solid var(--color-sea-deep);
@@ -451,11 +463,11 @@
  * badge (never colour alone, 06 §7).
  */
 .ni-pick[data-selected="true"] {
-  background: var(--color-sunshine-light);
+  --pick-bg: var(--color-sunshine-light);
   box-shadow:
     inset 0 0 0 4px var(--color-ink),
-    0 6px 0 var(--color-ink),
-    var(--shadow-highlight);
+    var(--shadow-felt-pressed),
+    var(--shadow-ledge-pressed);
 }
 .ni-pick:disabled {
   cursor: default;
@@ -464,6 +476,9 @@
 .ni-pick:disabled:not([data-selected="true"]) {
   border-style: dashed;
   box-shadow: none;
+}
+.ni-pick:disabled:not([data-selected="true"])::before {
+  opacity: 0.4;
 }
 .ni-pick__face {
   display: inline-flex;
@@ -560,9 +575,11 @@
   margin: 0 0 4px;
   padding: 0;
   appearance: none;
-  border: 3px solid var(--color-ink);
+  position: relative;
+  border: 3px solid var(--color-wood-deep);
   border-radius: var(--radius-pebble);
-  background: var(--color-cloud);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--key-bg, var(--color-wood));
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   font-family: var(--font-display);
   /* `--pad-digit` lets a pad of minimum-size keys keep its digit clear of Pip's fingertip. */
@@ -570,14 +587,27 @@
   font-weight: 800;
   line-height: 1;
   box-shadow:
-    0 5px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+    inset 0 0 0 1px var(--color-wood-deep),
+    var(--shadow-highlight),
+    var(--shadow-ledge);
   cursor: pointer;
   touch-action: manipulation;
   transition:
     transform var(--duration-tap) ease-out,
     box-shadow var(--duration-tap) ease-out;
   -webkit-tap-highlight-color: transparent;
+}
+/* The stitch: a cream thread set in evenly from the edge. */
+.ni-pad__key::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed rgb(246 238 219 / 0.75);
+  border-radius: calc(var(--radius-pebble) - 3px - var(--stitch-inset));
+  pointer-events: none;
+}
+.ni-pad__key:disabled::before {
+  opacity: 0.45;
 }
 .ni-pad__digit {
   padding-top: 0.12em;
@@ -586,17 +616,18 @@
   cursor: default;
 }
 .ni-pad__key:active:not(:disabled) {
-  transform: translateY(3px);
+  transform: scale(0.96, 0.94);
   box-shadow:
-    0 2px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+    inset 0 0 0 1px var(--color-wood-deep),
+    var(--shadow-felt-pressed),
+    var(--shadow-ledge-pressed);
 }
 .ni-pad__key:focus-visible {
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 3px;
 }
 .ni-pad__key[data-key="back"] {
-  background: var(--color-sand);
+  --key-bg: var(--color-sand);
 }
 .ni-pad__icon {
   display: block;

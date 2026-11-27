@@ -235,7 +235,7 @@ export function PlayFrame({
 }) {
   return (
     <div
-      className="grid h-dvh min-h-[600px] w-full grid-rows-[auto_minmax(0,1fr)_auto] gap-3 overflow-hidden bg-sky-light px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+      className="grid h-dvh min-h-[600px] w-full grid-rows-[auto_minmax(0,1fr)_auto] gap-3 overflow-hidden bg-sand px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
       data-testid={testId}
       data-workshop={workshop}
       data-phase={phase}
@@ -244,7 +244,8 @@ export function PlayFrame({
       <div className="relative grid min-h-0 grid-rows-[minmax(0,1fr)]">
         <main
           // The edge is a ring, not a wider border: the widget keeps its room and does not move.
-          className={`grid min-h-0 overflow-auto rounded-card border-[3px] bg-sand p-6 shadow-soft ${
+          // `ni-mat` draws the felt and its stitch without changing the content box.
+          className={`ni-mat grid min-h-0 overflow-auto rounded-card border-[3px] p-6 ${
             lookAgain
               ? 'border-wood-deep ring-[6px] ring-sunshine motion-safe:animate-[ni-wiggle_450ms_ease-in-out_1]'
               : 'border-sand-deep'
@@ -290,11 +291,8 @@ export function Beads({ done, total }: { done: number; total: number }) {
           // biome-ignore lint/suspicious/noArrayIndexKey: beads have no identity beyond their place
           key={i}
           aria-hidden="true"
-          className={
-            i < done
-              ? 'size-6 rounded-full border-[3px] border-leaf-deep bg-leaf'
-              : 'size-4 rounded-full border-[3px] border-sand-deep bg-paper'
-          }
+          className="ni-bead"
+          data-done={i < done ? 'true' : undefined}
         />
       ))}
     </div>

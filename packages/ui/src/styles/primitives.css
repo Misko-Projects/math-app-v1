@@ -31,8 +31,11 @@
   --btn-bg: var(--color-sea-deep);
   --btn-fg: var(--color-cloud);
   --btn-outline: var(--color-sea-dark);
-  --ledge-color: var(--color-sea-dark);
+  --btn-stitch: var(--color-shallows);
+  /* Kept as room below the button (layouts are built around it); nothing is drawn there now. */
   --ledge: 6px;
+  /* The felt edge: the 3 px border plus a ring of the same colour inside it, even on every side. */
+  --btn-edge: inset 0 0 0 2px var(--btn-outline);
 
   appearance: none;
   position: relative;
@@ -48,12 +51,10 @@
   padding: 0 32px;
   border: 3px solid var(--btn-outline);
   border-radius: var(--radius-pill);
-  background: var(--btn-bg);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--btn-bg);
+  background-blend-mode: soft-light;
   color: var(--btn-fg);
-  box-shadow:
-    var(--shadow-highlight),
-    0 var(--ledge) 0 var(--ledge-color),
-    0 calc(var(--ledge) + 6px) 14px -6px rgb(38 70 83 / 0.35);
+  box-shadow: var(--btn-edge), var(--shadow-highlight), var(--shadow-ledge);
   font-family: var(--font-display);
   font-size: var(--text-label);
   font-weight: 800;
@@ -64,22 +65,31 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transform: translateY(0);
+  transform: scale(1);
   transition:
     transform var(--duration-tap) ease-out,
     box-shadow var(--duration-tap) ease-out,
     filter var(--duration-base) ease-out;
 }
 
-/* Pressed (finger down, or Space held): the button sinks onto its ledge and darkens a touch. */
+/* The stitch: a dashed thread set in evenly from the felt edge on every side. */
+.ni-btn::before {
+  content: "";
+  position: absolute;
+  inset: calc(1px + var(--stitch-inset));
+  border: var(--stitch-width) dashed var(--btn-stitch);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/*
+ * Pressed (finger down, or Space held): the soft squish. The button shrinks to 96% × 94% about its
+ * centre with an inner shadow all round; the border stays even. Layout does not move (a transform).
+ */
 .ni-btn:active:not(:disabled),
 .ni-btn[data-preview="pressed"] {
-  transform: translateY(4px);
-  filter: brightness(0.93);
-  box-shadow:
-    var(--shadow-highlight),
-    0 calc(var(--ledge) - 4px) 0 var(--ledge-color),
-    0 4px 8px -6px rgb(38 70 83 / 0.35);
+  transform: scale(0.96, 0.94);
+  box-shadow: var(--btn-edge), var(--shadow-felt-pressed), var(--shadow-ledge-pressed);
 }
 
 /* Keyboard focus: a thick ink ring, clear of the button so it reads on every tone (≥ 3:1). */
@@ -90,14 +100,13 @@
 }
 
 /*
- * Selected (aria-pressed): more than colour. The button stays sunk, a white gap and a thick ink
+ * Selected (aria-pressed): more than colour. The button is pressed in, a cream gap and a thick ink
  * ring surround it, and a check badge sits on its corner.
  */
 .ni-btn[aria-pressed="true"] {
-  transform: translateY(3px);
   box-shadow:
-    var(--shadow-highlight),
-    0 calc(var(--ledge) - 3px) 0 var(--ledge-color),
+    var(--btn-edge),
+    var(--shadow-felt-pressed),
     0 0 0 3px var(--color-cloud),
     0 0 0 7px var(--color-ink);
 }
@@ -133,17 +142,18 @@
   filter: saturate(0.25) brightness(1.06);
   /* Faded but still legible: its icon and word stay readable (contrast-exempt, not invisible). */
   opacity: 0.82;
-  transform: translateY(4px);
   border-style: dashed;
   /* Light and dark stripes, so the hatch shows on light and dark tones alike. */
   background-image: repeating-linear-gradient(
     135deg,
     rgb(255 255 255 / 0.5) 0 6px,
-    rgb(38 70 83 / 0.1) 6px 12px
+    rgb(58 45 41 / 0.1) 6px 12px
   );
-  box-shadow:
-    var(--shadow-highlight),
-    0 2px 0 var(--ledge-color);
+  background-blend-mode: normal;
+  box-shadow: var(--shadow-highlight);
+}
+.ni-btn:disabled::before {
+  opacity: 0.5;
 }
 
 .ni-btn__icon {
@@ -161,25 +171,26 @@
   --btn-bg: var(--color-sea-deep);
   --btn-fg: var(--color-cloud);
   --btn-outline: var(--color-sea-dark);
-  --ledge-color: var(--color-sea-dark);
+  --btn-stitch: var(--color-shallows);
 }
 .ni-tone-leaf {
   --btn-bg: var(--color-leaf-deep);
   --btn-fg: var(--color-cloud);
   --btn-outline: var(--color-leaf-dark);
-  --ledge-color: var(--color-leaf-dark);
+  --btn-stitch: var(--color-leaf-light);
 }
+/* Mustard felt, navy edge and navy thread (the Check button). */
 .ni-tone-sun {
   --btn-bg: var(--color-sunshine);
-  --btn-fg: var(--color-ink);
-  --btn-outline: var(--color-sunshine-deep);
-  --ledge-color: var(--color-sun-deep);
+  --btn-fg: var(--color-sea-dark);
+  --btn-outline: var(--color-sea-dark);
+  --btn-stitch: var(--color-sea-dark);
 }
 .ni-tone-cloud {
-  --btn-bg: var(--color-cloud);
+  --btn-bg: var(--color-paper);
   --btn-fg: var(--color-ink);
-  --btn-outline: var(--color-sand-deep);
-  --ledge-color: var(--color-sand-deep);
+  --btn-outline: var(--color-sea-deep);
+  --btn-stitch: var(--color-sea-deep);
 }
 
 /* Round icon button. The caption (G1+ text mode) sits below it. */
@@ -213,8 +224,8 @@
   outline: 4px solid transparent;
   outline-offset: -11px;
   box-shadow:
-    var(--shadow-highlight),
-    0 calc(var(--ledge) - 3px) 0 var(--ledge-color),
+    var(--btn-edge),
+    var(--shadow-felt-pressed),
     0 0 0 3px var(--color-cloud),
     0 0 0 7px var(--color-ink),
     inset 0 0 0 4px var(--color-ink),
@@ -240,10 +251,10 @@
 /* Hint lightbulb glows when the runner suggests a hint (static ring with reduced motion). */
 .ni-hint[data-glow="true"]:not(:disabled) {
   box-shadow:
-    var(--shadow-highlight),
-    0 var(--ledge) 0 var(--ledge-color),
-    0 0 0 6px rgb(233 196 106 / 0.7),
-    0 0 26px 8px rgb(244 162 97 / 0.55);
+    var(--btn-edge),
+    var(--shadow-ledge),
+    0 0 0 6px rgb(226 166 42 / 0.7),
+    0 0 26px 8px rgb(226 166 42 / 0.5);
   animation: var(--animate-pulse-soft);
 }
 
@@ -272,7 +283,7 @@
 
 .ni-bubble {
   --bubble-bg: var(--color-cloud);
-  --bubble-outline: var(--color-ink);
+  --bubble-outline: var(--color-sea-deep);
 
   position: relative;
   display: inline-flex;
@@ -284,14 +295,25 @@
   padding: 14px 26px;
   border: 3px solid var(--bubble-outline);
   border-radius: var(--radius-bubble);
-  background: var(--bubble-bg);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--bubble-bg);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
-  box-shadow: 0 6px 0 rgb(38 70 83 / 0.14);
+  box-shadow: var(--shadow-highlight), var(--shadow-ledge);
   font-family: var(--font-body);
   font-size: var(--text-bubble);
   line-height: var(--text-bubble--line-height);
   letter-spacing: 0.01em;
   text-align: left;
+}
+
+/* The stitch, set in evenly from the edge. */
+.ni-bubble::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed rgb(63 94 138 / 0.5);
+  border-radius: calc(var(--radius-bubble) - 3px - var(--stitch-inset));
+  pointer-events: none;
 }
 
 button.ni-bubble {
@@ -302,7 +324,8 @@ button.ni-bubble {
   transition: transform var(--duration-tap) ease-out;
 }
 button.ni-bubble:active {
-  transform: scale(0.97);
+  transform: scale(0.96, 0.94);
+  box-shadow: var(--shadow-felt-pressed), var(--shadow-ledge-pressed);
 }
 
 .ni-bubble[data-tone="sun"] {
@@ -314,9 +337,9 @@ button.ni-bubble:active {
 
 .ni-bubble[data-recommended="true"] {
   box-shadow:
-    0 6px 0 rgb(38 70 83 / 0.14),
-    0 0 0 6px rgb(233 196 106 / 0.75),
-    0 0 28px 6px rgb(244 162 97 / 0.5);
+    var(--shadow-ledge),
+    0 0 0 6px rgb(226 166 42 / 0.75),
+    0 0 28px 6px rgb(226 166 42 / 0.45);
   animation: var(--animate-pulse-soft);
 }
 
@@ -404,17 +427,27 @@ button.ni-bubble:active {
   --panel-bg: var(--color-paper);
   --panel-outline: var(--color-sand-deep);
 
+  position: relative;
   box-sizing: border-box;
   padding: 24px 28px;
   border: 3px solid var(--panel-outline);
   border-radius: var(--radius-card);
-  background: var(--panel-bg);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--panel-bg);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   box-shadow:
-    inset 0 3px 0 rgb(255 255 255 / 0.6),
-    0 8px 0 var(--panel-outline),
-    0 18px 30px -16px rgb(38 70 83 / 0.45);
+    var(--shadow-highlight),
+    var(--shadow-soft);
   font-family: var(--font-body);
+}
+.ni-panel::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed var(--panel-outline);
+  border-radius: calc(var(--radius-card) - 3px - var(--stitch-inset));
+  opacity: 0.8;
+  pointer-events: none;
 }
 .ni-panel[data-tone="sand"] {
   --panel-bg: var(--color-sand);
@@ -435,6 +468,60 @@ button.ni-bubble:active {
   font-size: 1.75rem;
   font-weight: 800;
   line-height: 1.1;
+}
+
+/* ---------- felt mat and sewing-button beads (the play screen frame) ---------- */
+
+/*
+ * A felt mat: a large surface (the widget stage). Grain over its colour, a short soft shadow, and a
+ * quiet stitch set in evenly from its edge. The stitch is drawn by a pseudo-element, so the mat's
+ * content box (the widget's room) does not change.
+ */
+.ni-mat {
+  position: relative;
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--mat-bg, var(--color-paper));
+  background-blend-mode: soft-light;
+  box-shadow:
+    var(--shadow-highlight),
+    var(--shadow-soft);
+}
+.ni-mat::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed var(--color-sand-deep);
+  border-radius: calc(var(--radius-card) - 3px - var(--stitch-inset));
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/*
+ * Progress beads as sewing buttons (shape and fill, not colour alone): a done bead is a larger
+ * mustard button with a cream cross-stitch; a bead to come is a small cream button with a ring.
+ */
+.ni-bead {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: 50%;
+  background: var(--color-paper);
+  box-shadow: 0 1px 2px rgb(58 34 16 / 0.25);
+}
+.ni-bead[data-done="true"] {
+  --thread: var(--color-cloud);
+  width: 24px;
+  height: 24px;
+  border-color: var(--color-sea-dark);
+  background:
+    linear-gradient(45deg, transparent 40%, var(--thread) 40% 60%, transparent 60%) center / 10px
+      10px no-repeat,
+    linear-gradient(-45deg, transparent 40%, var(--thread) 40% 60%, transparent 60%) center / 10px
+      10px no-repeat,
+    var(--color-sunshine);
+  box-shadow:
+    inset 0 0 0 1.5px var(--color-sunshine-deep),
+    0 1px 3px rgb(58 34 16 / 0.3);
 }
 
 /* ---------- sheet (native <dialog>) ---------- */
@@ -541,13 +628,15 @@ button.ni-bubble:active {
   min-height: var(--target-big);
   /* Baloo 2's tall ascent sits numerals high; extra top padding centres the digits optically. */
   padding: 0.16em 28px 0.02em;
-  border: 3px solid var(--color-ink);
+  border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--color-cloud);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--color-cloud);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
+  /* An entry box is sunk into the felt: an even inner shade all round, no lip. */
   box-shadow:
-    inset 0 -6px 0 var(--color-pebble),
-    0 5px 0 rgb(38 70 83 / 0.16);
+    inset 0 0 6px rgb(42 22 8 / 0.16),
+    var(--shadow-highlight);
   font-family: var(--font-display);
   font-size: var(--text-numeral);
   font-variant-numeric: tabular-nums;
@@ -734,6 +823,8 @@ button.ni-number {
 /* Lifted while dragged. z-index applies inside the flex/grid containers widgets lay items in. */
 .ni-draggable[data-dragging="true"] {
   z-index: var(--z-drag);
+  /* Its own layer while it moves, so the felt under it is not repainted every frame (06 §8). */
+  will-change: translate;
   cursor: grabbing;
   filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.35));
 }
