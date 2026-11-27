@@ -17,6 +17,11 @@ const NARRATION: NarrationJson = {
   'l.dollars': line('It costs {c|dollars}.'),
   'l.time': line('It is {t|time}.'),
   'l.frac': line('Shade {f|frac}.'),
+  'l.fracw': line('Put {f|fracw} here.'),
+  'num.1': line('one'),
+  'num.7': line('seven'),
+  'den.2.one': line('half'),
+  'den.4.many': line('fourths'),
   'l.dec1': line('{v|dec:1}'),
   'l.dec2': line('{v|dec:2}'),
   'l.noun': line('{n} {item|noun:n}'),
@@ -91,6 +96,11 @@ describe('render: money, time, fractions, decimals', () => {
   it('time and frac are shown as given', () => {
     expect(r('l.time', { t: '7:05' })).toBe('It is 7:05.');
     expect(r('l.frac', { f: '3/4' })).toBe('Shade 3/4.');
+  });
+
+  it('fracw shows the fraction in words, never a slash (#17 slice 5b)', () => {
+    expect(r('l.fracw', { f: '7/4' })).toBe('Put seven fourths here.');
+    expect(r('l.fracw', { f: '1/2' })).toBe('Put one half here.');
   });
 
   it.each([

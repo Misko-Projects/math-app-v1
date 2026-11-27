@@ -307,6 +307,7 @@ function displayValue(raw: string, narration: NarrationJson, vars: Vars | undefi
     case 'shape':
     case 'name':
     case 'word':
+    case 'fracw':
     case 'ord': {
       // Show the clip's own words ("planks", "Shelly", "third") rather than the raw id or a bare
       // numeral: "Tap the third one", never "Tap the 3 one".

@@ -2229,6 +2229,7 @@ US English, with no "and" inside whole numbers (judgment call: matches how US cl
 | `dollars` | cents | `numberClips(d) + money.dollar.(one\|many)`, then, if c > 0, `word.and` + `numberClips(c) + money.cent.(one\|many)`. 125 → "one dollar and twenty-five cents". Under one dollar only the cents are read: 25 → "twenty-five cents" (A01, 2026-11-18: how a teacher reads $0.25; zero is "zero dollars") |
 | `time` | `"h:mm"` | m = 0 → `num.h time.oclock`; m < 10 → `num.h time.oh num.m`; else `num.h num.m`. `"h:mm pm"` adds `time.pm`. |
 | `frac` | `"a/b"` | `numberClips(a)` + `den.b.one` (a = 1) or `den.b.many`. 1/2 → "one half"; 3/4 → "three fourths"; 3/1 → "three wholes" |
+| `fracw` | `"a/b"` | Said exactly as `frac`; shown on screen as the same words ("seven fourths", "one half"), never as a/b text (#17 slice 5b: fractions in prompts, hints and worked solutions are words or drawn stacked) |
 | `dec` | hundredths integer; the slot names the places, `{v\|dec:1}` (tenths) or `{v\|dec:2}` (hundredths), and a bare `dec` is a V16 error | 30:1 → "three tenths"; 47:2 → "forty-seven hundredths"; 250:2 → "two and fifty hundredths" (whole part, `word.and`, the fraction). Judgment call: decimals are read as fractions, which reinforces their meaning (4.NF.C.6). |
 | `noun:<countVar>` | noun id | `noun.<id>.one` if vars[countVar] = 1, else `.many` |
 | `unit:<countVar>` | unit id | `unit.<id>.one` or `.many`, by the same rule |

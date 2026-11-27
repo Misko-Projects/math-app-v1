@@ -28,6 +28,7 @@ const TYPES = new Set<string>([
   'dollars',
   'time',
   'frac',
+  'fracw',
   'dec',
   'noun',
   'unit',
@@ -90,6 +91,7 @@ export function expandSlot(token: SlotToken, vars: Vars | undefined): string[] {
     case 'time':
       return time(String(raw), token);
     case 'frac':
+    case 'fracw':
       return fraction(String(raw), token);
     case 'dec':
       return decimal(nonNegative(integer(raw, token), token), token.suffix === '1' ? 1 : 2, token);

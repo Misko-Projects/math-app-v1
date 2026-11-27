@@ -43,6 +43,15 @@ function formatSlot(slot: Slot, vars: Record<string, string | number>, narration
     case 'time':
     case 'frac':
       return String(v);
+    case 'fracw': {
+      // A fraction shown as the words it is said with ("seven fourths", "one half"; #17 slice 5b),
+      // never as "7/4" text.
+      const m = /^(\d+)\/(\d+)$/.exec(String(v));
+      if (!m) return String(v);
+      const top = lookupText(narration, `num.${m[1]}`);
+      const bottom = lookupText(narration, `den.${m[2]}.${m[1] === '1' ? 'one' : 'many'}`);
+      return top && bottom ? `${top} ${bottom}` : String(v);
+    }
     case 'dec': {
       // The value is in hundredths; the slot names how many places to show.
       return (Number(v) / 100).toFixed(slot.places ?? 2);
