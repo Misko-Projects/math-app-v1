@@ -25,6 +25,12 @@ import { firstStepOnly } from './rules/firstStepOnly';
 import { forgotTheTen } from './rules/forgotTheTen';
 import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
 import {
+  fractionBiggerNumbers,
+  fractionEquivAdd,
+  fractionEquivOneSide,
+  fractionHalfByTop,
+} from './rules/fractionEquiv';
+import {
   fractionLineAtWhole,
   fractionLineTicks,
   fractionLineWhole,
@@ -109,6 +115,11 @@ const RULES: Record<string, MisconceptionRule> = {
   fractionLineAtWhole: fractionLineAtWhole,
   fractionOverOne: fractionOverOne,
   fractionWholeCount: fractionWholeCount,
+  // K02 (#17) slice 5c: equivalent fractions and benchmarks
+  fractionEquivAdd: fractionEquivAdd,
+  fractionEquivOneSide: fractionEquivOneSide,
+  fractionBiggerNumbers: fractionBiggerNumbers,
+  fractionHalfByTop: fractionHalfByTop,
   unequalShare: unequalShare, // K01 sharing
   patternRestart: patternRestart, // K01 patterns
   placeSwap: placeSwap,

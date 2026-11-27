@@ -1963,6 +1963,33 @@ gen.frac.compare.order-den:
 gen.frac.compare.order-biggest:
   text: "This one is the biggest. It goes first."
   level: "3"
+gen.frac.compare.half-parts:
+  text: "One half of a whole is half of its equal parts."
+  level: "3"
+gen.frac.compare.half-more:
+  text: "The fraction {f|fracw} takes more than half of its parts, so it is more than one half."
+  level: "3"
+gen.frac.compare.half-less:
+  text: "The fraction {f|fracw} takes less than half of its parts, so it is less than one half."
+  level: "3"
+gen.frac.compare.half-equal:
+  text: "The fraction {f|fracw} takes exactly half of its parts, so it is equal to one half."
+  level: "3"
+gen.frac.compare.one-whole:
+  text: "All the equal parts of a whole make 1: the top and bottom numbers are the same."
+  level: "3"
+gen.frac.compare.one-more:
+  text: "The fraction {f|fracw} has more parts than make 1, so it is more than 1."
+  level: "3"
+gen.frac.compare.one-less:
+  text: "The fraction {f|fracw} has fewer parts than make 1, so it is less than 1."
+  level: "3"
+gen.frac.compare.one-equal:
+  text: "The fraction {f|fracw} has all the parts that make 1, so it is equal to 1."
+  level: "3"
+gen.frac.compare.order-half:
+  text: "Is each fraction more or less than one half? Put the biggest first."
+  level: "3"
 gen.frac.compare.order-num:
   text: "Each has the same number of parts taken. The whole with the fewest parts has the biggest parts."
   level: "3"
@@ -3322,6 +3349,12 @@ gen.frac.shares.not-equal:
 gen.frac.shares.no:
   text: "So they are not equal shares."
   level: "2"
+gen.frac.shares.name-count:
+  text: "Every part has the same number of squares, so the parts are equal. Count the parts."
+  level: "3"
+gen.frac.shares.name-each:
+  text: "The whole has that many equal parts, so each part is {f|fracw} of the whole."
+  level: "3"
 fb.mc.equal-shares-look-alike:
   text: "Count the squares. Equal shares can have different shapes."
 fb.mc.share-counted-whole:
@@ -3416,6 +3449,27 @@ gen.frac.line.between:
   level: "3"
 gen.frac.line.groups:
   text: "In {f|fracw}, count the groups of {w|fracw}: {k}."
+  level: "3"
+gen.frac.equiv.group:
+  text: "Each {w|fracw} of a whole is a group of these small parts."
+  level: "3"
+gen.frac.equiv.here:
+  text: "The point for {f|fracw} is also {g|fracw}."
+  level: "3"
+gen.frac.equiv.same-whole:
+  text: "Both fractions are parts of the same whole."
+  level: "3"
+gen.frac.equiv.cut:
+  text: "Cut each part into the same number of smaller equal parts. Count the small parts."
+  level: "3"
+gen.frac.equiv.same:
+  text: "So {f|fracw} is the same amount as {g|fracw}."
+  level: "3"
+gen.frac.equiv.look-top:
+  text: "Look where the shading ends on the top strip."
+  level: "3"
+gen.frac.equiv.count-bottom:
+  text: "Count the parts of the bottom strip up to that line."
   level: "3"
 fb.mc.fraction-line-ticks:
   text: "Count the spaces, not the ticks. Start at 0."
