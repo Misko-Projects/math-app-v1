@@ -270,7 +270,7 @@
   border: 3px solid var(--color-ink);
   border-radius: var(--radius-pebble);
   background: var(--color-cloud);
-  box-shadow: 0 4px 0 var(--color-ink-soft);
+  box-shadow: var(--shadow-ledge);
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: inherit;
@@ -286,7 +286,7 @@
 }
 .ni-pz__card:active:not(:disabled) {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--color-ink-soft);
+  box-shadow: var(--shadow-ledge-pressed);
 }
 .ni-pz__card:disabled {
   cursor: default;

@@ -128,7 +128,7 @@
   box-shadow:
     inset 0 0 0 3px var(--color-sun-deep),
     inset 0 0 0 6px var(--color-sun),
-    0 6px 0 var(--color-sand-deep),
+    var(--shadow-ledge),
     var(--shadow-soft);
 }
 .ni-esw__zone-items {

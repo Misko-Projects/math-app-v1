@@ -151,9 +151,7 @@
   border: 3px solid var(--color-ink);
   border-radius: var(--radius-pebble);
   background: var(--color-cloud);
-  box-shadow:
-    0 5px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
 }
 .ni-bgb__chip:focus-visible {
   outline: 4px solid var(--color-sea-deep);

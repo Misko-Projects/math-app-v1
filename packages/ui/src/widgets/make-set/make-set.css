@@ -99,7 +99,7 @@
   background: var(--color-sand);
   box-shadow:
     inset 0 -10px 0 var(--color-sand-shadow),
-    0 8px 0 rgb(217 187 135 / 0.6);
+    var(--shadow-ledge);
 }
 /*
  * The supply: an open wooden crate, so the things to put in never read as part of the set being
@@ -119,7 +119,7 @@
   box-shadow:
     inset 0 0 0 9px var(--color-wood),
     inset 0 0 0 11px var(--color-wood-deep),
-    0 10px 0 var(--color-wood-deep),
+    var(--shadow-ledge),
     0 16px 10px -6px rgb(38 70 83 / 0.3);
 }
 .ni-mset__pile[data-kind="supply"]::before,
@@ -707,7 +707,7 @@
   box-shadow:
     inset 0 0 0 4px var(--color-wood),
     inset 0 0 0 5px var(--color-wood-deep),
-    0 8px 0 var(--color-wood-deep),
+    var(--shadow-ledge),
     0 13px 8px -6px rgb(38 70 83 / 0.3);
 }
 .ni-mset[data-tray="compact"] > .ni-mset__pile[data-kind="supply"]::before,

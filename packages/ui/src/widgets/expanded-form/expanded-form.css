@@ -337,7 +337,7 @@
   color: var(--color-ink);
   box-shadow:
     0 0 0 2px var(--color-wood-deep),
-    0 7px 0 var(--color-wood-deep),
+    var(--shadow-ledge),
     var(--shadow-highlight);
   user-select: none;
   -webkit-tap-highlight-color: transparent;

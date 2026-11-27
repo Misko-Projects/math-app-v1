@@ -228,9 +228,7 @@
 .ni-pattern__unit {
   border-color: var(--color-ink);
   background: var(--color-cloud);
-  box-shadow:
-    0 5px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
 }
 .ni-pattern[data-tier="concrete"] .ni-pattern__unit {
   background: var(--color-horizon);

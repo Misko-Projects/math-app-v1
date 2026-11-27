@@ -263,9 +263,7 @@
   border: 3px solid var(--color-ink);
   border-radius: var(--radius-pebble);
   background: var(--color-sunshine);
-  box-shadow:
-    0 5px 0 var(--color-sunshine-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
 }
 .ni-nlp__shell {
   position: absolute;
@@ -396,7 +394,7 @@
   font-family: var(--font-display);
   font-size: var(--text-numeral);
   font-weight: 800;
-  box-shadow: 0 5px 0 var(--color-pebble-deep);
+  box-shadow: var(--shadow-ledge);
   cursor: pointer;
 }
 .ni-nlp__sign-toggle[aria-pressed="true"] {

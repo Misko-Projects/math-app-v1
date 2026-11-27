@@ -136,9 +136,10 @@
 .ni-ord__pad {
   grid-area: 1 / 1;
   box-sizing: border-box;
-  border: 4px dashed var(--color-ink-soft);
+  /* An open box: a dashed denim thread on cream (6.6:1), quiet like a stitch. */
+  border: 4px dashed var(--color-sea-deep);
   border-radius: var(--radius-pebble);
-  background: var(--color-sky-light);
+  background: var(--color-paper);
 }
 /* A card is picked up: the open boxes say "put it here" quietly (darker dashes, a lighter pad),
    never with a ring that could read as Pip's invite. */
@@ -161,13 +162,15 @@
   margin: 0;
   padding: 5px;
   appearance: none;
-  border: 3px solid var(--color-ink);
+  /* A felt card: navy edge, grain over cream, the felt lift (no ledge). */
+  border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
-  box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -197,7 +200,7 @@ button.ni-ord__card:focus-visible,
   outline: none;
   transform: translateY(-3px) scale(1.02);
   box-shadow:
-    0 9px 0 var(--color-pebble-deep),
+    var(--shadow-ledge),
     0 16px 22px -6px rgb(38 70 83 / 0.4);
 }
 .ni-ord__card.ni-draggable[data-selected="true"]:focus-visible {

@@ -151,7 +151,7 @@
 .ni-cmp__gap[data-filled="true"] .ni-cmp__pad {
   border-style: solid;
   background: var(--color-cloud);
-  box-shadow: 0 6px 0 var(--color-pebble-deep);
+  box-shadow: var(--shadow-ledge);
 }
 .ni-cmp__placed {
   position: absolute;

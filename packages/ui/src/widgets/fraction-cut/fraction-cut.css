@@ -150,9 +150,7 @@
   border: 3px solid var(--color-ink);
   border-radius: 50%;
   background: var(--color-cloud);
-  box-shadow:
-    0 4px 0 var(--color-pebble-deep),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   cursor: pointer;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
@@ -226,9 +224,7 @@
   border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pill);
   background: var(--color-cloud);
-  box-shadow:
-    0 6px 0 var(--color-sea-dark),
-    var(--shadow-highlight);
+  box-shadow: var(--shadow-ledge), var(--shadow-highlight);
 }
 .ni-fcut__fill:disabled {
   opacity: 0.5;

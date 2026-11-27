@@ -88,7 +88,7 @@
   display: block;
   border-width: 3px;
   border-radius: 18%;
-  box-shadow: 0 5px 0 var(--color-pebble-deep);
+  box-shadow: var(--shadow-ledge);
 }
 /* An equal-groups plate: a round sand dish. */
 .ni-objects__frame[data-kind="plate"] {
@@ -438,14 +438,18 @@
     box-shadow var(--duration-tap) ease-out;
   -webkit-tap-highlight-color: transparent;
 }
-/* The stitch, set in evenly from the edge. */
+/* The stitch, set in evenly from the edge, close to it so a wide numeral stays clear of it. */
 .ni-pick::before {
   content: "";
   position: absolute;
-  inset: var(--stitch-inset);
+  inset: 3px;
   border: var(--stitch-width) dashed rgb(63 94 138 / 0.55);
-  border-radius: calc(var(--radius-pebble) - 3px - var(--stitch-inset));
+  border-radius: calc(var(--radius-pebble) - 6px);
   pointer-events: none;
+}
+/* Numeral tray cards are as narrow as a target: a two-digit numeral fills them, so no stitch. */
+.ni-tray-numerals .ni-pick::before {
+  display: none;
 }
 /* Pressed: the soft squish (96% × 94% about the centre, inner shadow all round). */
 .ni-pick:active:not(:disabled),

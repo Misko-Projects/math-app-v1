@@ -142,7 +142,7 @@
   font-size: var(--bond-font, 48px);
   font-weight: 800;
   line-height: 1;
-  box-shadow: 0 6px 0 rgb(38 70 83 / 0.16);
+  box-shadow: var(--shadow-ledge);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -171,7 +171,7 @@ span.ni-bondw__circle {
   box-shadow:
     0 0 0 4px var(--color-cloud),
     0 0 0 7px var(--color-ink),
-    0 8px 0 rgb(38 70 83 / 0.2);
+    var(--shadow-ledge);
 }
 .ni-bondw__caret {
   position: absolute;
