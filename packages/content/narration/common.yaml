@@ -2913,13 +2913,13 @@ gen.money.coins.compare-amounts:
 # h.ruler.end-number go only on rulers from 0; h.ruler.not-zero and h.ruler.take-start only on
 # objects that start at 1 or more.
 h.unit-sort.small-inches:
-  text: "Things smaller than a book are measured in inches."
+  text: "Could it fit in a box you can carry? Then measure it in inches."
   level: "2"
 h.unit-sort.big-feet:
-  text: "Things bigger than a chair are measured in feet."
+  text: "Is it too big for a box you can carry? Then measure it in feet."
   level: "2"
 h.unit-sort.compare-you:
-  text: "Think how big each one is. Is it smaller than a book, or bigger than a chair?"
+  text: "Look at each one. Would it fit in a box you can carry, or not?"
   level: "2"
 h.estimate.picture-unit:
   text: "Picture the 1 {unit|unit:one} piece put down along it, again and again."

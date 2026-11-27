@@ -2151,6 +2151,10 @@ describe('line plots, units and estimates: lines that hold for every item (K02 s
       for (const h of hints) {
         const text = (content?.narration[h]?.text ?? '').toLowerCase();
         for (const thing of things) expect(text, `${id} ${h}`).not.toContain(thing);
+        // One cutoff for every card, no gap between two (R2): every inch card (pencil, shoe,
+        // spoon, cup, button) fits in a box a child carries; no foot card (door, table, fishing
+        // rod) does.
+        expect(text, `${id} ${h}`).toContain('a box you can carry');
       }
     }
   });
