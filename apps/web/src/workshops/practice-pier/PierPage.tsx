@@ -46,7 +46,7 @@ export function PierPage() {
   // The island's requests come through the workshop host; this page is the dev content browser.
   if (!query.has('browse') || !devFlag()) return <Navigate to={`/play/${child.id}`} replace />;
   return (
-    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>
+    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'} guide={child.guide}>
       {browsing === null ? (
         <ContentBrowser onPick={setBrowsing} onLeave={home} />
       ) : (

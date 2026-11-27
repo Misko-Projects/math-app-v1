@@ -3,7 +3,7 @@
 // the stored settings document live.
 
 import type { NarrationKey } from '@number-island/shared';
-import { type AgeMode, planLine, UiProvider } from '@number-island/ui';
+import { type AgeMode, GuideProvider, planLine, UiProvider } from '@number-island/ui';
 import {
   createContext,
   type ReactNode,
@@ -55,12 +55,21 @@ function useNarrationResolver(services: AppServices) {
  * Child screens' UI preferences (06 §4 target sizes, §5 reading rules): `k` makes every control
  * K-sized, icon-only and spoken on tap. The Profile Picker uses `k` (anyone may be about to play).
  */
-export function ChildUi({ ageMode, children }: { ageMode: AgeMode; children: ReactNode }) {
+export function ChildUi({
+  ageMode,
+  guide,
+  children,
+}: {
+  ageMode: AgeMode;
+  /** The child's guide (05 §1), drawn by the screens under this child's route. */
+  guide?: string | undefined;
+  children: ReactNode;
+}) {
   const services = useAppServices();
   const narrationText = useNarrationResolver(services);
   return (
     <UiProvider ageMode={ageMode} audio={services.audio} narrationText={narrationText}>
-      {children}
+      <GuideProvider guide={guide}>{children}</GuideProvider>
     </UiProvider>
   );
 }

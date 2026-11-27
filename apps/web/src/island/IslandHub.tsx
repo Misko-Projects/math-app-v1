@@ -599,7 +599,7 @@ export function IslandHub({
               onClick={onChangeGuide}
               aria-label={text('ui.guide.change', { name: guideLabel(guideById(child.guide)) })}
               data-testid="island-guide"
-              className="-my-2 flex shrink-0 rounded-card p-1 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink active:brightness-95"
+              className="-my-2 flex shrink-0 rounded-card p-1 [&>svg]:!h-[clamp(132px,18vh,168px)] [&>svg]:!w-auto focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink active:brightness-95"
             >
               <Guide guide={child.guide} mood="talk" height={132} bob />
             </button>

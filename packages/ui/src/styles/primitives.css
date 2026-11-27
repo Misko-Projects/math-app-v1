@@ -1436,3 +1436,51 @@ button.ni-number {
 [data-reduced-motion="true"] .ni-guide-bob {
   animation: none;
 }
+
+/*
+ * The guide cheering at the stage corner on a right answer (05 §1): over the stage's bottom-left
+ * corner, clear of the header (bubble, hint, replay), the look-again cue (top centre) and the
+ * widget's own actions on the right. About a second, then transparent; it takes no touch.
+ */
+.ni-guide-cheer {
+  position: absolute;
+  left: -14px;
+  bottom: -18px;
+  z-index: 15;
+  pointer-events: none;
+  opacity: 0;
+  animation: ni-guide-cheer 1.2s var(--ease-soft) forwards;
+}
+@keyframes ni-guide-cheer {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  18%,
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+@keyframes ni-guide-cheer-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  18%,
+  78% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-guide-cheer {
+    animation-name: ni-guide-cheer-fade;
+  }
+}
+[data-reduced-motion="true"] .ni-guide-cheer {
+  animation-name: ni-guide-cheer-fade;
+}

@@ -28,7 +28,7 @@ const HL = '#B8CCA3'; // head
 const SCUTE = '#86A681';
 
 /** Shelly's design box (art units): every mood, cap and raised arms included. */
-export const SHELLY_BOX = { x: -112, y: -188, w: 248, h: 324 } as const;
+export const SHELLY_BOX = { x: -132, y: -188, w: 268, h: 324 } as const;
 
 const arm = (tx: number, ty: number, rot: number, ry = 27) => (
   <Piece
@@ -48,9 +48,9 @@ function NearArm({ mood }: { mood: GuideMood }) {
     case 'talk':
       return arm(74, -40, 28, 35);
     case 'cheer':
-      return arm(72, -42, 34, 34);
+      return arm(86, -30, 42, 32);
     case 'think':
-      return arm(36, -16, -24, 30);
+      return arm(80, -44, 24, 30);
     default:
       return arm(52, 34, -26, 30);
   }
@@ -58,7 +58,7 @@ function NearArm({ mood }: { mood: GuideMood }) {
 
 /** The far arm (viewer's left): a hand on the hip, or up in a cheer. */
 function FarArm({ mood }: { mood: GuideMood }) {
-  return mood === 'cheer' ? arm(-72, -30, -44, 32) : arm(-40, 30, -38);
+  return mood === 'cheer' ? arm(-90, -2, -56, 30) : arm(-40, 30, -38);
 }
 
 function Face({ mood }: { mood: GuideMood }) {
@@ -202,7 +202,7 @@ export function ShellyFigure({ mood }: { mood: GuideMood }): ReactNode {
       <Stitch d={ellipse(14, 37, 34, 39)} color={FELT.kraftD} width={1.9} dash="4.6 4.2" />
       <Thread d="M14,4V72M-16,26Q14,36 44,26M-15,51Q14,61 43,51" color="#D5C29C" width={2} />
       <FarArm mood={mood} />
-      {mood !== 'think' && <NearArm mood={mood} />}
+      <NearArm mood={mood} />
       {/* neckerchief with flying tails */}
       <Piece d="M-30,-40L-64,-56L-56,-36z" fill={FELT.mustD} lift="fs" k={2} />
       <Piece d="M-30,-38L-68,-28L-52,-18z" fill={FELT.must} lift="fs" k={2} />
@@ -216,8 +216,6 @@ export function ShellyFigure({ mood }: { mood: GuideMood }): ReactNode {
         <Face mood={mood} />
         <Cap />
       </g>
-      {/* the thinking hand rests under the chin, over the neckerchief */}
-      {mood === 'think' && <NearArm mood={mood} />}
       {mood === 'think' && <ThoughtBeads />}
       {mood === 'cheer' && <CheerRays />}
     </g>
