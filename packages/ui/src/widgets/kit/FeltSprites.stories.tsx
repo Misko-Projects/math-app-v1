@@ -3,7 +3,34 @@ import type { CSSProperties, ReactNode } from 'react';
 import { expect } from 'storybook/test';
 import { CvdCompare } from '../../art/gallery/Gallery';
 import { CRAB_FACES, FELT_KINDS, FELT_TONES_USED, type FeltKind } from './felt-sprites';
+import type { PlacedObject } from './layout';
+import { ObjectSetView } from './ObjectSetView';
 import { ObjectSprite, type SpriteTone } from './sprites';
+
+/** A set of 40 crabs at 72 px on the mat (the frame-rate check drags the first across it). */
+export const FortyInASet: StoryObj = {
+  render: () => {
+    const objects: PlacedObject[] = Array.from({ length: 40 }, (_, i) => ({
+      index: i,
+      kind: 'object',
+      sprite: 'crab',
+      x: i % 10,
+      y: Math.floor(i / 10),
+      scale: 1,
+      group: 0,
+      tone: 'a',
+    }));
+    return (
+      <div id="felt-mat" style={{ background: 'var(--color-paper)', padding: 20 }}>
+        <ObjectSetView
+          layout={{ width: 10, height: 4, objects, frames: [] }}
+          cell={72}
+          label="40 crabs"
+        />
+      </div>
+    );
+  },
+};
 
 /**
  * Felt & Stitch counted objects (slice 3): each kind at the smallest and largest size shipped
