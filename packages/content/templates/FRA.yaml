@@ -1201,4 +1201,3 @@ templates:
     narration:
       prompt: tp.FRA.14.t3.prompt
       hints: [h.frac.area-equal, h.frac.area-count]
-

@@ -37,10 +37,7 @@ const configSchema = numberPadConfigSchema.superRefine((c, ctx) => {
     t.t === 'blank'
       ? [t.id]
       : t.t === 'frac'
-        ? [
-            ...(t.a === 'blank' ? [`frac-${i}-a`] : []),
-            ...(t.b === 'blank' ? [`frac-${i}-b`] : []),
-          ]
+        ? [...(t.a === 'blank' ? [`frac-${i}-a`] : []), ...(t.b === 'blank' ? [`frac-${i}-b`] : [])]
         : [],
   );
   if (c.expression && exprBlanks.join('|') !== ids.join('|')) {

@@ -101,9 +101,7 @@ export function snapPlacement(c: Config, at: number): number {
  */
 export function placeTolerance(c: Config): number | null {
   if (!c.target) return null;
-  return c.ticksShown
-    ? 1 / (2 * Math.max(c.target.b, c.denominator))
-    : 1 / (4 * c.target.b);
+  return c.ticksShown ? 1 / (2 * Math.max(c.target.b, c.denominator)) : 1 / (4 * c.target.b);
 }
 
 const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {

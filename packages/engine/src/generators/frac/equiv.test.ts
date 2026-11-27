@@ -113,7 +113,7 @@ describe('frac.equiv', () => {
       const item = build(line, p);
       const w = item.widget;
       if (w.format !== 'fraction-line') throw new Error('format');
-      const { num, den, mult, max } = p as Record<string, number>;
+      const { num, den, mult, max } = p as { num: number; den: number; mult: number; max: number };
       const d = den * mult;
       expect(w.denominator).toBe(d);
       expect(w.target).toEqual({ a: num, b: den });
@@ -150,7 +150,7 @@ describe('frac.equiv', () => {
       const item = build(pad, p);
       const w = item.widget;
       if (w.format !== 'number-pad') throw new Error('format');
-      const { num, den, mult } = p as Record<string, number>;
+      const { num, den, mult } = p as { num: number; den: number; mult: number };
       const d = den * mult;
       const key = `${num}/${den}=${num * mult}/${d}`;
       expect(PAIRS.has(key)).toBe(true);
@@ -218,7 +218,7 @@ describe('frac.compare benchmark (FRA.15)', () => {
       expect(all.length).toBeGreaterThan(15);
       for (const p of all) {
         const item = build(t, p);
-        const { num, den } = p as Record<string, number>;
+        const { num, den } = p as { num: number; den: number };
         expect(num).toBeLessThan(den);
         const side = benchSide(num, den, 'half');
         const want =
@@ -245,7 +245,7 @@ describe('frac.compare benchmark (FRA.15)', () => {
     expect(draws(pic, { bench: 'one' })).toEqual([]);
     for (const p of all) {
       const item = build(sym, p);
-      const { num, den } = p as Record<string, number>;
+      const { num, den } = p as { num: number; den: number };
       expect(PIECE_DENS as readonly number[]).toContain(den);
       expect(Math.abs(num - den)).toBeLessThanOrEqual(2);
       const w = item.widget;
