@@ -304,11 +304,13 @@ export const fracCompare: GeneratorDef = {
       const id = a.kind === 'choice' ? a.id : 'same';
       const same = id === 'same' || id === '=';
       // Same parts: more shaded parts is more. Same shaded count: fewer parts, bigger parts.
-      const why = sameDen
-        ? same
-          ? 'gen.frac.compare.same-den-equal'
-          : 'gen.frac.compare.same-den-more'
-        : 'gen.frac.compare.same-num-more';
+      // Equal (same parts taken of wholes cut alike) says so whichever kind it is.
+      const why = same
+        ? 'gen.frac.compare.same-den-equal'
+        : sameDen
+          ? 'gen.frac.compare.same-den-more'
+          : 'gen.frac.compare.same-num-more';
+
       const intro = say(sameDen ? 'gen.frac.compare.same-den' : 'gen.frac.compare.same-num', {});
       const answer = { op: 'answer', args: { id } } as const;
       // The sign line is about < and >: an equal pair ends on its why line.

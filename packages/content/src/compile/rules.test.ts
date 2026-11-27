@@ -162,8 +162,12 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'DAT.10',
       'FRA.01',
       'FRA.02',
+      'FRA.03',
+      'FRA.06',
       'FRA.07',
       'FRA.08',
+      'FRA.09',
+      'FRA.13',
       'FRA.16',
       'GEO.01',
       'GEO.02',
@@ -308,6 +312,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.forgot-the-ten',
       'MC.forgot-to-regroup-add',
       'MC.fraction-bigger-denominator',
+      'MC.fraction-compare-tops',
+      'MC.fraction-part-to-part',
+      'MC.fraction-swapped',
       'MC.fraction-unequal-parts',
       'MC.function-add-for-take',
       'MC.function-backwards',
@@ -1976,9 +1983,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // MC.digit-order-reversed and MC.way-counted-twice; division facts (K02 slice 3c) added 7
       // skills, 27 templates, MC.multiply-instead-of-divide, MC.told-number-back and
       // MC.neighbour-fact.
-      skills: 211,
-      templates: 768,
-      misconceptions: 61,
+      skills: 215,
+      templates: 784,
+      misconceptions: 64,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -2018,6 +2025,7 @@ describe('graph.json (03 §9.1)', () => {
       'CNT.14',
       'CPS.02',
       'CPS.04',
+      'FRA.03',
       'GEO.04',
       'MDA.03',
       'MDA.12',
@@ -2055,6 +2063,7 @@ describe('graph.json (03 §9.1)', () => {
       ['CNT.06', 'CNT.05', 0.5],
       ['CNT.10', 'CNT.09', 1],
       ['DAT.05', 'DAT.02', 0.6],
+      ['FRA.13', 'FRA.08', 0.5],
       ['MDA.01', 'ADD.06', 0.5],
       ['MDA.01', 'PV.03', 0.5],
       ['MDA.03', 'ADD.14', 0.8],

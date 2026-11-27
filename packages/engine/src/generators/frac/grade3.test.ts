@@ -260,7 +260,12 @@ describe('frac.compare with symbols (FRA.06, FRA.13)', () => {
             expect(fractionCompareTops.match(sym, { kind: 'choice', id: '=' })).toBe(true);
           } else {
             expect(fractionCompareTops.predict?.(item)).toBeNull();
+            // Wholes cut alike: the worked solution says they are equal, not "fewer parts".
+            const keys = itemSolution(item, owner.get(item)).map((s) => s.say);
+            expect(keys).toContain('gen.frac.compare.same-den-equal');
+            expect(keys).not.toContain('gen.frac.compare.same-num-more');
           }
+
         }
       }
     }

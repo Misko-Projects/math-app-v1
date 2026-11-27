@@ -403,7 +403,7 @@ templates:
       shape: { choice: [circle, rect] }
       den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 1] }
       num: 1
-    difficulty: { base: -0.7 }
+    difficulty: { base: -0.5 }
     narration:
       prompt: tp.FRA.03.t3.prompt
       hints: [h.frac.name-bottom, h.frac.name-top]
@@ -574,7 +574,7 @@ templates:
       num2: { int: [1, 7] }
       num3: { int: [1, 7] }
     constraints: ["num < den", "num2 < den", "num3 < den", "num != num2", "num != num3", "num2 != num3"]
-    difficulty: { base: -1.2, features: { ratio: 1.5 } }
+    difficulty: { base: -1.37, features: { ratio: 1.5 } }
     narration:
       prompt: tp.FRA.06.t4.prompt
       hints: [h.frac.same-bottom, h.frac.biggest-top]
@@ -613,7 +613,7 @@ templates:
       den: { choice: [2, 3, 4, 6, 8] }
       den2: { choice: [2, 3, 4, 6, 8] }
     constraints: ["num < den", "num < den2", "den != den2"]
-    difficulty: { base: -2.2, features: { ratio: 1.6 } }
+    difficulty: { base: -1.97, features: { ratio: 1.6 } }
     narration:
       prompt: tp.FRA.06.t2.prompt
       hints: [h.frac.same-filled, h.frac.order-biggest]
