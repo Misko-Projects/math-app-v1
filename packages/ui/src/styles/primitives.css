@@ -52,7 +52,9 @@
   padding: 0 32px;
   border: 3px solid var(--btn-outline);
   border-radius: var(--radius-pill);
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--btn-bg);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--btn-bg);
   background-blend-mode: soft-light;
   color: var(--btn-fg);
   box-shadow: var(--btn-edge), var(--shadow-highlight), var(--shadow-ledge);
@@ -323,7 +325,9 @@
   padding: 14px 26px;
   border: 3px solid var(--bubble-outline);
   border-radius: var(--radius-bubble);
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--bubble-bg);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--bubble-bg);
   background-blend-mode: soft-light;
   color: var(--color-ink);
   box-shadow: var(--shadow-highlight), var(--shadow-ledge);
@@ -460,12 +464,12 @@ button.ni-bubble:active {
   padding: 24px 28px;
   border: 3px solid var(--panel-outline);
   border-radius: var(--radius-card);
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--panel-bg);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--panel-bg);
   background-blend-mode: soft-light;
   color: var(--color-ink);
-  box-shadow:
-    var(--shadow-highlight),
-    var(--shadow-soft);
+  box-shadow: var(--shadow-highlight), var(--shadow-soft);
   font-family: var(--font-body);
 }
 .ni-panel::before {
@@ -507,11 +511,11 @@ button.ni-bubble:active {
  */
 .ni-mat {
   position: relative;
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--mat-bg, var(--color-paper));
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--mat-bg, var(--color-paper));
   background-blend-mode: soft-light;
-  box-shadow:
-    var(--shadow-highlight),
-    var(--shadow-soft);
+  box-shadow: var(--shadow-highlight), var(--shadow-soft);
 }
 .ni-mat::before {
   content: "";
@@ -543,9 +547,9 @@ button.ni-bubble:active {
   border-color: var(--color-sea-dark);
   background:
     linear-gradient(45deg, transparent 40%, var(--thread) 40% 60%, transparent 60%) center / 10px
-      10px no-repeat,
+    10px no-repeat,
     linear-gradient(-45deg, transparent 40%, var(--thread) 40% 60%, transparent 60%) center / 10px
-      10px no-repeat,
+    10px no-repeat,
     var(--color-sunshine);
   box-shadow:
     inset 0 0 0 1.5px var(--color-sunshine-deep),
@@ -658,7 +662,9 @@ button.ni-bubble:active {
   padding: 0.16em 28px 0.02em;
   border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--number-bg, var(--color-cloud));
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--number-bg, var(--color-cloud));
   background-blend-mode: soft-light;
   color: var(--color-ink);
   /* An entry box is sunk into the felt: an even inner shade all round, no lip. */
@@ -695,8 +701,8 @@ button.ni-number {
   /* The writing line is a stitched ink line inside the box (9:1), set in from both sides and the
      bottom, so the box's border stays even on all four sides. */
   background:
-    repeating-linear-gradient(90deg, var(--color-ink) 0 7px, transparent 7px 12px) center bottom
-      9px / calc(100% - 28px) 3px no-repeat,
+    repeating-linear-gradient(90deg, var(--color-ink) 0 7px, transparent 7px 12px) center bottom 9px
+    / calc(100% - 28px) 3px no-repeat,
     var(--felt-grain) 0 0 / var(--felt-grain-size),
     var(--number-bg, var(--color-cloud));
   background-blend-mode: normal, soft-light, normal;
@@ -774,7 +780,9 @@ button.ni-number {
   /* Felt & Stitch tray: cream felt on a sage edge, even on every side, lifted a little. */
   border: 3px solid var(--color-leaf-deep);
   border-radius: 24px;
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
   background-blend-mode: soft-light;
   box-shadow:
     inset 0 0 0 2px var(--color-leaf-deep),

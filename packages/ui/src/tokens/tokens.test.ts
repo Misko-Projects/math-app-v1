@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ageModeForGrade,
   CONTRAST_PAIRS,
-  LEGACY_ART_PALETTE,
   contrastRatio,
   DURATION_MS,
+  LEGACY_ART_PALETTE,
   litColor,
   MIN_TARGET_PX,
   PALETTE,
@@ -22,10 +22,11 @@ const css = readFileSync(fileURLToPath(new URL('./theme.css', import.meta.url)),
   '',
 );
 
-/** The value of `--name` inside the first block whose selector matches `selector`. */
 /** The sunset remap applies to a lit scene and to art and sprites inside one (their legacy pin). */
-const SUNSET_SELECTOR = '[data-lighting="sunset"],\n[data-lighting="sunset"] :is(.ni-art, .ni-sprite)';
+const SUNSET_SELECTOR =
+  '[data-lighting="sunset"],\n[data-lighting="sunset"] :is(.ni-art, .ni-sprite)';
 
+/** The value of `--name` inside the first block whose selector matches `selector`. */
 function cssVar(name: string, selector = ':root'): string | undefined {
   const blocks = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
   for (const [, sel, body] of blocks) {

@@ -425,12 +425,12 @@
   border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
   /* Felt (theme.css): the grain soft-lit over the card's colour. */
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--pick-bg, var(--color-cloud));
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--pick-bg, var(--color-cloud));
   background-blend-mode: soft-light;
   color: var(--color-ink);
-  box-shadow:
-    var(--shadow-highlight),
-    var(--shadow-ledge);
+  box-shadow: var(--shadow-highlight), var(--shadow-ledge);
   cursor: pointer;
   touch-action: manipulation;
   transition:
@@ -451,9 +451,7 @@
 .ni-pick:active:not(:disabled),
 .ni-pick[data-preview="pressed"] {
   transform: scale(0.96, 0.94);
-  box-shadow:
-    var(--shadow-felt-pressed),
-    var(--shadow-ledge-pressed);
+  box-shadow: var(--shadow-felt-pressed), var(--shadow-ledge-pressed);
 }
 .ni-pick:focus-visible {
   outline: 4px solid var(--color-sea-deep);
@@ -579,7 +577,9 @@
   position: relative;
   border: 3px solid var(--color-wood-deep);
   border-radius: var(--radius-pebble);
-  background: var(--felt-grain) 0 0 / var(--felt-grain-size), var(--key-bg, var(--color-wood));
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--key-bg, var(--color-wood));
   background-blend-mode: soft-light;
   color: var(--color-ink);
   font-family: var(--font-display);

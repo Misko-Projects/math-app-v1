@@ -81,13 +81,9 @@
    * (above, slightly left), a faint lighter rim all round. Never a solid ledge or a dark slab under
    * a shape. The "ledge" names stay so existing utilities keep working; they now draw the felt lift.
    */
-  --shadow-ledge:
-    1px 2px 2px -1px rgb(58 34 16 / 0.3),
-    2px 5px 9px -5px rgb(58 34 16 / 0.32);
+  --shadow-ledge: 1px 2px 2px -1px rgb(58 34 16 / 0.3), 2px 5px 9px -5px rgb(58 34 16 / 0.32);
   --shadow-ledge-pressed: 0 1px 2px -1px rgb(58 34 16 / 0.3);
-  --shadow-soft:
-    1px 3px 4px -2px rgb(58 34 16 / 0.22),
-    3px 8px 18px -10px rgb(58 34 16 / 0.3);
+  --shadow-soft: 1px 3px 4px -2px rgb(58 34 16 / 0.22), 3px 8px 18px -10px rgb(58 34 16 / 0.3);
   --shadow-lift: 3px 14px 22px -10px rgb(58 34 16 / 0.42);
   --shadow-highlight: inset 0 0 0 1.5px rgb(255 246 226 / 0.22);
 

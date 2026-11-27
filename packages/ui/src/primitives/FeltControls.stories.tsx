@@ -115,7 +115,13 @@ function Sheet() {
         <BigButton label="ui.btn.done" icon={<CheckIcon />} tone="cloud" showLabel />
       </Cell>
       <Cell name="icon only · disabled">
-        <BigButton label="ui.btn.check" icon={<CheckIcon />} tone="sun" showLabel={false} disabled />
+        <BigButton
+          label="ui.btn.check"
+          icon={<CheckIcon />}
+          tone="sun"
+          showLabel={false}
+          disabled
+        />
       </Cell>
       <Cell name="Go home · rest">
         <HomeButton caption={false} />
