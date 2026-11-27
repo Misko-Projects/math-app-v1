@@ -91,6 +91,7 @@ building
 builds
 bundle
 bundles
+bunny
 burrow
 but
 button
@@ -603,6 +604,7 @@ shapes
 share
 she
 sheep
+shelly
 shell
 shells
 shoe

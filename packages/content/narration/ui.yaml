@@ -16,7 +16,7 @@ ui.guide.confirm:
   text: "Let's go!"
   level: K
 ui.guide.change:
-  text: "{name}. Tap to choose who plays with you."
+  text: "{name}. Tap to pick who plays with you."
   level: K
 ui.guide.name.shelly:
   text: "Shelly the turtle"
@@ -245,7 +245,7 @@ ui.tray.empty:
 
 # Widget registry (U01, packages/ui/src/widgets).
 ui.widget.coming-soon:
-  text: "This game is still being built. Let's try the next one!"
+  text: "This game is not ready. Let's try the next one!"
   voice: guide
   level: K
 ui.widget.pebble:

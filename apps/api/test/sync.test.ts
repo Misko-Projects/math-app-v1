@@ -456,6 +456,16 @@ describe('POST /api/sync: settings and profiles (LWW)', () => {
     expect((await syncOk(a.token)).profiles).toEqual([renamed]);
   });
 
+  it('carries the chosen guide with the profile, and an older device without it does not undo it', async () => {
+    const { family, a, b } = await twoDevices();
+    const p = profileFor(family.familyId, { updatedAt: 100 });
+    await syncOk(a.token, { profiles: [p] });
+    const chose = { ...p, guide: '22', updatedAt: 150 };
+    expect((await syncOk(b.token, { profiles: [chose] })).profiles).toEqual([chose]);
+    // A stale copy without the field (a device that had not seen the choice) loses by LWW.
+    expect((await syncOk(a.token, { profiles: [p] })).profiles).toEqual([chose]);
+  });
+
   it("refuses another family's profile", async () => {
     const { a } = await twoDevices();
     await expectError(

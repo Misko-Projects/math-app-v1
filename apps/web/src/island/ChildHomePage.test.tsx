@@ -194,6 +194,54 @@ describe('<ChildHomePage>: the island', () => {
   });
 });
 
+describe('the guide (05 §1, §10)', () => {
+  /** The child's profile with no guide yet: an existing child, or a new one. */
+  const noGuide = async (app: AppServices) => {
+    const { guide: _guide, ...rest } = profile(CHILD_K, 'K', 'Mia');
+    await app.store.putProfile(rest);
+  };
+  const stored = async (app: AppServices) =>
+    (await app.store.allProfiles()).find((p) => p.id === CHILD_K);
+
+  it('a child with no guide chooses one before the island; the choice is kept and synced by LWW', async () => {
+    const { app } = await renderHome({ before: noGuide });
+    expect(await screen.findByTestId('guide-chooser')).toBeTruthy();
+    expect(screen.queryByTestId('child-home')).toBeNull();
+    // At first start there is no way round the choice.
+    expect(screen.queryByRole('button', { name: 'Go home' })).toBeNull();
+    const go = screen.getByRole('button', { name: "Let's go!" }) as HTMLButtonElement;
+    expect(go.disabled).toBe(true);
+    const before = (await stored(app))?.updatedAt ?? 0;
+    fireEvent.click(screen.getByRole('button', { name: '22, the bunny' }));
+    expect(go.disabled).toBe(false);
+    fireEvent.click(go);
+    expect(await screen.findByTestId('child-home')).toBeTruthy();
+    const saved = await stored(app);
+    expect(saved?.guide).toBe('22');
+    expect(saved?.updatedAt).toBeGreaterThan(before);
+    const drawn = screen.getByTestId('island-guide').querySelector('svg[data-character="guide"]');
+    expect(drawn?.getAttribute('data-guide')).toBe('22');
+  });
+
+  it('tapping the guide on the island switches it; Home leaves the chooser without a change', async () => {
+    const { app } = await renderHome();
+    fireEvent.click(await screen.findByTestId('island-guide'));
+    expect(await screen.findByTestId('guide-chooser')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Shelly, the turtle' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Go home' }));
+    expect(await screen.findByTestId('child-home')).toBeTruthy();
+    expect((await stored(app))?.guide).toBe('shelly');
+
+    fireEvent.click(screen.getByTestId('island-guide'));
+    fireEvent.click(await screen.findByRole('button', { name: '22, the bunny' }));
+    fireEvent.click(screen.getByRole('button', { name: "Let's go!" }));
+    expect(await screen.findByTestId('child-home')).toBeTruthy();
+    expect((await stored(app))?.guide).toBe('22');
+  });
+});
+
 describe('requests on the island (05 §2, 04 §6.3)', () => {
   it('shows the plan as bubbles over residents: a picture of what each makes, the first one recommended', async () => {
     const { app } = await renderHome();
