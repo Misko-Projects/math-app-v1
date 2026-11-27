@@ -111,7 +111,7 @@ export function RestingOverlay({
       data-reason={reason}
       className="absolute inset-0 z-20 grid place-items-center bg-[rgb(23_45_72/0.72)] p-6 backdrop-blur-[3px]"
     >
-      <div className="motion-entrance animate-pop-in flex w-full max-w-[40rem] flex-col items-center gap-6 rounded-[2.5rem] bg-[#22385a] px-8 pt-8 pb-10 text-center shadow-[0_12px_0_#152640,0_30px_60px_-20px_rgb(0_0_0/0.6)] ring-4 ring-[#3b5683]">
+      <div className="motion-entrance animate-pop-in flex w-full max-w-[40rem] flex-col items-center gap-6 rounded-[2.5rem] bg-[#22385a] px-8 pt-8 pb-10 text-center shadow-lift ring-4 ring-[#3b5683]">
         <SleepyMoon className="h-[min(11rem,24vh)] w-auto" />
         <div className="flex items-center gap-5">
           <ReplayButton onPress={() => say(line, vars)} />

@@ -276,8 +276,8 @@ function ProfileCard({
         'ring-4 transition-[transform,opacity,box-shadow] duration-200',
         'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-ink',
         selected
-          ? 'motion-entrance animate-pop-in -translate-y-1 ring-sea-deep shadow-[0_10px_0_var(--color-sea-dark)]'
-          : 'ring-sand-deep shadow-[0_8px_0_var(--color-sand-deep)] active:translate-y-[5px] active:shadow-[0_3px_0_var(--color-sand-deep)]',
+          ? 'motion-entrance animate-pop-in -translate-y-1 ring-sea-deep shadow-lift'
+          : 'ring-sand-deep shadow-ledge active:shadow-ledge-pressed active:brightness-95',
         dimmed ? 'opacity-60' : '',
       ].join(' ')}
     >

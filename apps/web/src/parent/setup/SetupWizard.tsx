@@ -832,7 +832,7 @@ export function SetupWizard() {
         <section
           ref={headingRef}
           tabIndex={-1}
-          className="rounded-[2rem] bg-paper p-6 shadow-[0_6px_0_var(--color-sand-deep)] ring-2 ring-sand-deep sm:p-8 focus:outline-none"
+          className="rounded-[2rem] bg-paper p-6 shadow-ledge ring-2 ring-sand-deep sm:p-8 focus:outline-none"
           aria-label={STEPS[step]}
         >
           {step === 0 ? (

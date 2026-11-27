@@ -133,7 +133,7 @@ export function PicturePad({
                   className={[
                     'grid size-[5.75rem] place-items-center rounded-[1.5rem]',
                     id
-                      ? 'bg-paper ring-4 ring-sea-deep shadow-[0_5px_0_var(--color-sea-dark)]'
+                      ? 'bg-paper ring-4 ring-sea-deep shadow-ledge'
                       : 'border-4 border-dashed border-[#9c8a66] bg-paper/60',
                   ].join(' ')}
                 >
@@ -193,8 +193,8 @@ export function PicturePad({
                     'grid size-[clamp(6.5rem,17vh,8.5rem)] place-items-center rounded-[1.75rem] bg-paper ring-4 transition-transform',
                     'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-ink',
                     used
-                      ? 'translate-y-[4px] opacity-45 ring-sand-deep shadow-[0_2px_0_var(--color-sand-deep)] grayscale-[60%]'
-                      : 'ring-sand-deep shadow-[0_7px_0_var(--color-sand-deep)] active:translate-y-[5px] active:shadow-[0_2px_0_var(--color-sand-deep)]',
+                      ? 'opacity-45 ring-sand-deep shadow-ledge-pressed grayscale-[60%]'
+                      : 'ring-sand-deep shadow-ledge active:shadow-ledge-pressed active:brightness-95',
                   ].join(' ')}
                 >
                   <PictureArt id={id} className="size-[78%]" />

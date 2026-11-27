@@ -217,10 +217,10 @@ function PadKey({
       className={[
         'grid size-[4.5rem] place-items-center rounded-2xl font-display text-3xl font-bold',
         'focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink',
-        'active:translate-y-[2px] disabled:opacity-45',
+        'active:shadow-ledge-pressed active:brightness-95 disabled:opacity-45',
         tone === 'primary'
-          ? 'bg-sea-deep text-cloud shadow-[0_4px_0_var(--color-sea-dark)]'
-          : 'bg-cloud text-ink ring-2 ring-sand-deep shadow-[0_4px_0_var(--color-sand-deep)]',
+          ? 'bg-sea-deep text-cloud shadow-ledge'
+          : 'bg-cloud text-ink ring-2 ring-sand-deep shadow-ledge',
       ].join(' ')}
     >
       {glyph ?? label}

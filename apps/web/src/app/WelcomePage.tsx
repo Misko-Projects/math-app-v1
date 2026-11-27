@@ -26,10 +26,10 @@ function ChoiceCard({
       to={to}
       className={[
         'group flex min-h-40 flex-1 basis-64 flex-col gap-3 rounded-[1.75rem] p-6 text-left transition-transform',
-        'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-ink active:translate-y-[3px]',
+        'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-ink active:shadow-ledge-pressed active:brightness-95',
         primary
-          ? 'bg-sea-deep text-cloud shadow-[0_6px_0_var(--color-sea-dark)]'
-          : 'bg-paper text-ink ring-2 ring-sand-deep shadow-[0_6px_0_var(--color-sand-deep)]',
+          ? 'bg-sea-deep text-cloud shadow-ledge'
+          : 'bg-paper text-ink ring-2 ring-sand-deep shadow-ledge',
       ].join(' ')}
     >
       <span className="flex items-center gap-3">
