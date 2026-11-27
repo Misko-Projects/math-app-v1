@@ -573,8 +573,15 @@ describe('frac.partition grid cuts that need not look the same (FRA.16, K02)', (
         acceptNonCongruent: true,
       });
       expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
-      const r = replaySteps(item, itemSolution(item, t));
+      const steps = itemSolution(item, t);
+      const r = replaySteps(item, steps);
       expect(r && checkResponse(item, r).correct).toBe(true);
+      // Every step makes a cut (PR #137 review): a faded example's child steps are cuts, and the
+      // grid is not yet solved when the child's turn starts.
+      const cuts = steps.filter((s) => s.action?.op === 'cut').length;
+      expect(cuts).toBe(steps.length - num);
+      const before = replaySteps(item, steps.slice(0, cuts - 1));
+      expect(before && checkResponse(item, before).correct).toBe(false);
     },
   );
 

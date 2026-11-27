@@ -179,6 +179,9 @@ export const algFunction: GeneratorDef = {
     if (asNum(p.max, 20) > FUNCTION_MAX) return false;
     // A table asks 1 or 2 outputs; number-pad asks the rule (its prompt names the pairs).
     if (t.format === 'pattern-extend' && (blanks < 1 || blanks > 2)) return false;
+    // The worked solution finds the rule from one shown pair and checks it on a second.
+    const rows = asNum(p.rows, 4);
+    if (rows - (t.format === 'pattern-extend' ? blanks : 0) < 2) return false;
     if (asStr(p.op) === 'sub' && asNum(p.lure) === 1) return false;
     return functionTable(p) !== null;
   },

@@ -492,6 +492,41 @@ export const GridNotCongruent: Story = {
   },
 };
 
+/**
+ * The same cut by keyboard alone (FRA.16, PR #137 review): with a knife picked, the arrows along
+ * its line choose one part it crosses (the knife then says "Part 1"), so the top half is cut into
+ * two squares and the bottom half into two bars, as the worked solution does.
+ */
+export const GridNotCongruentKeyboard: Story = {
+  args: { config: { ...gridFourths, shade: 0 } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const side = root.querySelector('[data-free-knife="h"]') as HTMLElement;
+    const down = root.querySelector('[data-free-knife="v"]') as HTMLElement;
+    // Side to side through the middle: two halves.
+    side.focus();
+    await userEvent.keyboard('{Enter}{Enter}');
+    await expect(partEls(root)).toHaveLength(2);
+    // Up and down through the top half only.
+    down.focus();
+    await userEvent.keyboard('{Enter}{ArrowDown}');
+    await expect(down).toHaveAccessibleName('Cut up and down: Part 1');
+    await userEvent.keyboard('{Enter}');
+    await expect(partEls(root)).toHaveLength(3);
+    // Side to side a quarter lower, through the bottom half only.
+    side.focus();
+    await userEvent.keyboard('{Enter}');
+    for (let i = 0; i < 12; i += 1) await userEvent.keyboard('{ArrowDown}');
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(side).toHaveAccessibleName('Cut side to side: Part 3');
+    await userEvent.keyboard('{Enter}');
+    await expect(partEls(root)).toHaveLength(4);
+    await expectEqualShares(measuredShares(stage(root)), 4);
+    await userEvent.click(check(root));
+    await expectCorrect(lastResponse(args.onResponse), 4, 0, { acceptNonCongruent: true });
+  },
+};
+
 /** thenName (authored loaf in thirds, fill two): cut, fill two slices, type 2 over 3, check. */
 export const LoafNameTablet: Story = {
   args: { config: loafThirds },

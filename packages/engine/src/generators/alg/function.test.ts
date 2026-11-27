@@ -22,6 +22,7 @@ import {
   functionColumnPattern,
   functionFirstPairDouble,
 } from '../../misconceptions/rules/k02SharesMachines';
+import { registry } from '../index';
 import { columnGuess, functionTable } from './function';
 
 const tpl = (
@@ -151,6 +152,14 @@ describe('alg.function tables', () => {
       }
     },
   );
+
+  it('a table needs two shown pairs (the solution finds the rule on one, checks it on another)', () => {
+    const g = registry.get('alg.function');
+    const p = { op: 'add', n: 3, max: 20, lure: 0, arrange: 1 };
+    expect(g?.accepts?.({ ...p, rows: 2, blanks: 1 }, T1)).toBe(false);
+    expect(g?.accepts?.({ ...p, rows: 3, blanks: 2 }, T1)).toBe(false);
+    expect(g?.accepts?.({ ...p, rows: 3, blanks: 1 }, T1)).toBe(true);
+  });
 
   it('number-pad: one template a direction, so the prompt can say "adds" or "takes away"', () => {
     for (const item of items(T3)) expect(item.params.op).toBe('add');

@@ -237,6 +237,12 @@ export function FractionCutWidget({
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [freeKnife, setFreeKnife] = useState<FreeKnife | null>(null);
   const [preview, setPreview] = useState(0.5);
+  /**
+   * Keyboard local cuts (acceptNonCongruent): the part the picked knife will cut, or null for every
+   * part its line crosses. The arrows along the line choose it (FRA.16: a keyboard child can cut
+   * one half without the other, as a short swipe does).
+   */
+  const [previewPart, setPreviewPart] = useState<number | null>(null);
   const interactive = !disabled && !demoBusy;
 
   const k = ageMode === 'k';
@@ -405,16 +411,45 @@ export function FractionCutWidget({
     if (!interactive) return;
     trace('tap', `knife-${kind}`);
     if (freeKnife === kind) {
-      freeCut(kind, kind === 'r' ? preview * 360 : preview);
+      freeCut(kind, kind === 'r' ? preview * 360 : preview, previewPart ?? undefined);
       setFreeKnife(null);
+      setPreviewPart(null);
       return;
     }
     setFreeKnife(kind);
     setPreview(kind === 'r' ? 0 : 0.5);
+    setPreviewPart(null);
   };
+
+  /** The parts a straight knife's line at `at` crosses, in reading order (rect indices). */
+  const crossed = (kind: 'v' | 'h', at: number) =>
+    stateRef.current.rects.flatMap((r, i) => {
+      const [lo, hi] = kind === 'v' ? [r.x0, r.x1] : [r.y0, r.y1];
+      return lo + 1e-6 < at && at < hi - 1e-6 ? [i] : [];
+    });
 
   const freeKnifeKeys = (kind: FreeKnife, e: KeyboardEvent) => {
     if (freeKnife !== kind) return;
+    // Along the line (up and down for a down cut, left and right for a side cut): which part.
+    const along =
+      kind === 'v'
+        ? e.key === 'ArrowDown'
+          ? 1
+          : e.key === 'ArrowUp'
+            ? -1
+            : 0
+        : e.key === 'ArrowRight'
+          ? 1
+          : e.key === 'ArrowLeft'
+            ? -1
+            : 0;
+    if (kind !== 'r' && config.acceptNonCongruent && along !== 0) {
+      e.preventDefault();
+      const options: (number | null)[] = [null, ...crossed(kind, preview)];
+      const k = options.indexOf(previewPart);
+      setPreviewPart(options[(k + along + options.length) % options.length] ?? null);
+      return;
+    }
     const step = (e.shiftKey ? 6 : 1) / FREE_STEPS;
     const dir =
       e.key === 'ArrowRight' || e.key === 'ArrowDown'
@@ -429,9 +464,15 @@ export function FractionCutWidget({
     e.preventDefault();
     setPreview((p) => {
       const next = Math.round((p + dir * step) * FREE_STEPS) / FREE_STEPS;
-      return kind === 'r'
-        ? (next + 1) % 1
-        : Math.min(1 - 1 / FREE_STEPS, Math.max(1 / FREE_STEPS, next));
+      const at =
+        kind === 'r'
+          ? (next + 1) % 1
+          : Math.min(1 - 1 / FREE_STEPS, Math.max(1 / FREE_STEPS, next));
+      // A chosen part the line has left is no longer the target.
+      if (kind !== 'r' && previewPart !== null && !crossed(kind, at).includes(previewPart)) {
+        setPreviewPart(null);
+      }
+      return at;
     });
   };
 
@@ -912,12 +953,18 @@ export function FractionCutWidget({
       const [x, y] = polar(frame.cx, frame.cy, frame.r, preview * 360);
       return `M${frame.cx} ${frame.cy}L${x} ${y}`;
     }
+    // A chosen part: the line runs across that part only.
+    const r = previewPart === null ? null : state.rects[previewPart];
     if (freeKnife === 'v') {
       const x = frame.x + preview * frame.w;
-      return `M${x} ${frame.y}V${frame.y + frame.h}`;
+      return r
+        ? `M${x} ${frame.y + r.y0 * frame.h}V${frame.y + r.y1 * frame.h}`
+        : `M${x} ${frame.y}V${frame.y + frame.h}`;
     }
     const y = frame.y + preview * frame.h;
-    return `M${frame.x} ${y}H${frame.x + frame.w}`;
+    return r
+      ? `M${frame.x + r.x0 * frame.w} ${y}H${frame.x + r.x1 * frame.w}`
+      : `M${frame.x} ${y}H${frame.x + frame.w}`;
   })();
 
   const filledCount = filledOf(state);
@@ -1167,7 +1214,11 @@ export function FractionCutWidget({
                   className="ni-fcut__knife ni-fcut__knife--free"
                   data-free-knife={kind}
                   aria-pressed={freeKnife === kind}
-                  aria-label={t(kind === 'h' ? 'ui.frac.cut-side' : 'ui.frac.cut-down')}
+                  aria-label={
+                    freeKnife === kind && previewPart !== null
+                      ? `${t(kind === 'h' ? 'ui.frac.cut-side' : 'ui.frac.cut-down')}: ${t('ui.frac.part', { n: previewPart + 1 })}`
+                      : t(kind === 'h' ? 'ui.frac.cut-side' : 'ui.frac.cut-down')
+                  }
                   disabled={!interactive}
                   onClick={() => pressFreeKnife(kind)}
                   onKeyDown={(e) => freeKnifeKeys(kind, e)}

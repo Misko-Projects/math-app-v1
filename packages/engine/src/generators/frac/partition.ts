@@ -378,14 +378,18 @@ export const fracPartition: GeneratorDef = {
       const demo = w.gridSize ? demoOf(den, w.gridSize[0], w.gridSize[1]) : undefined;
       if (demo && w.gridSize) {
         const cells = (w.gridSize[0] * w.gridSize[1]) / den;
+        // The last cut says why the parts are equal: no step without a cut, so a faded example's
+        // child steps are always cuts (PR #137 review: a trailing line left the child a solved grid).
+        const last = demo.cuts.length - 1;
         steps = demo.cuts.map((c, i) =>
-          say(
-            i === 0 ? 'gen.frac.partition.grid-first' : 'gen.frac.partition.grid-other-way',
-            {},
-            { op: 'cut', args: { ...c } },
-          ),
+          i === last
+            ? say('gen.frac.partition.grid-same-size', { n: cells }, { op: 'cut', args: { ...c } })
+            : say(
+                i === 0 ? 'gen.frac.partition.grid-first' : 'gen.frac.partition.grid-other-way',
+                {},
+                { op: 'cut', args: { ...c } },
+              ),
         );
-        steps.push(say('gen.frac.partition.grid-same-size', { n: cells }));
       } else if (w.shape === 'bar' && den === 4) {
         // A strip's lines run left to right, so line 1 is the middle: halve it first, then each
         // half, as the cut-middle hint says (PR #84 review round 2: the cuts went 0, 1, 2).
