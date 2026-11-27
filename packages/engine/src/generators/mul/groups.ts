@@ -102,8 +102,12 @@ function asked(p: ParamValues): number {
   return asNum(p.result);
 }
 
-/** Containers a build may add when the number of groups is asked. */
-const maxGroupsOf = (groups: number) => Math.min(GROUPS_MAX, groups + 2);
+/**
+ * Container places a build shows when the number of groups is asked: always GROUPS_MAX, so the
+ * empty places never count out the answer (PR #138 review: groups + 2 did, on MUL.21.t1 and
+ * MUL.22.t1). The pile beside six places holds at most groupsPileMax(GROUPS_MAX).
+ */
+const maxGroupsOf = (_groups: number) => GROUPS_MAX;
 
 export const mulGroups: GeneratorDef = {
   id: 'mul.groups',

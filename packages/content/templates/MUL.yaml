@@ -781,7 +781,7 @@ templates:
     representation: groups
     generator: mul.groups
     params:
-      { groups: { int: [2, 4] }, perGroup: { choice: [2, 5, 10] }, unknown: groups, mode: build }
+      { groups: { int: [2, 4] }, perGroup: { choice: [2, 5] }, unknown: groups, mode: build }
     difficulty: { base: -0.5 }
     narration:
       prompt: tp.MUL.21.t1.prompt
@@ -832,6 +832,7 @@ templates:
     representation: symbols
     generator: mul.facts
     params: { a: { int: [1, 10] }, b: { int: [1, 10] } }
+    constraints: ["result <= 99"]
     difficulty: { base: 0 }
     narration:
       prompt: tp.MUL.09.t2.prompt

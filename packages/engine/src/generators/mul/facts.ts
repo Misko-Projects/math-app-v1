@@ -466,6 +466,14 @@ export const mulFacts: GeneratorDef = {
       // Three factors: each 1–10, a product of at most 100, symbols or the groups the easy pair
       // makes (left groups of the pair's product).
       if (c < 0 || c > FACTOR_MAX || a < 1 || b < 1) return false;
+      // Three factors multiply, with the sentence shown (PR #138 review).
+      if (
+        asStr(p.op, '×') !== '×' ||
+        asStr(p.unknown, 'result') !== 'result' ||
+        asStr(p.sentence, 'shown') !== 'shown'
+      ) {
+        return false;
+      }
       if (a * b * c > THREE_PRODUCT_MAX || strategy !== 'none' || turn || family !== 'any') {
         return false;
       }
@@ -599,7 +607,9 @@ export const mulFacts: GeneratorDef = {
       div: plan.op === '÷' ? 1 : 0,
       'unknown.factor': plan.unknown === 'result' ? 0 : 1,
     };
-    const digits = (v: number) => (v >= 100 ? 3 : 2);
+    // A dividend can be 100, so its blank is always three digits wide: the width never singles
+    // out one answer (PR #138 review).
+    const digits = (v: number) => (v >= 100 || plan.unknown === 'dividend' ? 3 : 2);
     let p: PartialOutput;
     switch (t.format) {
       case 'equal-groups':

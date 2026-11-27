@@ -149,8 +149,8 @@ misconceptions:
     feedback: fb.mc.multiply-instead-of-divide
     priority: 50
     parentTip: >-
-      Share 12 grapes onto 3 plates. Ask: did the number of grapes get bigger? Dividing shares a
-      total, so the answer is smaller than the total.
+      Share 12 grapes onto 3 plates. Ask: did the number on each plate get bigger than 12? Sharing
+      a total among two or more plates gives each plate less than the total.
     examples:
       - params: { a: 4, b: 6, op: "÷", unknown: result }
         response: { kind: number, value: 96 }

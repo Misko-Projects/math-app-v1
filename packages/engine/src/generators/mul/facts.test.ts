@@ -632,3 +632,30 @@ describe('slice 3c misconception rules (÷ and missing factors)', () => {
     expect(mulFacts.accepts?.({ a: 3, b: 5, sentence: 'hidden' }, pick)).toBe(false);
   });
 });
+
+describe('PR #138 review round 1 (mul.facts)', () => {
+  it('three factors only multiply, with the sentence shown', () => {
+    const t = tpl('number-pad', 'abstract', 'symbols');
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4 }, t)).toBe(true);
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4, op: '÷' }, t)).toBe(false);
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4, unknown: 'factor' }, t)).toBe(false);
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4, sentence: 'hidden' }, t)).toBe(false);
+  });
+
+  it('a dividend blank is three digits wide for every dividend, not only 100', () => {
+    const t = tpl('number-pad', 'abstract', 'symbols');
+    for (const [a, b] of [
+      [10, 10],
+      [10, 9],
+      [2, 3],
+    ] as const) {
+      const item = generateItemFromParams(
+        t,
+        { a, b, op: '÷', unknown: 'dividend' },
+        { checkConstraints: false },
+      );
+      if (item.widget.format !== 'number-pad') throw new Error('number-pad');
+      expect(item.widget.blanks).toEqual([{ id: 'x', maxDigits: 3 }]);
+    }
+  });
+});
