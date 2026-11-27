@@ -173,7 +173,7 @@ export function IslandHub({
   const navigate = useNavigate();
   const raise = useRaise();
   const { store, content, audio } = useAppServices();
-  const { session, controller, windDown } = useSession();
+  const { session, controller } = useSession();
   const hub = useHub();
   const island = useIsland();
   const inventory = useInventory();

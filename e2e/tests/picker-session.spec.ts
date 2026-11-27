@@ -40,6 +40,27 @@ async function sessionEvents(page: Page): Promise<StoredEvent[]> {
 }
 
 /**
+ * A child with no guide yet meets the guide chooser first (05 §10). The golden family is shared by
+ * both projects of the run, so exactly one of them finds the chooser (nothing picked yet: Let's go!
+ * waits), picks the bunny and goes; the other finds the island at once. Either way the island must
+ * then show the bunny (22): the first guide, Shelly, is what a missing guide would draw, so this
+ * cannot pass for a child whose choice was never made.
+ */
+async function chooseGuide(page: Page): Promise<void> {
+  const chooser = page.getByTestId('guide-chooser');
+  await expect(chooser.or(page.getByTestId('child-home'))).toBeVisible();
+  if (await chooser.isVisible()) {
+    await expect(page.getByRole('button', { name: "Let's go!" })).toBeDisabled();
+    await page.getByRole('button', { name: '22, the bunny' }).click();
+    await page.getByRole('button', { name: "Let's go!" }).click();
+  }
+  await expect(page.getByTestId('child-home')).toBeVisible();
+  await expect(
+    page.getByTestId('island-guide').locator('svg[data-character="guide"]'),
+  ).toHaveAttribute('data-guide', '22');
+}
+
+/**
  * Writes Mia's child settings on this device only, with quiet hours from an hour ago to an hour
  * from now in the family's time zone (02 §5.8). The caller blocks sync first, so other specs never
  * see it.
@@ -148,6 +169,8 @@ test('the picker, picture passwords and the session lifecycle', async ({ page })
 
     await card(page, 'Mia').click();
     await expect(page).toHaveURL(/\/play\/[0-9a-f-]{36}$/);
+    // Set up in the wizard, Mia has no guide yet: she chooses one first (05 §10).
+    await chooseGuide(page);
     await expect(page.getByTestId('child-home')).toBeVisible();
     await expect(page.getByText('Mia', { exact: true })).toBeVisible();
     await expect
@@ -209,6 +232,7 @@ test('the picker, picture passwords and the session lifecycle', async ({ page })
     for (const p of ['Crab', 'Kite', 'Sun']) await pad.getByRole('button', { name: p }).click();
     await pad.getByRole('button', { name: 'Check' }).click();
     await expect(page).toHaveURL(/\/play\/[0-9a-f-]{36}$/);
+    await chooseGuide(page);
     await expect(page.getByTestId('child-home')).toBeVisible();
     await expect.poll(async () => (await started(page)).length).toBe(2);
   });
