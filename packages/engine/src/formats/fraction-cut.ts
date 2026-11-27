@@ -300,7 +300,7 @@ function applyLine(s: FractionCutState, line: GuidedLine): FractionCutState {
 }
 
 /** Snaps a free cut position to the grid's cell lines (a grid), or keeps it (any other whole). */
-function snapAt(c: Config, dir: 'v' | 'h', at: number): number {
+export function snapAt(c: Config, dir: 'v' | 'h', at: number): number {
   if (c.shape !== 'grid' || !c.gridSize) return at;
   const n = dir === 'v' ? c.gridSize[0] : c.gridSize[1];
   return Math.round(at * n) / n;

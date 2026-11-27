@@ -159,6 +159,9 @@ describe('alg.function tables', () => {
     expect(g?.accepts?.({ ...p, rows: 2, blanks: 1 }, T1)).toBe(false);
     expect(g?.accepts?.({ ...p, rows: 3, blanks: 2 }, T1)).toBe(false);
     expect(g?.accepts?.({ ...p, rows: 3, blanks: 1 }, T1)).toBe(true);
+    // number-pad asks the rule: it shows every pair, so a blank is refused (PR #137 review round 2).
+    expect(g?.accepts?.({ ...p, rows: 2, blanks: 1 }, T3)).toBe(false);
+    expect(g?.accepts?.({ ...p, rows: 2, blanks: 0 }, T3)).toBe(true);
   });
 
   it('number-pad: one template a direction, so the prompt can say "adds" or "takes away"', () => {

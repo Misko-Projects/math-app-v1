@@ -132,8 +132,9 @@ export const algFunction: GeneratorDef = {
     },
     blanks: {
       type: 'int',
-      default: { kind: 'const', value: 1 },
-      doc: 'pattern-extend: outputs to find (1: the last; 2: the second and the last); number-pad: 0',
+      // Each format draws the value it takes (a table 1, number-pad 0).
+      default: { kind: 'choice', values: [0, 1] },
+      doc: 'pattern-extend: outputs to find (1: the last; 2: the second and the last); number-pad: 0 (it asks the rule)',
     },
     lure: {
       type: 'int',
@@ -177,11 +178,11 @@ export const algFunction: GeneratorDef = {
   accepts(p, t) {
     const blanks = asNum(p.blanks, 1);
     if (asNum(p.max, 20) > FUNCTION_MAX) return false;
-    // A table asks 1 or 2 outputs; number-pad asks the rule (its prompt names the pairs).
+    // A table asks 1 or 2 outputs; number-pad asks the rule (its prompt names the pairs), no output.
     if (t.format === 'pattern-extend' && (blanks < 1 || blanks > 2)) return false;
+    if (t.format === 'number-pad' && blanks !== 0) return false;
     // The worked solution finds the rule from one shown pair and checks it on a second.
-    const rows = asNum(p.rows, 4);
-    if (rows - (t.format === 'pattern-extend' ? blanks : 0) < 2) return false;
+    if (asNum(p.rows, 4) - blanks < 2) return false;
     if (asStr(p.op) === 'sub' && asNum(p.lure) === 1) return false;
     return functionTable(p) !== null;
   },

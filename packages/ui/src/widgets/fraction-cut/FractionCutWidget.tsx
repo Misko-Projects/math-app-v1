@@ -6,6 +6,7 @@ import {
   type GuidedLine,
   partCount,
   rectAt,
+  snapCutAt,
 } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
 import {
@@ -377,6 +378,7 @@ export function FractionCutWidget({
   const takeBack = () => {
     if (!interactive || history.length === 0) return;
     trace('undo', 'take-back');
+    setPreviewPart(null);
     const prev = history[history.length - 1] as FractionCutState;
     setHistory((h) => h.slice(0, -1));
     stateRef.current = prev;
@@ -411,7 +413,11 @@ export function FractionCutWidget({
     if (!interactive) return;
     trace('tap', `knife-${kind}`);
     if (freeKnife === kind) {
-      freeCut(kind, kind === 'r' ? preview * 360 : preview, previewPart ?? undefined);
+      freeCut(
+        kind,
+        kind === 'r' ? preview * 360 : preview,
+        kind === 'r' ? undefined : (target ?? undefined),
+      );
       setFreeKnife(null);
       setPreviewPart(null);
       return;
@@ -421,12 +427,27 @@ export function FractionCutWidget({
     setPreviewPart(null);
   };
 
-  /** The parts a straight knife's line at `at` crosses, in reading order (rect indices). */
-  const crossed = (kind: 'v' | 'h', at: number) =>
-    stateRef.current.rects.flatMap((r, i) => {
+  /** Where a straight knife's line really cuts: a grid snaps it to its cell lines (the engine's rule). */
+  const lineAt = (kind: 'v' | 'h', at: number) => snapCutAt(config, kind, at);
+  /** The parts a straight knife's line at `at` cuts, in reading order (rect indices); a line on a
+   * part's own edge cuts nothing there, so that part is no target. */
+  const crossed = (kind: 'v' | 'h', raw: number, rects = stateRef.current.rects) => {
+    const at = lineAt(kind, raw);
+    return rects.flatMap((r, i) => {
       const [lo, hi] = kind === 'v' ? [r.x0, r.x1] : [r.y0, r.y1];
       return lo + 1e-6 < at && at < hi - 1e-6 ? [i] : [];
     });
+  };
+
+  // The chosen part counts only while the snapped line still cuts it in the parts on screen (a
+  // take back or a moved line drops it), so the knife never names or sends a part it cannot cut.
+  const target =
+    previewPart !== null &&
+    freeKnife !== null &&
+    freeKnife !== 'r' &&
+    crossed(freeKnife, preview, state.rects).includes(previewPart)
+      ? previewPart
+      : null;
 
   const freeKnifeKeys = (kind: FreeKnife, e: KeyboardEvent) => {
     if (freeKnife !== kind) return;
@@ -446,7 +467,7 @@ export function FractionCutWidget({
     if (kind !== 'r' && config.acceptNonCongruent && along !== 0) {
       e.preventDefault();
       const options: (number | null)[] = [null, ...crossed(kind, preview)];
-      const k = options.indexOf(previewPart);
+      const k = options.indexOf(target);
       setPreviewPart(options[(k + along + options.length) % options.length] ?? null);
       return;
     }
@@ -953,15 +974,18 @@ export function FractionCutWidget({
       const [x, y] = polar(frame.cx, frame.cy, frame.r, preview * 360);
       return `M${frame.cx} ${frame.cy}L${x} ${y}`;
     }
-    // A chosen part: the line runs across that part only.
-    const r = previewPart === null ? null : state.rects[previewPart];
+    // A radius knife is a circle's only (never on a box).
+    if (freeKnife === 'r') return null;
+    // A chosen part: the line runs across that part only, where the cut will land.
+    const r = target === null ? null : state.rects[target];
+    const at = lineAt(freeKnife, preview);
     if (freeKnife === 'v') {
-      const x = frame.x + preview * frame.w;
+      const x = frame.x + at * frame.w;
       return r
         ? `M${x} ${frame.y + r.y0 * frame.h}V${frame.y + r.y1 * frame.h}`
         : `M${x} ${frame.y}V${frame.y + frame.h}`;
     }
-    const y = frame.y + preview * frame.h;
+    const y = frame.y + at * frame.h;
     return r
       ? `M${frame.x + r.x0 * frame.w} ${y}H${frame.x + r.x1 * frame.w}`
       : `M${frame.x} ${y}H${frame.x + frame.w}`;
@@ -1215,8 +1239,8 @@ export function FractionCutWidget({
                   data-free-knife={kind}
                   aria-pressed={freeKnife === kind}
                   aria-label={
-                    freeKnife === kind && previewPart !== null
-                      ? `${t(kind === 'h' ? 'ui.frac.cut-side' : 'ui.frac.cut-down')}: ${t('ui.frac.part', { n: previewPart + 1 })}`
+                    freeKnife === kind && target !== null
+                      ? `${t(kind === 'h' ? 'ui.frac.cut-side' : 'ui.frac.cut-down')}: ${t('ui.frac.part', { n: target + 1 })}`
                       : t(kind === 'h' ? 'ui.frac.cut-side' : 'ui.frac.cut-down')
                   }
                   disabled={!interactive}
