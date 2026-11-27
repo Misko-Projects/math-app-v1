@@ -1,12 +1,17 @@
 import type { NarrationKey, SpriteId } from '@number-island/shared';
-import type { ReactElement } from 'react';
+import { type ReactElement, useId } from 'react';
+import grainUrl from '../../tokens/felt-grain.webp';
+import { drawFelt, FELT_KINDS, isFeltKind } from './felt-sprites';
 import { MEASURE_DRAWINGS } from './sprites-measure';
 
 /**
- * Countable object sprites for the math widgets (05 §11 art direction): cozy flat vector, a 3 px
- * outline in the fill's darker shade, one soft highlight and a contact shadow. All original. Each
- * sprite draws in a 64 × 64 box and is decorative (aria-hidden): the control around it carries the
- * accessible name, from `spriteNameKey`.
+ * Countable object sprites for the math widgets (05 §11, Felt & Stitch). The counted kinds
+ * (crab, shell, fish, starfish, leaf, pebble, firefly, dot, stone and the counters) are cut felt
+ * in `felt-sprites.tsx`, with detail by drawn size. The rest keep their shapes in the felt
+ * palette: an outline in the fill's darker shade and a cream running stitch. No sprite has a
+ * shadow shape under it; the felt lift is a CSS drop-shadow on the svg (kit.css). All original.
+ * Each sprite draws in a 64 × 64 box and is decorative (aria-hidden): the control around it
+ * carries the accessible name, from `spriteNameKey`.
  *
  * Sprite ids come from the generators (`ObjectSet.sprite`, 03 §5.1). An id without its own drawing
  * renders as a pebble, so a new content sprite never breaks a widget.
@@ -15,20 +20,21 @@ import { MEASURE_DRAWINGS } from './sprites-measure';
 /** A sprite's tint for coloured sub-groups (`ObjectSet.groups`) and highlighted objects. */
 /**
  * `a` and `b` are the two group tones. `red`, `white` and `blue` are the colours a story names
- * for its groups (story-problem): coral, a white fill with an ink outline (it reads on the sand
- * and on paper), and the deep sea blue of tone `b`.
+ * for its groups (story-problem): terracotta, cream felt with a dark edge (it reads on the cream
+ * mat), and the denim of tone `b`.
  */
 export type SpriteTone = 'a' | 'b' | 'red' | 'white' | 'blue';
 
-/** The contact shadow, scaled to the object's footprint (`rx` 20 is the full-size one). */
-const shadow = (rx: number, cx = 32) => (
-  <ellipse cx={cx} cy="57" rx={rx} ry={Math.max(3, rx * 0.225)} fill="rgb(38 70 83 / 0.18)" />
-);
-
-const SHADOW = shadow(20);
-
+/** A cream running stitch where the old drawings had a gloss line. */
 const HIGHLIGHT = (d: string) => (
-  <path d={d} stroke="#fff" strokeWidth="3.5" strokeLinecap="round" opacity="0.7" fill="none" />
+  <path
+    d={d}
+    stroke="var(--color-paper)"
+    strokeWidth="2"
+    strokeDasharray="3.4 2.8"
+    strokeLinecap="round"
+    fill="none"
+  />
 );
 
 /** Fill and outline for each tone (group b uses a darker, warmer pair: lightness differs too). */
@@ -48,191 +54,10 @@ function toneFill(base: { fill: string; line: string }, tone: SpriteTone) {
 
 type Draw = (tone: SpriteTone) => ReactElement;
 
-const shell: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
-  // A scallop: a fan of ribs from the hinge, a wavy top edge, and two small "ears" at the hinge.
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M22 47l-7 6h12l3-4M42 47l7 6H37l-3-4"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M32 52C22 47 9 36 7 24c3-3 6-3 8-1 1-5 5-8 9-6 2-5 6-7 8-7s6 2 8 7c4-2 8 1 9 6 2-2 5-2 8 1-2 12-15 23-25 28Z"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M32 50V13M32 50 23 18M32 50 41 18M32 50 15 25M32 50 49 25"
-        stroke={c.line}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        opacity="0.6"
-      />
-      {HIGHLIGHT('M17 28c2-4 5-7 9-8')}
-    </>
-  );
-};
-
-const fish: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-sunshine)', line: 'var(--color-sun-deep)' }, tone);
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M6 22c5 3 8 6 10 10-2 4-5 7-10 10 1-6 1-14 0-20Z"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M14 32c4-10 13-16 24-16 9 0 16 7 19 16-3 9-10 16-19 16-11 0-20-6-24-16Z"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path d="M33 21c-3 6-3 16 0 22" stroke={c.line} strokeWidth="2.5" opacity="0.55" />
-      <circle cx="46" cy="29" r="3.5" fill="var(--color-ink)" />
-      <circle cx="47.2" cy="27.8" r="1.2" fill="#fff" />
-      {HIGHLIGHT('M24 22c3-2 6-3 9-3')}
-    </>
-  );
-};
-
-const starfish: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-sun)', line: 'var(--color-sun-deep)' }, tone);
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M32 5c2.6 0 4 6.5 5.6 13.2 6.6-.6 14.6-1.7 15.6.9 1 2.6-5.6 7-11 11.4 2.6 6.3 6.3 13.4 4.2 15.3-2.1 1.9-8.6-3-14.4-6.6-5.8 3.6-12.3 8.5-14.4 6.6-2.1-1.9 1.6-9 4.2-15.3-5.4-4.4-12-8.8-11-11.4 1-2.6 9-1.5 15.6-.9C28 11.5 29.4 5 32 5Z"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <circle cx="32" cy="21" r="2" fill={c.line} opacity="0.6" />
-      <circle cx="26" cy="28" r="2" fill={c.line} opacity="0.6" />
-      <circle cx="38" cy="28" r="2" fill={c.line} opacity="0.6" />
-      <circle cx="32" cy="32" r="2" fill={c.line} opacity="0.6" />
-      {HIGHLIGHT('M29.5 12c.6-2 1.4-3 2.5-3')}
-    </>
-  );
-};
-
-const crab: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M14 44l-6 7M20 47l-3 7M50 44l6 7M44 47l3 7"
-        stroke={c.line}
-        strokeWidth="3.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M18 30c-6-1-11-6-10-12 4 0 6 2 7 4 1-4 4-6 7-6-1 5 0 9 3 12"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M46 30c6-1 11-6 10-12-4 0-6 2-7 4-1-4-4-6-7-6 1 5 0 9-3 12"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <ellipse cx="32" cy="38" rx="18" ry="12" fill={c.fill} stroke={c.line} strokeWidth="3" />
-      <path d="M27 27v-4M37 27v-4" stroke={c.line} strokeWidth="3" strokeLinecap="round" />
-      <circle cx="27" cy="21" r="3.5" fill="#fff" stroke="var(--color-ink)" strokeWidth="2" />
-      <circle cx="37" cy="21" r="3.5" fill="#fff" stroke="var(--color-ink)" strokeWidth="2" />
-      <circle cx="27.5" cy="21.5" r="1.4" fill="var(--color-ink)" />
-      <circle cx="37.5" cy="21.5" r="1.4" fill="var(--color-ink)" />
-      <path
-        d="M27 41c3 2.5 7 2.5 10 0"
-        stroke="var(--color-ink)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {HIGHLIGHT('M20 34c2-3 5-4.5 8-5')}
-    </>
-  );
-};
-
-const leaf: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-leaf)', line: 'var(--color-leaf-deep)' }, tone);
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M10 50C8 28 22 10 52 8c2 26-12 42-36 44"
-        fill={c.fill}
-        stroke={c.line}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 52c10-14 22-26 36-36M24 38l-1-9M31 31l-1-8M33 30l8 1M25 37l9 1"
-        stroke={c.line}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {HIGHLIGHT('M44 14c-6 1-11 3-15 6')}
-    </>
-  );
-};
-
-const stone: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-pebble)', line: 'var(--color-pebble-deep)' }, tone);
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M9 38c0-14 10-25 24-25 13 0 22 9 22 22 0 11-9 18-23 18S9 49 9 38Z"
-        fill={c.fill}
-        stroke={tone === 'b' ? c.line : 'var(--color-ink-soft)'}
-        strokeWidth="3"
-      />
-      <path d="M20 36c3 1 6 1 9-1M36 42c3 0 5-1 7-3" stroke={c.line} strokeWidth="2.5" />
-      {HIGHLIGHT('M19 27c3-4 7-6 12-6.5')}
-    </>
-  );
-};
-
-const pebble: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-sea)', line: 'var(--color-sea-dark)' }, tone);
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M10 34c0-12 9.5-22 23-22 12 0 21 8 21 20 0 11-9 19-22 19S10 45 10 34Z"
-        fill={tone === 'b' ? 'var(--color-sunshine)' : c.fill}
-        stroke={tone === 'b' ? 'var(--color-sun-deep)' : c.line}
-        strokeWidth="3"
-      />
-      {HIGHLIGHT('M21 25c2.6-3.6 6.6-5.6 11-5.8')}
-    </>
-  );
-};
-
 const stick: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-wood)', line: 'var(--color-wood-deep)' }, tone);
   return (
     <>
-      {SHADOW}
       <rect
         x="10"
         y="27"
@@ -254,7 +79,6 @@ const plank: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-wood)', line: 'var(--color-wood-deep)' }, tone);
   return (
     <>
-      {SHADOW}
       <rect
         x="6"
         y="22"
@@ -272,63 +96,6 @@ const plank: Draw = (tone) => {
   );
 };
 
-const firefly: Draw = (tone) => {
-  // The body outline is wood-deep, not sunshine-deep: a yellow outline falls under 3:1 on the
-  // sand trays fireflies sit on (06 §7); wood-deep reads at about 4.4:1 on sand.
-  const c = toneFill({ fill: 'var(--color-sunshine)', line: 'var(--color-wood-deep)' }, tone);
-  return (
-    <>
-      {SHADOW}
-      <circle cx="32" cy="34" r="18" fill="var(--color-sunshine-light)" opacity="0.6" />
-      <ellipse
-        cx="22"
-        cy="22"
-        rx="9"
-        ry="6"
-        transform="rotate(-30 22 22)"
-        fill="#fff"
-        stroke="var(--color-ink-soft)"
-        strokeWidth="2.5"
-      />
-      <ellipse
-        cx="42"
-        cy="22"
-        rx="9"
-        ry="6"
-        transform="rotate(30 42 22)"
-        fill="#fff"
-        stroke="var(--color-ink-soft)"
-        strokeWidth="2.5"
-      />
-      <ellipse cx="32" cy="36" rx="9" ry="12" fill={c.fill} stroke={c.line} strokeWidth="3.5" />
-      <circle cx="32" cy="22" r="6" fill="var(--color-ink)" />
-      {HIGHLIGHT('M28 32c1-2 2-3 4-3.5')}
-    </>
-  );
-};
-
-const counter: Draw = (tone) => (
-  <>
-    {SHADOW}
-    <circle
-      cx="32"
-      cy="32"
-      r="21"
-      fill={tone === 'b' ? 'var(--color-sunshine)' : 'var(--color-coral)'}
-      stroke={tone === 'b' ? 'var(--color-sun-deep)' : 'var(--color-coral-deep)'}
-      strokeWidth="3"
-    />
-    {/* Colour b also differs by a mark (06 §7, never colour alone): an ink ring and centre dot. */}
-    {tone === 'b' ? (
-      <g data-mark="ring">
-        <circle cx="32" cy="32" r="11" fill="none" stroke="var(--color-ink)" strokeWidth="3.5" />
-        <circle cx="32" cy="32" r="3.5" fill="var(--color-ink)" />
-      </g>
-    ) : null}
-    {HIGHLIGHT('M20 24c2.5-3.5 6-5.5 10-6')}
-  </>
-);
-
 /*
  * Measuring objects (compare and order items: heavier, longer, taller). Each is drawn at its size
  * class, since size can be a deliberate cue: small things (dot, button, thimble, spoon, cube,
@@ -344,23 +111,10 @@ const band = (d: string, width: number, c: { fill: string; line: string }) => (
   </>
 );
 
-const dot: Draw = (tone) => {
-  // A plain disc for dot pictures: smaller and simpler than the counter, so it reads when tiny.
-  const c = toneFill({ fill: 'var(--color-sun)', line: 'var(--color-sun-deep)' }, tone);
-  return (
-    <>
-      {shadow(12)}
-      <circle cx="32" cy="37" r="16" fill={c.fill} stroke={c.line} strokeWidth="3" />
-      {HIGHLIGHT('M25 32c1.4-2.2 3.4-3.6 6-4')}
-    </>
-  );
-};
-
 const button: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-leaf)', line: 'var(--color-leaf-deep)' }, tone);
   return (
     <>
-      {shadow(13)}
       <circle cx="32" cy="37" r="17" fill={c.fill} stroke={c.line} strokeWidth="3" />
       <circle
         cx="32"
@@ -386,7 +140,6 @@ const thimble: Draw = (tone) => {
   const pits = tone === 'b' ? c.line : 'var(--color-pebble-deep)';
   return (
     <>
-      {shadow(14)}
       <path
         d="M20 49l2.5-20c0-7 4-11 9.5-11s9.5 4 9.5 11l2.5 20Z"
         fill={c.fill}
@@ -426,7 +179,6 @@ const spoon: Draw = (tone) => {
   // Drawn upright, then laid down with the bowl a little raised.
   return (
     <>
-      {shadow(16)}
       <g transform="translate(0 9) rotate(68 32 34)">
         <path
           d="M30 29.5 29 50a3 3 0 0 0 6 0l-1-20.5Z"
@@ -448,7 +200,6 @@ const cube: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-sunshine)', line: 'var(--color-sun-deep)' }, tone);
   return (
     <>
-      {shadow(15, 34)}
       <path
         d="M17 28l9-9h26v26l-9 9H17Z"
         fill={c.fill}
@@ -473,7 +224,6 @@ const brick: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
   return (
     <>
-      {shadow(23)}
       <path
         d="M7 34l9-9h41v19l-9 9H7Z"
         fill={c.fill}
@@ -503,7 +253,6 @@ const cup: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-sky)', line: 'var(--color-sea-deep)' }, tone);
   return (
     <>
-      {shadow(19, 30)}
       {band('M46 26c10 0 10 16 0 16', 3.5, c)}
       <path
         d="M12 19v25c0 6 4 10 10 10h14c6 0 10-4 10-10V19Z"
@@ -524,7 +273,6 @@ const apple: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
   return (
     <>
-      {shadow(19)}
       <path
         d="M32 21c-6-5-21-5-22 11-1 13 9 23 17 23 2.5 0 3.5-1 5-1s2.5 1 5 1c8 0 18-10 17-23-1-16-16-16-22-11Z"
         fill={c.fill}
@@ -564,7 +312,6 @@ const coconut: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-wood)', line: 'var(--color-wood-deep)' }, tone);
   return (
     <>
-      {shadow(19)}
       <path
         d="M32 12c12 0 21 10 21 22.5S44 55 32 55s-21-8-21-20.5S20 12 32 12Z"
         fill={c.fill}
@@ -593,7 +340,6 @@ const melon: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-leaf-light)', line: 'var(--color-leaf-deep)' }, tone);
   return (
     <>
-      {shadow(23)}
       <ellipse cx="32" cy="37" rx="24.5" ry="17.5" fill={c.fill} stroke={c.line} strokeWidth="3" />
       <path
         d="M9 35c9-10 37-10 46 0M8 38.5c10 2 38 2 48 0M10 43c10 9 34 9 44 0"
@@ -619,7 +365,6 @@ const rock: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-pebble-deep)', line: 'var(--color-ink-soft)' }, tone);
   return (
     <>
-      {shadow(23)}
       <path
         d="M8 53l3-18 11-15 17-4 12 8 6 17-4 12Z"
         fill={c.fill}
@@ -645,7 +390,6 @@ const pumpkin: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-sun)', line: 'var(--color-sun-deep)' }, tone);
   return (
     <>
-      {shadow(27)}
       <path
         d="M30 21c-.5-5 .5-9 3.5-12l4 2.5c-2.5 2.5-3.5 5.5-3.5 9.5Z"
         fill="var(--color-leaf)"
@@ -684,7 +428,6 @@ const crate: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-wood)', line: 'var(--color-wood-deep)' }, tone);
   return (
     <>
-      {shadow(27)}
       <rect
         x="6"
         y="9"
@@ -722,7 +465,6 @@ const log: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-wood)', line: 'var(--color-wood-deep)' }, tone);
   return (
     <>
-      {shadow(27)}
       <path
         d="M27 23l-2.5-7.5 5-1.5 3 8"
         fill={c.fill}
@@ -773,7 +515,6 @@ const balloon: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
   return (
     <>
-      {shadow(9)}
       <path
         d="M32 49c-2.5 2.5 2.5 4 0 6.5"
         stroke="var(--color-ink-soft)"
@@ -804,7 +545,6 @@ const kite: Draw = (tone) => {
   const bow = { fill: 'var(--color-coral)', stroke: 'var(--color-coral-deep)' };
   return (
     <>
-      {shadow(10)}
       <path
         d="M32 46c-5.5 3.5 5.5 6 0 11"
         stroke="var(--color-ink-soft)"
@@ -837,7 +577,6 @@ const anchor: Draw = (tone) => {
   const arms = 'M32 16v37M21 22h22M13 40c2 9 9.5 14 19 14s17-5 19-14';
   return (
     <>
-      {shadow(24)}
       <circle cx="32" cy="10" r="5" fill="none" stroke={c.line} strokeWidth="10" />
       {band(arms, 5, c)}
       <circle cx="32" cy="10" r="5" fill="none" stroke={c.fill} strokeWidth="4" />
@@ -858,7 +597,6 @@ const feather: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-shallows)', line: 'var(--color-sea-deep)' }, tone);
   return (
     <>
-      {shadow(15)}
       <g transform="rotate(38 32 33)">
         <path
           d="M32 7c6 4 9 14 8.5 24-.4 8-3.5 14-8.5 18-5-4-8.1-10-8.5-18C23 21 26 11 32 7Z"
@@ -891,7 +629,6 @@ const fishingRod: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-wood)', line: 'var(--color-wood-deep)' }, tone);
   return (
     <>
-      {shadow(18, 26)}
       <path
         d="M53 8v34"
         stroke="var(--color-ink-soft)"
@@ -937,7 +674,6 @@ const rope: Draw = (tone) => {
     'M28.5 36a3.5 3.5 0 0 1 7 0 7 7 0 0 1-14 0 10.5 10.5 0 0 1 21 0 14 14 0 0 1-28 0 17.5 17.5 0 0 1 35 0c0 8 2.5 13 8 16';
   return (
     <>
-      {shadow(23)}
       {band(coil, 4, c)}
       <path
         d={coil}
@@ -963,7 +699,6 @@ const ribbon: Draw = (tone) => {
   const shape = { fill: c.fill, stroke: c.line, strokeWidth: 3, strokeLinejoin: 'round' as const };
   return (
     <>
-      {shadow(18)}
       <path d="M30 34 21 52l5-1.5 2.5 4.5L34 35Z" {...shape} />
       <path d="M34 34l9 18-5-1.5-2.5 4.5L30 35Z" {...shape} />
       <path d="M31 31c-6-9-19-15-23-8-3.5 7 10 14 23 10Z" {...shape} />
@@ -1039,7 +774,6 @@ const eventWakeUp: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
   return (
     <>
-      {shadow(24)}
       <path
         d="M40 20v-6.5M52 25l4.3-4.3M28 25l-4.3-4.3M56.4 32.6l4.9-1.3M23.6 32.6l-4.9-1.3"
         stroke="var(--color-sun-deep)"
@@ -1064,7 +798,6 @@ const eventBreakfast: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-sky)', line: 'var(--color-sea-deep)' }, tone);
   return (
     <>
-      {shadow(20)}
       {band('M39 29 54 10', 3, METAL)}
       <path
         d="M7 30h50c0 14-10 24-25 24S7 44 7 30Z"
@@ -1110,7 +843,6 @@ const eventLunch: Draw = (tone) => {
   const layer = { strokeWidth: 3, strokeLinejoin: 'round' as const };
   return (
     <>
-      {shadow(24)}
       {/* The lower slice, then ham, cheese (a corner hanging over), lettuce, and the top slice
           seen a little from above, so it reads as sliced bread, not a bun. */}
       <rect
@@ -1162,7 +894,6 @@ const eventDinner: Draw = (tone) => {
   const c = toneFill({ fill: 'var(--color-cloud)', line: 'var(--color-pebble-deep)' }, tone);
   return (
     <>
-      {shadow(24)}
       <circle cx="32" cy="35" r="16" fill={c.fill} stroke={c.line} strokeWidth="3" />
       <circle cx="32" cy="35" r="10.5" fill="none" stroke={c.line} strokeWidth="2" opacity="0.5" />
       <path
@@ -1218,7 +949,6 @@ const eventBedtime: Draw = (tone) => {
   };
   return (
     <>
-      {shadow(24)}
       <path d="M43 6a12 12 0 1 0 13 17 10 10 0 0 1-13-17Z" {...glow} strokeWidth="3" />
       <path
         d="M22 9l1.8 3.7 3.7 1.8-3.7 1.8L22 20l-1.8-3.7-3.7-1.8 3.7-1.8Z"
@@ -1236,21 +966,11 @@ const eventBedtime: Draw = (tone) => {
 };
 
 const DRAWINGS: Readonly<Record<string, Draw>> = {
-  shell,
-  fish,
-  starfish,
-  crab,
-  leaf,
-  stone,
-  pebble,
   stick,
   plank,
-  firefly,
-  counter,
   // U05 (#14): containers, solid-shaped and scene objects that have no drawing above
   // (sprites-measure.tsx).
   ...MEASURE_DRAWINGS,
-  dot,
   button,
   thimble,
   spoon,
@@ -1279,22 +999,30 @@ const DRAWINGS: Readonly<Record<string, Draw>> = {
 };
 
 /** Sprite ids with their own drawing (others render as a pebble). */
-export const SPRITE_IDS = Object.keys(DRAWINGS);
+export const SPRITE_IDS = [...Object.keys(FELT_KINDS), ...Object.keys(DRAWINGS)];
 
 /** The narration key that names a sprite (ui.sprite.<id>), for labels and spoken names. */
 export function spriteNameKey(sprite: SpriteId): NarrationKey {
-  return `ui.sprite.${sprite in DRAWINGS ? sprite : 'pebble'}`;
+  return `ui.sprite.${isFeltKind(sprite) || sprite in DRAWINGS ? sprite : 'pebble'}`;
 }
 
 export interface ObjectSpriteProps {
   sprite: SpriteId;
   tone?: SpriteTone;
+  /**
+   * Which face a crab wears (from 48 px up; the body never changes). Pass the object's identity
+   * (its `obj-<i>` index), never its position or render order, so it keeps its face for as long
+   * as it exists. Other sprites ignore it.
+   */
+  variant?: number;
   className?: string;
 }
 
 /** One countable object (decorative SVG; the surrounding control names it). */
-export function ObjectSprite({ sprite, tone = 'a', className }: ObjectSpriteProps) {
-  const draw = DRAWINGS[sprite] ?? pebble;
+export function ObjectSprite({ sprite, tone = 'a', variant = 0, className }: ObjectSpriteProps) {
+  const grain = `ni-grain${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const legacy = DRAWINGS[sprite];
+  const felt = legacy === undefined;
   return (
     <svg
       className={['ni-sprite', className].filter(Boolean).join(' ')}
@@ -1305,8 +1033,21 @@ export function ObjectSprite({ sprite, tone = 'a', className }: ObjectSpriteProp
       focusable="false"
       data-sprite={sprite}
       data-tone={tone}
+      data-felt={felt ? '' : undefined}
+      data-variant={sprite === 'crab' ? variant : undefined}
     >
-      {draw(tone)}
+      {felt ? (
+        <>
+          <defs>
+            <pattern id={grain} width={64} height={64} patternUnits="userSpaceOnUse">
+              <image href={grainUrl} width={64} height={64} />
+            </pattern>
+          </defs>
+          {drawFelt(isFeltKind(sprite) ? sprite : 'pebble', tone, grain, variant)}
+        </>
+      ) : (
+        legacy(tone)
+      )}
     </svg>
   );
 }

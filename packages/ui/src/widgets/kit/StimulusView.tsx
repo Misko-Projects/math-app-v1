@@ -541,7 +541,6 @@ export function HandArt({
       data-group={group}
       style={mirror ? { transform: 'scaleX(-1)' } : undefined}
     >
-      <ellipse cx="50" cy="118" rx="30" ry="5" fill="rgb(38 70 83 / 0.16)" />
       {raisedIdx.map(finger)}
       <path
         d={`M20 ${PALM_TOP + 4}c0-3 2-5 5-5h50c3 0 5 2 5 5v32c0 16-13 28-29 28h-2c-16 0-29-12-29-28V${PALM_TOP + 4}Z`}

@@ -168,7 +168,6 @@ function Raft({ w, h, closed }: { w: number; h: number; closed: boolean }) {
 function Basket({ w, h, closed }: { w: number; h: number; closed: boolean }) {
   return (
     <>
-      <ellipse cx={w / 2} cy={h - 4} rx={w * 0.42} ry="6" fill="rgb(38 70 83 / 0.16)" />
       {/* Handle */}
       <path
         d={`M${w * 0.2} 34 Q ${w / 2} -30 ${w * 0.8} 34`}
@@ -230,7 +229,6 @@ function Basket({ w, h, closed }: { w: number; h: number; closed: boolean }) {
 function Jar({ w, h, closed }: { w: number; h: number; closed: boolean }) {
   return (
     <>
-      <ellipse cx={w / 2} cy={h - 3} rx={w * 0.4} ry="6" fill="rgb(38 70 83 / 0.16)" />
       <path
         className="ni-mset__body"
         d={`M${w * 0.22} 18 H ${w * 0.78} V 42 Q ${w - 4} 50 ${w - 4} 84 V ${h - 30} Q ${w - 4} ${h - 6} ${w - 30} ${h - 6} H 30 Q 4 ${h - 6} 4 ${h - 30} V 84 Q 4 50 ${w * 0.22} 42 Z`}
@@ -308,7 +306,6 @@ function Shell({ w, h, closed }: { w: number; h: number; closed: boolean }) {
   const hinge = { x: w / 2, y: h - 14 };
   return (
     <>
-      <ellipse cx={w / 2} cy={h - 4} rx={w * 0.4} ry="6" fill="rgb(38 70 83 / 0.16)" />
       <path
         className="ni-mset__outline ni-mset__body"
         d={outline}

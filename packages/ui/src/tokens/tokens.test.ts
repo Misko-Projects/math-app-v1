@@ -64,9 +64,9 @@ describe('design tokens', () => {
     }
   });
 
-  it('pins the legacy palette on art and sprite roots until they are redrawn in felt', () => {
+  it('pins the legacy palette on art roots until they are redrawn in felt, not on sprites', () => {
     for (const [name, hex] of Object.entries(LEGACY_ART_PALETTE)) {
-      expect(cssVar(`color-${name}`, '.ni-art,\n.ni-sprite,\n.ni-coin-art'), name).toBe(hex);
+      expect(cssVar(`color-${name}`, '.ni-art,\n.ni-coin-art'), name).toBe(hex);
     }
     expect(Object.keys(LEGACY_ART_PALETTE).sort()).toEqual(Object.keys(PALETTE).sort());
   });
