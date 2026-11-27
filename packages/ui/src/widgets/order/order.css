@@ -368,3 +368,23 @@ button.ni-ord__card:focus-visible,
   transition-property: left, top;
   transition-timing-function: var(--ease-soft);
 }
+
+/* K02 slice 5a: a fraction label drawn stacked (46 px type: digits ≥ 28 px, 05 §11), at its
+   strip's left or alone on its card. Rows of 0.8 em hold the digits (0.62 em) with no descent. */
+.ni-ord__face[data-face="frac"] {
+  flex-direction: row;
+  gap: 10px;
+}
+.ni-ord__fracside {
+  display: flex;
+  align-items: center;
+}
+.ni-ord__fracnum {
+  --frac-digit: 46px;
+  line-height: 0.8;
+}
+
+.ni-ord__frac {
+  display: flex;
+  justify-content: center;
+}

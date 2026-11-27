@@ -105,6 +105,8 @@ export {
   FractionParts,
   FractionView,
   type FractionViewProps,
+  fractionLabel,
+  fractionWords,
   gridCellPath,
   WholeBase,
   WholeOutline,

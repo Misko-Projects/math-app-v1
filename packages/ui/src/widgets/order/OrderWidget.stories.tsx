@@ -2147,3 +2147,111 @@ export const DigitCardsTwoPlacesKeyboard: Story = {
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [3, 8] });
   },
 };
+
+// ---------- K02 slice 5a: fractions ----------
+
+const fractionStrip = (a: number, b: number): StimulusSpec => ({
+  kind: 'fraction',
+  shape: 'bar',
+  parts: b,
+  shaded: a,
+  equalParts: true,
+});
+/** FRA.06.t2's hardest draw: two strips in eighths, each with its fraction at its left. */
+const fractionStrips: Config = {
+  format: 'order',
+  items: [
+    { id: 'obj-0', value: 9, label: '3/8', stimulus: fractionStrip(3, 8) },
+    { id: 'obj-1', value: 21, label: '7/8', stimulus: fractionStrip(7, 8) },
+  ],
+  direction: 'desc',
+};
+/** FRA.13.t4: three fractions alone, stacked. */
+const fractionCards: Config = {
+  format: 'order',
+  items: [
+    { id: 'obj-0', value: 16, label: '2/3' },
+    { id: 'obj-1', value: 6, label: '2/8' },
+    { id: 'obj-2', value: 12, label: '2/4' },
+  ],
+  direction: 'desc',
+};
+
+/** A stacked fraction's digits are ≥ 28 px tall (46 px type, 0.62 em a digit), inside its card. */
+async function expectStackedDigits(root: HTMLElement, n: number) {
+  const nums = [...root.querySelectorAll<HTMLElement>('.ni-ord__fracnum')];
+  await expect(nums).toHaveLength(n);
+  for (const el of nums) {
+    const px = Number.parseFloat(getComputedStyle(el).fontSize);
+    await expect(Math.floor(px * 0.62), 'digit height').toBeGreaterThanOrEqual(28);
+    const card = el.closest('.ni-ord__card') as HTMLElement;
+    const a = el.getBoundingClientRect();
+    const b = card.getBoundingClientRect();
+    await expect(a.left >= b.left && a.right <= b.right).toBe(true);
+    await expect(a.top >= b.top && a.bottom <= b.bottom).toBe(true);
+  }
+}
+
+/**
+ * Strips with their fractions at 960 × 600: the fraction stacked at each strip's left, every
+ * strip one size (one whole), each part ≥ 22 px; a card is named and says its fraction in words.
+ */
+export const FractionStrips: Story = {
+  globals: { ageMode: 'g1-up' },
+  render: inArea('landscapeMin'),
+  args: { config: fractionStrips as WidgetConfig, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectStackedDigits(root, 2);
+    const pics = await expectFractionPictures(root);
+    await expect(pics).toHaveLength(2);
+    const boxes = [...root.querySelectorAll<HTMLElement>('.ni-fraction svg')].map((s) =>
+      s.getBoundingClientRect(),
+    );
+    await expect(Math.abs((boxes[0]?.width ?? 0) - (boxes[1]?.width ?? 1))).toBeLessThan(1);
+    await expect(Math.abs((boxes[0]?.height ?? 0) - (boxes[1]?.height ?? 1))).toBeLessThan(1);
+    const area = canvasElement.querySelector('.story-widget-area')?.getBoundingClientRect();
+    const card = root.querySelector('.ni-ord__card')?.getBoundingClientRect();
+    for (const b of boxes) {
+      await expect(
+        b.width / 8,
+        `strip ${b.width}x${b.height} card ${card?.width}x${card?.height} area ${area?.width}x${area?.height}`,
+      ).toBeGreaterThanOrEqual(22);
+    }
+    const trayCards = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
+    await expect(trayCards.map((c) => c.getAttribute('aria-label'))).toEqual([
+      'three eighths',
+      'seven eighths',
+    ]);
+    for (const c of trayCards) await expectTargetSize(c, 'g1-up');
+    await userEvent.click(trayCards[0] as HTMLElement);
+    await expect(audio.say).toHaveBeenCalledWith('ui.frac.value', { f: '3/8' });
+  },
+};
+
+/** Fractions alone at 960 × 600: stacked, digits ≥ 28 px, named in words, never "2/3". */
+export const FractionCards: Story = {
+  globals: { ageMode: 'g1-up' },
+  render: inArea('landscapeMin'),
+  args: { config: fractionCards as WidgetConfig, tier: 'abstract' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectStackedDigits(root, 3);
+    const trayCards = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
+    await expect(trayCards.map((c) => c.getAttribute('aria-label'))).toEqual([
+      'two thirds',
+      'two eighths',
+      'two fourths',
+    ]);
+    await userEvent.click(trayCards[0] as HTMLElement);
+    await expect(audio.say).toHaveBeenCalledWith('ui.frac.value', { f: '2/3' });
+    await userEvent.click(padOf(root, 1));
+    await waitFor(() => expect(placed(root)[0]).not.toBe(''));
+  },
+};
