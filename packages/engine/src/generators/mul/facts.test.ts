@@ -588,10 +588,10 @@ describe('slice 3c misconception rules (÷ and missing factors)', () => {
     );
     expect(multiplyInsteadOfDivide.match(item({ a: 4, b: 6, op: '÷' }), num(6))).toBe(false);
     // 7 ÷ 1 = 7: the told numbers times each other is the answer, so nothing is read.
-    expect(multiplyInsteadOfDivide.applies(item({ a: 1, b: 7, op: '÷' }))).toBe(true);
+    expect(multiplyInsteadOfDivide.applies?.(item({ a: 1, b: 7, op: '÷' }))).toBe(true);
     expect(multiplyInsteadOfDivide.predict?.(item({ a: 1, b: 7, op: '÷' }))).toBeNull();
     // Product facts are not read here.
-    expect(multiplyInsteadOfDivide.applies(item({ a: 4, b: 6 }))).toBe(false);
+    expect(multiplyInsteadOfDivide.applies?.(item({ a: 4, b: 6 }))).toBe(false);
   });
 
   it('told-number-back: the divisor or dividend given back, the product for a missing factor; not a square', () => {
