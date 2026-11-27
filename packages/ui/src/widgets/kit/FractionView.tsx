@@ -159,8 +159,10 @@ function LoafScores({ frame }: { frame: Extract<ShapeFrame, { kind: 'box' }> }) 
 }
 
 /** Faint cell lines of a grid whole (not cuts: a grid is one whole until it is cut). */
-function GridCells({ frame }: { frame: Extract<ShapeFrame, { kind: 'box' }> }) {
-  const [cols, rows] = frame.cells ?? [1, 1];
+/** The lines between a grid's cells, in the frame's units (empty for a frame with no cells). */
+export function gridCellPath(frame: ShapeFrame): string {
+  if (frame.kind !== 'box' || !frame.cells) return '';
+  const [cols, rows] = frame.cells;
   const lines: string[] = [];
   for (let c = 1; c < cols; c += 1) {
     const x = frame.x + (c * frame.w) / cols;
@@ -170,7 +172,11 @@ function GridCells({ frame }: { frame: Extract<ShapeFrame, { kind: 'box' }> }) {
     const y = frame.y + (r * frame.h) / rows;
     lines.push(`M${frame.x} ${y}H${frame.x + frame.w}`);
   }
-  return <path className="ni-fraction__cells" d={lines.join('')} />;
+  return lines.join('');
+}
+
+function GridCells({ frame }: { frame: Extract<ShapeFrame, { kind: 'box' }> }) {
+  return <path className="ni-fraction__cells" d={gridCellPath(frame)} />;
 }
 
 /**

@@ -105,6 +105,7 @@ export {
   FractionParts,
   FractionView,
   type FractionViewProps,
+  gridCellPath,
   WholeBase,
   WholeOutline,
 } from './FractionView';

@@ -474,10 +474,17 @@ export const GridNotCongruent: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const g = 44;
+    // The grid's squares show on the whole (the part's fill does not hide them), at ≥ 22 px.
+    await expect(root.querySelectorAll('.ni-fcut__cells')).toHaveLength(1);
+    const svg = root.querySelector('svg.ni-fcut__svg') as SVGSVGElement;
+    const unit = svg.getBoundingClientRect().width / (svg.viewBox.baseVal.width || 1);
+    await expect(g * unit).toBeGreaterThanOrEqual(22);
     await swipe(at(root, 10 + 2 * g, 12), at(root, 10 + 2 * g, 10 + 4 * g - 2));
     await swipe(at(root, 10 + g, 20 + g), at(root, 10 + g, 10 + 3 * g));
     await swipe(at(root, 10 + 2.1 * g, 10 + 2 * g), at(root, 10 + 3.9 * g, 10 + 2 * g));
     await expect(partEls(root)).toHaveLength(4);
+    // Every cut part keeps its squares, so the child can count them.
+    await expect(root.querySelectorAll('.ni-fcut__cells')).toHaveLength(4);
     await expectEqualShares(measuredShares(stage(root)), 4);
     await userEvent.click(part(root, 0));
     await userEvent.click(check(root));

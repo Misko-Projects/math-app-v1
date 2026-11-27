@@ -2124,3 +2124,99 @@ describe.each(FIT_VIEWPORTS)(
     });
   },
 );
+
+// K02 slice 4c-2 (#17): the states a child reaches by acting on the new screens, at both
+// viewports: a growing shape built to the biggest stack, a function table with both outputs typed,
+// digit cards all placed under their place names, and the biggest grid-parts picture.
+describe.each(FIT_VIEWPORTS)(
+  'slice 4c-2 screens after acting fit the pier at %s (#17)',
+  (viewport: FitViewport) => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    const first = (templateId: string, ok: (p: GeneratedItem['params']) => boolean) => {
+      const template = content.store.graph.templates[templateId] as ItemTemplate;
+      for (let seed = 1; seed < 20_000; seed += 1) {
+        const item = engine.generateItem(template, seed);
+        if (ok(item.params)) return { item, template };
+      }
+      throw new Error(`${templateId}: no such item in 20000 seeds`);
+    };
+    const stage = () =>
+      document.querySelector<HTMLElement>('[data-testid="pier-stage"]') as HTMLElement;
+    const shot = async (id: string, state: string) => {
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-${state}-${viewport}.png` });
+    };
+
+    it('ALG.10.t1: the widest and the tallest shapes built up to the biggest stack, tiles ≥ 22 px', async () => {
+      await page.viewport(width, height);
+      for (const [start, step] of [
+        [2, 1],
+        [4, 3],
+      ] as const) {
+        const { item, template } = first('ALG.10.t1', (p) => p.start === start && p.step === step);
+        show(item, ageModeOf(template));
+        expect(await measure('ALG.10.t1')).toEqual([]);
+        const more = stage().querySelector<HTMLButtonElement>(
+          '[data-key="more"]',
+        ) as HTMLButtonElement;
+        for (let i = 0; i < 20; i += 1) await userEvent.click(more);
+        expect(await measure('ALG.10.t1')).toEqual([]);
+        await shot('ALG.10.t1', `built-${start}-${step}`);
+        for (const tile of stage().querySelectorAll('.ni-pattern__tile')) {
+          const r = tile.getBoundingClientRect();
+          expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(22);
+        }
+      }
+    });
+
+    it('ALG.09.t2: both missing outputs typed (two-digit numbers)', async () => {
+      await page.viewport(width, height);
+      const { item, template } = first(
+        'ALG.09.t2',
+        (p) => Number(p.out2) >= 10 && Number(p.out4) >= 10,
+      );
+      show(item, ageModeOf(template));
+      expect(await measure('ALG.09.t2')).toEqual([]);
+      await userEvent.keyboard(String(item.params.out2));
+      const second = stage().querySelector('.ni-pattern__blank[data-index="3"]') as HTMLElement;
+      await userEvent.click(second);
+      await userEvent.keyboard(String(item.params.out4));
+      expect(await measure('ALG.09.t2')).toEqual([]);
+      await shot('ALG.09.t2', 'typed');
+    });
+
+    it('PUZ.06.t1: three digit cards placed under hundreds, tens and ones', async () => {
+      await page.viewport(width, height);
+      const { item, template } = first('PUZ.06.t1', (p) => p.count === 3);
+      show(item, ageModeOf(template));
+      expect(await measure('PUZ.06.t1')).toEqual([]);
+      for (const place of ['hundreds', 'tens', 'ones']) {
+        const card = stage().querySelector('.ni-ord__tray .ni-ord__card') as HTMLElement;
+        await userEvent.click(card);
+        await userEvent.click(
+          stage().querySelector(`[aria-label="The ${place} place"]`) as HTMLElement,
+        );
+      }
+      expect(stage().querySelectorAll('.ni-ord__tray .ni-ord__card')).toHaveLength(0);
+      expect(await measure('PUZ.06.t1')).toEqual([]);
+      await shot('PUZ.06.t1', 'placed');
+    });
+
+    it('FRA.16.t2 and t3: the biggest grids (8 × 4 and 6 × 4), squares ≥ 22 px', async () => {
+      await page.viewport(width, height);
+      for (const [id, cut] of [
+        ['FRA.16.t2', 7],
+        ['FRA.16.t2', 5],
+        ['FRA.16.t3', 7],
+      ] as const) {
+        const { item, template } = first(id, (p) => p.cut === cut);
+        show(item, ageModeOf(template));
+        expect(await measure(id)).toEqual([]);
+        await shot(id, `cut-${cut}`);
+        const svg = stage().querySelector<SVGSVGElement>('svg.ni-grid-parts') as SVGSVGElement;
+        const scale = svg.getBoundingClientRect().width / Number(svg.getAttribute('width'));
+        expect(Number(svg.dataset.squarePx) * scale, `${id} cut ${cut}`).toBeGreaterThanOrEqual(22);
+      }
+    });
+  },
+);

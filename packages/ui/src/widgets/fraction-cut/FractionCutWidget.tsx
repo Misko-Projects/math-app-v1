@@ -12,6 +12,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -33,6 +34,7 @@ import {
   applyPadKey,
   CheckButton,
   FractionEntry,
+  gridCellPath,
   type PadKey,
   padValue,
   rectParts,
@@ -263,6 +265,9 @@ export function FractionCutWidget({
       ),
     [config.shape, config.gridSize, config.parts],
   );
+  // A grid's squares are drawn inside every part (the parts' fill covers the whole's own lines).
+  const cells = gridCellPath(frame);
+  const clipId = `fcut-cells-${useId().replace(/:/g, '')}`;
 
   // ---------- layout: the stage gets what the tools leave ----------
 
@@ -1022,6 +1027,20 @@ export function FractionCutWidget({
                         }
                       : { className: 'ni-fraction__part ni-fcut__part' })}
                   />
+                  {cells ? (
+                    // A grid's squares, inside each part and moving with it, so they can be
+                    // counted whole or cut (FRA.16).
+                    <>
+                      <clipPath id={`${clipId}-${i}`}>
+                        <path d={g.d} />
+                      </clipPath>
+                      <path
+                        className="ni-fraction__cells ni-fcut__cells"
+                        d={cells}
+                        clipPath={`url(#${clipId}-${i})`}
+                      />
+                    </>
+                  ) : null}
                 </g>
               );
             })}
