@@ -675,7 +675,7 @@ templates:
       den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
       num: 1
       max: 1
-    difficulty: { base: -0.2 }
+    difficulty: { base: -0.3 }
     narration:
       prompt: tp.FRA.04.t1.prompt
       hints: [h.frac.line.parts-whole, h.frac.line.one-part, h.frac.line.spaces]
@@ -692,7 +692,7 @@ templates:
       den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
       num: 1
       max: 1
-    difficulty: { base: -0.4 }
+    difficulty: { base: -0.5 }
     narration:
       prompt: tp.FRA.04.t2.prompt
       hints: [h.frac.line.read-bottom, h.frac.line.read-top, h.frac.line.spaces]
@@ -709,7 +709,7 @@ templates:
       den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
       num: 1
       max: 1
-    difficulty: { base: -0.2 }
+    difficulty: { base: -0.3 }
     narration:
       prompt: tp.FRA.04.t3.prompt
       hints: [h.frac.line.parts-whole, h.frac.line.one-part, h.frac.line.spaces]
@@ -726,7 +726,7 @@ templates:
       den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
       num: 1
       max: 1
-    difficulty: { base: -0.2 }
+    difficulty: { base: -0.3 }
     narration:
       prompt: tp.FRA.04.t4.prompt
       hints: [h.frac.line.path-bottom, h.frac.line.path-top]
@@ -746,7 +746,7 @@ templates:
       num: { int: [2, 7] }
       max: 1
     constraints: ["num < den"]
-    difficulty: { base: -0.7 }
+    difficulty: { base: -0.8 }
     narration:
       prompt: tp.FRA.10.t1.prompt
       hints: [h.frac.line.parts-whole, h.frac.line.hop-top, h.frac.line.spaces]
@@ -836,7 +836,7 @@ templates:
       num: { int: [3, 7] }
       max: 2
     constraints: ["num > den", "num < 2 * den", "num % den != 0"]
-    difficulty: { base: -1.7, features: { denominator: 0.3 } }
+    difficulty: { base: -1.4, features: { denominator: 0.3 } }
     narration:
       prompt: tp.FRA.11.t3.prompt
       hints: [h.frac.line.read-bottom, h.frac.line.read-top-past, h.frac.line.spaces]

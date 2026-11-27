@@ -3399,7 +3399,7 @@ gen.frac.line.path-bottom:
   text: "Count the equal steps on the whole path. That number goes on the bottom."
   level: "3"
 gen.frac.line.path-top:
-  text: "Count the steps you took. That number goes on the top."
+  text: "Count your steps. That number goes on the top."
   level: "3"
 gen.frac.line.path-walked:
   text: "You walked {f|fracw} of the path."
@@ -3418,7 +3418,7 @@ fb.mc.fraction-line-ticks:
 fb.mc.fraction-line-whole:
   text: "One whole goes from 0 to 1, not the whole line."
 fb.mc.fraction-line-at-whole:
-  text: "The top number is not a spot. Hop parts from 0."
+  text: "Do not jump to the top number. Hop parts from 0."
 fb.mc.fraction-over-one:
   text: "A fraction can be more than one. Keep going past 1."
 fb.mc.fraction-whole-count:

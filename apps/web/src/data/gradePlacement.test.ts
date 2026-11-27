@@ -252,16 +252,16 @@ describe('the first plan of a new child', () => {
           "ADD.01",
         ],
         [
+          "MUL.05",
+          "MDA.19",
+          "MDA.22",
+          "ADD.01",
+        ],
+        [
           "ADD.06",
           "MDA.19",
           "MDA.22",
           "MON.03",
-          "ADD.01",
-        ],
-        [
-          "MUL.05",
-          "MDA.19",
-          "MDA.22",
           "ADD.01",
         ],
       ]
@@ -275,12 +275,12 @@ describe('the first plan of a new child', () => {
           "ADD.01",
         ],
         [
-          "ADD.06",
-          "ADD.14",
+          "MUL.05",
           "ADD.01",
         ],
         [
-          "MUL.05",
+          "ADD.06",
+          "ADD.14",
           "ADD.01",
         ],
       ]

@@ -57,10 +57,11 @@ export const fracLine: GeneratorDef = {
     mode: {
       type: 'string',
       values: [...MODES],
-      default: { kind: 'const', value: 'place' },
+      // Templates always set it; the default lets every format build from defaults.
+      default: { kind: 'choice', values: [...MODES] },
       doc: 'place or read (fraction-line), name (fraction-pick), between or wholes (number-pad)',
     },
-    num: { type: 'int', default: { kind: 'const', value: 1 }, doc: 'the top number a' },
+    num: { type: 'int', default: { kind: 'int', min: 1, max: 16 }, doc: 'the top number a' },
     den: {
       type: 'int',
       default: { kind: 'choice', values: [...LINE_DENS] },
@@ -68,7 +69,7 @@ export const fracLine: GeneratorDef = {
     },
     max: {
       type: 'int',
-      default: { kind: 'const', value: 1 },
+      default: { kind: 'choice', values: [1, 2, 3] },
       doc: 'the line runs from 0 to max wholes (1–3)',
     },
     skin: {
