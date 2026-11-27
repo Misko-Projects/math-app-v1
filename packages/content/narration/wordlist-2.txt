@@ -975,3 +975,5 @@ cage
 clues
 mystery
 clue
+machine
+wide

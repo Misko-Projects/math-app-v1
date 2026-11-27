@@ -1135,11 +1135,23 @@ ui.order.place.tens:
 ui.order.place.ones:
   text: "ones"
   level: "1"
-ui.order.place-slot:
-  text: "The {place} place"
+ui.order.slot.hundreds:
+  text: "The hundreds place"
+  level: "2"
+ui.order.slot.tens:
+  text: "The tens place"
   level: "1"
-ui.order.in-place:
-  text: "{n} in the {place} place"
+ui.order.slot.ones:
+  text: "The ones place"
+  level: "1"
+ui.order.in.hundreds:
+  text: "{n} in the hundreds place"
+  level: "2"
+ui.order.in.tens:
+  text: "{n} in the tens place"
+  level: "1"
+ui.order.in.ones:
+  text: "{n} in the ones place"
   level: "1"
 
 # tenframe-fill, number-bond, rekenrek (U03, packages/ui/src/widgets/tenframe-fill, number-bond,
@@ -1369,7 +1381,7 @@ ui.widget.grid.bar:
   level: "2"
 ui.widget.pattern.machine:
   text: "The number machine"
-  level: "1"
+  level: "2"
 ui.widget.pattern.in:
   text: "In"
   level: K

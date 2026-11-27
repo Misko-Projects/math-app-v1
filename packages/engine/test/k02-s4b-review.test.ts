@@ -44,16 +44,19 @@ describe('PR #133 review round 1', () => {
     }
   });
 
-  it('no shipped template reaches the test-only code (FRA.16 grid cuts); only DAT.03 draws line plots', () => {
-    // Slice 4c-1 gave line plots accessible names and shipped DAT.03; FRA.16 has no pictorial
-    // template.
+  it('only FRA.16 cuts grids (with its grid-parts pictures); only DAT.03 draws line plots', () => {
+    // Slice 4c-1 gave line plots accessible names and shipped DAT.03; slice 4c-2 shipped FRA.16
+    // with its pictorial grid-parts templates (frac.shares) beside the grid cut.
     expect(
       fixture.templates.filter((t) => t.generator === 'data.lineplot').map((t) => t.skillId),
     ).toEqual(['DAT.03', 'DAT.03', 'DAT.03']);
     const grid = fixture.templates.filter(
       (t) => t.generator === 'frac.partition' && JSON.stringify(t.params).includes('grid'),
     );
-    expect(grid).toEqual([]);
+    expect(grid.map((t) => t.id)).toEqual(['FRA.16.t1']);
+    expect(fixture.templates.filter((t) => t.generator === 'frac.shares').map((t) => t.id)).toEqual(
+      ['FRA.16.t2', 'FRA.16.t3'],
+    );
   });
 
   it('no hint says slanted sides make a corner not square', () => {

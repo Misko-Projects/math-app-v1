@@ -41,3 +41,16 @@ lessons:
       - { seed: 2556003540, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [FRA.08.t3, FRA.08.t4] }
+
+  # FRA.16 plays the auto lesson (the concrete grid cut, t1) and pins its test-out to the count of
+  # squares in each part (t2): the fair-or-not pick (t3) is a choice.
+  - skillId: FRA.16
+    mode: authored
+    templateId: FRA.16.t1
+    worked:
+      - { seed: 2354819205, target: easy }
+    faded:
+      - { seed: 2354819206, target: typical, childSteps: 1 }
+      - { seed: 2354819207, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.16.t2] }

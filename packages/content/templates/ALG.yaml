@@ -301,6 +301,86 @@ templates:
 
   # ALG.10: squares in each step grow by 1 to 3. Build the next stack (tiles), or type how many
   # squares the empty steps have (the counts in a row).
+  # K02 slice 4c-2 (#17): input–output machines (alg.function). The table shows the pairs out of
+  # order and unevenly spaced (the Out row read as a pattern is never right); about one add item in
+  # three has a first pair that also doubles (2 → 4 under add 2), and doubling the asked number is
+  # wrong. The number-pad prompt names the direction (adds / takes away), one template each.
+  - id: ALG.09.t1
+    skillId: ALG.09
+    format: pattern-extend
+    tier: pictorial
+    representation: table
+    generator: alg.function
+    params:
+      op: add
+      n: { int: [1, 5] }
+      max: 20
+      rows: 4
+      blanks: 1
+      lure: { choice: [1, 0, 0] }
+      arrange: { int: [0, 9999] }
+    difficulty: { base: -0.5, features: { answer.over10: 0.4 } }
+    narration:
+      prompt: tp.ALG.09.t1.prompt
+      hints: [h.machine.one-pair, h.machine.check-pair, h.machine.do-same]
+
+  - id: ALG.09.t2
+    skillId: ALG.09
+    format: pattern-extend
+    tier: abstract
+    representation: table
+    generator: alg.function
+    params:
+      op: { choice: [add, sub] }
+      n: { int: [2, 9] }
+      max: 60
+      rows: 4
+      blanks: 2
+      lure: { choice: [1, 0, 0] }
+      arrange: { int: [0, 9999] }
+    difficulty: { base: -1.0 }
+    narration:
+      prompt: tp.ALG.09.t2.prompt
+      hints: [h.machine.bigger-smaller, h.machine.one-pair, h.machine.check-pair]
+
+  - id: ALG.09.t3
+    skillId: ALG.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: alg.function
+    params:
+      op: add
+      n: { int: [2, 9] }
+      max: 40
+      rows: 2
+      blanks: 0
+      lure: 0
+      arrange: { int: [0, 9999] }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.ALG.09.t3.prompt
+      hints: [h.machine.count-up, h.machine.check-pair]
+
+  - id: ALG.09.t4
+    skillId: ALG.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: alg.function
+    params:
+      op: sub
+      n: { int: [2, 9] }
+      max: 40
+      rows: 2
+      blanks: 0
+      lure: 0
+      arrange: { int: [0, 9999] }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.ALG.09.t4.prompt
+      hints: [h.machine.count-back, h.machine.check-pair]
+
   - id: ALG.10.t1
     skillId: ALG.10
     format: pattern-extend

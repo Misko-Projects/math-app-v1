@@ -1046,7 +1046,7 @@ export function OrderWidget({
               ? null
               : dnd.targetProps(slotId(k), {
                   label: places
-                    ? t('ui.order.place-slot', { place: t(`ui.order.place.${places[k]}`) })
+                    ? t(`ui.order.slot.${places[k]}`)
                     : t('ui.widget.blank', { n: k + 1 }),
                 });
             return (
@@ -1088,12 +1088,7 @@ export function OrderWidget({
                       .join(' ')}
                     data-placed={it.id}
                     aria-label={
-                      places
-                        ? t('ui.order.in-place', {
-                            n: itemName(it),
-                            place: t(`ui.order.place.${places[k]}`),
-                          })
-                        : itemName(it)
+                      places ? t(`ui.order.in.${places[k]}`, { n: itemName(it) }) : itemName(it)
                     }
                     disabled={!interactive}
                     onClick={() => sendBack(k)}

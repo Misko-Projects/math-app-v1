@@ -38,3 +38,16 @@ sk.FRA.02.intro:
   text: "Three equal parts are thirds. Four fourths make a whole."
 tp.FRA.02.t2.prompt:
   text: "Cut it into fourths. Then fill all the parts."
+
+# K02 slice 4c-2 (#17): equal shares that look different.
+sk.FRA.16.intro:
+  text: "Equal shares have the same amount. They do not have to look the same."
+tp.FRA.16.t1.prompt:
+  text: "Cut the grid into {what|word}. The parts can have different shapes."
+  level: "2"
+tp.FRA.16.t2.prompt:
+  text: "These parts are equal shares. How many squares are in each part?"
+  level: "2"
+tp.FRA.16.t3.prompt:
+  text: "Are these parts equal shares?"
+  level: "2"

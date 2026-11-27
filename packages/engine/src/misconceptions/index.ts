@@ -32,6 +32,14 @@ import {
   growAsRepeat,
   wayCountedTwice,
 } from './rules/k02Puzzles';
+import {
+  equalSharesLookAlike,
+  functionAddForTake,
+  functionBackwards,
+  functionColumnPattern,
+  functionFirstPairDouble,
+  shareCountedWhole,
+} from './rules/k02SharesMachines';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { linePlotPositionAsCount, linePlotWrongStack } from './rules/linePlot';
 import { minuteHandAsMinutes } from './rules/minuteHandNumber';
@@ -123,6 +131,13 @@ const RULES: Record<string, MisconceptionRule> = {
   cageRepeatDigit: cageRepeatDigit,
   digitOrderReversed: digitOrderReversed,
   wayCountedTwice: wayCountedTwice,
+  // K02 (#17) slice 4c-2: equal shares that look different, input–output machines
+  equalSharesLookAlike: equalSharesLookAlike,
+  shareCountedWhole: shareCountedWhole,
+  functionColumnPattern: functionColumnPattern,
+  functionFirstPairDouble: functionFirstPairDouble,
+  functionBackwards: functionBackwards,
+  functionAddForTake: functionAddForTake,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

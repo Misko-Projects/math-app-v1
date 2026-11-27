@@ -665,6 +665,16 @@ const STIMULI: StimulusSpec[] = [
     },
   },
   { kind: 'scene', context: 'sawmill-planks', sprites: [{ sprite: 'plank', count: 4 }] },
+  {
+    kind: 'grid-parts',
+    cols: 6,
+    rows: 2,
+    parts: [
+      [0, 1, 6, 7],
+      [2, 3, 4, 5],
+      [8, 9, 10, 11],
+    ],
+  },
 ];
 const PARAM_SPECS: ParamSpec[] = [
   { kind: 'int', min: 2, max: 9 },

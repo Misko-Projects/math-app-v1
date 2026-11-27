@@ -62,3 +62,20 @@ tp.ALG.10.t2.prompt:
 tp.ALG.10.t3.prompt:
   text: "Step 1 has {a} squares, step 2 has {b}, step 3 has {c}. How many squares are in step {k}?"
   level: "2"
+
+# K02 slice 4c-2 (#17): input–output machines.
+sk.ALG.09.intro:
+  text: "A number machine changes every number the same way. Find out what it does."
+  level: "2"
+tp.ALG.09.t1.prompt:
+  text: "A number goes into the machine, and a new number comes out. What comes out for {i4}?"
+  level: "2"
+tp.ALG.09.t2.prompt:
+  text: "The machine changes every number the same way. What comes out for {i2} and for {i4}?"
+  level: "2"
+tp.ALG.09.t3.prompt:
+  text: "The machine adds the same number: {i1} gives {o1}, and {i2} gives {o2}. What number does it add?"
+  level: "2"
+tp.ALG.09.t4.prompt:
+  text: "The machine takes away the same number: {i1} gives {o1}, and {i2} gives {o2}. What number does it take away?"
+  level: "2"
