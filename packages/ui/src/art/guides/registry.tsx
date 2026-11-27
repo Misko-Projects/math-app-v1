@@ -22,15 +22,17 @@ export interface GuideDef {
   Figure: (props: { mood: GuideMood }) => ReactNode;
 }
 
+const SHELLY: GuideDef = {
+  id: 'shelly',
+  name: 'Shelly',
+  animal: 'turtle',
+  nameLine: 'ui.guide.name.shelly',
+  box: SHELLY_BOX,
+  Figure: ShellyFigure,
+};
+
 export const GUIDES: readonly GuideDef[] = [
-  {
-    id: 'shelly',
-    name: 'Shelly',
-    animal: 'turtle',
-    nameLine: 'ui.guide.name.shelly',
-    box: SHELLY_BOX,
-    Figure: ShellyFigure,
-  },
+  SHELLY,
   {
     id: '22',
     name: '22',
@@ -46,7 +48,7 @@ export const GUIDES: readonly GuideDef[] = [
  * (chosen on a newer device), draws the first guide; the stored value is left as it is.
  */
 export function guideById(id: string | null | undefined): GuideDef {
-  return GUIDES.find((g) => g.id === id) ?? GUIDES[0]!;
+  return GUIDES.find((g) => g.id === id) ?? SHELLY;
 }
 
 /** True when `id` names a guide this build can draw. */

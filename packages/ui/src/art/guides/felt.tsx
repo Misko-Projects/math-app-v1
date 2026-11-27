@@ -373,10 +373,11 @@ export function scallopEllipse(
     const a = (2 * Math.PI * i) / k - Math.PI / 2;
     return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)] as const;
   });
-  let d = `M${f1(pts[0]![0])},${f1(pts[0]![1])}`;
+  const at = (i: number) => pts[i % k] ?? ([cx, cy] as const);
+  let d = `M${f1(at(0)[0])},${f1(at(0)[1])}`;
   for (let i = 1; i <= k; i += 1) {
-    const a = pts[i - 1]!;
-    const b = pts[i % k]!;
+    const a = at(i - 1);
+    const b = at(i);
     const r = Math.hypot(b[0] - a[0], b[1] - a[1]) * bulge;
     d += `A${f1(r)},${f1(r)} 0 0 1 ${f1(b[0])},${f1(b[1])}`;
   }

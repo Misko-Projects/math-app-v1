@@ -90,7 +90,10 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
     // The child's guide cheers at the stage corner (05 §1): no touch, nothing read aloud twice.
     const cheer = page.getByTestId('guide-cheer');
     await expect(cheer).toHaveAttribute('aria-hidden', 'true');
-    await expect(cheer.locator('svg[data-character="guide"]')).toHaveAttribute('data-guide', 'shelly');
+    await expect(cheer.locator('svg[data-character="guide"]')).toHaveAttribute(
+      'data-guide',
+      'shelly',
+    );
   };
   // The demo shows the worked example, then the last step of the next one is the child's.
   await until(page, /turn/);
