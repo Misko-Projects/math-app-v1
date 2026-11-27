@@ -69,3 +69,17 @@ lessons:
       - { seed: 2673446873, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [FRA.03.t3, FRA.03.t4] }
+
+  # K02 slice 5b (#17): FRA.04 is a gateway. Its worked and faded examples put one jump of 1/b
+  # from 0 on a strip (t1: each part of the strip is one jump; the last step drops the dot); the
+  # test-out places on a bare line (t3) and names a step of a path with no picture (t4).
+  - skillId: FRA.04
+    mode: authored
+    templateId: FRA.04.t1
+    worked:
+      - { seed: 3117250401, target: easy }
+    faded:
+      - { seed: 3117250402, target: typical, childSteps: 1 }
+      - { seed: 3117250403, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.04.t3, FRA.04.t4] }

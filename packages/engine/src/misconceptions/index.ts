@@ -24,6 +24,13 @@ import { faceValue } from './rules/faceValue';
 import { firstStepOnly } from './rules/firstStepOnly';
 import { forgotTheTen } from './rules/forgotTheTen';
 import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
+import {
+  fractionLineAtWhole,
+  fractionLineTicks,
+  fractionLineWhole,
+  fractionOverOne,
+  fractionWholeCount,
+} from './rules/fractionLine';
 import { fractionCompareTops, fractionPartToPart, fractionSwapped } from './rules/fractionNames';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
@@ -96,6 +103,12 @@ const RULES: Record<string, MisconceptionRule> = {
   fractionPartToPart: fractionPartToPart,
   fractionSwapped: fractionSwapped,
   fractionCompareTops: fractionCompareTops,
+  // K02 (#17) slice 5b: fractions on the number line
+  fractionLineTicks: fractionLineTicks,
+  fractionLineWhole: fractionLineWhole,
+  fractionLineAtWhole: fractionLineAtWhole,
+  fractionOverOne: fractionOverOne,
+  fractionWholeCount: fractionWholeCount,
   unequalShare: unequalShare, // K01 sharing
   patternRestart: patternRestart, // K01 patterns
   placeSwap: placeSwap,
