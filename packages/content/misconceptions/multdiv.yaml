@@ -29,7 +29,7 @@ misconceptions:
     name: Adds the two numbers instead of finding the total of the equal groups
     detect: { kind: answer, rule: addInsteadOfMultiply }
     appliesTo: { generators: [mul.groups, mul.facts, mul.tens] }
-    skills: [MUL.04, MUL.06, MUL.11, MUL.13]
+    skills: [MUL.04, MUL.06, MUL.11, MUL.13, MUL.09, MUL.10]
     remediation: [MUL.02, MUL.04]
     feedback: fb.mc.add-instead-of-multiply
     priority: 50
@@ -47,7 +47,7 @@ misconceptions:
     name: Skip-counts one group too few or too many
     detect: { kind: answer, rule: skipCountSlip }
     appliesTo: { generators: [mul.groups, mul.facts] }
-    skills: [MUL.02, MUL.13, MUL.14, MUL.15]
+    skills: [MUL.02, MUL.13, MUL.14, MUL.15, MUL.09]
     remediation: [MUL.02]
     feedback: fb.mc.skip-count-slip
     priority: 40
@@ -136,4 +136,65 @@ misconceptions:
         match: true
       - params: { a: 7, b: 6, strategy: break-apart }
         response: { kind: numbers, values: [30, 12, 41] }
+        match: false
+
+  # K02 (#17) slice 3c: division facts and missing factors (mul.facts op ÷, unknown factor or
+  # dividend; MUL.10's story pads are the same items). New rows of the 03 §7.2 table.
+  - id: MC.multiply-instead-of-divide
+    name: Multiplies the two numbers it sees where the sentence or story divides or a factor is missing
+    detect: { kind: answer, rule: multiplyInsteadOfDivide }
+    appliesTo: { generators: [mul.facts] }
+    skills: [MUL.08, MUL.17, MUL.18, MUL.21, MUL.10]
+    remediation: [MUL.08]
+    feedback: fb.mc.multiply-instead-of-divide
+    priority: 50
+    parentTip: >-
+      Share 12 grapes onto 3 plates. Ask: did the number of grapes get bigger? Dividing shares a
+      total, so the answer is smaller than the total.
+    examples:
+      - params: { a: 4, b: 6, op: "÷", unknown: result }
+        response: { kind: number, value: 96 }
+        match: true
+      - params: { a: 4, b: 6, op: "÷", unknown: result }
+        response: { kind: number, value: 7 }
+        match: false
+
+  - id: MC.told-number-back
+    name: Gives back a number the sentence already tells (the divisor, the dividend, or the product for a missing factor)
+    detect: { kind: answer, rule: toldNumberBack }
+    appliesTo: { generators: [mul.facts] }
+    skills: [MUL.08, MUL.17, MUL.18, MUL.21, MUL.10]
+    remediation: [MUL.08]
+    feedback: fb.mc.told-number-back
+    priority: 45
+    parentTip: >-
+      Cover the missing number with a finger and read the fact aloud: "4 times what is 24?" The
+      answer is the number under your finger, not one you can already see.
+    examples:
+      - params: { a: 4, b: 6, op: "÷", unknown: result }
+        response: { kind: number, value: 4 }
+        match: true
+      - params: { a: 4, b: 6, op: "÷", unknown: result }
+        response: { kind: number, value: 24 }
+        match: true
+      - params: { a: 4, b: 6, op: "÷", unknown: result }
+        response: { kind: number, value: 5 }
+        match: false
+
+  - id: MC.neighbour-fact
+    name: Gives the answer of the next fact up or down (24 ÷ 4 → 5 or 7)
+    detect: { kind: answer, rule: neighbourFact }
+    appliesTo: { generators: [mul.facts] }
+    skills: [MUL.08, MUL.17, MUL.18, MUL.21]
+    remediation: [MUL.08]
+    feedback: fb.mc.neighbour-fact
+    priority: 40
+    parentTip: >-
+      Check a divide fact with its times fact: 4 times 7 is 28, not 24, so 24 divided by 4 is not 7.
+    examples:
+      - params: { a: 4, b: 6, op: "÷", unknown: result }
+        response: { kind: number, value: 7 }
+        match: true
+      - params: { a: 4, b: 6, op: "÷", unknown: result }
+        response: { kind: number, value: 9 }
         match: false

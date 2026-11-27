@@ -387,6 +387,12 @@ export const mulFacts: GeneratorDef = {
       default: { kind: 'const', value: 'second' },
       doc: '× with unknown factor: a × ? = r (second) or ? × b = r (first)',
     },
+    sentence: {
+      type: 'string',
+      values: ['shown', 'hidden'],
+      default: { kind: 'const', value: 'shown' },
+      doc: 'number-pad: write the number sentence, or not (a story told in the prompt, MUL.10)',
+    },
     corner: {
       type: 'int',
       default: { kind: 'int', min: 0, max: 3 },
@@ -475,6 +481,11 @@ export const mulFacts: GeneratorDef = {
     const unknown = asStr(p.unknown, 'result');
     const corner = asNum(p.corner);
     if (corner < 0 || corner > 3) return false;
+    const hidden = asStr(p.sentence, 'shown') === 'hidden';
+    // No sentence: one asked number on a number pad (two factors, no strategy or turn-around).
+    if (hidden && (t.format !== 'number-pad' || strategy !== 'none' || turn || asNum(p.c) > 0)) {
+      return false;
+    }
     if (askOp === '÷' || unknown !== 'result') {
       // Division and missing factors: factors 1–10 (no ÷ 0, no 0 quotient), no strategy or turn.
       if (strategy !== 'none' || turn || a < 1 || b < 1) return false;
@@ -674,6 +685,7 @@ export const mulFacts: GeneratorDef = {
       }
       case 'number-pad': {
         const values = plan.values;
+        const hidden = asStr(params.sentence, 'shown') === 'hidden';
         p = {
           params,
           vars,
@@ -688,7 +700,9 @@ export const mulFacts: GeneratorDef = {
               sprite,
               SKIP_FAMILIES.has(asStr(params.family, 'any')) ? { n: o, by: f } : { n: a, by: b },
             ),
-            expression: { tokens: plan.tokens },
+            // A story pad (MUL.10) tells the story in its prompt and writes no sentence: choosing
+            // × or ÷ is the child's work.
+            ...(hidden ? {} : { expression: { tokens: plan.tokens } }),
             blanks: plan.tokens.flatMap((tk) =>
               tk.t === 'blank'
                 ? [{ id: tk.id, maxDigits: digits(values[blankIndex(plan.tokens, tk.id)] ?? 0) }]
@@ -731,6 +745,8 @@ export const mulFacts: GeneratorDef = {
     const a = out.answer;
     if (a.kind !== 'state') return correctFromAnswer(a);
     const t = a.target;
+    // A built array (a × ? = r) answers its rows and columns only.
+    if (!t.requireSplit) return { kind: 'state', value: { rows: t.rows, cols: t.cols } };
     return {
       kind: 'state',
       value: {

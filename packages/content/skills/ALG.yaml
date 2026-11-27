@@ -22,6 +22,15 @@ skills:
     gateway: false
     representations: [hundred-chart, number-line, symbols]
 
+  - id: ALG.03
+    name: "Patterns in addition and multiplication tables"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.OA.D.9] }
+    prerequisites: [MUL.06, MUL.13, ALG.02]
+    gateway: false
+    representations: [hundred-chart, symbols]
+
   - id: ALG.04
     name: Find the part that repeats (the core)
     kind: concept

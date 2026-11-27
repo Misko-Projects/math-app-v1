@@ -28,7 +28,6 @@ coverageGrades: [K, 1]
 # which adds FRA.09–FRA.15 as gaps below FRA.16.
 plannedIds:
   [
-    ALG.03,
     ALG.08,
     DAT.06,
     DAT.07,
@@ -60,14 +59,8 @@ plannedIds:
     MEA.20,
     MEA.21,
     MON.07,
-    MUL.08,
-    MUL.09,
-    MUL.10,
-    MUL.17,
-    MUL.18,
     MUL.19,
     MUL.20,
-    MUL.21,
     PUZ.05,
     PUZ.08,
     PV.20,
