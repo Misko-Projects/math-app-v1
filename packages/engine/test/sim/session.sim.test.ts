@@ -157,6 +157,10 @@ const SLICE_3A_G2 = ['MUL.01', 'MUL.02', 'SUB.09', 'GEO.03', 'GEO.04', 'MUL.03']
 const SLICE_3A_G3 = ['MUL.04', 'MUL.22', 'MUL.05'] as const;
 /** Slice 3b (#17): multiplication facts and strategies, grade 3. */
 const SLICE_3B = ['MUL.06', 'MUL.13', 'MUL.14', 'MUL.15', 'MUL.16', 'MUL.07', 'MUL.11'] as const;
+/** Slice 3c (#17): division facts, unknown factors, equal-group stories and table patterns. */
+const SLICE_3C = ['MUL.08', 'MUL.21', 'MUL.18', 'MUL.10', 'ALG.03'] as const;
+/** Slice 3c fluency rows: like SLICE_1B_FLUENCY, practice only (no simulated child turns fluent). */
+const SLICE_3C_FLUENCY = ['MUL.09', 'MUL.17'] as const;
 const SLICE_4A = [
   'TIM.02',
   'TIM.11',
@@ -714,6 +718,8 @@ describe('session simulation (04 §8)', () => {
       slice('slice 2b', SLICE_2B_G3);
       slice('slice 3a', SLICE_3A_G3);
       slice('slice 3b', SLICE_3B);
+      slice('slice 3c', SLICE_3C);
+      slice('slice 3c fluency', SLICE_3C_FLUENCY, false);
     },
     SIM_TIMEOUT,
   );
