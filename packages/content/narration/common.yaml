@@ -3418,7 +3418,7 @@ fb.mc.fraction-line-ticks:
 fb.mc.fraction-line-whole:
   text: "One whole goes from 0 to 1, not the whole line."
 fb.mc.fraction-line-at-whole:
-  text: "Do not jump to the top number. Hop parts from 0."
+  text: "Start at 0. Make as many hops as the top number."
 fb.mc.fraction-over-one:
   text: "A fraction can be more than one. Keep going past 1."
 fb.mc.fraction-whole-count:
