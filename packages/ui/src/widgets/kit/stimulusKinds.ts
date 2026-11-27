@@ -17,6 +17,7 @@ export const STIMULUS_KINDS = {
   'base-ten': 'drawn',
   'number-line': 'drawn',
   'bar-model': 'drawn',
+  'grid-parts': 'drawn',
   'number-bond': 'drawn',
   groups: 'drawn',
   array: 'drawn',

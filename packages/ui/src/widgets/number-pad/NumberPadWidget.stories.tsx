@@ -445,3 +445,89 @@ export const TabletK: Story = {
     await expect(root.querySelector('.ni-pad')).toHaveAttribute('data-shape', '3x4');
   },
 };
+
+// ---------- equal shares that look different (FRA.16): a grid cut into parts ----------
+
+/** FRA.16.t2's widest: an 8 × 2 grid in fourths, two 2 × 2 squares and two 4 × 1 bars. */
+const gridEight: ConfigFor<'number-pad'> = {
+  format: 'number-pad',
+  stimulus: {
+    kind: 'grid-parts',
+    cols: 8,
+    rows: 2,
+    parts: [
+      [0, 1, 8, 9],
+      [2, 3, 10, 11],
+      [4, 5, 6, 7],
+      [12, 13, 14, 15],
+    ],
+  },
+  blanks: [{ id: 'x', maxDigits: 2 }],
+};
+/** FRA.16.t2's tallest: a 4 × 4 grid in fourths, two bars below and two squares above. */
+const gridSquare: ConfigFor<'number-pad'> = {
+  ...gridEight,
+  stimulus: {
+    kind: 'grid-parts',
+    cols: 4,
+    rows: 4,
+    parts: [
+      [0, 1, 4, 5],
+      [2, 3, 6, 7],
+      [8, 9, 10, 11],
+      [12, 13, 14, 15],
+    ],
+  },
+};
+
+/**
+ * Every square ≥ 22 px, parts told apart by a thick edge, no number on a part; the name gives
+ * each part's shape and the squares along its sides.
+ */
+async function expectGridParts(root: HTMLElement, name: string) {
+  const svg = root.querySelector<SVGSVGElement>('svg.ni-grid-parts') as SVGSVGElement;
+  await expect(svg).toHaveAttribute('aria-label', name);
+  await expect(svg.querySelector('text')).toBeNull();
+  // The drawn square (the picture may be scaled to its box): every one at least 22 px.
+  const scale = svg.getBoundingClientRect().width / Number(svg.getAttribute('width'));
+  await expect(Number(svg.dataset.squarePx) * scale).toBeGreaterThanOrEqual(22);
+}
+
+const eightName =
+  'A grid of 2 rows of 8 squares, cut into 4 parts: a square 2 squares wide and 2 tall, a square 2 squares wide and 2 tall, a bar 4 squares long, a bar 4 squares long.';
+
+export const GridPartsLandscapeMin: Story = {
+  args: { config: gridEight, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectGridParts(root, eightName);
+    await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'number-pad grid-parts 906x373'));
+    await userEvent.click(key(root, '4'));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 4 });
+  },
+};
+
+export const GridPartsTallLandscapeMin: Story = {
+  args: { config: gridSquare, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectGridParts(
+      root,
+      'A grid of 4 rows of 4 squares, cut into 4 parts: a square 2 squares wide and 2 tall, a square 2 squares wide and 2 tall, a bar 4 squares long, a bar 4 squares long.',
+    );
+    await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'number-pad grid-parts tall'));
+  },
+};
+
+export const GridPartsTablet: Story = {
+  args: { config: gridEight, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectGridParts(root, eightName);
+    await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'number-pad grid-parts tablet'));
+  },
+};

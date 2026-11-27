@@ -1355,6 +1355,18 @@ ui.widget.pattern.jump:
 ui.widget.pattern.biggest:
   text: "That is the biggest one."
   level: K
+ui.widget.grid.intro:
+  text: "A grid of {rows} rows of {cols} squares, cut into {n} parts:"
+  level: "2"
+ui.widget.grid.square:
+  text: "a square {w} squares wide and {h} tall"
+  level: "2"
+ui.widget.grid.rect:
+  text: "a rectangle {w} squares wide and {h} tall"
+  level: "2"
+ui.widget.grid.bar:
+  text: "a bar {n} squares long"
+  level: "2"
 ui.widget.pattern.machine:
   text: "The number machine"
   level: "1"

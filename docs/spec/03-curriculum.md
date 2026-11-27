@@ -1060,6 +1060,7 @@ export type StimulusSpec =                          // static pictures used by m
   | { kind: 'groups'; groups: number; perGroup: number; sprite: SpriteId }
   | { kind: 'array'; rows: number; cols: number; sprite?: SpriteId; split?: { atCol: number } }
   | { kind: 'fraction'; shape: 'circle' | 'rect' | 'bar' | 'loaf'; parts: number; shaded: number; equalParts: boolean }
+  | { kind: 'grid-parts'; cols: number; rows: number; parts: number[][] }   // K02 slice 4c-2 (FRA.16)
   | { kind: 'gauge'; instrument: 'scale' | 'beaker' | 'thermometer'; min: number; max: number; ticksEvery: number;
       labelsEvery: number; value: number; unit: 'g' | 'kg' | 'L' | 'degF' | 'degC' }
   | { kind: 'clock'; h: number; m: number; numerals: boolean; digital?: boolean }
@@ -1079,6 +1080,11 @@ export interface ChartSpec { kind: 'picture' | 'bar' | 'line-plot' | 'tally' | '
   categories: { id: string; label: NarrationKey; value: number }[]; scale: 1 | 2 | 5 | 10;
   axisMax: number; lineScale?: { min: number; max: number; step: number } }  // line plots: step 1, 0.5 or 0.25
 export type ContextId = string;          // contexts.yaml id
+```
+
+`grid-parts` (K02 slice 4c-2) is one whole: a grid of `cols` × `rows` squares (at most 8 × 4) cut along its lines into 2–6 `parts`. Each part lists the cell indices it covers, in reading order. The parts cover every square exactly once, and each is a rectangle of at least 2 squares. Each part is drawn with its own fill and a thick ink edge, and thin lines mark its squares (22–56 px). No size is ever written on a part. The accessible name gives the grid and each part's shape with the squares along its sides: "A grid of 4 rows of 4 squares, cut into 4 parts: a square 2 squares wide and 2 tall, …, a bar 4 squares long." This is how a screen-reader child gets what a sighted child counts. number-pad draws it, and so does fraction-pick `fair-or-not`.
+
+```ts
 
 export interface InteractionEvent {     // manipulative trace (see below); never part of ResponseValue
   t: 'tap' | 'drag' | 'drop' | 'undo' | 'move'; target: string; ms: number;

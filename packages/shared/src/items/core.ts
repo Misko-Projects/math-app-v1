@@ -584,9 +584,42 @@ export const chartSpecSchema = z
   .superRefine((chart, ctx) => chartIssues(chart, ctx, []));
 assertType<Equals<z.infer<typeof chartSpecSchema>, ChartSpec>>(true);
 
+/**
+ * One whole cut into parts along its grid lines (FRA.16, K02 slice 4c-2): a `cols` × `rows` grid
+ * of squares, each part the cell indices it covers (reading order, row by row). The picture colours
+ * each part and draws thick lines between parts; it never writes a size on a part. Every part is a
+ * rectangle of at least 2 squares, so its spoken name ("a bar 4 squares long") tells all of it.
+ */
+export interface GridPartsSpec {
+  kind: 'grid-parts';
+  cols: number;
+  rows: number;
+  parts: number[][];
+}
+/** Grid sizes a grid-parts picture draws: up to 8 squares across and 4 down, 2 to 6 parts. */
+export const GRID_PARTS_COLS_MAX = 8;
+export const GRID_PARTS_ROWS_MAX = 4;
+export const GRID_PARTS_PARTS_MAX = 6;
+
+/** The rectangle a set of cells fills in a `cols`-wide grid, or null when it is not one. */
+export function gridPartRect(
+  cells: readonly number[],
+  cols: number,
+): { col: number; row: number; w: number; h: number } | null {
+  if (cells.length === 0) return null;
+  const xs = cells.map((c) => c % cols);
+  const ys = cells.map((c) => Math.floor(c / cols));
+  const col = Math.min(...xs);
+  const row = Math.min(...ys);
+  const w = Math.max(...xs) - col + 1;
+  const h = Math.max(...ys) - row + 1;
+  return w * h === new Set(cells).size && w * h === cells.length ? { col, row, w, h } : null;
+}
+
 /** Static pictures used by many formats (03 §5.1). */
 export type StimulusSpec =
   | { kind: 'none' }
+  | GridPartsSpec
   | { kind: 'objects'; set: ObjectSet }
   | {
       kind: 'dots';
@@ -715,6 +748,29 @@ export const stimulusSpecSchema = z.discriminatedUnion('kind', [
     lower: z.object({ parts: z.array(barAmount), whole: barAmount }).optional(),
   }),
   z.object({ kind: z.literal('number-bond'), whole: numOrQ, parts: z.array(numOrQ) }),
+  z
+    .object({
+      kind: z.literal('grid-parts'),
+      cols: z.number().int().min(1).max(GRID_PARTS_COLS_MAX),
+      rows: z.number().int().min(1).max(GRID_PARTS_ROWS_MAX),
+      parts: z.array(z.array(z.number().int().min(0))),
+    })
+    .superRefine((g, ctx) => {
+      const issue = (message: string) => ctx.addIssue({ code: 'custom', path: ['parts'], message });
+      if (g.parts.length < 2 || g.parts.length > GRID_PARTS_PARTS_MAX) {
+        issue(`a grid is cut into 2 to ${GRID_PARTS_PARTS_MAX} parts`);
+      }
+      const all = g.parts.flat();
+      const n = g.cols * g.rows;
+      if (all.length !== n || new Set(all).size !== n || all.some((c) => c >= n)) {
+        issue('the parts cover every square of the grid exactly once');
+      }
+      g.parts.forEach((p) => {
+        if (p.length < 2 || !gridPartRect(p, g.cols)) {
+          issue('every part is a rectangle of at least 2 squares');
+        }
+      });
+    }),
   z.object({ kind: z.literal('groups'), groups: count, perGroup: count, sprite: spriteIdSchema }),
   z.object({
     kind: z.literal('array'),

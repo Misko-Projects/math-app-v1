@@ -10,6 +10,7 @@ import { CoinsView, describeCoins } from './CoinsView';
 import { FractionView } from './FractionView';
 import { shapeFrame } from './fractionShapes';
 import { GaugeView } from './GaugeView';
+import { describeGridParts, GridPartsView } from './GridPartsView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
@@ -298,6 +299,18 @@ export function StimulusView({
             label={label ?? describeCoins(spec.coins, spec.bills ?? [], t)}
             maxWidth={maxWidth}
             maxHeight={maxHeight}
+          />
+        </div>
+      );
+    case 'grid-parts':
+      return (
+        <div className={cls} data-kind="grid-parts">
+          <GridPartsView
+            spec={spec}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
+            // The parts are the picture: a caller's label (a hint card's title) comes first.
+            label={label ? `${label}: ${describeGridParts(spec, t)}` : describeGridParts(spec, t)}
           />
         </div>
       );

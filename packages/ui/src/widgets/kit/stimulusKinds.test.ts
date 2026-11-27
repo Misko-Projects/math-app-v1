@@ -27,6 +27,17 @@ const SAMPLES: { [K in StimulusKind]: Extract<StimulusSpec, { kind: K }> } = {
   'base-ten': { kind: 'base-ten', hundreds: 1, tens: 2, ones: 3 },
   'number-line': { kind: 'number-line', min: 0, max: 10, ticksEvery: 1, labelsEvery: 5 },
   'bar-model': { kind: 'bar-model', parts: [5, '?'], whole: 12 },
+  'grid-parts': {
+    kind: 'grid-parts',
+    cols: 4,
+    rows: 4,
+    parts: [
+      [0, 1, 4, 5],
+      [2, 3, 6, 7],
+      [8, 9, 10, 11],
+      [12, 13, 14, 15],
+    ],
+  },
   'number-bond': { kind: 'number-bond', whole: 7, parts: [3, 4] },
   groups: { kind: 'groups', groups: 2, perGroup: 3, sprite: 'fish' },
   array: { kind: 'array', rows: 2, cols: 3 },

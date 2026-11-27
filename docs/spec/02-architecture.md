@@ -755,6 +755,7 @@ Contract adjustments made by K02 (#17 slice 4c-2, equal shares and function mach
 |---|---|---|
 | K4 | **Order place names.** `OrderConfig` gains an optional `cue: 'size' \| 'places'` (03 §5.5). `size`, the default, is the pebble row every existing order item draws. `places` names each slot's place in words (hundreds, tens, ones), for 2 or 3 cards of one digit each (the format refuses anything else). | Digit-card puzzles (PUZ.06): big-to-small pebbles told the child the strategy. |
 | K5 | **Pattern-extend tables.** The `table` mode is accepted (03 §5.5). Before this it was refused because the widget had no layout for it. A table has `kind: 'function'`, an empty `sequence` and `palette`, 2–4 rows of distinct inputs, and at least one output shown and one missing. The ops and the `numbers` answer are unchanged. | Input–output machines (ALG.09). |
+| K6 | **Grid-parts pictures.** *New* `StimulusSpec` kind `grid-parts` `{ cols; rows; parts: number[][] }` (03 §5.1), with `GridPartsSpec`, `gridPartRect` and the bounds `GRID_PARTS_COLS_MAX` (8), `GRID_PARTS_ROWS_MAX` (4) and `GRID_PARTS_PARTS_MAX` (6). The schema requires every square covered exactly once, by 2–6 rectangles of at least 2 squares each. StimulusView draws it. fraction-pick `fair-or-not` accepts it as its picture. | Equal shares that look different (FRA.16): a pictorial whole cut into parts of different shapes, which the existing `fraction` picture cannot draw. |
 
 ## 6. Performance budgets (enforced in CI where possible)
 
