@@ -22,6 +22,7 @@
 
 import * as engine from '@number-island/engine';
 import type { GeneratedItem, ItemTemplate, StimulusSpec } from '@number-island/shared';
+import { chartPositionId } from '@number-island/shared';
 import {
   type AgeMode,
   createDemoController,
@@ -1963,3 +1964,163 @@ describe('grade 2 puzzles at their fullest (#17 slice 4e)', () => {
     await shot(id, 'found');
   });
 });
+
+// K02 slice 4c-1 (#17): DAT.03 line plots. The build is measured after every X the child adds
+// (seeds 1–9 at both viewports, the stacks at their fullest at the end); the reads on seeds 1–9.
+// An X is at least 22 px.
+describe.each(FIT_VIEWPORTS)('DAT.03 line plots fit at %s (#17 slice 4c-1)', (viewport) => {
+  const [width, height] = viewport.split('x').map(Number) as [number, number];
+  const xsAtLeast22 = (where: string): string[] =>
+    [...document.querySelectorAll(`${where} .ni-chart__x`)]
+      .map((x) => x.getBoundingClientRect().width)
+      .filter((w) => w < 22)
+      .map((w) => `an X is ${w.toFixed(1)} px`);
+
+  it('DAT.03.t2: every X a child adds keeps the build inside the area', async () => {
+    await page.viewport(width, height);
+    const id = 'DAT.03.t2';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const failing: string[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      const item = engine.generateItem(template, seed);
+      show(item, ageModeOf(template));
+      const first = await measure(id);
+      if (first.length > 0) failing.push(`seed ${seed} first: ${first.join('; ')}`);
+      if (item.widget.format !== 'bar-graph-build') throw new Error('DAT.03.t2 builds');
+      await userEvent.click(document.querySelector('.ni-bgb__chip[data-item="mark"]') as Element);
+      for (const [k, at] of item.widget.data.values.entries()) {
+        await userEvent.click(
+          document.querySelector(`.ni-bgb__lane[data-slot="${chartPositionId(at)}"]`) as Element,
+        );
+        const misfit = [...(await measure(id)), ...xsAtLeast22('.ni-bgb__chart')];
+        if (misfit.length > 0) failing.push(`seed ${seed} after ${k + 1} Xs: ${misfit.join('; ')}`);
+      }
+      expect(document.querySelectorAll('.ni-bgb__chart .ni-chart__x').length).toBe(
+        item.widget.data.values.length,
+      );
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-s${seed}-built-${viewport}.png` });
+    }
+    expect(failing).toEqual([]);
+  });
+
+  it('DAT.03.t1 and t3: every read plot fits with Xs of 22 px or more', async () => {
+    await page.viewport(width, height);
+    const failing: string[] = [];
+    for (const id of ['DAT.03.t1', 'DAT.03.t3']) {
+      const template = content.store.graph.templates[id] as ItemTemplate;
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        show(engine.generateItem(template, seed), ageModeOf(template));
+        const misfit = [...(await measure(id)), ...xsAtLeast22('.ni-bgr')];
+        if (misfit.length > 0) failing.push(`${id} seed ${seed}: ${misfit.join('; ')}`);
+      }
+    }
+    expect(failing).toEqual([]);
+  });
+});
+
+// K02 slice 4c-1 (#17): MEA.09 two rulers. Every length the template draws (2, 3, 5, 7, 8 cm) at
+// both viewports, first render and with both boxes typed: it fits, every centimeter (0–10) and
+// every inch (0–4) keeps its numeral, 12+ px apart. The pad item on seeds 1–9.
+describe.each(FIT_VIEWPORTS)('MEA.09 two rulers fit at %s (#17 slice 4c-1)', (viewport) => {
+  const [width, height] = viewport.split('x').map(Number) as [number, number];
+  const labelIssues = (scope: string, last: number): string[] => {
+    const nums = [...document.querySelectorAll(`${scope} .ni-ruler__numeral`)];
+    const out: string[] = [];
+    if (
+      nums.map((n) => n.textContent).join(',') !==
+      Array.from({ length: last + 1 }, (_, i) => i).join(',')
+    )
+      out.push(`${scope} labels ${nums.map((n) => n.textContent).join(',')}`);
+    const boxes = nums.map((n) => n.getBoundingClientRect());
+    for (let i = 1; i < boxes.length; i += 1) {
+      const gap = (boxes[i] as DOMRect).left - (boxes[i - 1] as DOMRect).right;
+      if (gap < 12) out.push(`${scope} numerals ${i - 1}/${i} ${gap.toFixed(1)} px apart`);
+    }
+    return out;
+  };
+
+  it('MEA.09.t1: every drawn length, before and after typing', async () => {
+    await page.viewport(width, height);
+    const id = 'MEA.09.t1';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const failing: string[] = [];
+    for (const length of [2, 3, 5, 7, 8]) {
+      const item = engine.generateItemFromParams(template, {
+        mode: 'two-units',
+        ask: 'longer',
+        unit: 'cm',
+        altUnit: 'in',
+        length,
+      });
+      show(item, ageModeOf(template));
+      const first = [
+        ...(await measure(id)),
+        ...labelIssues('.ni-mlen__ruler', 10),
+        ...labelIssues('.ni-mlen__inch-ruler', 4),
+      ];
+      if (first.length > 0) failing.push(`${length} cm first: ${first.join('; ')}`);
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-${length}cm-${viewport}.png` });
+      const answer = item.answer.kind === 'numbers' ? item.answer.values : [];
+      for (const [box, v] of answer.entries()) {
+        await userEvent.click(document.querySelector(`button[data-box="${box}"]`) as Element);
+        for (const d of String(v))
+          await userEvent.click(document.querySelector(`.ni-pad__key[data-key="${d}"]`) as Element);
+      }
+      const typed = await measure(id);
+      if (typed.length > 0) failing.push(`${length} cm typed: ${typed.join('; ')}`);
+    }
+    expect(failing).toEqual([]);
+  });
+
+  it('MEA.09.t2: the pad item fits on seeds 1–9', async () => {
+    await page.viewport(width, height);
+    const id = 'MEA.09.t2';
+    const template = content.store.graph.templates[id] as ItemTemplate;
+    const failing: string[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      show(engine.generateItem(template, seed), ageModeOf(template));
+      const misfit = await measure(id);
+      if (misfit.length > 0) failing.push(`seed ${seed}: ${misfit.join('; ')}`);
+    }
+    expect(failing).toEqual([]);
+  });
+});
+
+// K02 slice 4c-1 (#17): MEA.08. The sorts and the estimates on seeds 1–9 at both viewports; an
+// estimate draws the object exactly `length` units of the reference's width (one scale), with
+// no ruler, and the reference at least 22 px.
+describe.each(FIT_VIEWPORTS)(
+  'MEA.08 estimates and unit sorts fit at %s (#17 slice 4c-1)',
+  (viewport) => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    it('MEA.08.t1–t4 on seeds 1–9', async () => {
+      await page.viewport(width, height);
+      const failing: string[] = [];
+      for (const id of ['MEA.08.t1', 'MEA.08.t2', 'MEA.08.t3', 'MEA.08.t4']) {
+        const template = content.store.graph.templates[id] as ItemTemplate;
+        for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+          const item = engine.generateItem(template, seed);
+          show(item, ageModeOf(template));
+          const misfit = await measure(id);
+          if (item.widget.format === 'measure-length') {
+            const obj = document.querySelector('.ni-mlen__object')?.getBoundingClientRect();
+            const ref = document
+              .querySelector('.ni-mlen__reference .ni-unit')
+              ?.getBoundingClientRect();
+            const length = item.widget.object.length;
+            if (!obj || !ref || Math.abs(obj.width - length * ref.width) > 1.5)
+              misfit.push(`object ${obj?.width} is not ${length} × ${ref?.width}`);
+            if ((ref?.width ?? 0) < 22) misfit.push(`reference ${ref?.width} px`);
+            if (document.querySelector('.ni-mlen .ni-ruler')) misfit.push('a ruler is drawn');
+          }
+          if (misfit.length > 0) failing.push(`${id} seed ${seed}: ${misfit.join('; ')}`);
+          if (SHOTS.includes(id) && seed <= 2)
+            await page.screenshot({ path: `__fit__/${id}-s${seed}-${viewport}.png` });
+        }
+      }
+      expect(failing).toEqual([]);
+    });
+  },
+);

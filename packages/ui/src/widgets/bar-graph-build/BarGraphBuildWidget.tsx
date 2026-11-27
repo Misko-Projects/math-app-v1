@@ -20,6 +20,7 @@ import { useWidgetDemo } from '../demo';
 import {
   ChartView,
   CheckButton,
+  formatLength,
   ObjectSprite,
   type SlotGeometry,
   useAlive,
@@ -85,14 +86,6 @@ function addOp(config: Config, state: BarGraphBuildState, i: number, count: numb
     default:
       return { op: 'tally', args: { id, count } };
   }
-}
-
-/** A measurement as written: whole number plus ½, ¼ or ¾. */
-export function formatLength(v: number): string {
-  const whole = Math.floor(v);
-  const frac = Math.round((v - whole) * 4);
-  const glyph = ['', '¼', '½', '¾'][frac] ?? '';
-  return whole === 0 && glyph ? glyph : `${whole}${glyph}`;
 }
 
 /**
@@ -588,19 +581,23 @@ export function BarGraphBuildWidget({
                   label={dataLabel}
                 />
               ) : (
-                <div
+                // One list item per measurement (DAT.03): a screen reader steps through them in
+                // reading order, as a sighted child reads the cards.
+                // role="list": Safari drops list semantics from a list styled without bullets.
+                <ul
                   className="ni-bgb__lengths"
-                  role="img"
-                  aria-label={dataLabel}
+                  // biome-ignore lint/a11y/noRedundantRoles: kept for Safari (list-style: none)
+                  role="list"
+                  aria-label={t('ui.widget.chart.lengths')}
                   style={{ maxWidth: inner(dataArea).width }}
                 >
                   {config.data.values.map((v, k) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: measurements keep their order
-                    <span key={k} className="ni-bgb__length">
+                    <li key={k} className="ni-bgb__length">
                       {formatLength(v)}
-                    </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
           ) : null}

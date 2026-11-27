@@ -733,6 +733,7 @@ const SORTING_SKILLS = [
   'GEO.06',
   'GEO.07',
   'GEO.08',
+  'MEA.08',
   'MEA.15',
   'MEA.16',
   'TIM.05',

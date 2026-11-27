@@ -503,6 +503,7 @@ pebble
 pebbles
 pebbling
 pebblings
+pencil
 pick
 picture
 pie

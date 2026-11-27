@@ -14,7 +14,20 @@
 //               units in a picture (number-pad, numeral-pick)                            MEA.02
 // - two-units   measure the same object with two units (measure-length), or say which unit is
 //               needed more (or fewer) times (compare, ask more / fewer)                 MEA.22
+//               K02 slice 4c-1, centimeters and inches (`unit: cm`, `altUnit: in`): whole
+//               centimeters under 10 whose inch reading is at least 0.2 in from a half
+//               (2, 3, 5, 7, 8 cm: about 1, 1, 2, 3, 3 in); measure-length draws a centimeter
+//               ruler under the object and an inch ruler above it (answer [cm, inches]);
+//               number-pad tells the inches ("about") and asks the centimeters on a ruler
+//               picture from 0                                                           MEA.09
 // - read        read a ruler (measure-length, number-pad, numeral-pick)                 MEA.03
+// - estimate    K02 slice 4c-1: about how long? The object beside one unit drawn to the same scale
+//               (a 1-inch tile, a 1-centimeter cube, a 1-foot or 1-meter bar), no ruler; three
+//               options a factor of about 3 apart: round(length / 3), length, 3 × length
+//               (measure-length, pick)                                                    MEA.08
+// - unit-sort   K02 slice 4c-1: sort everyday things by the unit to measure them in, inches or
+//               feet (shape-sort; things a child knows the size of: INCH_THINGS, FOOT_THINGS)
+//                                                                                         MEA.08
 //
 // Every object length is a param (`length`, and the derived `length2`…`length4` drawn from the
 // same domain), so the item key and every feature follow from the params alone (03 §5.3).
@@ -25,9 +38,11 @@ import type {
   ParamValue,
   ParamValues,
   ResponseValue,
+  SortRule,
   StimulusSpec,
   WidgetConfigOf,
 } from '@number-island/shared';
+import { CM_PER_INCH, TWO_RULER_CM, TWO_RULER_HALF_CLEAR } from '../../formats/measure-length';
 import { numberOptionId, optionNumber } from '../../formats/numeral-pick';
 import type { Rng } from '../../rng';
 import {
@@ -52,6 +67,8 @@ export const LENGTH_MODES = [
   'iterate',
   'two-units',
   'read',
+  'estimate',
+  'unit-sort',
 ] as const;
 export type LengthMode = (typeof LENGTH_MODES)[number];
 const ASKS = ['longer', 'shorter', 'more', 'fewer'] as const;
@@ -79,14 +96,33 @@ const FORMAT_MODES: Record<string, readonly LengthMode[]> = {
   'compare-length': ['compare', 'order', 'indirect', 'difference'],
   compare: ['compare', 'two-units'],
   order: ['order'],
-  'measure-length': ['iterate', 'two-units', 'read'],
-  'number-pad': ['iterate', 'read', 'difference'],
+  'measure-length': ['iterate', 'two-units', 'read', 'estimate'],
+  'shape-sort': ['unit-sort'],
+  'number-pad': ['iterate', 'read', 'difference', 'two-units'],
   'numeral-pick': ['iterate', 'read', 'difference'],
 };
 
 const OBJECT_MODES = new Set<LengthMode>(['compare', 'order', 'indirect', 'difference']);
 const PRECISIONS = [1, 2, 4];
 const SIXTEENTHS = 16;
+
+/** Things measured in inches, and in feet (MEA.08 unit-sort): sizes a second-grader knows. */
+export const INCH_THINGS = ['pencil', 'shoe', 'spoon', 'cup', 'button'] as const;
+export const FOOT_THINGS = ['door', 'table', 'fishing-rod'] as const;
+
+/** The three estimate options: about a third, the length, three times (MEA.08). */
+export function estimateOptions(length: number): number[] {
+  return [Math.max(1, Math.round(length / 3)), length, 3 * length];
+}
+
+/** Centimeters and inches on rulers (MEA.09): the inches to the nearest inch. */
+const isCmIn = (unit: string, alt: string): boolean => unit === 'cm' && alt === 'in';
+/** The inch reading of a whole-centimeter length, and whether it is clear of a half inch. */
+function cmToInches(cm: number): { inches: number; clear: boolean } {
+  const exact = cm / CM_PER_INCH;
+  const frac = exact - Math.floor(exact);
+  return { inches: Math.round(exact), clear: Math.abs(frac - 0.5) >= TWO_RULER_HALF_CLEAR };
+}
 
 /** The object lengths of an item: `length`, then `length2` … `length<objects>`. */
 export function objectLengths(p: Readonly<ParamValues>): number[] {
@@ -154,7 +190,15 @@ function isAsk(v: ParamValue | undefined): v is (typeof ASKS)[number] {
 
 export const meaLength: GeneratorDef = {
   id: 'mea.length',
-  formats: ['measure-length', 'compare-length', 'numeral-pick', 'number-pad', 'order', 'compare'],
+  formats: [
+    'measure-length',
+    'compare-length',
+    'numeral-pick',
+    'number-pad',
+    'order',
+    'compare',
+    'shape-sort',
+  ],
   params: {
     mode: {
       type: 'string',
@@ -178,6 +222,16 @@ export const meaLength: GeneratorDef = {
       type: 'int',
       default: { kind: 'const', value: 2 },
       doc: 'how many objects to compare or order (2–4)',
+    },
+    cards: {
+      type: 'int',
+      default: { kind: 'const', value: 4 },
+      doc: 'unit-sort: things to sort (3–6)',
+    },
+    hits: {
+      type: 'int',
+      default: { kind: 'const', value: 2 },
+      doc: 'unit-sort: how many of them are measured in feet (1–3, leaving at least one in inches)',
     },
     same: {
       type: 'bool',
@@ -214,6 +268,15 @@ export const meaLength: GeneratorDef = {
       doc: 'shorter ÷ longer of the closest pair (compare, order, indirect, difference); smaller ÷ bigger unit (two-units on compare)',
     },
     misaligned: { weight: 0.5, doc: 'the ends are not lined up (offset > 0)' },
+    'estimate.long': {
+      weight: 0.5,
+      doc: 'estimate: max(0, length − 2) / 8 (a longer object is more units to picture)',
+    },
+    'unitSort.cards': { weight: 0.3, doc: 'unit-sort: cards − 3' },
+    'inch.nearHalf': {
+      weight: 0.5,
+      doc: 'centimeters and inches: how near the inch reading is to a half (0 far, 1 at the 0.2 in limit)',
+    },
     'objects.over2': { weight: 0.3, doc: 'objects − 2 (compare-length)' },
     indirect: { weight: 0.5, doc: 'compared through a third object (a string)' },
     'ask.difference': { weight: 0.5, doc: 'how much longer' },
@@ -255,6 +318,15 @@ export const meaLength: GeneratorDef = {
     'gen.mea.length.lay-first',
     'gen.mea.length.lay-next',
     'gen.mea.length.units-long',
+    'gen.mea.length.estimate-unit',
+    'gen.mea.length.estimate-about',
+    'gen.mea.length.sort-look',
+    'gen.mea.length.sort-inches',
+    'gen.mea.length.sort-feet',
+    'gen.mea.length.two-rulers-zero',
+    'gen.mea.length.two-rulers-cm',
+    'gen.mea.length.two-rulers-in',
+    'gen.mea.length.two-rulers-more',
     'gen.mea.length.use-unit',
     'gen.mea.length.makes',
     'gen.mea.length.two-counts',
@@ -292,7 +364,11 @@ export const meaLength: GeneratorDef = {
     const su = unitSize(u);
     const sa = unitSize(alt);
     const base = su !== undefined ? asNum(p.length) * su : 0;
-    const altLength = sa !== undefined && base % sa === 0 ? base / sa : 0;
+    const altLength = isCmIn(u, alt)
+      ? cmToInches(asNum(p.length)).inches
+      : sa !== undefined && base % sa === 0
+        ? base / sa
+        : 0;
     return { gap: smallestGap(ls), altLength };
   },
   accepts(p, t) {
@@ -325,6 +401,11 @@ export const meaLength: GeneratorDef = {
       case 'iterate':
         return true;
       case 'two-units': {
+        if (isCmIn(unit, alt)) {
+          if (t.format === 'compare') return false;
+          return length < TWO_RULER_CM && cmToInches(length).clear && asNum(p.altLength) >= 1;
+        }
+        if (t.format === 'number-pad') return false;
         if (t.format === 'compare')
           return (
             (ask === 'more' || ask === 'fewer') &&
@@ -337,6 +418,23 @@ export const meaLength: GeneratorDef = {
           unitSize(alt) !== undefined &&
           unitSize(unit) !== undefined &&
           asNum(p.altLength) > 0
+        );
+      }
+      case 'estimate':
+        return (
+          t.format === 'measure-length' && STANDARD.has(unit) && length >= 2 && 3 * length <= 99
+        );
+      case 'unit-sort': {
+        const cards = asNum(p.cards, 4);
+        const hits = asNum(p.hits, 2);
+        return (
+          t.format === 'shape-sort' &&
+          cards >= 3 &&
+          cards <= 6 &&
+          hits >= 1 &&
+          hits <= FOOT_THINGS.length &&
+          cards - hits >= 1 &&
+          cards - hits <= INCH_THINGS.length
         );
       }
       case 'read': {
@@ -367,6 +465,7 @@ export const meaLength: GeneratorDef = {
       unit,
       altUnit,
       ask,
+      inches: altLength,
       many: 2,
       one: 1,
       long: Math.max(...all),
@@ -547,11 +646,89 @@ export const meaLength: GeneratorDef = {
       return finish(meaLength, ctx, p);
     }
 
+    if (mode === 'unit-sort') {
+      const cards = asNum(params.cards, 4);
+      const hits = asNum(params.hits, 2);
+      const draw = rng.fork('cards');
+      const feet = draw.shuffle([...FOOT_THINGS]).slice(0, hits);
+      const inches = draw.shuffle([...INCH_THINGS]).slice(0, cards - hits);
+      const shown = rng
+        .fork('layout')
+        .shuffle([
+          ...feet.map((sprite) => ({ sprite, unit: 'ft' })),
+          ...inches.map((sprite) => ({ sprite, unit: 'in' })),
+        ]);
+      const bins: { id: string; label: string; rule: SortRule }[] = [
+        { id: 'b0', label: 'unit.in.many', rule: { prop: 'unit', op: '==', value: 'in' } },
+        { id: 'b1', label: 'unit.ft.many', rule: { prop: 'unit', op: '==', value: 'ft' } },
+      ];
+      const cardList = shown.map((c, i) => ({
+        id: `c${i}`,
+        sprite: c.sprite,
+        props: { unit: c.unit },
+      }));
+      p = {
+        params,
+        vars,
+        math: { 'unitSort.cards': Math.max(0, cards - 3) },
+        widget: {
+          format: 'shape-sort',
+          cards: cardList.map((c) => ({
+            id: c.id,
+            card: { kind: 'object', sprite: c.sprite, props: c.props },
+          })),
+          bins,
+          mode: 'sort',
+          // A thing's name is what the child sees; the bins ask the unit to measure it in.
+          namesGiven: true,
+        },
+        answer: {
+          kind: 'state',
+          checker: 'sort.byRule',
+          target: {
+            cards: cardList.map((c) => ({ id: c.id, props: c.props })),
+            bins: bins.map((b) => ({ id: b.id, rule: b.rule })),
+          },
+        },
+      };
+      return finish(meaLength, ctx, p);
+    }
+
+    if (mode === 'estimate') {
+      // Shuffled (review R1): the answer is not always the middle button.
+      const options = layout.shuffle(estimateOptions(length));
+      p = {
+        params,
+        vars,
+        math: { 'estimate.long': ratio100(Math.max(0, length - 2) / 8) },
+        widget: {
+          format: 'measure-length',
+          object: { sprite, length },
+          tool: 'units',
+          unit,
+          startOffset: 0,
+          precision: 1,
+          mode: 'estimate',
+          input: 'pick',
+          options,
+        },
+        answer: { kind: 'choice', id: numberOptionId(length) },
+      };
+      return finish(meaLength, ctx, p);
+    }
+
     // Measuring: iterate, two-units, read.
     const whole = wholeUnits(length, precision);
     const value = whole;
     math['length.over10'] = whole > 10 ? 1 : 0;
-    if (mode === 'iterate' || mode === 'two-units') {
+    if (mode === 'two-units' && isCmIn(unit, altUnit)) {
+      const exact = length / CM_PER_INCH;
+      const fromHalf = Math.abs(exact - Math.floor(exact) - 0.5);
+      math['inch.nearHalf'] = ratio100(
+        Math.max(0, 1 - (fromHalf - TWO_RULER_HALF_CLEAR) / (0.5 - TWO_RULER_HALF_CLEAR)),
+      );
+    }
+    if (mode === 'iterate' || (mode === 'two-units' && !isCmIn(unit, altUnit))) {
       math['units.over5'] = ratio100(Math.max(0, Math.max(length, altLength) - 5) / 5);
     }
     if (mode === 'read') {
@@ -562,32 +739,41 @@ export const meaLength: GeneratorDef = {
     const padUnit = STANDARD.has(unit) ? (unit as 'in' | 'cm' | 'ft' | 'm') : null;
     // A picture of the measurement: units laid end to end, or the object on a ruler.
     const picture: StimulusSpec =
-      mode === 'read'
+      mode === 'two-units' && t.format === 'number-pad'
         ? {
             kind: 'number-line',
             min: 0,
-            max: Math.ceil(offset + whole) + 1,
-            ticksEvery: 1 / precision,
+            max: whole + 1,
+            ticksEvery: 1,
             labelsEvery: 1,
-            marks: [{ at: offset }, { at: offset + whole, arrow: true }],
+            marks: [{ at: 0 }, { at: whole, arrow: true }],
           }
-        : {
-            kind: 'objects',
-            set: {
-              count: length,
-              sprite: unitSprite(unit),
-              layout: 'line',
-              layoutSeed: layoutSeed(rng),
-            },
-          };
+        : mode === 'read'
+          ? {
+              kind: 'number-line',
+              min: 0,
+              max: Math.ceil(offset + whole) + 1,
+              ticksEvery: 1 / precision,
+              labelsEvery: 1,
+              marks: [{ at: offset }, { at: offset + whole, arrow: true }],
+            }
+          : {
+              kind: 'objects',
+              set: {
+                count: length,
+                sprite: unitSprite(unit),
+                layout: 'line',
+                layoutSeed: layoutSeed(rng),
+              },
+            };
     switch (t.format) {
       case 'measure-length': {
-        math['tool.units'] = mode === 'read' ? 0 : 1;
+        math['tool.units'] = mode === 'read' || isCmIn(unit, altUnit) ? 0 : 1;
         if (mode === 'two-units') math.twoUnits = 1;
         const widget: WidgetConfigOf<'measure-length'> = {
           format: 'measure-length',
           object: { sprite, length },
-          tool: mode === 'read' ? 'ruler' : 'units',
+          tool: mode === 'read' || isCmIn(unit, altUnit) ? 'ruler' : 'units',
           unit,
           ...(mode === 'two-units' ? { altUnit: altUnit as LengthUnit } : {}),
           startOffset: mode === 'read' ? offset : 0,
@@ -611,8 +797,14 @@ export const meaLength: GeneratorDef = {
           math,
           widget,
           answer,
-          nudge: mode === 'read' ? [] : [{ op: 'lay-unit', args: { index: 0 } }],
-          highlight: mode === 'read' ? [{ op: 'read-end' }] : [{ op: 'count-units' }],
+          nudge:
+            mode === 'read' || isCmIn(unit, altUnit)
+              ? []
+              : [{ op: 'lay-unit', args: { index: 0 } }],
+          highlight:
+            mode === 'read' || isCmIn(unit, altUnit)
+              ? [{ op: 'read-end' }]
+              : [{ op: 'count-units' }],
         };
         break;
       }
@@ -656,6 +848,19 @@ export const meaLength: GeneratorDef = {
   },
   exampleCorrect(out): ResponseValue {
     const a = out.answer;
+    if (a.kind === 'state' && a.checker === 'sort.byRule') {
+      // unit-sort (MEA.08): each card in the bin of its unit.
+      const cards = a.target.cards as { id: string; props: { unit: string } }[];
+      return {
+        kind: 'state',
+        value: {
+          bins: {
+            b0: cards.filter((c) => c.props.unit === 'in').map((c) => c.id),
+            b1: cards.filter((c) => c.props.unit === 'ft').map((c) => c.id),
+          },
+        },
+      };
+    }
     if (a.kind === 'state' && a.checker === 'units.iterate') {
       const length = asNum(a.target.length as ParamValue);
       return {
@@ -789,7 +994,34 @@ export const meaLength: GeneratorDef = {
           return say(key, { n: v }, { op: 'drag', args: { id, slot } });
         });
       }
+      case 'shape-sort': {
+        if (w.bins === null) return [];
+        const steps: LessonStep[] = [say('gen.mea.length.sort-look', {})];
+        for (const card of w.cards) {
+          if (!('sprite' in card.card)) continue;
+          const bin = card.card.props.unit === 'ft' ? 'b1' : 'b0';
+          steps.push(
+            say(
+              bin === 'b1' ? 'gen.mea.length.sort-feet' : 'gen.mea.length.sort-inches',
+              {},
+              { op: 'drag-card', args: { id: card.id, bin } },
+            ),
+          );
+        }
+        return steps;
+      }
       case 'measure-length': {
+        if (w.mode === 'estimate' && a.kind === 'choice') {
+          // Picture the unit along it; the first step says no number.
+          return [
+            say('gen.mea.length.estimate-unit', { unit, one: 1 }),
+            say(
+              'gen.mea.length.estimate-about',
+              { n: w.object.length, unit },
+              { op: 'answer', args: { id: a.id } },
+            ),
+          ];
+        }
         if (w.mode === 'read') {
           const end =
             w.startOffset + (w.precision < 1 ? w.object.length / SIXTEENTHS : w.object.length);
@@ -811,6 +1043,20 @@ export const meaLength: GeneratorDef = {
               },
             ),
           );
+        if (w.mode === 'two-units' && a.kind === 'numbers' && w.tool === 'ruler') {
+          // Two rulers (MEA.09): line up 0, read the centimeter end, then the nearest inch. Only the
+          // last step says a number (a faded lesson plays every step before the child's turn).
+          const [n, m] = a.values as [number, number];
+          return [
+            say('gen.mea.length.two-rulers-zero', {}, { op: 'align-zero' }),
+            say('gen.mea.length.two-rulers-cm', {}, { op: 'read-end' }),
+            say(
+              'gen.mea.length.two-rulers-in',
+              { n, m, alt: altUnit },
+              { op: 'answer', args: { values: [n, m] } },
+            ),
+          ];
+        }
         if (w.mode === 'two-units' && a.kind === 'numbers') {
           const [n, m] = a.values as [number, number];
           return [
@@ -849,6 +1095,17 @@ export const meaLength: GeneratorDef = {
               w.format === 'number-pad'
                 ? { op: 'type', args: { blank: 'n', value: n } }
                 : { op: 'tap', args: { id: numberOptionId(n) } },
+            ),
+          ];
+        }
+        if (asStr(p.mode) === 'two-units') {
+          // MEA.09 on the pad: the inches are told; read the centimeters on the ruler picture.
+          return [
+            say('gen.mea.length.read-start', { start: 0 }),
+            say(
+              'gen.mea.length.two-rulers-more',
+              { n, m: asNum(p.altLength) },
+              { op: 'type', args: { blank: 'n', value: n } },
             ),
           ];
         }

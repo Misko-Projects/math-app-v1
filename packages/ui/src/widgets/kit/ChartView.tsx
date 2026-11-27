@@ -8,6 +8,7 @@ import {
   type Box,
   type ChartGeometry,
   chartGeometry,
+  formatLength,
   LABEL_FONT_PX,
   NUMERAL_PX,
   nameWidth,
@@ -206,8 +207,9 @@ export function ChartView({
         focusable="false"
       >
         {/* Lanes: a soft stripe per category, so rows and columns read as one line each. */}
+        {/* A line plot draws a lane only while the demo points at its mark (point-bar). */}
         {g.slots.map((s) =>
-          chart.kind === 'line-plot' ? null : (
+          chart.kind === 'line-plot' && pointed !== s.id ? null : (
             <rect
               key={`lane-${s.id}`}
               className="ni-chart__lane"
@@ -455,7 +457,49 @@ export function ChartView({
         <span className="ni-visually-hidden">{t('ui.widget.chart.key', { n: chart.scale })}</span>
       ) : null}
       {renderOverlay ? renderOverlay(g) : null}
+      {chart.kind === 'line-plot' && interactive && !renderOverlay ? (
+        <LinePlotStacks g={g} />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * A line plot the child reads (DAT.03): each mark is a group named by its position ("Above 18"),
+ * holding one item per X ("Mark") at the X's own place, in reading order. A screen-reader child
+ * counts a stack by stepping through it, as a sighted child counts it by eye; no name ever says
+ * how many Xs a stack holds.
+ */
+function LinePlotStacks({ g }: { g: ChartGeometry }) {
+  const t = useNarrationText();
+  return (
+    <>
+      {g.slots.map((s) => {
+        const lane = s.lane;
+        return (
+          // biome-ignore lint/a11y/useSemanticElements: an absolutely placed overlay, not a form group
+          <div
+            key={`stack-${s.id}`}
+            className="ni-chart__stack"
+            role="group"
+            aria-label={t('ui.widget.chart.at', { n: formatLength(s.at ?? 0) })}
+            data-slot={s.id}
+            style={at(lane)}
+          >
+            {(s.xs ?? []).map((x, k) => (
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: an X is its place in the stack
+                key={k}
+                className="ni-chart__stackx"
+                role="img"
+                aria-label={t('ui.widget.chart.mark.x')}
+                style={at({ x: x.x - lane.x, y: x.y - lane.y, w: x.w, h: x.h })}
+              />
+            ))}
+          </div>
+        );
+      })}
+    </>
   );
 }
 

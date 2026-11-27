@@ -12,6 +12,11 @@
 //   length (`number`); `tap-tick` answers the tapped mark (`placement`, `answer {value}`: the
 //   object's end mark on the ruler, startOffset + length); `pick` answers an option (`choice`,
 //   `opt-<n>`).
+// - `two-units` on a ruler (MEA.09, `tool: 'ruler'`): the object, a whole number of centimeters
+//   (`unit: 'cm'`), lies on a centimeter ruler with an inch ruler above it on the same px scale
+//   (`altUnit: 'in'`); the child reads both: `answer {values}` → `numbers` `[cm, inches]`, the
+//   inches to the nearest inch ("about"), never within 0.2 in of a half (TWO_RULER_HALF_CLEAR).
+//   The ruler runs to TWO_RULER_CM cm, so every centimeter keeps its numeral at 960 × 600.
 // - `estimate` (MEA.08): the child picks an option (`choice`, `opt-<n>`).
 // Visual ops: `slide-ruler {to}` puts ruler mark `to` under the object's start, `align-zero`
 // marks where the object starts on the ruler, `read-end` marks where it ends, `count-units`
@@ -55,8 +60,26 @@ export const SIXTEENTHS = 16;
 export const objectUnits = (c: Config): number =>
   c.precision < 1 ? c.object.length / SIXTEENTHS : c.object.length;
 
-/** The object's length in `alt` units, when it is a whole number of them (two-units). */
+/** Centimeters in an inch. */
+export const CM_PER_INCH = 2.54;
+/** A two-unit ruler (MEA.09) runs to 10 cm: the widest that labels every centimeter at 960 × 600. */
+export const TWO_RULER_CM = 10;
+/** On a two-unit ruler the object's end is at least this far (inches) from a half inch. */
+export const TWO_RULER_HALF_CLEAR = 0.2;
+
+/** A two-units item measured on rulers (MEA.09): centimeters and inches. */
+export const isTwoRuler = (c: Config): boolean =>
+  c.mode === 'two-units' && c.tool === 'ruler' && c.unit === 'cm' && c.altUnit === 'in';
+
+/** The object's length in inches, exactly (a two-unit ruler's object is whole centimeters). */
+export const exactInches = (c: Config): number => objectUnits(c) / CM_PER_INCH;
+
+/**
+ * The object's length in `alt` units, when it is a whole number of them (two-units); on a two-unit
+ * ruler, the inches to the nearest inch.
+ */
 export function lengthIn(c: Config, alt: LengthUnit): number | null {
+  if (isTwoRuler(c) && alt === 'in') return Math.round(exactInches(c));
   const base = objectUnits(c) * UNIT_SIZE[c.unit];
   const n = base / UNIT_SIZE[alt];
   return Number.isInteger(n) ? n : null;
@@ -120,7 +143,7 @@ export function domainIssues(c: Config): { path: (string | number)[]; message: s
   if (c.startOffset % c.precision !== 0) {
     out.push({ path: ['startOffset'], message: 'the object starts on a ruler mark' });
   }
-  if (c.mode === 'iterate' || c.mode === 'two-units') {
+  if (c.mode === 'iterate' || (c.mode === 'two-units' && c.tool === 'units')) {
     const alt = c.mode === 'two-units' && c.altUnit ? (lengthIn(c, c.altUnit) ?? 0) : 0;
     const most = Math.max(whole, alt);
     if (most > ML_LAID_MAX) {
@@ -159,13 +182,29 @@ const configSchema = measureLengthConfigSchema.superRefine((c, ctx) => {
     issue(['object', 'length'], 'the object ends on a ruler mark');
   }
   if (c.startOffset < 0) issue(['startOffset'], 'startOffset ≥ 0');
-  const laying = c.mode === 'iterate' || c.mode === 'two-units';
+  const twoRuler = c.mode === 'two-units' && c.tool === 'ruler';
+  const laying = c.mode === 'iterate' || (c.mode === 'two-units' && !twoRuler);
   if (laying && c.tool !== 'units') issue(['tool'], `${c.mode} lays units`);
+  if (twoRuler) {
+    if (!isTwoRuler(c)) issue(['unit'], 'two rulers measure centimeters and inches');
+    else {
+      if (c.startOffset !== 0 || c.precision !== 1) {
+        issue(['startOffset'], 'two rulers start at 0, in whole centimeters');
+      }
+      if (objectUnits(c) >= TWO_RULER_CM) {
+        issue(['object', 'length'], `the object ends before ${TWO_RULER_CM} cm`);
+      }
+      const frac = exactInches(c) - Math.floor(exactInches(c));
+      if (Math.abs(frac - 0.5) < TWO_RULER_HALF_CLEAR) {
+        issue(['object', 'length'], 'the inch reading is clearly nearer one inch mark');
+      }
+    }
+  }
   if (c.mode === 'read' && c.tool !== 'ruler') issue(['tool'], 'read uses a ruler');
   if (laying && (c.startOffset !== 0 || c.precision !== 1)) {
     issue(['startOffset'], 'units are laid from the start, in whole units');
   }
-  if (c.mode === 'two-units') {
+  if (c.mode === 'two-units' && !twoRuler) {
     if (!c.altUnit || c.altUnit === c.unit) issue(['altUnit'], 'two-units needs a second unit');
     else if (lengthIn(c, c.altUnit) === null) {
       issue(['altUnit'], 'the object is a whole number of both units');

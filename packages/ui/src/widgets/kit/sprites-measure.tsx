@@ -739,6 +739,75 @@ const vine: MeasureDraw = (tone) => {
 };
 
 /** Every measurement and geometry sprite, keyed by sprite id. */
+// K02 slice 4c-1 (MEA.08): everyday things a child knows the size of, to sort by the unit they are
+// measured in: a pencil and a shoe (inches), a door and a table (feet).
+
+const pencil: MeasureDraw = (tone) => {
+  const c = tint(tone, SUNSHINE);
+  // A pencil lying across the box: painted body, bare wood cone, dark tip, pink eraser.
+  return (
+    <>
+      {SHADOW}
+      <g transform="rotate(-20 32 34)">
+        <path d="M14 29H44V39H14Z" {...painted(c)} />
+        <path d="M14 34H44" {...stroked(c.line, 1.5, 0.5)} />
+        <path d="M44 29L56 34L44 39Z" {...painted(WOOD, 2.5)} />
+        <path d="M52.5 32.5L56 34L52.5 35.5Z" fill={v('ink')} />
+        <path d="M7 29H14V39H7A3 3 0 0 1 4 36V32A3 3 0 0 1 7 29Z" {...painted(CORAL)} />
+        <path d="M11 29V39" {...stroked(v('pebble-deep'), 2.5)} />
+        {HIGHLIGHT('M17 31.5h12')}
+      </g>
+    </>
+  );
+};
+
+const shoe: MeasureDraw = (tone) => {
+  const c = tint(tone, CORAL);
+  // A sneaker side on: toe to the right, laces on top, a pale sole.
+  return (
+    <>
+      {SHADOW}
+      <path
+        d="M8 47V26A4 4 0 0 1 12 22H22A4 4 0 0 1 26 26V30C34 31 42 34 50 38A8 8 0 0 1 56 45V47Z"
+        {...painted(c)}
+      />
+      <path d="M6 46H58V51A3 3 0 0 1 55 54H9A3 3 0 0 1 6 51Z" {...painted(WHITE)} />
+      <path d="M29 32l4 4M35 34l4 4M41 36.5l3 3" {...stroked(v('cloud'), 3)} />
+      {HIGHLIGHT('M12 27v8')}
+    </>
+  );
+};
+
+const door: MeasureDraw = (tone) => {
+  const c = tint(tone, WOOD);
+  // A front door, tall and narrow, standing on the ground: two panels and a round knob.
+  return (
+    <>
+      {SHADOW}
+      <path d="M17 4H47V56H17Z" {...painted(c)} />
+      <path d="M22 9H42V27H22Z" {...stroked(c.line, 2.5, 0.6)} />
+      <path d="M22 32H42V51H22Z" {...stroked(c.line, 2.5, 0.6)} />
+      <circle cx="41" cy="30" r="2.8" {...painted(SUN, 2)} />
+      {HIGHLIGHT('M21 7v14')}
+    </>
+  );
+};
+
+const table: MeasureDraw = (tone) => {
+  const c = tint(tone, WOOD);
+  // A kitchen table: a wide top on four legs (two seen), standing on the ground.
+  return (
+    <>
+      {SHADOW}
+      <path d="M12 26V55M52 26V55" {...stroked(c.line, 5)} />
+      <path d="M12 26V55M52 26V55" {...stroked(c.fill, 2)} />
+      <path d="M4 20H60V27H4Z" {...painted(c)} />
+      <path d="M14 30H50" {...stroked(c.line, 3, 0.6)} />
+      {HIGHLIGHT('M8 22.5h20')}
+    </>
+  );
+};
+
 export const MEASURE_DRAWINGS: Readonly<Record<string, MeasureDraw>> = {
   bun,
   orange,
@@ -761,4 +830,8 @@ export const MEASURE_DRAWINGS: Readonly<Record<string, MeasureDraw>> = {
   block,
   ball,
   vine,
+  pencil,
+  shoe,
+  door,
+  table,
 };

@@ -502,3 +502,11 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     numeral: NUMERAL_PX,
   };
 }
+
+/** A measurement as written: whole number plus ½, ¼ or ¾. */
+export function formatLength(v: number): string {
+  const whole = Math.floor(v);
+  const frac = Math.round((v - whole) * 4);
+  const glyph = ['', '¼', '½', '¾'][frac] ?? '';
+  return whole === 0 && glyph ? glyph : `${whole}${glyph}`;
+}

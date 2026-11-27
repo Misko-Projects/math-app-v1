@@ -862,3 +862,81 @@ export const ScaledPictureKeyLandscapeMin: Story = {
     );
   },
 };
+
+/** DAT.03's read bound: six whole-inch marks from 14, stacks of at most 5 (the templates' cap). */
+const dat03Stacks = [3, 4, 5, 2, 5, 1];
+const dat03Read: Config = {
+  format: 'bar-graph-read',
+  chart: {
+    kind: 'line-plot',
+    orientation: 'horizontal',
+    categories: dat03Stacks.map((v, i) => ({
+      id: String(14 + i),
+      label: 'noun.plank.many',
+      value: v,
+    })),
+    scale: 1,
+    axisMax: 5,
+    lineScale: { min: 14, max: 19, step: 1 },
+  },
+  question: { type: 'how-many', categories: ['16'] },
+};
+
+/**
+ * DAT.03: each mark is a group named by its place ("Above 16"), holding one "Mark" per X in
+ * reading order, so a screen-reader child counts a stack by stepping; no name says a count. Every
+ * X is at least 22 px.
+ */
+async function namedStacks({ canvasElement }: { canvasElement: HTMLElement }) {
+  const root = await findWidget(canvasElement, ROOT);
+  await expectXsCountable(root, 20);
+  const groups = within(root).getAllByRole('group', { name: /^Above \d+$/ });
+  await expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(
+    dat03Stacks.map((_, i) => `Above ${14 + i}`),
+  );
+  for (const [i, g] of groups.entries()) {
+    const marks = within(g).queryAllByRole('img');
+    await expect(marks).toHaveLength(dat03Stacks[i] as number);
+    for (const m of marks) await expect(m).toHaveAttribute('aria-label', 'Mark');
+  }
+  for (const x of root.querySelectorAll('.ni-chart__x')) {
+    await expect(x.getBoundingClientRect().width, 'an X is at least 22 px').toBeGreaterThanOrEqual(
+      22,
+    );
+  }
+  await expectNumeralsReadable(root);
+  await expectFitsArea(areaBox(canvasElement), [...padKeys(root), check(root)], 'g1-up', [
+    root.querySelector('.ni-chart') as HTMLElement,
+  ]);
+}
+
+export const Dat03NamedStacksLandscapeMin: Story = {
+  args: { config: dat03Read },
+  render: inArea('landscapeMin'),
+  play: namedStacks,
+};
+
+export const Dat03NamedStacksTablet: Story = {
+  args: { config: dat03Read },
+  render: inArea('tablet'),
+  play: namedStacks,
+};
+
+const dat03Demo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * DAT.03's worked step: `point-bar` rings the asked mark's lane (a line plot draws no lane
+ * otherwise) and says no number; the lane goes when the next step starts.
+ */
+export const Dat03PointMark: Story = {
+  args: { config: dat03Read, demo: dat03Demo },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('.ni-chart__lane')).toBeNull();
+    await dat03Demo.play({ op: 'point-bar', args: { id: '16' } });
+    const lanes = root.querySelectorAll('.ni-chart__lane[data-pointed="true"]');
+    await expect(lanes).toHaveLength(1);
+    await expect(root.querySelectorAll('.ni-chart__lane')).toHaveLength(1);
+    await expect(root.querySelector('.ni-bgr__display')?.textContent ?? '').toBe('');
+  },
+};

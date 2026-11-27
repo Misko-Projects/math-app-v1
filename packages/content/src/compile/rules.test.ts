@@ -153,6 +153,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.11',
       'DAT.01',
       'DAT.02',
+      'DAT.03',
       'DAT.04',
       'DAT.05',
       'DAT.09',
@@ -203,6 +204,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.03',
       'MEA.04',
       'MEA.07',
+      'MEA.08',
+      'MEA.09',
       'MEA.10',
       'MEA.15',
       'MEA.16',
@@ -300,6 +303,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.hour-hand-next',
       'MC.hour-minute-swap',
       'MC.keyword-more-means-add',
+      'MC.lineplot-position-as-count',
+      'MC.lineplot-wrong-stack',
       'MC.minute-hand-number',
       'MC.off-by-one-counting',
       'MC.partial-product-dropped',
@@ -373,6 +378,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'time.sequence',
         'data.sort',
         'data.chart',
+        'data.lineplot',
         'pattern.repeat',
         'pattern.grow',
         'puzzle.grid',
@@ -1947,9 +1953,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // skills, 13 templates, MC.first-step-only and MC.dollar-as-one; grade 2 patterns and puzzles
       // (K02 slice 4e) added 7 skills, 19 templates, MC.grow-as-repeat, MC.cage-repeat-digit,
       // MC.digit-order-reversed and MC.way-counted-twice.
-      skills: 199,
-      templates: 725,
-      misconceptions: 50,
+      skills: 202,
+      templates: 734,
+      misconceptions: 52,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -2117,5 +2123,39 @@ describe('counting, number lines and rounding: lines that hold for every item (K
       expect(hints, id).toContain('h.round.middle-up');
     }
     expect(text('h.round.middle-up')).toMatch(/middle or past it, round up/);
+  });
+});
+
+describe('line plots, units and estimates: lines that hold for every item (K02 slice 4c-1)', () => {
+  const c = () => compileContent(FIXTURE).content;
+
+  it('DAT.03 stacks hold at most 5 Xs (an X stays at least 22 px at 960 × 600)', () => {
+    const lineplots = c()?.templates.filter((t) => t.generator === 'data.lineplot') ?? [];
+    expect(lineplots.map((t) => t.id)).toEqual(['DAT.03.t1', 'DAT.03.t2', 'DAT.03.t3']);
+    for (const t of lineplots) {
+      for (const [k, spec] of Object.entries(t.params)) {
+        if (!/^x\d$/.test(k)) continue;
+        const top =
+          spec.kind === 'int' ? spec.max : spec.kind === 'const' ? Number(spec.value) : Infinity;
+        expect(top, `${t.id} ${k}`).toBeLessThanOrEqual(5);
+      }
+    }
+  });
+
+  it('MEA.08 sort hints name no thing a card can show (R1)', () => {
+    const things = ['pencil', 'shoe', 'spoon', 'cup', 'button', 'door', 'table', 'fishing'];
+    const content = c();
+    for (const id of ['MEA.08.t1', 'MEA.08.t2']) {
+      const hints = content?.templates.find((t) => t.id === id)?.narration.hints ?? [];
+      expect(hints.length, id).toBe(3);
+      for (const h of hints) {
+        const text = (content?.narration[h]?.text ?? '').toLowerCase();
+        for (const thing of things) expect(text, `${id} ${h}`).not.toContain(thing);
+        // One cutoff for every card, no gap between two (R2): every inch card (pencil, shoe,
+        // spoon, cup, button) fits in a box a child carries; no foot card (door, table, fishing
+        // rod) does.
+        expect(text, `${id} ${h}`).toContain('a box you can carry');
+      }
+    }
   });
 });

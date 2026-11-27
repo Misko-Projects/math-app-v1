@@ -33,6 +33,7 @@ import {
   wayCountedTwice,
 } from './rules/k02Puzzles';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
+import { linePlotPositionAsCount, linePlotWrongStack } from './rules/linePlot';
 import { minuteHandAsMinutes } from './rules/minuteHandNumber';
 import {
   addInsteadOfMultiply,
@@ -69,6 +70,8 @@ const RULES: Record<string, MisconceptionRule> = {
   biggerUnitMore: biggerUnitMore,
   rulerCountTicks: rulerCountTicks,
   rulerReadEnd: rulerReadEnd,
+  linePlotPositionAsCount: linePlotPositionAsCount,
+  linePlotWrongStack: linePlotWrongStack,
   recountFromOne: recountFromOne,
   decadeTransition: decadeTransition,
   teenReversal: teenReversal,

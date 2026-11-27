@@ -172,6 +172,8 @@ const SLICE_4A = [
 ] as const;
 /** Slice 4b (#17): rulers, graphs, faces and corners, grade 2. */
 const SLICE_4B = ['MEA.03', 'MEA.10', 'DAT.04', 'DAT.05', 'GEO.12', 'GEO.15', 'GEO.16'] as const;
+/** Slice 4c-1 (#17): line plots, two units and estimates, grade 2. */
+const SLICE_4C1 = ['DAT.03', 'MEA.08', 'MEA.09'] as const;
 /** Slice 4d (#17): story problems with the bar model, grade 2. */
 const SLICE_4D = ['MDA.06', 'MDA.19', 'MEA.04', 'MON.03'] as const;
 /** Slice 4e (#17): patterns, balances and puzzles, grade 2. */
@@ -689,6 +691,7 @@ describe('session simulation (04 §8)', () => {
       slice('slice 3a', SLICE_3A_G2);
       slice('slice 4a', SLICE_4A);
       slice('slice 4b', SLICE_4B);
+      slice('slice 4c-1', SLICE_4C1);
       slice('slice 4d', SLICE_4D);
       slice('slice 4e', SLICE_4E);
       // Fact fluency: no simulated child turns fluent (see SLICE_1B_FLUENCY), so practice only.

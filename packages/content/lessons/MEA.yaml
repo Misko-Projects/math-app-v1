@@ -40,3 +40,16 @@ lessons:
       - { seed: 3033, target: typical, childSteps: 1 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3 }
+
+  # K02 slice 4c-1 (#17): MEA.08 plays the unit sort (things a child knows the size of); its
+  # test-out draws the pictorial sort (constructed), never the estimate picks (03 §6.5).
+  - skillId: MEA.08
+    mode: authored
+    templateId: MEA.08.t1
+    worked:
+      - { seed: 4081, target: easy }
+    faded:
+      - { seed: 4082, target: typical, childSteps: 1 }
+      - { seed: 4083, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MEA.08.t2] }

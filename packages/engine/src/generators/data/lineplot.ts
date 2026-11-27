@@ -14,12 +14,10 @@
 //
 // Every count is a param, so the item key follows from the params alone (03 §5.3).
 //
-// No shipped template uses it yet: DAT.03 stays planned until line plots have accessible names
-// (the measurement list, the positions and their stacks; PR #133 review), so the generator is
-// reachable only through its tests (lineplot.test.ts). Before content uses it, also fix the worked
-// solutions it gives today: the build ends on a step with no action after every `add-x` (a faded
-// lesson step then hands the child a finished plot), and the read counts the asked stack aloud
-// with `count-pictures` (the worked-step hint then speaks the answer).
+// Worked solutions (DAT.03, PR #133 review): the build is one `add-x` per mark and ends on the
+// last of them, so a faded lesson step always leaves the child marks to place; the read points at
+// each asked mark (`point-bar`) and never counts a stack aloud, so the worked-step hint cannot
+// speak the answer. Stacks at most 5 in shipped templates keep an X at least 22 px at 960 × 600.
 
 import type { ChartSpec, LessonStep, ResponseValue } from '@number-island/shared';
 import { chartPositionId } from '@number-island/shared';
@@ -115,12 +113,17 @@ export const dataLineplot: GeneratorDef = {
     },
   },
   derived: ['measurements'],
-  features: {},
+  features: {
+    // K02 slice 4c-1: more lengths to place or count is harder (DAT.03 difficulty spread, V22).
+    'measurements.over6': {
+      weight: 0.3,
+      doc: 'max(0, measurements − 6) / 2: more lengths to place or count',
+    },
+  },
   narration: [
     'gen.data.lineplot.find',
     'gen.data.lineplot.mark',
     'gen.data.lineplot.count',
-    'gen.data.lineplot.done',
     'gen.data.chart.is',
     'gen.data.chart.all',
     'gen.data.chart.more',
@@ -190,6 +193,7 @@ export const dataLineplot: GeneratorDef = {
       max,
       many: 2,
     });
+    const math = { 'measurements.over6': Math.max(0, sum(xs) - 6) / 2 };
     let p: PartialOutput;
     if (t.format === 'bar-graph-build') {
       const measurements = rng
@@ -198,7 +202,7 @@ export const dataLineplot: GeneratorDef = {
       p = {
         params,
         vars,
-        math: {},
+        math,
         widget: {
           format: 'bar-graph-build',
           chart: chart(xs.map(() => 0)),
@@ -218,7 +222,7 @@ export const dataLineplot: GeneratorDef = {
     p = {
       params,
       vars,
-      math: {},
+      math,
       widget: {
         format: 'bar-graph-read',
         chart: chart(xs),
@@ -258,13 +262,12 @@ export const dataLineplot: GeneratorDef = {
           );
         }
       });
-      steps.push(say('gen.data.lineplot.done', {}));
       return steps;
     }
     if (w.format !== 'bar-graph-read') return [];
     const value = a.kind === 'number' ? a.value : 0;
     const steps: LessonStep[] = w.question.categories.map((id) =>
-      say('gen.data.lineplot.count', { at: id }, { op: 'count-pictures', args: { id } }),
+      say('gen.data.lineplot.count', { at: id }, { op: 'point-bar', args: { id } }),
     );
     const last =
       w.question.type === 'total'

@@ -44,9 +44,12 @@ describe('PR #133 review round 1', () => {
     }
   });
 
-  it('no shipped template reaches the test-only code (line plots, FRA.16 grid cuts)', () => {
-    // Line plots have no accessible names yet (DAT.03 planned); FRA.16 has no pictorial template.
-    expect(fixture.templates.filter((t) => t.generator === 'data.lineplot')).toEqual([]);
+  it('no shipped template reaches the test-only code (FRA.16 grid cuts); only DAT.03 draws line plots', () => {
+    // Slice 4c-1 gave line plots accessible names and shipped DAT.03; FRA.16 has no pictorial
+    // template.
+    expect(
+      fixture.templates.filter((t) => t.generator === 'data.lineplot').map((t) => t.skillId),
+    ).toEqual(['DAT.03', 'DAT.03', 'DAT.03']);
     const grid = fixture.templates.filter(
       (t) => t.generator === 'frac.partition' && JSON.stringify(t.params).includes('grid'),
     );

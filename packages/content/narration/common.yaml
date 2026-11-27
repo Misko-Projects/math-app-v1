@@ -1412,6 +1412,33 @@ gen.mea.length.lay-first:
   text: "Start right at the end. {n}."
 gen.mea.length.lay-next:
   text: "No gap. {n}."
+gen.mea.length.estimate-unit:
+  text: "Picture the 1 {unit|unit:one} piece put down along it, again and again."
+  level: "2"
+gen.mea.length.estimate-about:
+  text: "It is about {n} {unit|unit:n} long."
+  level: "2"
+gen.mea.length.sort-look:
+  text: "Think how big each thing is."
+  level: "2"
+gen.mea.length.sort-inches:
+  text: "This one is small. Measure it in inches."
+  level: "2"
+gen.mea.length.sort-feet:
+  text: "This one is big. Measure it in feet."
+  level: "2"
+gen.mea.length.two-rulers-zero:
+  text: "Both rulers start at 0, right where it starts."
+  level: "2"
+gen.mea.length.two-rulers-cm:
+  text: "On the centimeter ruler, find the number where it ends."
+  level: "2"
+gen.mea.length.two-rulers-in:
+  text: "On the inch ruler, it ends closest to {m}. It is {n} centimeters, and about {m} {alt|unit:m}."
+  level: "2"
+gen.mea.length.two-rulers-more:
+  text: "It is {n} centimeters: more centimeters than inches, because centimeters are smaller."
+  level: "2"
 gen.mea.length.units-long:
   text: "It is {n} {unit|unit:n} long."
 gen.mea.length.use-unit:
@@ -1742,6 +1769,24 @@ gen.data.chart.mark:
   text: "Count the {cat|noun:many}. Make one mark for each."
 gen.data.chart.done:
   text: "Now each count is right."
+h.lineplot.find-length:
+  text: "Find the length on the number line first."
+  level: "2"
+h.lineplot.xs-above:
+  text: "Count only the Xs right above that length."
+  level: "2"
+h.lineplot.two-stacks:
+  text: "Find both lengths. Count the Xs above each one."
+  level: "2"
+h.lineplot.number-is-length:
+  text: "The number under the Xs is the length. The Xs tell how many planks."
+  level: "2"
+h.lineplot.one-each:
+  text: "Put one X for each plank. Look at each length just once."
+  level: "2"
+h.lineplot.check-count:
+  text: "Count your Xs. You need one X for each plank."
+  level: "2"
 gen.data.lineplot.find:
   text: "Find each length on the number line."
   level: "2"
@@ -1750,9 +1795,6 @@ gen.data.lineplot.mark:
   level: "2"
 gen.data.lineplot.count:
   text: "Count the Xs above {at}."
-  level: "2"
-gen.data.lineplot.done:
-  text: "Now there is one X for each length."
   level: "2"
 
 # ---------- K01 sharing and fractions (MUL.12, FRA.01, FRA.07, FRA.08) ----------
@@ -2255,6 +2297,10 @@ fb.mc.bigger-unit-more:
   text: "Look at the size. Bigger ones fit fewer times."
 fb.mc.ruler-count-ticks:
   text: "Count the jumps from mark to mark, not the marks."
+fb.mc.lineplot-position-as-count:
+  text: "That number tells how long. Count the marks above it."
+fb.mc.lineplot-wrong-stack:
+  text: "Look right above the number it asks about. Count just those marks."
 fb.mc.ruler-read-end:
   text: "It does not start at 0. Count the jumps from where it starts."
 fb.mc.recount-from-one:
@@ -2866,6 +2912,33 @@ gen.money.coins.compare-amounts:
 # No hint names a number: each is true for every item its templates draw. h.ruler.start-zero and
 # h.ruler.end-number go only on rulers from 0; h.ruler.not-zero and h.ruler.take-start only on
 # objects that start at 1 or more.
+h.unit-sort.small-inches:
+  text: "Could it fit in a box you can carry? Then measure it in inches."
+  level: "2"
+h.unit-sort.big-feet:
+  text: "Is it too big for a box you can carry? Then measure it in feet."
+  level: "2"
+h.unit-sort.compare-you:
+  text: "Look at each one. Would it fit in a box you can carry, or not?"
+  level: "2"
+h.estimate.picture-unit:
+  text: "Picture the 1 {unit|unit:one} piece put down along it, again and again."
+  level: "2"
+h.estimate.check-unit:
+  text: "Each number counts the one piece under the picture. Look at how big that piece is."
+  level: "2"
+h.estimate.few-or-many:
+  text: "Would it take a small number of pieces, or a big number? Pick the closest one."
+  level: "2"
+h.two-rulers.start-zero:
+  text: "Both rulers start at 0, right where it starts."
+  level: "2"
+h.two-rulers.nearest-inch:
+  text: "On the inch ruler, it ends between two numbers. Which one is it closer to?"
+  level: "2"
+h.two-rulers.small-more:
+  text: "Centimeters are small, so it takes more of them than inches."
+  level: "2"
 h.ruler.start-zero:
   text: "One end is at 0, so the number at the other end tells how long."
   level: "2"

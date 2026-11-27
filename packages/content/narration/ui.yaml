@@ -398,6 +398,18 @@ ui.sprite.crate:
 ui.sprite.cube:
   text: "Cube"
   level: K
+ui.sprite.door:
+  text: "Door"
+  level: K
+ui.sprite.pencil:
+  text: "Pencil"
+  level: K
+ui.sprite.shoe:
+  text: "Shoe"
+  level: K
+ui.sprite.table:
+  text: "Table"
+  level: K
 ui.sprite.cup:
   text: "Cup"
   level: K
@@ -566,6 +578,15 @@ ui.mlen.ruler:
 ui.mlen.ruler-picture:
   text: "A ruler in {unit} with a {thing} on it"
   level: K
+ui.mlen.estimate-picture:
+  text: "A {thing}, and one {unit} under it to compare"
+  level: "2"
+ui.mlen.one-unit:
+  text: "1 {unit}"
+  level: "2"
+ui.mlen.two-ruler-picture:
+  text: "A {thing} with a ruler in inches above it and a ruler in centimeters below it"
+  level: "2"
 ui.scomp.outline:
   text: "The shape to fill"
   level: K
@@ -1283,6 +1304,9 @@ ui.widget.chart.mark.x:
 ui.widget.chart.data-title:
   text: "Count them"
   level: K
+ui.widget.chart.lengths:
+  text: "The lengths"
+  level: "2"
 ui.widget.chart.build-title:
   text: "Your graph"
   level: K
