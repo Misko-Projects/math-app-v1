@@ -1066,7 +1066,7 @@ templates:
       den: { choice: [3, 4, 6, 8] }
       num: { int: [1, 7] }
     constraints: ["num < den"]
-    difficulty: { base: -0.4 }
+    difficulty: { base: -0.8 }
     narration:
       prompt: tp.FRA.15.t1.prompt
       hints: [h.frac.half-strip, h.frac.half-past]
@@ -1085,7 +1085,7 @@ templates:
       den: { choice: [3, 4, 6, 8] }
       num: { int: [1, 7] }
     constraints: ["num < den", "2 * num != den"]
-    difficulty: { base: -0.7 }
+    difficulty: { base: -1.1 }
     narration:
       prompt: tp.FRA.15.t2.prompt
       hints: [h.frac.half-more-less, h.frac.half-of-bottom]
@@ -1104,7 +1104,7 @@ templates:
       den: { choice: [3, 4, 6, 8] }
       num: { int: [1, 7] }
     constraints: ["num < den"]
-    difficulty: { base: -0.8 }
+    difficulty: { base: -1.2 }
     narration:
       prompt: tp.FRA.15.t3.prompt
       hints: [h.frac.half-of-bottom, h.frac.sign-open]
@@ -1123,7 +1123,7 @@ templates:
       den: { choice: [2, 3, 4, 6, 8] }
       num: { int: [1, 10] }
     constraints: ["num >= den - 2", "num <= den + 2"]
-    difficulty: { base: -0.8 }
+    difficulty: { base: -1.2 }
     narration:
       prompt: tp.FRA.15.t4.prompt
       hints: [h.frac.one-same, h.frac.one-top]
@@ -1145,7 +1145,7 @@ templates:
       den2: { choice: [3, 4, 6, 8] }
       num2: { int: [1, 7] }
     constraints: ["num < den", "num2 < den2", "2 * num < den", "2 * num2 > den2"]
-    difficulty: { base: -0.7 }
+    difficulty: { base: -1.1 }
     narration:
       prompt: tp.FRA.15.t5.prompt
       hints: [h.frac.half-more-less, h.frac.half-of-bottom]

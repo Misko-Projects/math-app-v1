@@ -445,6 +445,7 @@ function benchmarkBuild(ctx: BuildContext): GeneratorOutput {
   const side = benchSide(num, den, bench);
   const math: Record<string, number> = {
     sameNum: 0,
+    benchmark: 1,
     equal: side === 0 ? 1 : 0,
     ratio: sizeRatio([size, bench === 'half' ? 12 : 24]),
   };

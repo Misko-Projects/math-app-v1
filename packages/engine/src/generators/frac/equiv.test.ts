@@ -14,8 +14,9 @@ import {
 } from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../../content/binding';
+import { formatModel } from '../../formats';
 import { checkResponse } from '../../items/check';
-import { generateItemFromParams } from '../../items/generate';
+import { generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import {
   fractionBiggerNumbers,
@@ -346,5 +347,32 @@ describe('frac.shares name (FRA.14)', () => {
     expect(
       fracShares.accepts?.({ cut: 0, mirror: false, name: true, equalParts: false }, name),
     ).toBe(false);
+  });
+});
+
+describe('PR #141 review round 1', () => {
+  it('benchmark items carry the benchmark feature (its weight moves their difficulty)', () => {
+    const sym = tpl('frac.compare', 'compare', { tier: 'abstract', representation: 'symbols' });
+    const p = {
+      kind: 'benchmark',
+      bench: 'half',
+      symbols: true,
+      shape: 'bar',
+      den3: 0,
+      num: 3,
+      den: 8,
+    };
+    expect(itemFeatures(build(sym, p), sym).benchmark).toBe(1);
+  });
+
+  it('number-pad refuses a stacked-fraction box in an expression picture that is not a blank', () => {
+    const pad = tpl('frac.equiv', 'number-pad');
+    const item = build(pad, { mode: 'pad', missing: 'den', num: 2, den: 3, mult: 2 });
+    const w = item.widget;
+    if (w.format !== 'number-pad') throw new Error('format');
+    const model = formatModel('number-pad');
+    expect(model?.configSchema.safeParse(w).success).toBe(true);
+    const wrong = { ...w, blanks: [{ id: 'frac-2-a', maxDigits: 1 }] };
+    expect(model?.configSchema.safeParse(wrong).success).toBe(false);
   });
 });

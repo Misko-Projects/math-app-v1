@@ -7,7 +7,7 @@ import { describeBarModel } from './barModel';
 import { ChartView } from './ChartView';
 import { ClockView } from './ClockView';
 import { CoinsView, describeCoins } from './CoinsView';
-import { FractionView } from './FractionView';
+import { FractionView, fractionWords } from './FractionView';
 import { shapeFrame } from './fractionShapes';
 import { GaugeView } from './GaugeView';
 import { describeGridParts, GridPartsView } from './GridPartsView';
@@ -749,6 +749,7 @@ export function ExpressionView({
   expr: ExpressionSpec;
   renderBlank?: (id: string) => ReactNode;
 }) {
+  const t = useNarrationText();
   const token = (tok: ExpressionToken, i: number): ReactNode => {
     switch (tok.t) {
       case 'num':
@@ -765,13 +766,26 @@ export function ExpressionView({
         );
       case 'var':
         return <span className="ni-expr__var">{tok.name}</span>;
-      case 'frac':
+      case 'frac': {
+        // A screen reader hears a stacked fraction in words ("two thirds"), never "2 3"; with a
+        // box in it, the box's own name tells its place and the other number (K02 slice 5c).
+        const a = tok.a;
+        const b = tok.b;
+        const both = typeof a === 'number' && typeof b === 'number';
         return (
-          <span className="ni-expr__frac">
-            <span>{tok.a === 'blank' ? (renderBlank?.(`frac-${i}-a`) ?? '□') : tok.a}</span>
-            <span>{tok.b === 'blank' ? (renderBlank?.(`frac-${i}-b`) ?? '□') : tok.b}</span>
-          </span>
+          <>
+            <span className="ni-expr__frac" aria-hidden={both ? true : undefined}>
+              <span aria-hidden={a === 'blank' ? undefined : true}>
+                {a === 'blank' ? (renderBlank?.(`frac-${i}-a`) ?? '□') : a}
+              </span>
+              <span aria-hidden={b === 'blank' ? undefined : true}>
+                {b === 'blank' ? (renderBlank?.(`frac-${i}-b`) ?? '□') : b}
+              </span>
+            </span>
+            {both ? <span className="ni-visually-hidden">{fractionWords(t, a, b)}</span> : null}
+          </>
         );
+      }
       case 'money':
         return <span className="ni-expr__num">{money(tok.cents, tok.style)}</span>;
       case 'time':

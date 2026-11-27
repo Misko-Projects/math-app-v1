@@ -581,8 +581,11 @@ export const TwoStripsLandscapeMin: Story = {
     await expect(root.querySelectorAll('.ni-npw__blank')).toHaveLength(1);
     await expect(root.querySelector('.ni-npw__answers')).toBeNull();
     await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'number-pad two strips 906x373'));
+    await expect(within(root).getByText('three fourths')).toHaveClass('ni-visually-hidden');
     await userEvent.click(key(root, '6'));
-    await expect(within(root).getByRole('button', { name: 'Your answer: 6' })).toBeVisible();
+    await expect(
+      within(root).getByRole('button', { name: 'Missing top number, over 8: 6' }),
+    ).toBeVisible();
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 6 });
   },
@@ -612,6 +615,14 @@ export const FractionBottomBox: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root.querySelectorAll('.ni-npw__blank')).toHaveLength(1);
     await expect(root.querySelector('.ni-expr__frac [data-blank="frac-2-b"]')).not.toBeNull();
+    // A screen reader hears the sentence: "two thirds", "=", and the box by its place and the
+    // number above it (PR #141 review): never the answer, never "2 3".
+    await expect(within(root).getByText('two thirds')).toHaveClass('ni-visually-hidden');
+    await expect(
+      within(root).getByRole('button', { name: 'Missing bottom number, under 4:' }),
+    ).toBeVisible();
+    const digits = [...root.querySelectorAll('.ni-expr__frac > span')];
+    await expect(digits.filter((d) => d.getAttribute('aria-hidden') === 'true')).toHaveLength(3);
     await userEvent.click(key(root, '6'));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 6 });

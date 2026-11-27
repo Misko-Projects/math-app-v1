@@ -40,6 +40,24 @@ const configSchema = numberPadConfigSchema.superRefine((c, ctx) => {
         ? [...(t.a === 'blank' ? [`frac-${i}-a`] : []), ...(t.b === 'blank' ? [`frac-${i}-b`] : [])]
         : [],
   );
+  // A box in a stacked fraction of an expression picture is one of the blanks (FRA.05.t4).
+  if (c.stimulus.kind === 'expression') {
+    const missing = c.stimulus.expr.tokens.flatMap((t, i) =>
+      t.t !== 'frac'
+        ? []
+        : [
+            ...(t.a === 'blank' ? [`frac-${i}-a`] : []),
+            ...(t.b === 'blank' ? [`frac-${i}-b`] : []),
+          ].filter((id) => !ids.includes(id)),
+    );
+    if (missing.length > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['stimulus'],
+        message: `a box in a stacked fraction is a blank: ${missing.join(', ')}`,
+      });
+    }
+  }
   if (c.expression && exprBlanks.join('|') !== ids.join('|')) {
     ctx.addIssue({
       code: 'custom',

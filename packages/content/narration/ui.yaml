@@ -276,6 +276,12 @@ ui.widget.answer:
 ui.widget.blank:
   text: "Box {n}"
   level: K
+ui.widget.blank-frac-top:
+  text: "Missing top number, over {n|num}"
+  level: "3"
+ui.widget.blank-frac-bottom:
+  text: "Missing bottom number, under {n|num}"
+  level: "3"
 ui.widget.choices:
   text: "Pick one"
   level: K
