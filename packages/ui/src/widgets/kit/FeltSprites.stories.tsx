@@ -112,9 +112,11 @@ export const SizeSheet: Story = {
     await expect(shown(at(32), 'ni-felt-md')).toBe(true);
     await expect(shown(at(32), 'ni-felt-lg')).toBe(false);
     await expect(shown(at(48), 'ni-felt-lg')).toBe(true);
-    // The lift is the svg's drop-shadow, never a shape: no ellipse is drawn under a sprite.
+    // The lift is the drawing's drop-shadow, never a shape: no ellipse is drawn under a sprite.
     for (const svg of canvasElement.querySelectorAll('.ni-sprite')) {
-      await expect(getComputedStyle(svg).filter).toContain('drop-shadow');
+      const lift = svg.querySelector('.ni-felt-lift');
+      await expect(lift && getComputedStyle(lift).filter).toContain('drop-shadow');
+      await expect(svg.querySelector('ellipse[fill^="rgb("]')).toBeNull();
     }
   },
 };

@@ -1043,10 +1043,12 @@ export function ObjectSprite({ sprite, tone = 'a', variant = 0, className }: Obj
               <image href={grainUrl} width={64} height={64} />
             </pattern>
           </defs>
-          {drawFelt(isFeltKind(sprite) ? sprite : 'pebble', tone, grain, variant)}
+          <g className="ni-felt-lift">
+            {drawFelt(isFeltKind(sprite) ? sprite : 'pebble', tone, grain, variant)}
+          </g>
         </>
       ) : (
-        legacy(tone)
+        <g className="ni-felt-lift">{legacy(tone)}</g>
       )}
     </svg>
   );

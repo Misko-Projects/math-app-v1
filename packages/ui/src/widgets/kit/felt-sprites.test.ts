@@ -2,35 +2,52 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, PALETTE } from '../../tokens/tokens';
-import { CRAB_FACES, FELT_KINDS, FELT_TONES_USED, type FeltKind, feltColors } from './felt-sprites';
+import {
+  CRAB_FACES,
+  FELT_KINDS,
+  FELT_SURFACES,
+  FELT_TONES_USED,
+  type FeltKind,
+  feltColors,
+} from './felt-sprites';
 import type { ObjectLayout, PlacedObject } from './layout';
 import { ObjectSetView } from './ObjectSetView';
 import { ObjectSprite, type SpriteTone } from './sprites';
 
-/** What counted objects sit on: the cream mat and cards, the sand, and the sage tray edge. */
-const FELT_EDGE_BACKGROUNDS = {
-  paper: PALETTE.paper,
-  cloud: PALETTE.cloud,
-  horizon: PALETTE.horizon,
-  sand: PALETTE.sand,
-  sage: PALETTE.leaf,
-} as const;
-
 const ALL_TONES: SpriteTone[] = ['a', 'b', 'red', 'white', 'blue'];
 
+const worst = (hex: string) =>
+  Math.min(...Object.values(FELT_SURFACES).map((bg) => contrastRatio(hex, bg)));
+
 describe('felt sprites', () => {
-  it('every tone a sprite can take keeps a 3:1 silhouette on the mat and the sage tray (06 §7)', () => {
+  it('the surfaces are the felt tokens counted objects lie on', () => {
+    expect(FELT_SURFACES.paper).toBe(PALETTE.paper.toUpperCase());
+    expect(FELT_SURFACES.cloud).toBe(PALETTE.cloud.toUpperCase());
+    expect(FELT_SURFACES.horizon).toBe(PALETTE.horizon.toUpperCase());
+    expect(FELT_SURFACES.sand).toBe(PALETTE.sand.toUpperCase());
+  });
+
+  it('every tone keeps a 3:1 silhouette at every size (06 §7): the edge below 48 px, then the felt itself or a kept edge', () => {
     const low: string[] = [];
     for (const kind of Object.keys(FELT_KINDS) as FeltKind[]) {
       for (const tone of ALL_TONES) {
-        const { edge } = feltColors(kind, tone);
-        for (const [bg, hex] of Object.entries(FELT_EDGE_BACKGROUNDS)) {
-          const r = contrastRatio(edge, hex);
-          if (r < 3) low.push(`${kind}/${tone} edge ${edge} on ${bg}: ${r.toFixed(2)}`);
-        }
+        const c = feltColors(kind, tone);
+        if (worst(c.edge) < 3)
+          low.push(`${kind}/${tone} edge ${c.edge}: ${worst(c.edge).toFixed(2)}`);
+        if (!c.keepEdge && worst(c.fill) < 3)
+          low.push(`${kind}/${tone} drops its edge but ${c.fill} is ${worst(c.fill).toFixed(2)}`);
       }
     }
     expect(low).toEqual([]);
+  });
+
+  it('a kept edge is only as dark as 3:1 needs: mid-dark, never near-black', () => {
+    for (const kind of Object.keys(FELT_KINDS) as FeltKind[]) {
+      for (const tone of ALL_TONES) {
+        const { edge } = feltColors(kind, tone);
+        expect(contrastRatio(edge, '#000000'), `${kind}/${tone} ${edge}`).toBeGreaterThan(2);
+      }
+    }
   });
 
   it('the tones content uses are all drawable, and group b differs from a in lightness too', () => {

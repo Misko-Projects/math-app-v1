@@ -2,69 +2,105 @@ import type { ReactElement, ReactNode } from 'react';
 import type { SpriteTone } from './sprites';
 
 /*
- * Felt & Stitch counted objects (05 §11): each sprite is cut felt on a darker felt backing, so it
- * reads at the smallest size it is drawn at (10 px counters on numeral cards) and its outline
- * keeps 3:1 on the cream mat and the sage tray edge (FELT_EDGE_BACKGROUNDS, sprites.test.ts).
+ * Felt & Stitch counted objects (05 §11): each sprite is cut felt laid on the mat. Its silhouette
+ * keeps 3:1 on every surface counted objects sit on (FELT_SURFACES: the cream mat and tray inside,
+ * cards, horizon and sand; the sage of a tray is its edge, never under a sprite), and it reads at
+ * the smallest size it is drawn at (10 px counters on numeral cards).
  *
- * Detail comes in three tiers, switched by the sprite's own drawn width (a container query on
- * the sprite's svg, kit.css), never by script:
+ * Detail comes in tiers, switched by the sprite's own drawn width (a container query on the
+ * sprite's svg, kit.css), never by script:
+ *   - under 48 px (`ni-felt-sm`, and the base rule): a same-hue, mid-dark edge on every piece, so a
+ *     pink crab at 20 px still reads as a pink crab;
  *   - every size: the silhouette in two felt tones and the bead eyes;
  *   - `ni-felt-md` (32 px and up): one running stitch set in from the edge, the mouth;
- *   - `ni-felt-lg` (48 px and up): the felt grain, a light rim, glints, cheeks, ribs and dots.
+ *   - `ni-felt-lg` (48 px and up): the felt grain, a light rim on the lit side, glints, cheeks,
+ *     ribs and dots. No edge where the felt colour holds 3:1 by itself (`edge: false`); a thin
+ *     same-hue one, only as dark as 3:1 needs, where it does not.
  * A browser without container queries draws the first tier at every size: a whole, tidy sprite.
- * The lift is a CSS drop-shadow on the svg (kit.css), not a shape: no oval under anything.
+ * The lift is a CSS drop-shadow on the drawing (`ni-felt-lift`, kit.css) in the sprite's own
+ * units, so it grows with the sprite; it is never a shape: no oval under anything.
  */
 
-/** One felt colour set: the cut piece, its second tone, the thread, and the backing (edge). */
+/**
+ * One felt colour set: the cut piece, its second tone, the thread, the same-hue edge, and
+ * whether a large piece keeps that edge (false: the felt colour holds 3:1 by itself).
+ */
 export interface FeltColors {
   fill: string;
   accent: string;
   thread: string;
   edge: string;
+  keepEdge: boolean;
 }
+
+/** What counted objects lie on (the slice-1 felt tokens). */
+export const FELT_SURFACES = {
+  paper: '#F6EEDB',
+  cloud: '#FFFBF2',
+  horizon: '#F3E6CC',
+  sand: '#E9DDC4',
+} as const;
 
 const DENIM: FeltColors = {
   fill: '#3F5E8A',
   accent: '#A4BED5',
   thread: '#DCE6F0',
-  edge: '#1B2A40',
+  edge: '#2E4568',
+  keepEdge: false,
 };
 const MUSTARD: FeltColors = {
   fill: '#E2A62A',
   accent: '#F0CB78',
   thread: '#F6EEDB',
-  edge: '#563A06',
+  edge: '#A07316',
+  keepEdge: true,
 };
 const TERRA: FeltColors = {
-  fill: '#C5633D',
+  fill: '#C15F3A',
   accent: '#F0AC98',
   thread: '#F6EEDB',
-  edge: '#55200F',
+  edge: '#8E3F22',
+  keepEdge: false,
 };
 const CREAM: FeltColors = {
   fill: '#FFFBF2',
   accent: '#E6DDCB',
   thread: '#A5855B',
-  edge: '#463630',
+  edge: '#857462',
+  keepEdge: true,
 };
 
 /** Each kind's own colours (tone `a`); `b` is its second group colour where denim would clash. */
 export const FELT_KINDS = {
-  crab: { a: { fill: '#D9466B', accent: '#F4A3B8', thread: '#F9D2DC', edge: '#5E1229' } },
-  shell: { a: { fill: '#EDB79E', accent: '#F6EEDB', thread: '#C5633D', edge: '#6B2F17' } },
-  fish: { a: { fill: '#E2A62A', accent: '#C5633D', thread: '#F6EEDB', edge: '#563A06' } },
-  starfish: { a: { fill: '#E39A5A', accent: '#C5633D', thread: '#F6EEDB', edge: '#5E3010' } },
-  leaf: { a: { fill: '#7F9C78', accent: '#B5C8A1', thread: '#F6EEDB', edge: '#1F3321' } },
+  crab: {
+    a: { fill: '#D9466B', accent: '#F4A3B8', thread: '#F9D2DC', edge: '#A62C4C', keepEdge: false },
+  },
+  shell: {
+    a: { fill: '#EDB79E', accent: '#F6EEDB', thread: '#C5633D', edge: '#B0552F', keepEdge: true },
+  },
+  fish: {
+    a: { fill: '#E2A62A', accent: '#C15F3A', thread: '#F6EEDB', edge: '#A07316', keepEdge: true },
+  },
+  starfish: {
+    a: { fill: '#E39A5A', accent: '#C15F3A', thread: '#F6EEDB', edge: '#B0611F', keepEdge: true },
+  },
+  leaf: {
+    a: { fill: '#678360', accent: '#B5C8A1', thread: '#F6EEDB', edge: '#4A6649', keepEdge: false },
+  },
   pebble: {
-    a: { fill: '#6F86A2', accent: '#B4C3D3', thread: '#F6EEDB', edge: '#1E2B40' },
+    a: { fill: '#667E9C', accent: '#B4C3D3', thread: '#F6EEDB', edge: '#46597A', keepEdge: false },
     b: MUSTARD,
   },
   firefly: {
-    a: { fill: '#3F5E8A', accent: '#F0CB78', thread: '#F6EEDB', edge: '#1B2A40' },
+    a: { fill: '#3F5E8A', accent: '#F0CB78', thread: '#F6EEDB', edge: '#2E4568', keepEdge: false },
     b: MUSTARD,
   },
-  dot: { a: { fill: '#E39A5A', accent: '#F0CB78', thread: '#F6EEDB', edge: '#5E3010' } },
-  stone: { a: { fill: '#E6DDCB', accent: '#CFC3AC', thread: '#8E7A60', edge: '#463630' } },
+  dot: {
+    a: { fill: '#E39A5A', accent: '#F0CB78', thread: '#F6EEDB', edge: '#B0611F', keepEdge: true },
+  },
+  stone: {
+    a: { fill: '#E6DDCB', accent: '#CFC3AC', thread: '#8E7A60', edge: '#85776A', keepEdge: true },
+  },
   counter: { a: TERRA, b: MUSTARD },
 } as const satisfies Record<string, { a: FeltColors; b?: FeltColors }>;
 
@@ -174,35 +210,31 @@ function circlePath(cx: number, cy: number, r: number): string {
 // ---------------------------------------------------------------- parts
 
 /**
- * A felt piece: the dark backing showing a little below and right (its thickness), the piece
- * with its edge, and the grain over it from 48 px up. `edge` false: an appliqué sewn on top.
+ * A felt piece with its grain from 48 px up. Under 48 px it has a same-hue edge; from 48 px only
+ * where `keep` (its felt colour cannot hold 3:1 alone), thin.
  */
 function Piece({
   d,
   fill,
   edge,
+  keep,
   grain,
-  backing = true,
 }: {
   d: string;
   fill: string;
   edge: string;
+  keep: boolean;
   grain: string;
-  backing?: boolean;
 }) {
   return (
     <g data-felt-piece="">
-      {backing ? (
-        <path
-          d={d}
-          fill={edge}
-          stroke={edge}
-          className="ni-felt-edge"
-          strokeLinejoin="round"
-          transform="translate(0.6 1.2)"
-        />
-      ) : null}
-      <path d={d} fill={fill} stroke={edge} className="ni-felt-edge" strokeLinejoin="round" />
+      <path
+        d={d}
+        fill={fill}
+        stroke={edge}
+        className={keep ? 'ni-felt-edge ni-felt-edge--keep' : 'ni-felt-edge'}
+        strokeLinejoin="round"
+      />
       <path
         d={d}
         className="ni-felt-lg"
@@ -378,23 +410,23 @@ function crabFace(v: number, c: FeltColors) {
 
 const crab: FeltDraw = ({ c, grain, variant }) => (
   <g transform="translate(32 36) scale(0.6)">
+    {/* The legs' edge: under 48 px, and at every size where the felt cannot hold 3:1 alone. */}
     <path
+      className={c.keepEdge ? undefined : 'ni-felt-sm'}
       d={CRAB_LIMBS}
       fill="none"
       stroke={c.edge}
       strokeWidth={9}
       strokeLinecap="round"
-      transform="translate(0.8 1.6)"
     />
-    <path d={CRAB_LIMBS} fill="none" stroke={c.edge} strokeWidth={9} strokeLinecap="round" />
-    <path d={CRAB_LIMBS} fill="none" stroke={c.fill} strokeWidth={4.6} strokeLinecap="round" />
+    <path d={CRAB_LIMBS} fill="none" stroke={c.fill} strokeWidth={5.6} strokeLinecap="round" />
     <g transform="translate(-33 -25) scale(-1 1)">
-      <Piece d={CLAW} fill={c.fill} edge={c.edge} grain={grain} />
+      <Piece d={CLAW} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     </g>
     <g transform="translate(33 -25)">
-      <Piece d={CLAW} fill={c.fill} edge={c.edge} grain={grain} />
+      <Piece d={CLAW} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     </g>
-    <Piece d={CRAB_BODY} fill={c.fill} edge={c.edge} grain={grain} />
+    <Piece d={CRAB_BODY} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Rim d="M-21,-6C-19,-13 -11,-16.5 -3,-17" />
     <Stitch
       d="M-21.5,2C-21.5,-10 -12,-15 0,-15C12,-15 21.5,-10 21.5,2C21.5,10 12,14 0,14C-12,14 -21.5,10 -21.5,2z"
@@ -446,9 +478,10 @@ const shell: FeltDraw = ({ c, grain }) => {
         d="M23.5,48h17a4,4 0 0 1 4,4v2a4,4 0 0 1 -4,4h-17a4,4 0 0 1 -4,-4v-2a4,4 0 0 1 4,-4z"
         fill={MUSTARD.fill}
         edge={MUSTARD.edge}
+        keep
         grain={grain}
       />
-      <Piece d={SHELL.edge} fill={c.fill} edge={c.edge} grain={grain} />
+      <Piece d={SHELL.edge} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
       <Applique d={SHELL_INNER.edge} fill={c.accent} edge={c.edge} grain={grain} />
       <Rim d="M9,38C10,30 15,25 21,22.5" />
       <Stitch d={ribs} color={c.thread} width={1.5} dash="3 2.6" />
@@ -468,15 +501,17 @@ const fish: FeltDraw = ({ c, grain }) => (
       d="M5,20C10.5,23 14,27 17,32C14,37 10.5,41 5,44C6.5,36 6.5,28 5,20Z"
       fill={c.accent}
       edge={c.edge}
+      keep
       grain={grain}
     />
     <Piece
       d="M30,18C31,12 37,9.5 43,11C41,14.5 39,16.5 36,18Z"
       fill={c.accent}
       edge={c.edge}
+      keep
       grain={grain}
     />
-    <Piece d={FISH_BODY} fill={c.fill} edge={c.edge} grain={grain} />
+    <Piece d={FISH_BODY} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Applique
       d="M24,40C30,44.5 38,45.5 45,44C41,41 33,39.5 24,40Z"
       fill={c.accent}
@@ -511,7 +546,7 @@ const starfish: FeltDraw = ({ c, grain }) => {
   });
   return (
     <>
-      <Piece d={STAR} fill={c.fill} edge={c.edge} grain={grain} />
+      <Piece d={STAR} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
       <Rim d="M13,26.5C17,25.5 21,25 24,24.5" />
       <Stitch d={STAR_STITCH} color={c.thread} width={1.5} dash="3 2.6" />
       <Only tier="lg">{dots}</Only>
@@ -528,7 +563,7 @@ const LEAF = 'M10,52C7,30 21,10 54,8C56,34 41,51 14,53Z';
 
 const leaf: FeltDraw = ({ c, grain }) => (
   <>
-    <Piece d={LEAF} fill={c.fill} edge={c.edge} grain={grain} />
+    <Piece d={LEAF} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Applique
       d="M13,49C13,32 27,15 51,11C50,20 44,27 36,32C28,37 20,42 13,49Z"
       fill={c.accent}
@@ -552,7 +587,7 @@ const PEBBLE = 'M9,34C9,21 19,12 33,12C46,12 55,20 55,32C55,44 45,52 32,52C18,52
 
 const pebble: FeltDraw = ({ c, grain }) => (
   <>
-    <Piece d={PEBBLE} fill={c.fill} edge={c.edge} grain={grain} />
+    <Piece d={PEBBLE} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Applique
       d="M17,27C19,21 25,18 31,18C29,22 24,26 17,27Z"
       fill={c.accent}
@@ -574,21 +609,24 @@ const firefly: FeltDraw = ({ c, grain }) => (
   <>
     <Piece
       d="M20,10C29,9 33,17 31,25C24,26 17,21 20,10Z"
-      fill="#F6EEDB"
-      edge={c.edge}
+      fill={CREAM.fill}
+      edge={CREAM.edge}
+      keep
       grain={grain}
     />
     <Piece
       d="M44,10C35,9 31,17 33,25C40,26 47,21 44,10Z"
-      fill="#F6EEDB"
-      edge={c.edge}
+      fill={CREAM.fill}
+      edge={CREAM.edge}
+      keep
       grain={grain}
     />
-    <Piece d={circlePath(32, 43, 12)} fill={c.accent} edge={c.edge} grain={grain} />
+    <Piece d={circlePath(32, 43, 12)} fill={c.accent} edge={MUSTARD.edge} keep grain={grain} />
     <Piece
       d="M32,16C38,16 41,22 41,30C41,37 37,40 32,40C27,40 23,37 23,30C23,22 26,16 32,16Z"
       fill={c.fill}
       edge={c.edge}
+      keep={c.keepEdge}
       grain={grain}
     />
     <Stitch d={circlePath(32, 43.5, 8)} color={MUSTARD.edge} width={1.4} dash="2.6 2.2" />
@@ -606,7 +644,7 @@ const firefly: FeltDraw = ({ c, grain }) => (
 
 const dot: FeltDraw = ({ c, grain }) => (
   <>
-    <Piece d={circlePath(32, 33, 18)} fill={c.fill} edge={c.edge} grain={grain} />
+    <Piece d={circlePath(32, 33, 18)} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Rim d="M19,30C20,25 24,21 29,20" />
     <Stitch d={circlePath(32, 33, 13)} color={c.thread} width={1.5} />
   </>
@@ -616,7 +654,7 @@ const STONE = 'M7,39C7,24 18,12 33,12C47,12 57,22 57,36C57,48 47,55 32,55C17,55 
 
 const stone: FeltDraw = ({ c, grain }) => (
   <>
-    <Piece d={STONE} fill={c.fill} edge={c.edge} grain={grain} />
+    <Piece d={STONE} fill={c.fill} edge={c.edge} keep={c.keepEdge} grain={grain} />
     <Applique
       d="M36,20C43,19 49,23 51,29C45,29 39,26 36,20Z"
       fill={c.accent}
@@ -640,7 +678,13 @@ const counter =
   (tone: 'a' | 'b'): FeltDraw =>
   ({ c, grain }) => (
     <>
-      <Piece d={circlePath(32, 32, 21)} fill={c.fill} edge={c.edge} grain={grain} />
+      <Piece
+        d={circlePath(32, 32, 21)}
+        fill={c.fill}
+        edge={c.edge}
+        keep={c.keepEdge}
+        grain={grain}
+      />
       <Rim d="M16,28C17,21 22,16 29,15" />
       {tone === 'b' ? (
         <g data-mark="ring">
