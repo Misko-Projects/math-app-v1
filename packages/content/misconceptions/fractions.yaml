@@ -115,7 +115,7 @@ misconceptions:
     name: Thinks equal shares must look alike (a longer part looks bigger)
     detect: { kind: answer, rule: equalSharesLookAlike }
     appliesTo: { generators: [frac.shares] }
-    skills: [FRA.16]
+    skills: [FRA.16, FRA.14]
     remediation: [FRA.02]
     feedback: fb.mc.equal-shares-look-alike
     priority: 50
@@ -244,4 +244,82 @@ misconceptions:
         match: true
       - params: { mode: place, skin: strip, den: 2, num: 2, max: 3 }
         response: { kind: placement, value: 1 }
+        match: false
+
+  # K02 slice 5c (#17): two names for one amount (frac.equiv) and benchmarks (frac.compare).
+
+  - id: MC.fraction-equiv-add
+    name: Adds the same number to top and bottom (1/2 = 3/4)
+    detect: { kind: answer, rule: fractionEquivAdd }
+    appliesTo: { generators: [frac.equiv] }
+    skills: [FRA.05, FRA.17]
+    remediation: [FRA.09]
+    feedback: fb.mc.fraction-equiv-add
+    priority: 40
+    parentTip: >-
+      Fold a paper strip in half, shade one half, then fold it again. Count the fourths that are
+      shaded: the amount did not change, but the parts did.
+    examples:
+      - params: { mode: pad, missing: num, picture: true, num: 1, den: 2, mult: 2 }
+        response: { kind: number, value: 3 }
+        match: true
+      - params: { mode: pad, missing: num, picture: true, num: 1, den: 2, mult: 2 }
+        response: { kind: number, value: 1 }
+        match: false
+
+  - id: MC.fraction-equiv-one-side
+    name: Changes only the top or only the bottom number (1/2 = 1/4)
+    detect: { kind: answer, rule: fractionEquivOneSide }
+    appliesTo: { generators: [frac.equiv] }
+    skills: [FRA.05, FRA.17]
+    remediation: [FRA.09]
+    feedback: fb.mc.fraction-equiv-one-side
+    priority: 30
+    parentTip: >-
+      Cut each half of a sandwich into two. Now there are four parts, and two of them are the
+      half you had: both numbers changed together.
+    examples:
+      - params: { mode: pad, missing: num, picture: true, num: 1, den: 2, mult: 2 }
+        response: { kind: number, value: 1 }
+        match: true
+      - params: { mode: pad, missing: num, picture: true, num: 1, den: 2, mult: 2 }
+        response: { kind: number, value: 3 }
+        match: false
+
+  - id: MC.fraction-bigger-numbers
+    name: Thinks a fraction with bigger numbers (more parts) is bigger (4/8 > 1/2)
+    detect: { kind: answer, rule: fractionBiggerNumbers }
+    appliesTo: { generators: [frac.compare] }
+    skills: [FRA.15]
+    remediation: [FRA.06]
+    feedback: fb.mc.fraction-bigger-numbers
+    priority: 40
+    parentTip: >-
+      Shade four eighths of one paper strip and one half of another strip of the same size. Hold
+      them side by side: the shading ends at the same place.
+    examples:
+      - params: { kind: benchmark, bench: half, symbols: true, shape: bar, num: 4, den: 8 }
+        response: { kind: choice, id: left }
+        match: true
+      - params: { kind: benchmark, bench: half, symbols: true, shape: bar, num: 4, den: 8 }
+        response: { kind: choice, id: same }
+        match: false
+
+  - id: MC.fraction-half-by-top
+    name: Compares with one half by the top numbers (shaded parts) alone (3/8 > 1/2)
+    detect: { kind: answer, rule: fractionHalfByTop }
+    appliesTo: { generators: [frac.compare] }
+    skills: [FRA.15]
+    remediation: [FRA.06]
+    feedback: fb.mc.fraction-half-by-top
+    priority: 30
+    parentTip: >-
+      Ask how many eighths make one half (four). Three eighths is one fewer, so it is less than
+      one half even though 3 is more than 1.
+    examples:
+      - params: { kind: benchmark, bench: half, symbols: true, shape: bar, num: 3, den: 8 }
+        response: { kind: choice, id: left }
+        match: true
+      - params: { kind: benchmark, bench: half, symbols: true, shape: bar, num: 3, den: 8 }
+        response: { kind: choice, id: right }
         match: false

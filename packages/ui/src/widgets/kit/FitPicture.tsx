@@ -206,7 +206,8 @@ export function naturalPictureSize(
     case 'fraction': {
       // The whole's own frame: wholes of one shape are one size whatever their parts.
       const f = shapeFrame(spec.shape);
-      return { w: f.width, h: f.height };
+      // Two strips (FRA.05) stack 10 px apart.
+      return { w: f.width, h: spec.below ? 2 * f.height + 10 : f.height };
     }
     case 'chart': {
       const box = chartBox(spec.chart, CHART_NATURAL.w, CHART_NATURAL.h);

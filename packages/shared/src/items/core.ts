@@ -670,6 +670,11 @@ export type StimulusSpec =
       parts: number;
       shaded: number;
       equalParts: boolean;
+      /**
+       * A second strip of the same whole under this one (K02 slice 5c, FRA.05; `bar` with equal
+       * parts only): the same length, height and left edge, so equal shaded lengths line up.
+       */
+      below?: { parts: number; shaded: number };
     }
   | {
       kind: 'gauge';
@@ -786,6 +791,9 @@ export const stimulusSpecSchema = z.discriminatedUnion('kind', [
       parts: z.number().int().min(1).max(FRACTION_PARTS_MAX),
       shaded: count,
       equalParts: z.boolean(),
+      below: z
+        .object({ parts: z.number().int().min(1).max(FRACTION_PARTS_MAX), shaded: count })
+        .optional(),
     })
     .superRefine((f, ctx) => {
       if (f.shaded > f.parts) {
@@ -793,6 +801,13 @@ export const stimulusSpecSchema = z.discriminatedUnion('kind', [
           code: 'custom',
           path: ['shaded'],
           message: 'a picture shades at most all of its parts',
+        });
+      }
+      if (f.below && (f.shape !== 'bar' || !f.equalParts || f.below.shaded > f.below.parts)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['below'],
+          message: 'a second strip goes under a strip of equal parts and shades at most its parts',
         });
       }
     }),

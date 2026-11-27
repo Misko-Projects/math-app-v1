@@ -531,3 +531,100 @@ export const GridPartsTablet: Story = {
     await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'number-pad grid-parts tablet'));
   },
 };
+
+// ---------- equivalent fractions (FRA.05, K02 slice 5c): two strips and a box in a fraction ----------
+
+/** FRA.05.t1's finest: three fourths over a strip in eighths, 3/4 = [ ]/8. */
+const twoStrips: ConfigFor<'number-pad'> = {
+  format: 'number-pad',
+  stimulus: {
+    kind: 'fraction',
+    shape: 'bar',
+    parts: 4,
+    shaded: 3,
+    equalParts: true,
+    below: { parts: 8, shaded: 0 },
+  },
+  expression: {
+    tokens: [
+      { t: 'frac', a: 3, b: 4 },
+      { t: 'rel', v: '=' },
+      { t: 'frac', a: 'blank', b: 8 },
+    ],
+  },
+  blanks: [{ id: 'frac-2-a', maxDigits: 1 }],
+  unit: null,
+};
+
+const twoStripsName =
+  'Two strips of the same length, one above the other. The top strip is in 4 equal parts, 3 of them shaded. The bottom strip is in 8 equal parts, 0 of them shaded.';
+
+/**
+ * Both strips one length, height and left edge (equal shaded lengths line up), each eighth at
+ * least 22 px; named by both strips, never as equal; the box is drawn once, inside the fraction.
+ */
+export const TwoStripsLandscapeMin: Story = {
+  args: { config: twoStrips, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('[data-two-strips="true"]')).toHaveAttribute(
+      'aria-label',
+      twoStripsName,
+    );
+    const [top, bottom] = [
+      ...root.querySelectorAll<SVGElement>('.ni-stimulus--two-strips svg'),
+    ].map((s) => s.getBoundingClientRect()) as [DOMRect, DOMRect];
+    await expect(Math.abs(top.width - bottom.width)).toBeLessThan(1);
+    await expect(Math.abs(top.left - bottom.left)).toBeLessThan(1);
+    await expect(bottom.width / 8).toBeGreaterThanOrEqual(22);
+    await expect(root.querySelectorAll('.ni-npw__blank')).toHaveLength(1);
+    await expect(root.querySelector('.ni-npw__answers')).toBeNull();
+    await expectAreaFit(canvasElement, areaFit(root, 'g1-up', 'number-pad two strips 906x373'));
+    await expect(within(root).getByText('three fourths')).toHaveClass('ni-visually-hidden');
+    await userEvent.click(key(root, '6'));
+    await expect(
+      within(root).getByRole('button', { name: 'Missing top number, over 8: 6' }),
+    ).toBeVisible();
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 6 });
+  },
+};
+
+/** FRA.05.t4: a missing bottom number, 2/3 = 4/[ ], no picture. */
+export const FractionBottomBox: Story = {
+  args: {
+    config: {
+      format: 'number-pad',
+      stimulus: {
+        kind: 'expression',
+        expr: {
+          tokens: [
+            { t: 'frac', a: 2, b: 3 },
+            { t: 'rel', v: '=' },
+            { t: 'frac', a: 4, b: 'blank' },
+          ],
+        },
+      },
+      blanks: [{ id: 'frac-2-b', maxDigits: 1 }],
+      unit: null,
+    },
+    tier: 'abstract',
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelectorAll('.ni-npw__blank')).toHaveLength(1);
+    await expect(root.querySelector('.ni-expr__frac [data-blank="frac-2-b"]')).not.toBeNull();
+    // A screen reader hears the sentence: "two thirds", "=", and the box by its place and the
+    // number above it (PR #141 review): never the answer, never "2 3".
+    await expect(within(root).getByText('two thirds')).toHaveClass('ni-visually-hidden');
+    await expect(
+      within(root).getByRole('button', { name: 'Missing bottom number, under 4:' }),
+    ).toBeVisible();
+    const digits = [...root.querySelectorAll('.ni-expr__frac > span')];
+    await expect(digits.filter((d) => d.getAttribute('aria-hidden') === 'true')).toHaveLength(3);
+    await userEvent.click(key(root, '6'));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 6 });
+  },
+};

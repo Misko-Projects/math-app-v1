@@ -44,19 +44,23 @@ describe('PR #133 review round 1', () => {
     }
   });
 
-  it('only FRA.16 cuts grids (with its grid-parts pictures); only DAT.03 draws line plots', () => {
+  it('only FRA.16 and FRA.14 cut grids (with their grid-parts pictures); only DAT.03 draws line plots', () => {
     // Slice 4c-1 gave line plots accessible names and shipped DAT.03; slice 4c-2 shipped FRA.16
-    // with its pictorial grid-parts templates (frac.shares) beside the grid cut.
+    // with its pictorial grid-parts templates (frac.shares) beside the grid cut; slice 5c FRA.14
+    // (equal areas) with the same grids and a name item under the picture.
     expect(
       fixture.templates.filter((t) => t.generator === 'data.lineplot').map((t) => t.skillId),
     ).toEqual(['DAT.03', 'DAT.03', 'DAT.03']);
     const grid = fixture.templates.filter(
       (t) => t.generator === 'frac.partition' && JSON.stringify(t.params).includes('grid'),
     );
-    expect(grid.map((t) => t.id)).toEqual(['FRA.16.t1']);
-    expect(fixture.templates.filter((t) => t.generator === 'frac.shares').map((t) => t.id)).toEqual(
-      ['FRA.16.t2', 'FRA.16.t3'],
-    );
+    expect(grid.map((t) => t.id).sort()).toEqual(['FRA.14.t1', 'FRA.16.t1']);
+    expect(
+      fixture.templates
+        .filter((t) => t.generator === 'frac.shares')
+        .map((t) => t.id)
+        .sort(),
+    ).toEqual(['FRA.14.t2', 'FRA.14.t3', 'FRA.16.t2', 'FRA.16.t3']);
   });
 
   it('no hint says slanted sides make a corner not square', () => {

@@ -1,5 +1,5 @@
 # K01 (#11): the grade-1 FRA rows of 03 §3.11. K02 slice 4a (#17) adds FRA.02, slice 5a FRA.03,
-# FRA.06, FRA.09 and FRA.13; the other grade 3 rows are planned (graph.yaml plannedIds).
+# FRA.06, FRA.09 and FRA.13, slice 5b FRA.04 and FRA.10–12, slice 5c FRA.05, FRA.14, FRA.15, FRA.17.
 strand: FRA
 skills:
   - id: FRA.01
@@ -127,3 +127,42 @@ skills:
     prerequisites: [FRA.10]
     gateway: false
     representations: [fraction-strip, fraction-line, symbols]
+
+  # K02 slice 5c (#17): two names for one amount, benchmarks and equal areas. Denominators are 2,
+  # 3, 4, 6 and 8. FRA.15 adds `order` (a constructed answer) for V27 and has no line item; FRA.14
+  # adds fraction-pick (a name under a grid-parts picture, any equal name right) (as built, 03 §3.11).
+  - id: FRA.05
+    name: "Equivalent fractions with models (1/2 = 2/4)"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.3a, 3.NF.A.3b] }
+    prerequisites: [FRA.10, FRA.09]
+    gateway: true
+    representations: [fraction-strip, fraction-line, symbols]
+
+  - id: FRA.17
+    name: Equivalent fractions on the number line
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.3a] }
+    prerequisites: [FRA.05]
+    gateway: false
+    representations: [fraction-line, symbols]
+
+  - id: FRA.15
+    name: Compare a fraction with 1/2 and with 1
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.NF.A.3d] }
+    prerequisites: [FRA.12, FRA.06]
+    gateway: false
+    representations: [fraction-strip, symbols]
+
+  - id: FRA.14
+    name: Split shapes into equal areas; each part is 1/b of the area
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.G.A.2] }
+    prerequisites: [FRA.03, GEO.04]
+    gateway: false
+    representations: [fraction-shape, area-grid]

@@ -20,6 +20,13 @@
 //   `symbols` representation the fraction alone; biggest first. Values are in 24ths of the whole
 //   (24 × num ÷ den), and the cards' fractions are all different.
 // Without `symbols` everything is as K01 built it (FRA.08).
+//
+// K02 slice 5c (FRA.15) adds `kind: benchmark`: a/b (b in 2, 3, 4, 6, 8) against one half
+// (`bench: half`, a < b, never 1/2 itself: 2/4, 3/6 and 4/8 are equal to it) or against 1
+// (`bench: one`, a from b − 2 to b + 2, so b/b is equal). compare draws two strips, a/b and one
+// half (pictorial, `half` only), or a/b and 1/2 or the numeral 1 with `ask: symbol` (the `symbols`
+// representation). order has cards a/b and 1/2 (with strips), or with `pair` a/b, c/d and 1/2
+// (symbols), a/b and c/d on different sides of one half, so every pair is decided by the benchmark.
 
 import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
 import {
@@ -35,6 +42,7 @@ import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 import { fractionPicture } from './partition';
 
 const KINDS = ['sameNum', 'sameDen', 'benchmark'] as const;
+const BENCHES = ['half', 'one'] as const;
 /** The most shaded parts a same-numerator item shows (03 §3.11 FRA.13; num < every den). */
 export const MAX_SAME_NUM = 3;
 const SHAPES = ['bar', 'circle', 'rect'] as const;
@@ -142,6 +150,17 @@ export const fracCompare: GeneratorDef = {
       default: { kind: 'const', value: 0 },
       doc: 'order: third whole (0: compare two)',
     },
+    bench: {
+      type: 'string',
+      values: [...BENCHES],
+      default: { kind: 'const', value: 'half' },
+      doc: 'benchmark: compare with one half or with 1',
+    },
+    pair: {
+      type: 'bool',
+      default: { kind: 'const', value: false },
+      doc: 'benchmark order: a second fraction num2/den2 on the other side of one half',
+    },
     shape: {
       type: 'string',
       values: [...SHAPES],
@@ -176,13 +195,22 @@ export const fracCompare: GeneratorDef = {
     'gen.frac.compare.order-den',
     'gen.frac.compare.order-num',
     'gen.frac.compare.order-biggest',
+    'gen.frac.compare.half-parts',
+    'gen.frac.compare.half-more',
+    'gen.frac.compare.half-less',
+    'gen.frac.compare.half-equal',
+    'gen.frac.compare.one-whole',
+    'gen.frac.compare.one-more',
+    'gen.frac.compare.one-less',
+    'gen.frac.compare.one-equal',
+    'gen.frac.compare.order-half',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
   accepts(p, t) {
     const kind = asStr(p.kind);
     const symbols = p.symbols === true;
-    if (kind === 'benchmark') return false;
+    if (kind === 'benchmark') return benchmarkAccepts(p, t.format, t.representation ?? '');
     if (!symbols && (kind !== 'sameNum' || asNum(p.num) !== 1)) return false;
     const dens = itemDens(p);
     const nums = itemNums(p);
@@ -200,6 +228,7 @@ export const fracCompare: GeneratorDef = {
   },
   build(ctx: BuildContext): GeneratorOutput {
     const { params, template: t, rng } = ctx;
+    if (asStr(params.kind) === 'benchmark') return benchmarkBuild(ctx);
     const dens = itemDens(params);
     const nums = itemNums(params);
     const symbols = params.symbols === true;
@@ -296,6 +325,7 @@ export const fracCompare: GeneratorDef = {
   },
   exampleCorrect: (out): ResponseValue => correctFromAnswer(out.answer),
   solution(out): LessonStep[] {
+    if (asStr(out.params.kind) === 'benchmark') return benchmarkSolution(out);
     const w = out.widget;
     const a = out.answer;
     const symbols = out.params.symbols === true;
@@ -369,3 +399,148 @@ export const fracCompare: GeneratorDef = {
     return [];
   },
 };
+
+// ---------- benchmark (K02 slice 5c, FRA.15) ----------
+
+/** Which side of one half (or of 1) a/b is: −1 below, 0 at, 1 above. */
+export function benchSide(num: number, den: number, bench: 'half' | 'one'): -1 | 0 | 1 {
+  const diff = bench === 'half' ? 2 * num - den : num - den;
+  return diff < 0 ? -1 : diff > 0 ? 1 : 0;
+}
+
+function benchmarkAccepts(p: ParamValues, format: string, representation: string): boolean {
+  const num = asNum(p.num);
+  const den = asNum(p.den);
+  const bench = asStr(p.bench, 'half');
+  const pair = p.pair === true;
+  if (!(PIECE_DENS as readonly number[]).includes(den) || num < 1) return false;
+  if (p.symbols !== true || asStr(p.shape, 'bar') !== 'bar' || asNum(p.den3) !== 0) return false;
+  if (bench === 'one') {
+    // Against 1: a symbols compare only, a from b − 2 to b + 2 (b/b is equal to 1).
+    return (
+      format === 'compare' && representation === 'symbols' && !pair && Math.abs(num - den) <= 2
+    );
+  }
+  if (bench !== 'half' || num >= den) return false;
+  if (format === 'compare') return !pair && !(num === 1 && den === 2);
+  if (format !== 'order') return false;
+  // Never one half itself on a card beside the one-half card.
+  if (benchSide(num, den, 'half') === 0) return false;
+  if (!pair) return representation !== 'symbols';
+  // Three cards, symbols only: a/b and c/d on different sides of one half.
+  const num2 = asNum(p.num2);
+  const den2 = asNum(p.den2);
+  if (representation !== 'symbols') return false;
+  if (!(PIECE_DENS as readonly number[]).includes(den2) || num2 < 1 || num2 >= den2) return false;
+  return benchSide(num, den, 'half') * benchSide(num2, den2, 'half') === -1;
+}
+
+function benchmarkBuild(ctx: BuildContext): GeneratorOutput {
+  const { params, template: t, rng } = ctx;
+  const num = asNum(params.num);
+  const den = asNum(params.den);
+  const bench = asStr(params.bench, 'half') as 'half' | 'one';
+  const vars = pickVars(t, { f: `${num}/${den}` });
+  const size = fractionSize(num, den);
+  const side = benchSide(num, den, bench);
+  const math: Record<string, number> = {
+    sameNum: 0,
+    benchmark: 1,
+    equal: side === 0 ? 1 : 0,
+    ratio: sizeRatio([size, bench === 'half' ? 12 : 24]),
+  };
+  let p: PartialOutput;
+  if (t.format === 'compare') {
+    const written = t.representation === 'symbols';
+    const right: StimulusSpec = written
+      ? bench === 'half'
+        ? { kind: 'expression', expr: { tokens: [{ t: 'frac', a: 1, b: 2 }] } }
+        : { kind: 'expression', expr: { tokens: [{ t: 'num', v: 1 }] } }
+      : fractionPicture('bar', 2, 1, true);
+    p = {
+      params,
+      vars,
+      math,
+      widget: {
+        format: 'compare',
+        left: written
+          ? { kind: 'expression', expr: { tokens: [{ t: 'frac', a: num, b: den }] } }
+          : fractionPicture('bar', den, num, true),
+        right,
+        ask: written ? 'symbol' : 'more',
+        allowMatchLines: false,
+      },
+      answer: written
+        ? { kind: 'choice', id: side === 0 ? '=' : side > 0 ? '>' : '<' }
+        : { kind: 'choice', id: side === 0 ? 'same' : side > 0 ? 'left' : 'right' },
+    };
+  } else {
+    const fracs: [number, number][] = [
+      [num, den],
+      [1, 2],
+    ];
+    if (params.pair === true) fracs.push([asNum(params.num2), asNum(params.den2)]);
+    const cards = rng.fork('layout').shuffle(fracs);
+    const bare = t.representation === 'symbols';
+    const sizes = fracs.map(([n, d]) => fractionSize(n, d));
+    p = {
+      params,
+      vars,
+      // Sizes in 24ths are not magnitudes: the order model's magnitude feature stays 0.
+      math: { ...math, ratio: sizeRatio(sizes), magnitude: 0 },
+      widget: {
+        format: 'order',
+        items: cards.map(([n, d], i) => ({
+          id: `obj-${i}`,
+          value: fractionSize(n, d),
+          label: `${n}/${d}`,
+          ...(bare ? {} : { stimulus: fractionPicture('bar', d, n, true) }),
+        })),
+        direction: 'desc',
+      },
+      answer: { kind: 'numbers', values: [...sizes].sort((x, y) => y - x), ordered: true },
+    };
+  }
+  return finish(fracCompare, ctx, p);
+}
+
+function benchmarkSolution(out: GeneratorOutput): LessonStep[] {
+  const w = out.widget;
+  const a = out.answer;
+  const num = asNum(out.params.num);
+  const den = asNum(out.params.den);
+  const bench = asStr(out.params.bench, 'half') as 'half' | 'one';
+  const f = `${num}/${den}`;
+  if (w.format === 'compare') {
+    const id = a.kind === 'choice' ? a.id : 'same';
+    const side = benchSide(num, den, bench);
+    const which = side === 0 ? 'equal' : side > 0 ? 'more' : 'less';
+    const intro = say(
+      bench === 'half' ? 'gen.frac.compare.half-parts' : 'gen.frac.compare.one-whole',
+      {},
+    );
+    const why = `gen.frac.compare.${bench}-${which}`;
+    const answer = { op: 'answer', args: { id } } as const;
+    // The sign line is about < and >: an equal pair ends on its why line.
+    return w.ask === 'symbol' && side !== 0
+      ? [intro, say(why, { f }), say('gen.frac.compare.symbol', {}, answer)]
+      : [intro, say(why, { f }, answer)];
+  }
+  if (w.format === 'order' && a.kind === 'numbers') {
+    const used = new Set<string>();
+    return [
+      say('gen.frac.compare.order-half', {}),
+      ...a.values.map((v, slot) => {
+        const item = w.items.find((x) => x.value === v && !used.has(x.id));
+        const id = item?.id ?? 'obj-0';
+        used.add(id);
+        return say(
+          slot === 0 ? 'gen.frac.compare.order-biggest' : 'gen.frac.compare.order-next',
+          {},
+          { op: 'drag', args: { id, slot } },
+        );
+      }),
+    ];
+  }
+  return [];
+}

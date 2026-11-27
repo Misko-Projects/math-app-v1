@@ -1,5 +1,5 @@
 import { formatModel } from '@number-island/engine';
-import type { WidgetAction } from '@number-island/shared';
+import type { ExpressionToken, WidgetAction } from '@number-island/shared';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
@@ -254,12 +254,25 @@ export function NumberPadWidget({
     invitedId === null ? '' : `blank:${invitedId}`,
   );
 
+  const fracBlankOther = new Map([
+    ...fracBlankContext(config.expression?.tokens ?? []),
+    ...fracBlankContext(exprTokensOf(config.stimulus)),
+  ]);
   const renderBlank = (id: string) => {
     const i = blanks.findIndex((b) => b.id === id);
     if (i < 0) return <span className="ni-expr__blank" />;
     const text = texts[i] ?? '';
     const isActive = i === active && !disabled;
-    const name = blanks.length === 1 ? t('ui.widget.answer') : t('ui.widget.blank', { n: i + 1 });
+    // A box in a stacked fraction is named by its place and the number beside it, so a screen
+    // reader hears "missing top number, over 8" (K02 slice 5c); never the answer.
+    const inFrac = fracBlankOther.get(id);
+    const name = inFrac
+      ? t(inFrac.side === 'a' ? 'ui.widget.blank-frac-top' : 'ui.widget.blank-frac-bottom', {
+          n: inFrac.other,
+        })
+      : blanks.length === 1
+        ? t('ui.widget.answer')
+        : t('ui.widget.blank', { n: i + 1 });
     const prefix = config.unit ? UNIT_PREFIX[config.unit] : undefined;
     const suffix = config.unit ? UNIT_SUFFIX[config.unit] : undefined;
     return (
@@ -300,10 +313,8 @@ export function NumberPadWidget({
   const expressionInStimulus = stimulus.kind === 'expression';
   const expression = config.expression;
   const blankIdsInText = new Set([
-    ...(expression?.tokens ?? []).flatMap((tok) => (tok.t === 'blank' ? [tok.id] : [])),
-    ...(expressionInStimulus
-      ? stimulus.expr.tokens.flatMap((tok) => (tok.t === 'blank' ? [tok.id] : []))
-      : []),
+    ...tokenBlankIds(expression?.tokens ?? []),
+    ...(expressionInStimulus ? tokenBlankIds(stimulus.expr.tokens) : []),
   ]);
   const looseBlanks = blanks.filter((b) => !blankIdsInText.has(b.id));
   const hasText = Boolean(expression) || looseBlanks.length > 0;
@@ -374,6 +385,38 @@ export function NumberPadWidget({
       {inviteHand}
     </div>
   );
+}
+
+const exprTokensOf = (s: ConfigFor<'number-pad'>['stimulus']): readonly ExpressionToken[] =>
+  s.kind === 'expression' ? s.expr.tokens : [];
+
+/** Each stacked fraction's box (`frac-<i>-a` / `-b`), its side and the number on the other side. */
+function fracBlankContext(
+  tokens: readonly ExpressionToken[],
+): [string, { side: 'a' | 'b'; other: number }][] {
+  return tokens.flatMap((tok, i): [string, { side: 'a' | 'b'; other: number }][] => {
+    if (tok.t !== 'frac') return [];
+    if (tok.a === 'blank' && typeof tok.b === 'number')
+      return [[`frac-${i}-a`, { side: 'a', other: tok.b }]];
+    if (tok.b === 'blank' && typeof tok.a === 'number')
+      return [[`frac-${i}-b`, { side: 'b', other: tok.a }]];
+    return [];
+  });
+}
+
+/**
+ * The blank ids an expression draws in its text: `blank` tokens, and a stacked fraction's blank top
+ * or bottom (`frac-<token index>-a` / `-b`, as ExpressionView names them; K02 slice 5c, FRA.05).
+ */
+function tokenBlankIds(tokens: readonly ExpressionToken[]): string[] {
+  return tokens.flatMap((tok, i) => {
+    if (tok.t === 'blank') return [tok.id];
+    if (tok.t !== 'frac') return [];
+    return [
+      ...(tok.a === 'blank' ? [`frac-${i}-a`] : []),
+      ...(tok.b === 'blank' ? [`frac-${i}-b`] : []),
+    ];
+  });
 }
 
 export default NumberPadWidget;

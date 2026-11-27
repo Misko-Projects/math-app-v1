@@ -6,6 +6,9 @@
 //   (answer no; the parts differ by at least one whole square).
 // `cut` picks the cut (0 to 7) and `mirror` flips it left to right. Every part is a rectangle of at
 // least 2 squares, so the picture's spoken name ("a bar 4 squares long") tells all of it.
+// - fraction-pick `name` (K02 slice 5c, FRA.14, with `name`): one of SHARE_CUTS; what fraction of
+//   the whole is each part? Typed on the pads; any name of that amount is right (1/4, 2/8, 4/16:
+//   `fraction.equivalentOk`, a·d = b·c), since each true name is a true answer.
 // The fraction-cut item of FRA.16 is frac.partition's grid cut; this generator draws pictures.
 
 import type { GridPartsSpec, LessonStep, ResponseValue } from '@number-island/shared';
@@ -224,7 +227,7 @@ const cutOf = (p: Record<string, unknown>): Cut | undefined =>
 
 const say = (
   key: string,
-  vars: Record<string, number>,
+  vars: Record<string, string | number>,
   action?: LessonStep['action'],
 ): LessonStep =>
   action ? { actor: 'demo', say: key, vars, action } : { actor: 'demo', say: key, vars };
@@ -244,6 +247,11 @@ export const fracShares: GeneratorDef = {
       default: { kind: 'const', value: true },
       doc: 'equal parts of different shapes (true), or parts that are not equal (fraction-pick only)',
     },
+    name: {
+      type: 'bool',
+      default: { kind: 'const', value: false },
+      doc: 'fraction-pick: name the fraction each equal part is of the whole (FRA.14)',
+    },
   },
   features: {
     'share.over4': { weight: 0.4, doc: 'count: more than 4 squares in each part' },
@@ -259,11 +267,14 @@ export const fracShares: GeneratorDef = {
     'gen.frac.shares.sizes',
     'gen.frac.shares.not-equal',
     'gen.frac.shares.no',
+    'gen.frac.shares.name-count',
+    'gen.frac.shares.name-each',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
   accepts(p, t) {
     if (!cutOf(p)) return false;
+    if (p.name === true) return t.format === 'fraction-pick' && p.equalParts !== false;
     // The count item asks the squares in each of equal parts; fraction-pick judges either kind.
     return t.format === 'fraction-pick' || p.equalParts !== false;
   },
@@ -281,7 +292,20 @@ export const fracShares: GeneratorDef = {
       lookDifferent: t.format === 'fraction-pick' && equal ? 1 : 0,
     };
     let p: PartialOutput;
-    if (t.format === 'number-pad') {
+    if (params.name === true) {
+      p = {
+        params,
+        vars,
+        math: { ...math, lookDifferent: 0 },
+        widget: { format: 'fraction-pick', mode: 'name', nameInput: 'pads', stimulus: picture },
+        answer: {
+          kind: 'numbers',
+          values: [1, sizes.length],
+          ordered: true,
+          fraction: { equivalentOk: true },
+        },
+      };
+    } else if (t.format === 'number-pad') {
       p = {
         params,
         vars,
@@ -315,6 +339,17 @@ export const fracShares: GeneratorDef = {
     const equal = sizes.every((s) => s === sizes[0]);
     const n = sizes[0] as number;
     const highlight = { op: 'highlight', args: { id: 'stimulus' } };
+    if (w.format === 'fraction-pick' && w.mode === 'name') {
+      // The first step names no asked number: the worked-step hint plays it.
+      return [
+        say('gen.frac.shares.name-count', {}, highlight),
+        say(
+          'gen.frac.shares.name-each',
+          { f: `1/${sizes.length}` },
+          { op: 'answer', args: { values: [1, sizes.length] } },
+        ),
+      ];
+    }
     if (w.format === 'number-pad') {
       return [
         say('gen.frac.shares.count-part', { n }, { op: 'show-stimulus' }),

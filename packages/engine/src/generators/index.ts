@@ -18,6 +18,7 @@ import { divShare } from './div/share';
 import { equalityEq } from './equality/eq';
 import { estimateQuantity } from './estimate/quantity';
 import { fracCompare } from './frac/compare';
+import { fracEquiv } from './frac/equiv';
 import { fracLine } from './frac/line';
 import { fracPartition } from './frac/partition';
 import { fracShares } from './frac/shares';
@@ -75,6 +76,7 @@ const GENERATORS: GeneratorDef[] = [
   fracPartition, // K01 fractions (FRA.01, FRA.07)
   fracCompare, // K01 fractions (FRA.08)
   fracLine, // K02 fractions on the number line (FRA.04, FRA.10–12)
+  fracEquiv, // K02 (#17) slice 5c: equivalent fractions (FRA.05, FRA.17)
   timeClock, // K01 time
   moneyCoins, // K02 money (MON.01, MON.02, MON.04–MON.06, MON.08)
   timeSequence, // K01 time

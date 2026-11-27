@@ -7,7 +7,7 @@ import { describeBarModel } from './barModel';
 import { ChartView } from './ChartView';
 import { ClockView } from './ClockView';
 import { CoinsView, describeCoins } from './CoinsView';
-import { FractionView } from './FractionView';
+import { FractionView, fractionWords } from './FractionView';
 import { shapeFrame } from './fractionShapes';
 import { GaugeView } from './GaugeView';
 import { describeGridParts, GridPartsView } from './GridPartsView';
@@ -18,6 +18,9 @@ import { ShapeSetView } from './ShapeView';
 import { ObjectSprite } from './sprites';
 import { STIMULUS_KINDS } from './stimulusKinds';
 import './kit.css';
+
+/** Between the two strips of a two-strip picture (FRA.05): close, so their cuts read as one column. */
+const TWO_STRIPS_GAP = 10;
 
 /**
  * Static pictures for `StimulusSpec` (03 §5.1): what many formats show above their answer control
@@ -238,6 +241,44 @@ export function StimulusView({
       // Drawn at the whole's own size, never above it: two wholes of one shape are one size, so
       // only the cuts and the filled parts differ (FitPicture scales the pictures alike).
       const frame = shapeFrame(spec.shape);
+      if (spec.below) {
+        // Two strips of one whole (FRA.05): one size, one left edge, so equal shaded lengths line
+        // up. Named by both strips' parts and shading, never by whether they match.
+        const below = spec.below;
+        const each = {
+          maxWidth: Math.min(maxWidth, frame.width),
+          maxHeight: Math.min((maxHeight - TWO_STRIPS_GAP) / 2, frame.height),
+        };
+        const described = [
+          t('ui.frac.two-strips'),
+          t('ui.frac.two-strips-top', { n: spec.parts, s: spec.shaded }),
+          t('ui.frac.two-strips-bottom', { n: below.parts, s: below.shaded }),
+        ].join(' ');
+        return (
+          <div
+            className={`${cls} ni-stimulus--two-strips`}
+            data-kind="fraction"
+            data-two-strips="true"
+            role="img"
+            aria-label={label ? `${label}: ${described}` : described}
+          >
+            <FractionView
+              shape="bar"
+              parts={spec.parts}
+              shaded={spec.shaded}
+              equalParts
+              {...each}
+            />
+            <FractionView
+              shape="bar"
+              parts={below.parts}
+              shaded={below.shaded}
+              equalParts
+              {...each}
+            />
+          </div>
+        );
+      }
       return (
         <div className={cls} data-kind="fraction">
           <FractionView
@@ -708,6 +749,7 @@ export function ExpressionView({
   expr: ExpressionSpec;
   renderBlank?: (id: string) => ReactNode;
 }) {
+  const t = useNarrationText();
   const token = (tok: ExpressionToken, i: number): ReactNode => {
     switch (tok.t) {
       case 'num':
@@ -724,13 +766,26 @@ export function ExpressionView({
         );
       case 'var':
         return <span className="ni-expr__var">{tok.name}</span>;
-      case 'frac':
+      case 'frac': {
+        // A screen reader hears a stacked fraction in words ("two thirds"), never "2 3"; with a
+        // box in it, the box's own name tells its place and the other number (K02 slice 5c).
+        const a = tok.a;
+        const b = tok.b;
+        const both = typeof a === 'number' && typeof b === 'number';
         return (
-          <span className="ni-expr__frac">
-            <span>{tok.a === 'blank' ? (renderBlank?.(`frac-${i}-a`) ?? '□') : tok.a}</span>
-            <span>{tok.b === 'blank' ? (renderBlank?.(`frac-${i}-b`) ?? '□') : tok.b}</span>
-          </span>
+          <>
+            <span className="ni-expr__frac" aria-hidden={both ? true : undefined}>
+              <span aria-hidden={a === 'blank' ? undefined : true}>
+                {a === 'blank' ? (renderBlank?.(`frac-${i}-a`) ?? '□') : a}
+              </span>
+              <span aria-hidden={b === 'blank' ? undefined : true}>
+                {b === 'blank' ? (renderBlank?.(`frac-${i}-b`) ?? '□') : b}
+              </span>
+            </span>
+            {both ? <span className="ni-visually-hidden">{fractionWords(t, a, b)}</span> : null}
+          </>
         );
+      }
       case 'money':
         return <span className="ni-expr__num">{money(tok.cents, tok.style)}</span>;
       case 'time':

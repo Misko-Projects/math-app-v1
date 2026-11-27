@@ -32,7 +32,32 @@ const configSchema = numberPadConfigSchema.superRefine((c, ctx) => {
   if (new Set(ids).size !== ids.length) {
     ctx.addIssue({ code: 'custom', path: ['blanks'], message: 'blank ids must be distinct' });
   }
-  const exprBlanks = (c.expression?.tokens ?? []).flatMap((t) => (t.t === 'blank' ? [t.id] : []));
+  // A stacked fraction's blank top or bottom is the box `frac-<token index>-a` / `-b` (FRA.05).
+  const exprBlanks = (c.expression?.tokens ?? []).flatMap((t, i) =>
+    t.t === 'blank'
+      ? [t.id]
+      : t.t === 'frac'
+        ? [...(t.a === 'blank' ? [`frac-${i}-a`] : []), ...(t.b === 'blank' ? [`frac-${i}-b`] : [])]
+        : [],
+  );
+  // A box in a stacked fraction of an expression picture is one of the blanks (FRA.05.t4).
+  if (c.stimulus.kind === 'expression') {
+    const missing = c.stimulus.expr.tokens.flatMap((t, i) =>
+      t.t !== 'frac'
+        ? []
+        : [
+            ...(t.a === 'blank' ? [`frac-${i}-a`] : []),
+            ...(t.b === 'blank' ? [`frac-${i}-b`] : []),
+          ].filter((id) => !ids.includes(id)),
+    );
+    if (missing.length > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['stimulus'],
+        message: `a box in a stacked fraction is a blank: ${missing.join(', ')}`,
+      });
+    }
+  }
   if (c.expression && exprBlanks.join('|') !== ids.join('|')) {
     ctx.addIssue({
       code: 'custom',

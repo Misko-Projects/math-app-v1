@@ -2428,3 +2428,192 @@ describe.each(FIT_VIEWPORTS)(
     });
   },
 );
+
+describe.each(FIT_VIEWPORTS)(
+  'equivalent fractions, benchmarks and equal areas fit at %s (#17 slice 5c)',
+  (viewport) => {
+    const [width, height] = viewport.split('x').map(Number) as [number, number];
+    const itemOf = (id: string, params: Record<string, string | number | boolean>) =>
+      engine.generateItemFromParams(content.store.graph.templates[id] as ItemTemplate, params);
+    const shot = async (id: string, state: string) => {
+      if (SHOTS.includes(id))
+        await page.screenshot({ path: `__fit__/${id}-${state}-${viewport}.png` });
+    };
+    const until = async (sel: string) => {
+      for (let i = 0; i < 120 && !document.querySelector(sel); i += 1) await frame();
+    };
+    const padType = async (digit: number) => {
+      await until('.ni-pad__key');
+      await userEvent.click(
+        document.querySelector(`.ni-pad__key[data-key="${digit}"]`) as HTMLElement,
+      );
+      await frame();
+    };
+    /** The drawn digit height of a stacked fraction's numbers: about 0.7 of the font size. */
+    const fracDigitPx = () =>
+      Math.min(
+        ...[...document.querySelectorAll<HTMLElement>('.ni-npw .ni-expr__frac > span')].map(
+          (s) => Number.parseFloat(getComputedStyle(s).fontSize) * 0.7,
+        ),
+      );
+    const lineTicks = () =>
+      [...document.querySelectorAll<SVGLineElement>('.ni-fline line[data-tick]')]
+        .map((l) => l.getBoundingClientRect().left + l.getBoundingClientRect().width / 2)
+        .sort((a, b) => a - b);
+    const minGap = (xs: number[]) => Math.min(...xs.slice(1).map((x, i) => x - (xs[i] as number)));
+    const placeBy = async (k: number) => {
+      // The previous item's line may still be on screen: let this item render first.
+      for (let i = 0; i < 4; i += 1) await frame();
+      await until('.ni-fline__range');
+      const range = document.querySelector<HTMLElement>('.ni-fline__range') as HTMLElement;
+      range.focus();
+      for (let i = 0; i < k; i += 1) await userEvent.keyboard('{ArrowRight}');
+      return range;
+    };
+
+    it('FRA.05.t1: two strips, three fourths over eighths, six typed in the box', async () => {
+      await page.viewport(width, height);
+      const params = { mode: 'pad', missing: 'num', picture: true, num: 3, den: 4, mult: 2 };
+      show(itemOf('FRA.05.t1', params), 'g1-up');
+      await until('.ni-stimulus--two-strips');
+      expect(await measure('FRA.05.t1')).toEqual([]);
+      const svgs = [...document.querySelectorAll<SVGElement>('.ni-stimulus--two-strips svg')].map(
+        (s) => s.getBoundingClientRect(),
+      );
+      expect(svgs).toHaveLength(2);
+      const [top, bottom] = svgs as [DOMRect, DOMRect];
+      // One length, one height, one left edge; the bottom's eighths at least 22 px.
+      expect(Math.abs(top.width - bottom.width)).toBeLessThan(1);
+      expect(Math.abs(top.height - bottom.height)).toBeLessThan(1);
+      expect(Math.abs(top.left - bottom.left)).toBeLessThan(1);
+      expect(bottom.width / 8).toBeGreaterThanOrEqual(22);
+      expect(fracDigitPx()).toBeGreaterThanOrEqual(24);
+      expect(
+        document.querySelector(
+          '[aria-label="Two strips of the same length, one above the other. The top strip is in 4 equal parts, 3 of them shaded. The bottom strip is in 8 equal parts, 0 of them shaded."]',
+        ),
+      ).not.toBeNull();
+      // The box is drawn once, inside the fraction.
+      expect(document.querySelectorAll('.ni-npw__blank')).toHaveLength(1);
+      await padType(6);
+      expect(document.querySelector('.ni-npw__blank')?.textContent).toBe('6');
+      expect(await measure('FRA.05.t1')).toEqual([]);
+      await shot('FRA.05.t1', 'typed-6-8');
+    });
+
+    it('a wrong top number with its line (FRA.05.t1): seven for three fourths in eighths', async () => {
+      await page.viewport(width, height);
+      const item = itemOf('FRA.05.t1', {
+        mode: 'pad',
+        missing: 'num',
+        picture: true,
+        num: 3,
+        den: 4,
+        mult: 2,
+      });
+      show(item, 'g1-up');
+      await padType(7);
+      show(item, 'g1-up', { line: { say: 'fb.mc.fraction-equiv-add' } }, undefined, true);
+      await frame();
+      expect(await measure('FRA.05.t1')).toEqual([]);
+      await shot('FRA.05.t1', 'wrong-7');
+    });
+
+    it('FRA.05.t4: two thirds equal four over a box, six typed', async () => {
+      await page.viewport(width, height);
+      show(itemOf('FRA.05.t4', { mode: 'pad', missing: 'den', num: 2, den: 3, mult: 2 }), 'g1-up');
+      await padType(6);
+      expect(fracDigitPx()).toBeGreaterThanOrEqual(24);
+      expect(await measure('FRA.05.t4')).toEqual([]);
+      await shot('FRA.05.t4', 'typed-den-6');
+    });
+
+    it.each([
+      ['FRA.05.t2', { mode: 'place', skin: 'strip', num: 3, den: 4, mult: 2, max: 1 }, 6],
+      ['FRA.17.t1', { mode: 'place', skin: 'line', num: 1, den: 4, mult: 2, max: 1 }, 2],
+      ['FRA.17.t2', { mode: 'place', skin: 'line', num: 3, den: 2, mult: 2, max: 2 }, 6],
+    ] as const)('%s %o: the dot placed on a finer line, ticks ≥ 64 px', async (id, params, k) => {
+      await page.viewport(width, height);
+      show(itemOf(id, params), 'g1-up');
+      const range = await placeBy(k);
+      if (params.max === 1)
+        expect(range.getAttribute('aria-valuetext')).toMatch(/^Tick \d+ of \d+ between/);
+      expect(document.querySelector('.ni-fline__dot--on')).not.toBeNull();
+      expect(await measure(id)).toEqual([]);
+      expect(minGap(lineTicks())).toBeGreaterThanOrEqual(64);
+      await shot(id, `placed-${params.num}-${params.den}`);
+    });
+
+    it.each([
+      [
+        'FRA.15.t1',
+        { kind: 'benchmark', bench: 'half', symbols: true, shape: 'bar', num: 4, den: 8 },
+      ],
+      [
+        'FRA.15.t2',
+        { kind: 'benchmark', bench: 'half', symbols: true, shape: 'bar', num: 3, den: 8 },
+      ],
+      [
+        'FRA.15.t3',
+        { kind: 'benchmark', bench: 'half', symbols: true, shape: 'bar', num: 4, den: 8 },
+      ],
+      [
+        'FRA.15.t4',
+        { kind: 'benchmark', bench: 'one', symbols: true, shape: 'bar', num: 8, den: 8 },
+      ],
+      [
+        'FRA.15.t5',
+        {
+          kind: 'benchmark',
+          bench: 'half',
+          pair: true,
+          symbols: true,
+          shape: 'bar',
+          num: 3,
+          den: 8,
+          num2: 5,
+          den2: 6,
+        },
+      ],
+    ] as const)('%s: a benchmark item at its fullest', async (id, params) => {
+      await page.viewport(width, height);
+      show(itemOf(id, params), 'g1-up');
+      for (
+        let i = 0;
+        i < 120 && !document.querySelector('.ni-fraction, .ni-expr, [data-id]');
+        i += 1
+      )
+        await frame();
+      expect(await measure(id)).toEqual([]);
+      const strips = [...document.querySelectorAll<SVGElement>('.ni-fraction svg')].map(
+        (s) => s.getBoundingClientRect().width,
+      );
+      if (strips.length > 0) {
+        expect(Math.max(...strips) - Math.min(...strips)).toBeLessThan(1);
+        expect(Math.min(...strips) / 8).toBeGreaterThanOrEqual(22);
+      }
+      await shot(id, 'fullest');
+    });
+
+    it('FRA.14.t3: each part of an 8 × 4 grid named as eight thirty-seconds', async () => {
+      await page.viewport(width, height);
+      show(itemOf('FRA.14.t3', { name: true, cut: 7, mirror: false }), 'g1-up');
+      const boxes = () => [...document.querySelectorAll<HTMLElement>('.ni-fentry__box')];
+      for (let k = 0; k < 120 && boxes().length < 2; k += 1) await frame();
+      const key = (d: string) =>
+        [...document.querySelectorAll<HTMLElement>('.ni-fentry__key')].find(
+          (k) => k.textContent?.trim() === d,
+        ) as HTMLElement;
+      await userEvent.click(boxes()[0] as HTMLElement);
+      await userEvent.click(key('8'));
+      await userEvent.click(boxes()[1] as HTMLElement);
+      await userEvent.click(key('3'));
+      await userEvent.click(key('2'));
+      expect(
+        [...document.querySelectorAll('.ni-fentry__digits')].map((d) => d.textContent),
+      ).toEqual(['8', '32']);
+      expect(await measure('FRA.14.t3')).toEqual([]);
+      await shot('FRA.14.t3', 'typed-8-32');
+    });
+  },
+);

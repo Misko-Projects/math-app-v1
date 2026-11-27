@@ -83,3 +83,32 @@ lessons:
       - { seed: 3117250403, target: typical, childSteps: 1 }
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [FRA.04.t3, FRA.04.t4] }
+
+  # K02 slice 5c (#17): FRA.05 is a gateway. Its worked and faded examples put two strips of one
+  # whole one above the other, a/b shaded on the top and the bottom in m·b parts, and type the
+  # missing top number (t1; the last step of each is the typing); the test-out asks the same with
+  # the two strips (t1) and the sentence with no picture (t4), so a child who tests out has
+  # written an equal fraction in symbols.
+  - skillId: FRA.05
+    mode: authored
+    templateId: FRA.05.t1
+    worked:
+      - { seed: 3117250501, target: easy }
+    faded:
+      - { seed: 3117250502, target: typical, childSteps: 1 }
+      - { seed: 3117250503, target: typical, childSteps: 1 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.05.t1, FRA.05.t4] }
+
+  # FRA.14 plays the auto lesson (the concrete grid cut, t1) and pins its test-out to the name of
+  # each part (t3): the fair-or-not pick (t2) is a choice.
+  - skillId: FRA.14
+    mode: authored
+    templateId: FRA.14.t1
+    worked:
+      - { seed: 3117251401, target: easy }
+    faded:
+      - { seed: 3117251402, target: typical, childSteps: 1 }
+      - { seed: 3117251403, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.14.t3] }

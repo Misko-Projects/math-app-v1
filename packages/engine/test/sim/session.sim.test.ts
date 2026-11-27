@@ -188,6 +188,8 @@ const SLICE_4C2 = ['FRA.16', 'ALG.09'] as const;
 const SLICE_5A = ['FRA.03', 'FRA.09', 'FRA.06', 'FRA.13'] as const;
 /** Slice 5b (#17): fractions on the number line, grade 3. */
 const SLICE_5B = ['FRA.04', 'FRA.10', 'FRA.11', 'FRA.12'] as const;
+/** Slice 5c (#17): equivalent fractions, benchmarks and equal areas, grade 3. */
+const SLICE_5C = ['FRA.05', 'FRA.17', 'FRA.15', 'FRA.14'] as const;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -726,6 +728,7 @@ describe('session simulation (04 §8)', () => {
       slice('slice 3c fluency', SLICE_3C_FLUENCY, false);
       slice('slice 5a', SLICE_5A);
       slice('slice 5b', SLICE_5B);
+      slice('slice 5c', SLICE_5C);
     },
     SIM_TIMEOUT,
   );
