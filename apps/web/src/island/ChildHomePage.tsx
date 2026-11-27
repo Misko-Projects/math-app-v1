@@ -48,7 +48,7 @@ export function ChildHomePage() {
       {sunset ? (
         <SunsetScreen child={child} session={sunset} />
       ) : choosing || child.guide === undefined ? (
-        <GuideScreen child={child} onDone={() => setChoosing(false)} />
+        <GuideScreen child={child} onDone={() => setChoosing(false)} onWindDown={windDown} />
       ) : (
         <IslandHub
           child={child}

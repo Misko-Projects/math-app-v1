@@ -6,16 +6,22 @@ import { GuideChooser, isKnownGuide, useSpeech } from '@number-island/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
+import type { WindDownReason } from '@/app/session/SessionController';
 import { IslandScene } from './IslandScene';
+import { useWindDownHere } from './useWindDownHere';
 
 export function GuideScreen({
   child,
   onDone,
+  onWindDown,
 }: {
   child: ChildProfile;
   /** After a choice is saved, or (switching) Home without a change. */
   onDone: () => void;
+  /** The session's limits still hold here: the budget, the daily cap or quiet hours end it. */
+  onWindDown: (reason: WindDownReason) => void;
 }) {
+  useWindDownHere(onWindDown);
   const { store } = useAppServices();
   const { say } = useSpeech();
   const switching = child.guide !== undefined;

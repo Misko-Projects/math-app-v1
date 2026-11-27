@@ -102,6 +102,7 @@ import {
   makersOf,
   markDisplacedTold,
 } from './shared/family';
+import { useWindDownHere } from './useWindDownHere';
 
 const BuildSheet = lazy(() => import('./building/BuildSheet'));
 // Decorate mode, the decor on the map and the naming step load when they are first needed.
@@ -261,26 +262,8 @@ export function IslandHub({
     if (welcome && line === welcome.welcome) markWelcomed(child.id, welcome);
   }, [idle, displaced, welcome, line, say, child.id, laid, countOn]);
 
-  // The wind-down hook: no item is ever in progress here, so end now and show the sunset.
-  useEffect(
-    () =>
-      controller.onWindDown((reason, s) => {
-        if (s.sessionId !== sessionId) return;
-        onWindDown(reason);
-        void controller.end(reason).catch((e) => recordDiagnostic('session.end', e));
-      }),
-    [controller, sessionId, onWindDown],
-  );
-  // The signal fires once. When it came while the child was in a workshop (which lets the
-  // current item finish, 04 §6.4), the session is already winding down when this page returns.
-  const pendingWindDown = useRef(windDown);
-  useEffect(() => {
-    const reason = pendingWindDown.current;
-    if (reason === null || sessionId === '') return;
-    pendingWindDown.current = null;
-    onWindDown(reason);
-    void controller.end(reason).catch((e) => recordDiagnostic('session.end', e));
-  }, [controller, sessionId, onWindDown]);
+  // The wind-down: no item is ever in progress here, so end now and show the sunset.
+  useWindDownHere(onWindDown);
 
   // The plan: when the island opens, and again after each request (`planKey` changes).
   const planKey = `${hub.result?.requestId ?? ''}:${builds}`;

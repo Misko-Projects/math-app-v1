@@ -223,6 +223,16 @@ describe('the guide (05 §1, §10)', () => {
     expect(drawn?.getAttribute('data-guide')).toBe('22');
   });
 
+  it('the session limits hold while the chooser is open: at the budget it ends and the sunset shows', async () => {
+    const { app, tick } = await renderHome({ before: noGuide });
+    expect(await screen.findByTestId('guide-chooser')).toBeTruthy();
+    tick(10 * 60_000); // K budget: 10 minutes (04 §6.1), the chooser left open
+    expect(await screen.findByTestId('sunset')).toBeTruthy();
+    expect(screen.queryByTestId('guide-chooser')).toBeNull();
+    await waitFor(async () => expect(await ended(app)).toHaveLength(1));
+    expect((await ended(app))[0]?.payload).toMatchObject({ reason: 'wind-down' });
+  });
+
   it('tapping the guide on the island switches it; Home leaves the chooser without a change', async () => {
     const { app } = await renderHome();
     fireEvent.click(await screen.findByTestId('island-guide'));
