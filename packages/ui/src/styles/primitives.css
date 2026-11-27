@@ -131,8 +131,7 @@ button.ni-bubble:active::after {
  */
 @media (prefers-reduced-motion: reduce) {
   .ni-btn:active:not(:disabled):not([aria-pressed="true"]),
-  .ni-btn[data-preview="pressed"]:not([aria-pressed="true"]),
-  button.ni-bubble:active {
+  .ni-btn[data-preview="pressed"]:not([aria-pressed="true"]) {
     transform: none;
     filter: brightness(0.9);
   }
@@ -395,6 +394,13 @@ button.ni-bubble {
 button.ni-bubble:active {
   transform: scale(0.96, 0.94);
   box-shadow: var(--shadow-felt-pressed), var(--shadow-ledge-pressed);
+}
+/* 06 §7 reduced motion: after the press rule above, so it wins (same specificity). */
+@media (prefers-reduced-motion: reduce) {
+  button.ni-bubble:active {
+    transform: none;
+    filter: brightness(0.9);
+  }
 }
 
 .ni-bubble[data-tone="sun"] {
