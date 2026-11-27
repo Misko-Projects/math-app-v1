@@ -44,7 +44,7 @@ export function ChildHomePage() {
   const playing = session !== null && sameId(session.childId, childId);
   if (!child || (!playing && sunset === null)) return <Navigate to="/" replace />;
   return (
-    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'} guide={child.guide}>
+    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>
       {sunset ? (
         <SunsetScreen child={child} session={sunset} />
       ) : choosing || child.guide === undefined ? (

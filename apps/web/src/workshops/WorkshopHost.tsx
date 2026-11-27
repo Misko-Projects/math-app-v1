@@ -58,7 +58,7 @@ export function WorkshopHost() {
     return <Navigate to={`/play/${child.id}`} replace />;
   }
   return (
-    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'} guide={child.guide}>
+    <ChildUi ageMode={child.grade === 'K' ? 'k' : 'g1-up'}>
       <HostedRequest key={picked.id} child={child} session={session} request={picked} />
     </ChildUi>
   );

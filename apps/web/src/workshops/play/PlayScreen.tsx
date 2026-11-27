@@ -25,13 +25,11 @@ import type {
 } from '@number-island/shared';
 import {
   BigButton,
-  Guide,
   HintButton,
   HomeButton,
   icons,
   ReplayButton,
   SpeechBubble,
-  useGuide,
   useNarrationText,
   VisuallyHidden,
   type WidgetDemo,
@@ -77,12 +75,6 @@ export interface LessonControls {
 }
 
 /** One item on screen: Home, the prompt, the cue and "next", the widget, the request's beads. */
-/**
- * The guide's height in the play header (05 §1): inside the header row's own 96 px, so the widget
- * area keeps every pixel it had.
- */
-const GUIDE_IN_HEADER = 88;
-
 export function PlayItemScreen({
   workshop,
   bottom,
@@ -140,7 +132,6 @@ export function PlayItemScreen({
   onResponse: (response: ResponseValue) => void;
   onInteract: (event: InteractionEvent) => void;
 }) {
-  const guide = useGuide();
   return (
     <PlayFrame
       testId="pier"
@@ -160,19 +151,12 @@ export function PlayItemScreen({
           <HomeButton onPress={onLeave} />
           {item && (
             // While a story is being told the bubble takes no touch: nothing speaks over the
-            // story (`storyBeingTold`). The child's guide says the prompt (05 §1): it stands in
-            // the header's own height, and the bubble's tail points at it.
+            // story (`storyBeingTold`).
             <div
-              className="flex min-w-0 flex-1 items-center gap-1"
+              className="flex min-w-0 flex-1 items-center"
               inert={storyBeingTold(phase, item)}
               data-telling={storyBeingTold(phase, item) ? 'true' : undefined}
             >
-              <Guide
-                guide={guide}
-                mood={phase === 'lesson' ? 'point' : line ? 'cheer' : 'talk'}
-                height={GUIDE_IN_HEADER}
-                className="shrink-0"
-              />
               {line ? (
                 <SpeechBubble say={line.say} vars={line.vars} tail="left" tone="sun" />
               ) : (
