@@ -119,7 +119,7 @@ const budgetIn = (room: WidgetRoom | null) =>
 /** The demo ops played on the answer step of a short room (the rest are on the pieces step). */
 const answerOp = (op: string) => op === 'answer' || op === 'write-digit';
 
-/** How far Pip's hand may hang below the widget in a short room's steps (the card's padding). */
+/** How far the guide's hand may hang below the widget in a short room's steps (the card's padding). */
 const STEPS_HAND_OVERHANG = 30;
 
 const KEY_MS = 340;
@@ -1581,7 +1581,7 @@ function TradeMat({
     }
   })();
 
-  // Pip's up-pointing hand hangs below the ONE invited control (kit `useInviteHand`), its
+  // The guide's up-pointing hand hangs below the ONE invited control (kit `useInviteHand`), its
   // fingertip inside the control's bottom edge and clear of its glyph (a trade button's word).
   // Taking away points at the column's grab item (the control the child drags from).
   const handTarget = (() => {
@@ -1605,7 +1605,7 @@ function TradeMat({
     handTarget ?? '',
     undefined,
     undefined,
-    // A short room's steps fill the room to its foot: under a tall waiting group Pip's hand may
+    // A short room's steps fill the room to its foot: under a tall waiting group the guide's hand may
     // hang into the workshop card's padding below the widget, where it covers nothing (as
     // number-line-jump's SHORT_OVERHANG).
     stepsPlan ? STEPS_HAND_OVERHANG : 0,

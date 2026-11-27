@@ -6,7 +6,7 @@ import { useWidgetDemo } from './demo';
 import type { WidgetProps } from './types';
 
 /**
- * Shown for a format with no registered widget (or one that failed to load). Pip says the game is
+ * Shown for a format with no registered widget (or one that failed to load). The guide says the game is
  * still being built, and "next" answers `skip` so the session moves on instead of getting stuck.
  * In development a tag names the missing format.
  */

@@ -529,7 +529,7 @@ describe('fraction-cut', () => {
       act('cut', { dir: 'h', at: 2 / 3 }),
     ]);
     expect(passes('fraction.cut', cutTarget(3), rows)).toBe(true);
-    // Guided-only ops in free mode still cut the guide (Pip's demo).
+    // Guided-only ops in free mode still cut the guide (the guide's demo).
     expect(respond(fractionCut, c, [act('cut', { line: 0 }), act('cut', { line: 1 })])).toEqual(
       thirds,
     );

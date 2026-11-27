@@ -260,7 +260,7 @@ export function RekenrekWidget({
   };
 
   /**
-   * Input goes away (disabled, or Pip starts a demo) mid-gesture: the gesture is cancelled and the
+   * Input goes away (disabled, or the guide starts a demo) mid-gesture: the gesture is cancelled and the
    * wire goes back to where it was, as useDragToTarget does. Synchronous (rowsRef at once), so no
    * demo op ever reads a drag's preview.
    */

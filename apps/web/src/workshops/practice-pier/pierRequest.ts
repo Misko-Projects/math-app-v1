@@ -131,7 +131,7 @@ export function browseRequest(graph: SkillGraph, pick: BrowsePick, nonce: number
   const lessonTemplate = graph.skills[skillId]?.lesson.templateId;
   return {
     id: `browse:${skillId}:${nonce}`,
-    residentId: 'pip',
+    residentId: 'guide',
     workshopId: 'practice-pier',
     tasks:
       pick.lesson && lessonTemplate !== undefined

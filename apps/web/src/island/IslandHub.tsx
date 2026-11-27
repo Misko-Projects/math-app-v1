@@ -27,6 +27,9 @@ import {
   BigButton,
   BuildingArtView,
   buildingArtFor,
+  Guide,
+  guideById,
+  guideLabel,
   HomeButton,
   IconButton,
   IslandScene,
@@ -99,6 +102,7 @@ import {
   makersOf,
   markDisplacedTold,
 } from './shared/family';
+import { useWindDownHere } from './useWindDownHere';
 
 const BuildSheet = lazy(() => import('./building/BuildSheet'));
 // Decorate mode, the decor on the map and the naming step load when they are first needed.
@@ -156,17 +160,20 @@ export function IslandHub({
   child,
   index,
   onWindDown,
+  onChangeGuide,
 }: {
   child: ChildProfile;
   index: number;
   onWindDown: (reason: WindDownReason) => void;
+  /** Tapping the guide opens the guide chooser (05 §10). */
+  onChangeGuide?: () => void;
 }) {
   const { say } = useSpeech();
   const text = useNarrationText();
   const navigate = useNavigate();
   const raise = useRaise();
   const { store, content, audio } = useAppServices();
-  const { session, controller, windDown } = useSession();
+  const { session, controller } = useSession();
   const hub = useHub();
   const island = useIsland();
   const inventory = useInventory();
@@ -255,26 +262,8 @@ export function IslandHub({
     if (welcome && line === welcome.welcome) markWelcomed(child.id, welcome);
   }, [idle, displaced, welcome, line, say, child.id, laid, countOn]);
 
-  // The wind-down hook: no item is ever in progress here, so end now and show the sunset.
-  useEffect(
-    () =>
-      controller.onWindDown((reason, s) => {
-        if (s.sessionId !== sessionId) return;
-        onWindDown(reason);
-        void controller.end(reason).catch((e) => recordDiagnostic('session.end', e));
-      }),
-    [controller, sessionId, onWindDown],
-  );
-  // The signal fires once. When it came while the child was in a workshop (which lets the
-  // current item finish, 04 §6.4), the session is already winding down when this page returns.
-  const pendingWindDown = useRef(windDown);
-  useEffect(() => {
-    const reason = pendingWindDown.current;
-    if (reason === null || sessionId === '') return;
-    pendingWindDown.current = null;
-    onWindDown(reason);
-    void controller.end(reason).catch((e) => recordDiagnostic('session.end', e));
-  }, [controller, sessionId, onWindDown]);
+  // The wind-down: no item is ever in progress here, so end now and show the sunset.
+  useWindDownHere(onWindDown);
 
   // The plan: when the island opens, and again after each request (`planKey` changes).
   const planKey = `${hub.result?.requestId ?? ''}:${builds}`;
@@ -584,10 +573,20 @@ export function IslandHub({
             </div>
           </div>
           <div
-            className="flex min-w-0 flex-1 items-center justify-center gap-4"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1"
             data-testid="island-line"
           >
-            <SpeechBubble say={line} tail="none" showText />
+            {/* The child's guide says the island's line; tapping the guide switches it (05 §10). */}
+            <button
+              type="button"
+              onClick={onChangeGuide}
+              aria-label={text('ui.guide.change', { name: guideLabel(guideById(child.guide)) })}
+              data-testid="island-guide"
+              className="-my-2 flex shrink-0 rounded-card p-1 [&>svg]:!h-[clamp(132px,18vh,168px)] [&>svg]:!w-auto focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink active:brightness-95"
+            >
+              <Guide guide={child.guide} mood="talk" height={132} bob />
+            </button>
+            <SpeechBubble say={line} tail="left" showText />
             {/* A long line wraps in its bubble; the speaker keeps its size beside it. */}
             <span className="flex shrink-0">
               <ReplayButton onPress={() => say(line)} />

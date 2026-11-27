@@ -770,7 +770,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3): Pip points at each row, draws a match line, picks the answer. While the
+ * Demo mode (03 §6.3): the guide points at each row, draws a match line, picks the answer. While the
  * host keeps input off, an invite shows nothing (the child can't act yet).
  */
 export const DemoMode: Story = {
@@ -797,7 +797,7 @@ export const DemoMode: Story = {
 
 const symbolController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo: Pip slides `<` from its tile into the gap. */
+/** Demo: the guide slides `<` from its tile into the gap. */
 export const DemoPlaceSymbol: Story = {
   args: { disabled: true, config: symbol, tier: 'abstract', demo: symbolController },
   play: async ({ canvasElement }) => {
@@ -815,7 +815,7 @@ const targets = (root: HTMLElement) => [
   ),
 ];
 
-/** ONE ring, on `el`; Pip's fingertip on it at rest; the ring ≥ 12 px clear of every other target. */
+/** ONE ring, on `el`; the guide's fingertip on it at rest; the ring ≥ 12 px clear of every other target. */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
   await waitFor(() => expect(el).toHaveClass('ni-invite'));
   await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
@@ -827,7 +827,7 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
     el,
     targets(root).filter((t) => t !== el),
   );
-  // Pip's hand covers no other control: ≥ 12 px from each, off every glyph.
+  // The guide's hand covers no other control: ≥ 12 px from each, off every glyph.
   await expectHandClearOfOthers(root, el);
 }
 
@@ -844,7 +844,7 @@ const obj = (root: HTMLElement, id: string) =>
 const matchInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn (03 §6.3), `match {left, right}` in match mode: the ring and Pip's hand on the
+ * The child's turn (03 §6.3), `match {left, right}` in match mode: the ring and the guide's hand on the
  * left object; once the child taps it, on the right one; once they are joined (a straight line:
  * object 1 above object 1), nothing. The demo matches left to right from pair 1 (then pair 2), as
  * one-to-one matching goes. `answer {id: same}` rings "the same"; the faded example then
@@ -895,7 +895,7 @@ export const InviteMatchK: Story = {
     const picks = within(root).getAllByRole('button', { name: /^This one/ });
     await expectInviteOn(root, picks[1] as HTMLElement);
     await expect(root.querySelector('[aria-pressed="true"]')).toBeNull();
-    // The invite on the bottom row's "this one" moved nothing (Pip's hand uses room the layout
+    // The invite on the bottom row's "this one" moved nothing (the guide's hand uses room the layout
     // already has), and the hand stays ≥ 12 px inside the panel.
     await expectSameLayout(before, layoutOf(root));
     await expectHandInsideArea(canvasElement, root);
@@ -961,11 +961,11 @@ export const InviteSymbol: Story = {
     await expectInviteOn(root, within(root).getByRole('button', { name: 'Equal to' }));
     symbolInvite.invite({ op: 'answer', args: { id: '<' } });
     await expectInviteOn(root, within(root).getByRole('button', { name: 'Less than' }));
-    // Pip's hand under the bottom row uses room the layout holds for it: nothing moved, and the
+    // The guide's hand under the bottom row uses room the layout holds for it: nothing moved, and the
     // hand stays ≥ 12 px inside the panel's border.
     await expectSameLayout(before, layoutOf(root));
     await expectHandInsideArea(canvasElement, root);
-    // The invite is the child's turn: one ring and Pip's hand, nothing chosen, the gap empty.
+    // The invite is the child's turn: one ring and the guide's hand, nothing chosen, the gap empty.
     for (const name of ['Less than', 'Equal to', 'Greater than']) {
       await expect(within(root).getByRole('button', { name })).toHaveAttribute(
         'aria-pressed',
@@ -1151,7 +1151,7 @@ const longerInvite: WidgetDemo = createDemoController({ strict: true });
 /**
  * MEA.01.t3 (K) at the 960 × 600 minimum (852 × 319): two ribbons stacked over their one ruler,
  * the answers beside them. The rows keep the plain gap (the hand's room is kept once, below the
- * stage; Pip points at a ribbon from its right), so both strip cards keep the K target, the whole
+ * stage; the guide points at a ribbon from its right), so both strip cards keep the K target, the whole
  * ruler shows and nothing scrolls. Then the invite on each strip and on "the same": one ring, the
  * hand ≥ 12 px from every other control and off the ribbons and the ruler.
  */
@@ -1355,7 +1355,7 @@ async function expectSameLayout(before: number[][], after: number[][]) {
 }
 
 /**
- * Pip's hand at rest, its bob included, stays ≥ 12 px inside the area card's border (the panel
+ * The guide's hand at rest, its bob included, stays ≥ 12 px inside the area card's border (the panel
  * the widget sits in); returns the clearance.
  */
 async function expectHandInsideArea(canvasElement: HTMLElement, root: HTMLElement) {
@@ -1468,7 +1468,7 @@ export const MatchTenFallbackKMinInvite: Story = {
     const root = await findWidget(canvasElement, ROOT);
     fallbackInvite.invite({ op: 'match', args: { left: 0, right: 0 } });
     await noInvite(root);
-    // The upper card: Pip's hand hangs in the room kept between the stacked cards, ≥ 12 px from
+    // The upper card: the guide's hand hangs in the room kept between the stacked cards, ≥ 12 px from
     // the lower card (and every other control); then the lower card, the hand in the room kept
     // under the content.
     fallbackInvite.invite({ op: 'highlight', args: { side: 'left' } });
@@ -1494,7 +1494,7 @@ export const MatchTenKTablet: Story = {
 /**
  * Portrait (746 × 812): 10 fish don't fit a row at K size, so the sides are pictures, stacked.
  * Each line wraps into rows of five (10 = 5 + 5 above 9 = 5 + 4, still in column), so the fish
- * use the tall side cards: ≥ 72 px each (the room kept between the cards for Pip's hand costs a
+ * use the tall side cards: ≥ 72 px each (the room kept between the cards for the guide's hand costs a
  * little height), the fish block ≥ 70 % of its card's height.
  */
 export const MatchTenKPortrait: Story = {

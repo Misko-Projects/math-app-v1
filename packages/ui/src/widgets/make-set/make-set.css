@@ -1,7 +1,7 @@
 /* make-set widget (U03): the heap, the container with ten-frame slots, and the actions. */
 
 /*
- * The action cue on Pip's hand (kit `.ni-hand__cue`): "take one out" (an arrow up, out of the
+ * The action cue on the guide's hand (kit `.ni-hand__cue`): "take one out" (an arrow up, out of the
  * container, its pebble rimmed in coral) or "count" (three counting dots), so the two invites on
  * the same thing never look alike.
  */
@@ -107,7 +107,7 @@
  * each side (::before, ::after), a slatted floor, and depth: a thick front ledge and a shadow under
  * it. Its tag on the floor under the rim (a 44 px top padding, CRATE_TAG_Y in MakeSetWidget.tsx),
  * an arrow towards the container, says "from here, into there" without words. While the child
- * cannot act (Pip showing, input off), its objects are dimmed: the container is what to look at.
+ * cannot act (the guide showing, input off), its objects are dimmed: the container is what to look at.
  */
 .ni-mset__pile[data-kind="supply"] {
   padding-top: 44px;
@@ -143,7 +143,7 @@
   right: -3px;
   border-radius: 4px 10px 10px 4px;
 }
-/* Room under the objects for Pip's hand while a drag invite shows (HAND_ROOM). */
+/* Room under the objects for the guide's hand while a drag invite shows (HAND_ROOM). */
 .ni-mset__pile[data-kind="supply"][data-hand-room="true"] {
   padding-bottom: 80px;
 }
@@ -259,7 +259,7 @@
 /*
  * Demo invite on one object (03 §6.3): the teal ring stays inside the object's own hit box, so it
  * keeps the full 12 px target gap from every neighbour; the object shrinks a little inside it.
- * No pulse (a pulse would push the ring into the gap); Pip's hand carries the motion.
+ * No pulse (a pulse would push the ring into the gap); the guide's hand carries the motion.
  */
 .ni-mset__item.ni-invite {
   z-index: 3;
@@ -423,7 +423,7 @@
   animation: var(--animate-pop-in);
 }
 /*
- * The tied ten keeps a strip under its "10" tag, so Pip's hand can rest its fingertip inside the
+ * The tied ten keeps a strip under its "10" tag, so the guide's hand can rest its fingertip inside the
  * button below the tag and leave the numeral fully visible (kit invite rule).
  */
 .ni-mset__tens[data-tens="bundle"] {
@@ -432,7 +432,7 @@
 /*
  * Invited (a remove whose object is in the frame not shown, or count-aloud on the tied ten): the
  * ring lies inside the button's own box, so it stays ≥ 12 px clear of the shown frame (TENS_GAP)
- * and of the boat's top edge (ONE_FRAME_TOP). No pulse; Pip's hand carries the motion.
+ * and of the boat's top edge (ONE_FRAME_TOP). No pulse; the guide's hand carries the motion.
  */
 .ni-mset__tens.ni-invite {
   position: absolute;
@@ -630,7 +630,7 @@
   gap: 32px;
 }
 /*
- * With "make a ten" above Check, Pip's hand under an invited action (≈ 52 px below its bottom
+ * With "make a ten" above Check, the guide's hand under an invited action (≈ 52 px below its bottom
  * edge with the tap bob) must not touch the next one: 64 px between the actions.
  */
 .ni-mset[data-bundling="true"] .ni-mset__actions {

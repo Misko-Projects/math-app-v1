@@ -1050,7 +1050,7 @@ export const Disabled: Story = {
 const demoSort: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo (03 §6.3): Pip counts a hexagon's corners (each corner marked, the count shown and
+ * Demo (03 §6.3): the guide counts a hexagon's corners (each corner marked, the count shown and
  * spoken), then sorts two cards (`drag-card`).
  */
 export const DemoSort: Story = {
@@ -1116,7 +1116,7 @@ export const DemoCountSides: Story = {
 const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn: Pip's hand points at the card to move. One control is invited (one ring,
+ * The child's turn: the guide's hand points at the card to move. One control is invited (one ring,
  * inside the card's own box, 12 px clear of the other cards and the tray's border); the bin it
  * goes in only lights up once the card is picked up.
  */

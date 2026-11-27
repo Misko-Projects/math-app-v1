@@ -238,7 +238,7 @@ export function NumberPadWidget({
   // ---------- render ----------
 
   const invitedBlank = invite?.op === 'type' ? blankIndex(invite) : invite ? active : -1;
-  // Pip's up-pointing hand hangs below the invited blank (kit `useInviteHand`), its fingertip
+  // The guide's up-pointing hand hangs below the invited blank (kit `useInviteHand`), its fingertip
   // inside the blank's bottom edge and clear of its digits.
   const invitedId = invitedBlank >= 0 ? (blanks[invitedBlank]?.id ?? null) : null;
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(

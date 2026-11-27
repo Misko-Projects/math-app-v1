@@ -27,8 +27,8 @@ res.tenley:
 res.tenley.hello:
   text: "I carry ten pebbles in my shell. A full ten!"
 
-# ---------- Pip ----------
-game.pip.welcome:
-  text: "Welcome to the island! I'm Pip."
-  voice: pip
+# ---------- the guide ----------
+game.guide.welcome:
+  text: "Welcome to the island! I'm the guide."
+  voice: guide
   style: excited

@@ -101,7 +101,7 @@ export function targetsOf(root: HTMLElement): HTMLElement[] {
 }
 
 /**
- * The demo invite (03 §6.3) at rest: exactly one ring in the widget, on `ringed`; Pip's drawn
+ * The demo invite (03 §6.3) at rest: exactly one ring in the widget, on `ringed`; the guide's drawn
  * fingertip on it, clear of its glyph and inside the widget; the ring ≥ 12 px clear of every other
  * control.
  */

@@ -21,10 +21,10 @@ export const RHYTHM_ORCHARD: WorkshopId = 'rhythm-orchard';
 export const PUZZLE_TOWER: WorkshopId = 'puzzle-tower';
 
 /**
- * The last-resort resident when no workshop and no island lists one (E03 reading): Pip is the
+ * The last-resort resident when no workshop and no island lists one (E03 reading): the guide is the
  * Practice Pier's host in 05 §4.
  */
-export const FALLBACK_RESIDENT: ResidentId = 'pip';
+export const FALLBACK_RESIDENT: ResidentId = 'guide';
 
 const byId = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -73,7 +73,7 @@ export function practicePier(caps: readonly WorkshopCapability[]): WorkshopCapab
 /**
  * The residents a request in `cap` can be voiced by, sorted: the workshop's own; for the Practice
  * Pier or a workshop without residents, those of every available workshop, else the island's,
- * else those of any capability, else Pip.
+ * else those of any capability, else the guide.
  */
 export function residentPool(
   cap: WorkshopCapability,

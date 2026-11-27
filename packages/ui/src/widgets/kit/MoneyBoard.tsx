@@ -94,7 +94,7 @@ export interface MoneyBoardProps {
   /** Accessible name of the tray ("Put the money here"). */
   trayLabel: string;
   /**
-   * A piece or zone the demo highlights (`.ni-invite`). Pip's hand is the widget's, placed with the
+   * A piece or zone the demo highlights (`.ni-invite`). The guide's hand is the widget's, placed with the
    * kit's `useInviteHand` on `[data-id="<item>"]` or the zone's pad.
    */
   highlight?: { item?: BoardItem; zone?: BoardTarget } | null;

@@ -17,12 +17,12 @@ Design viewport baseline: 1280 × 800 CSS px landscape (tablet) and 800 × 1280 
 | **Profile Picker** | Choose who's playing | Big avatar cards (≥ 160 px). Tapping an avatar plays its name. Picture password (3 of 9 pictures) if set. A small parent-gate entry sits in the corner. |
 | **Island** | Hub | Requests as speech bubbles over residents, with the recommended one pulsing. Storehouse, Collection Book, Character, Decorate and Home buttons as big icons with spoken labels on tap. No text-only controls. |
 | **Workshop** | Math play | Full-screen scene: widget area (≥ 60% of the screen), product tray, buddy, hint button (lightbulb), replay-prompt button (speaker), home button. Progress shown as products earned, not "3/8". |
-| **Lesson overlay** | Worked → faded → scaffolded | Pip demonstrates in the same widget. The child can tap "show me again". |
+| **Lesson overlay** | Worked → faded → scaffolded | the guide demonstrates in the same widget. The child can tap "show me again". |
 | **Build / Decorate** | Spend materials | Recipe cards with countable costs; tap a plot to place; drag decor with snap. |
 | **Collection Book** | Pebblings, decor, outfits | Swipe pages; tapping a Pebbling plays a line. |
 | **Character Creator** | Avatar | Category tabs as icons; live preview with idle animation; "random" dice button; "done" plays a cheer. |
 | **Festival / Storm Watch** | Weekly event | Scene plus mixed-review items (via `TaskRunner`); co-op progress picture. |
-| **Wind-down** | End of session | Sunset; Pip recaps one or two learned things (spoken); "See you tomorrow!"; returns to the Profile Picker. |
+| **Wind-down** | End of session | Sunset; the guide recaps one or two learned things (spoken); "See you tomorrow!"; returns to the Profile Picker. |
 | **Placement adventure** | First run | 04 §5 and 05 §10. |
 
 ## 3. Parent area (behind the parent gate)

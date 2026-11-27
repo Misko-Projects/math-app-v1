@@ -141,7 +141,7 @@ describe('runPipeline with the stub provider', () => {
       'fb.correct.1': { text: 'You did it again!', clips: ['fb.correct.1#0'] },
       'ls.CNT.03.w1.s2': {
         text: 'I count each one. I stop at {n}.',
-        voice: 'pip',
+        voice: 'guide',
         clips: ['ls.CNT.03.w1.s2#0', '$n', 'ls.CNT.03.w1.s2#1'],
       },
     };
@@ -218,7 +218,7 @@ describe('runPipeline with the stub provider', () => {
     };
     // Each clip "costs" $0.50 of input tokens; the cap admits as many estimates as fit.
     // Narrator clips only, so the whole plan's estimate stays under the cap.
-    const config = { ...repoVoices(), voiceClipSets: { pip: [], glim: [] } };
+    const config = { ...repoVoices(), voiceClipSets: { guide: [], glim: [] } };
     const opts = options({ provider: 'gemini', renderer, maxUsd: 0.01, config });
     const report = await runPipeline(opts);
     // The first clip's measured $0.50 already exceeds the cap, so nothing further is started.

@@ -97,7 +97,7 @@ const lines: Record<string, CompiledNarrationEntry> = {
   },
   'ls.CNT.03.w1.s3': {
     text: 'The last number was {n}, so there are {n}!',
-    voice: 'pip',
+    voice: 'guide',
     clips: ['ls.CNT.03.w1.s3#0', '$n', 'ls.CNT.03.w1.s3#1', '$n', 'ls.CNT.03.w1.s3#2'],
   },
   'req.dock.needs-planks': {
@@ -114,10 +114,10 @@ const lines: Record<string, CompiledNarrationEntry> = {
     text: 'Pay {price|dollars}.',
     clips: ['p.money.pay#0', '$price|dollars', 'p.money.pay#1'],
   },
-  'game.pip.welcome': {
+  'game.guide.welcome': {
     text: "Welcome back! Let's build something today.",
-    voice: 'pip',
-    clips: ['game.pip.welcome#0'],
+    voice: 'guide',
+    clips: ['game.guide.welcome#0'],
   },
   'fb.correct.1': { text: 'You made a ten first!', clips: ['fb.correct.1#0'] },
   'fb.retry': { text: "Let's look again together.", clips: ['fb.retry#0'] },

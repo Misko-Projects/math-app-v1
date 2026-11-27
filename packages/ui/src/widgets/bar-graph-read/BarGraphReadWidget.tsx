@@ -259,7 +259,7 @@ export function BarGraphReadWidget({
 
   const invitedCat = invite && (invite.op !== 'answer' || choice) ? idOf(invite) : null;
   const invitedAnswer = invite?.op === 'answer' && !choice;
-  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`).
+  // The guide's up-pointing hand hangs below the invited control (kit `useInviteHand`).
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) =>

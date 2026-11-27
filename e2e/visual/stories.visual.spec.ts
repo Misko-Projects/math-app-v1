@@ -13,6 +13,9 @@ interface IndexEntry {
  */
 const CHUNKS = 4;
 
+/** Storybook render phases after which a story's play function has ended (storybook 10). */
+const STORY_DONE = ['finished', 'errored', 'aborted'];
+
 // One snapshot per story in key states (09 §3, Visual row). Opt a story out with the `!visual` tag.
 for (let chunk = 0; chunk < CHUNKS; chunk += 1) {
   test(`every Storybook story matches its visual baseline (part ${chunk + 1} of ${CHUNKS})`, async ({
@@ -38,9 +41,24 @@ for (let chunk = 0; chunk < CHUNKS; chunk += 1) {
       await page.goto(`/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story`);
       await page.locator('#storybook-root > *').first().waitFor();
       await page.evaluate(() => document.fonts.ready);
-      // A story's play function may still be running (the coin-pay worst-trays stories tap dozens
-      // of coins, about 5 s on a slow runner): give the page 15 s to settle into two identical
-      // screenshots instead of the default 5 s.
+      // Wait for the story's play function to end before the first screenshot: Storybook's
+      // current render reaches `finished` after play (and afterEach), or stops at `errored` /
+      // `aborted`. A screenshot taken mid-play could match a half-played state twice in a row.
+      await page.waitForFunction(
+        (done) => {
+          const preview = (
+            window as unknown as {
+              __STORYBOOK_PREVIEW__?: { currentRender?: { phase?: string } };
+            }
+          ).__STORYBOOK_PREVIEW__;
+          const phase = preview?.currentRender?.phase;
+          return phase !== undefined && done.includes(phase);
+        },
+        STORY_DONE,
+        { timeout: 30_000 },
+      );
+      // Then the page must still settle into two identical screenshots (an idle loop, a late
+      // image); 15 s instead of the default 5 s.
       await expect.soft(page).toHaveScreenshot(`${story.id}.png`, {
         fullPage: true,
         timeout: 15_000,

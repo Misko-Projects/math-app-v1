@@ -33,19 +33,19 @@ describe('planLine: clip stitching order (03 §8.4)', () => {
 
   it('applies .end only to the last clip of a multi-clip number', () => {
     const plan = planLine(N, 'ls.CNT.03.w1.s3', { n: 345 });
-    // A Pip line: each number clip tries Pip's own clip first, then the narrator's (02 §5.5).
+    // A guide line: each number clip tries the guide's own clip first, then the narrator's (02 §5.5).
     expect(plan?.clips?.map((c) => c.candidates)).toEqual([
       ['ls.CNT.03.w1.s3#0'],
-      ['pip:num.3#0', 'num.3#0'],
-      ['pip:num.hundred#0', 'num.hundred#0'],
-      ['pip:num.45#0', 'num.45#0'],
+      ['guide:num.3#0', 'num.3#0'],
+      ['guide:num.hundred#0', 'num.hundred#0'],
+      ['guide:num.45#0', 'num.45#0'],
       ['ls.CNT.03.w1.s3#1'],
-      ['pip:num.3#0', 'num.3#0'],
-      ['pip:num.hundred#0', 'num.hundred#0'],
-      ['pip:num.45.end#0', 'pip:num.45#0', 'num.45.end#0', 'num.45#0'],
+      ['guide:num.3#0', 'num.3#0'],
+      ['guide:num.hundred#0', 'num.hundred#0'],
+      ['guide:num.45.end#0', 'guide:num.45#0', 'num.45.end#0', 'num.45#0'],
       ['ls.CNT.03.w1.s3#2'],
     ]);
-    expect(plan?.voice).toBe('pip');
+    expect(plan?.voice).toBe('guide');
     expect(plan?.text).toBe('The last number was 345, so there are 345!');
   });
 

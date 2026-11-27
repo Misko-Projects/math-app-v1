@@ -62,7 +62,7 @@ import './number-line-jump.css';
  * full-size keys (four columns of three rows when four rows don't fit); the road takes the width
  * that is left (measured, so the line's ticks are drawn at their real size).
  *
- * Invites (03 §6.3) ring ONE enabled control and Pip's hand (kit `useInviteHand`) points at it,
+ * Invites (03 §6.3) ring ONE enabled control and the guide's hand (kit `useInviteHand`) points at it,
  * only while the child can act: `hop {by}` the hop button; `bridge-to {at}` the hop that heads
  * there; `label-landing` and `answer {value}` the next pad key, then Check (first the hop
  * toward the target while the hopper is not there yet).
@@ -106,7 +106,7 @@ const PICTURE_STONE = 56;
 const PICTURE_STONE_GAP = 8;
 /** Width of a "the road goes on" mark at a cut end of the stones window. */
 const MORE_W = 28;
-/** Extra space between the hop row and the pad when stacked: Pip's hand under a hop clears the keys. */
+/** Extra space between the hop row and the pad when stacked: the guide's hand under a hop clears the keys. */
 const STACK_HAND_GAP = 32;
 
 type Config = ConfigFor<'number-line-jump'>;
@@ -388,17 +388,17 @@ interface Plan {
   gap: number;
   /** A short room: the answer display uses its regular (not large) numerals. */
   short: boolean;
-  /** Px between pad rows, and how far Pip's hand may hang below the widget (minimum area). */
+  /** Px between pad rows, and how far the guide's hand may hang below the widget (minimum area). */
   padRowGap: number;
   overhang: number;
   /** The stones are a picture even though buttons would fit across (they would not fit the height). */
   pictureStones: boolean;
   /** The road's width in px (what is left beside the pad). */
   mainW: number;
-  /** Rendered height of the plan, and whether it fits the room (with room for Pip's hand). */
+  /** Rendered height of the plan, and whether it fits the room (with room for the guide's hand). */
   h: number;
   fits: boolean;
-  /** Fits while no pad key is invited (Pip's hand under a bottom-row key needs more). */
+  /** Fits while no pad key is invited (the guide's hand under a bottom-row key needs more). */
   fitsAtRest: boolean;
 }
 
@@ -408,12 +408,12 @@ interface Measured {
 }
 
 /**
- * Rows of pad keys are 26 px apart (not 12): Pip's hand under a key then hangs clear of the digit
+ * Rows of pad keys are 26 px apart (not 12): the guide's hand under a key then hangs clear of the digit
  * on the key below it.
  */
 const PAD_ROW_GAP = 26;
 /**
- * The pad's digit size for its key: small enough that Pip's hand, lowered to clear the invited
+ * The pad's digit size for its key: small enough that the guide's hand, lowered to clear the invited
  * key's own digit, still hangs clear of the digit on the key below (never under 32 px).
  */
 const padDigit = (key: number) =>
@@ -429,19 +429,19 @@ function padBox(shape: PadShape, key: number, rowGap = PAD_ROW_GAP) {
 }
 
 /**
- * How far Pip's hand reaches below a bottom-row pad key's cell (kit useInviteHand: fingertip 10 px
+ * How far the guide's hand reaches below a bottom-row pad key's cell (kit useInviteHand: fingertip 10 px
  * up the key, the 56 px hand, its 8 px bob and 10 px edge margin, less the key's 4 px ledge).
  */
 const HAND_REACH = 52;
 /**
- * In a short room (the 960 × 600 minimum) Pip's hand may hang this far (less its 10 px edge margin,
+ * In a short room (the 960 × 600 minimum) the guide's hand may hang this far (less its 10 px edge margin,
  * so at most 20 px) into the workshop card's
  * 24 px padding below the widget, where it covers nothing (06 §2 minimum-area relief); K pad rows
  * close up to 14 px so a K pad and the hand fit 319 px.
  */
 const SHORT_OVERHANG = 30;
 const K_SHORT_ROW_GAP = 14;
-/** Above the pad (side-right): the answer row stands this far up, so Pip's hand under it (38 px,
+/** Above the pad (side-right): the answer row stands this far up, so the guide's hand under it (38 px,
  * 46 px with its bob) never touches a key. */
 const ANSWER_HAND_GAP = 48;
 
@@ -503,7 +503,7 @@ const SHORT_ROOM = 420;
 /**
  * The first plan that fits the room: stack; then the pad beside the road (the answer above it, in
  * the hop row, or beside it); each with the biggest pad that fits, all hop buttons before the
- * dial. Nothing fits with room for Pip's hand under the pad: the first that fits at rest; nothing
+ * dial. Nothing fits with room for the guide's hand under the pad: the first that fits at rest; nothing
  * fits at all: the smallest (the area then scrolls; targets never shrink below the minimum).
  */
 function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measured): Plan {
@@ -517,7 +517,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   const W = Math.min(room?.width ?? 1180, 1180) - 2 * EDGE;
   const H = roomH - 2 * EDGE;
   const sizes = new Set(c.allowedJumps).size;
-  // Hop controls: the target's width, 12 px taller (room for Pip's fingertip), plus the ledge.
+  // Hop controls: the target's width, 12 px taller (room for the guide's fingertip), plus the ledge.
   const hopCell = { w: T, h: T + 18 };
   const hopsBox = (w: number, kind: Plan['hops']) => {
     // The dial: smaller, the hop itself, bigger; then take-back.
@@ -558,7 +558,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     padH: number,
     ok: boolean,
   ) => {
-    // Pip's hand hangs below whichever control is lowest in each column (a hop button, a key,
+    // The guide's hand hangs below whichever control is lowest in each column (a hop button, a key,
     // Check): every column needs its reach below it.
     const withHand = Math.max(h, padH) + HAND_REACH - overhang;
     plans.push({
@@ -589,7 +589,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           const mainW = W;
           const hops = hopsBox(pad ? mainW : mainW - G - answerRow.w, kind);
           const roadH = pathH(mainW);
-          // Under the hop row, room for Pip's hand before the pad (it must not cover a key).
+          // Under the hop row, room for the guide's hand before the pad (it must not cover a key).
           const top = roadH + G + hops.h + G + STACK_HAND_GAP;
           const h = pad
             ? top + Math.max(answerCol.h, p.h)
@@ -603,7 +603,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           const rightW = Math.max(p.w, answerRow.w);
           const mainW = W - G - rightW;
           const hops = hopsBox(mainW, kind);
-          // Pip's hand under Check or the minus hangs clear of the pad below (ANSWER_HAND_GAP).
+          // The guide's hand under Check or the minus hangs clear of the pad below (ANSWER_HAND_GAP).
           const right = answerRow.h + ANSWER_HAND_GAP + p.h;
           const h = Math.max(pathH(mainW) + G + hops.h, right);
           add('side-right', pad, kind, mainW, hops.cols, h, right, mainW >= 3 * T);
@@ -1604,7 +1604,7 @@ export function NumberLineJumpWidget({
         {
           '--pad-key': plan.pad ? `${plan.pad.key}px` : undefined,
           '--pad-row-gap': `${plan.padRowGap}px`,
-          // Digits sized so Pip's hand clears its own key's digit and the one below.
+          // Digits sized so the guide's hand clears its own key's digit and the one below.
           // Closer rows (K at the minimum) take the smallest digit, so the hand clears the row below.
           '--pad-digit': plan.pad
             ? plan.padRowGap < PAD_ROW_GAP

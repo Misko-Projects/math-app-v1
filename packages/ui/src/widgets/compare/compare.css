@@ -299,7 +299,7 @@
   margin: 0;
   padding: 6px;
 }
-/* Pip's hand turned to point along the row (an up-pointing hand, rotated a quarter turn). */
+/* The guide's hand turned to point along the row (an up-pointing hand, rotated a quarter turn). */
 .ni-cmp__rowhand {
   display: block;
   width: calc(var(--target-min) * 0.62);

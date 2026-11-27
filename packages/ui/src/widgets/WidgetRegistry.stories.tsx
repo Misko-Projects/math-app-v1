@@ -362,7 +362,7 @@ export const UnregisteredFormat: Story = {
   },
 };
 
-/** The placeholder in K mode: Pip's line is spoken (tap the bubble), not printed. */
+/** The placeholder in K mode: the guide's line is spoken (tap the bubble), not printed. */
 export const UnregisteredFormatK: Story = {
   globals: { ageMode: 'k' },
   args: { config: unregistered },

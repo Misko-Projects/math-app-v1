@@ -9,6 +9,11 @@ export interface LocalChild {
   grade: 'K' | '1' | '2' | '3';
   /** How the avatar looks (default: the lightest-but-two skin tone and brown hair). */
   look?: { skinTone: string; hairColor: string };
+  /**
+   * The guide the child chose (05 §10; default `shelly`). `null`: none yet, so the child meets the
+   * guide chooser before the island.
+   */
+  guide?: string | null;
 }
 
 /**
@@ -65,9 +70,10 @@ export async function seedLocalChild(
                   shoesColor: 'red',
                   hat: null,
                   accessory: null,
-                  buddy: 'pip',
+                  buddy: 'nib',
                 },
                 picturePasswordHash: null,
+                ...(c.guide === null ? {} : { guide: c.guide ?? 'shelly' }),
                 createdAt: now + i,
                 updatedAt: now + i,
               });

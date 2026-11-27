@@ -31,7 +31,7 @@ tp.MEA.07.t1.prompt:
 tp.MEA.07.t2.prompt:
   text: "They can not move, so lay the string on them. Which is longer?"
 tp.MEA.07.t3.prompt:
-  text: "Pip measured some ropes in {unit|unit:many}. Put them in order, shortest first."
+  text: "Here are some ropes measured in {unit|unit:many}. Put them in order, shortest first."
 tp.MEA.15.t1.prompt:
   text: "Tap each thing that is {attr|word}."
 tp.MEA.15.t2.prompt:

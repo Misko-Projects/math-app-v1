@@ -1893,7 +1893,7 @@ export const Disabled: Story = {
 const playController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo: every op. A one flies in from the tray, ten ones fuse into a ten, a ten splits, Pip
+ * Demo: every op. A one flies in from the tray, ten ones fuse into a ten, a ten splits, the guide
  * counts the tens aloud (the only place a count is spoken), a ten goes back, and `answer` applies.
  */
 export const DemoPlay: Story = {
@@ -1973,7 +1973,7 @@ export const DemoReadUnmount: Story = {
     void playing.then(() => {
       settled = true;
     });
-    // Pip is still pressing the first key (340 ms) when the widget goes.
+    // The guide is still pressing the first key (340 ms) when the widget goes.
     await new Promise((r) => setTimeout(r, 120));
     await expect(settled).toBe(false);
     unmountWidget?.();
@@ -1986,7 +1986,7 @@ export const DemoReadUnmount: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn in a faded example: Pip's hand points at the tens pile (add-piece), then at
+ * The child's turn in a faded example: the guide's hand points at the tens pile (add-piece), then at
  * "Make a ten" (fuse) and at check (answer). Input stays on.
  */
 export const DemoInvite: Story = {

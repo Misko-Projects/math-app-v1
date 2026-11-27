@@ -186,7 +186,7 @@ function isoCube(cx: number, cy: number, hw: number): IsoCube {
 
 const BIG_CUBE = isoCube(32, 30, 22);
 
-/** Unit-square pip layouts (die faces 1, 3 and 5). */
+/** Unit-square dot layouts (die faces 1, 3 and 5). */
 const PIPS: Readonly<Record<1 | 3 | 5, ReadonlyArray<readonly [number, number]>>> = {
   1: [[0.5, 0.5]],
   3: [
@@ -659,7 +659,7 @@ const iceCream: MeasureDraw = (tone) => {
 
 const dice: MeasureDraw = (tone) => {
   const c = tint(tone, BOBBER, SEA_B);
-  const pip = tone === 'b' ? v('cloud') : v('ink');
+  const dot = tone === 'b' ? v('cloud') : v('ink');
   const cube = BIG_CUBE;
   // A die as a cube: three faces showing 1, 5 and 3.
   return (
@@ -669,8 +669,8 @@ const dice: MeasureDraw = (tone) => {
       {face(cube.right, c, -0.22)}
       {face(cube.top, c, 0.15)}
       {pips(1, cube.mTop, v('coral'), 0.15)}
-      {pips(5, cube.mLeft, pip, 0.1)}
-      {pips(3, cube.mRight, pip, 0.1)}
+      {pips(5, cube.mLeft, dot, 0.1)}
+      {pips(3, cube.mRight, dot, 0.1)}
       {HIGHLIGHT('M15 18.5l9-5')}
     </>
   );

@@ -32,6 +32,7 @@ import {
   eventPayloadBytes,
   type FamilySettings,
   familyIdSchema,
+  type GuideId,
   type InventoryState,
   type IslandState,
   inboundEventEnvelopeSchema,
@@ -182,6 +183,12 @@ export interface DataStore {
    * fields never wins the server's LWW merge because a password changed here.
    */
   setPicturePassword(childId: ChildId, hash: string | null): Promise<ChildProfile>;
+  /**
+   * Records the guide a child chose (05 §1, §10) on the current row. Unlike the picture password
+   * this is a shared field: `updatedAt` moves past both now and the row's own stamp, so the choice
+   * wins the next LWW sync (08 §4), offline included (it is pushed when the device syncs).
+   */
+  setGuide(childId: ChildId, guide: GuideId): Promise<ChildProfile>;
   /** LWW merge (see `MergeSource` for ties); returns how many documents changed. */
   mergeProfiles(profiles: readonly unknown[], opts: { source: MergeSource }): Promise<number>;
   allProfiles(): Promise<ChildProfile[]>;
@@ -791,6 +798,23 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         const current = await db.profiles.get(childId);
         if (!current) throw new DataStoreError('invalid_profile', 'no such child profile');
         const parsed = childProfileSchema.safeParse({ ...current, picturePasswordHash: hash });
+        if (!parsed.success) {
+          throw new DataStoreError('invalid_profile', 'invalid child profile', parsed.error.issues);
+        }
+        await db.profiles.put(parsed.data);
+        return parsed.data;
+      });
+    },
+
+    async setGuide(childId, guide) {
+      return db.transaction('rw', all, async () => {
+        if ((await tombstoned()).has(childKey(childId))) {
+          throw new DataStoreError('child_deleted', 'this child was deleted');
+        }
+        const current = await db.profiles.get(childId);
+        if (!current) throw new DataStoreError('invalid_profile', 'no such child profile');
+        const updatedAt = Math.max(now(), current.updatedAt + 1);
+        const parsed = childProfileSchema.safeParse({ ...current, guide, updatedAt });
         if (!parsed.success) {
           throw new DataStoreError('invalid_profile', 'invalid child profile', parsed.error.issues);
         }

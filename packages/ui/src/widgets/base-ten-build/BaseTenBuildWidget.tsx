@@ -935,7 +935,7 @@ export function BaseTenBuildWidget({
     if (alive.current) setCounted(null);
   };
 
-  /** Read mode: Pip types the number on the pad, key by key (like number-pad's demo). */
+  /** Read mode: the guide types the number on the pad, key by key (like number-pad's demo). */
   const typeAnswer = async (value: number) => {
     const chars = String(shown(value, decimal)).split('') as PadKey[];
     let typed = '';
@@ -1013,7 +1013,7 @@ export function BaseTenBuildWidget({
   })();
   const invitedKey = inviteTarget?.startsWith('key-') ? (inviteTarget.slice(4) as PadKey) : null;
 
-  // Pip's up-pointing hand hangs below the ONE invited control (kit `useInviteHand`): a pile, a
+  // The guide's up-pointing hand hangs below the ONE invited control (kit `useInviteHand`): a pile, a
   // trade, the tray, the answer blank, a pad key or check. Its fingertip rests inside the control's
   // bottom edge, clear of the control's icon or numeral; the `.ni-invite` ring stays on the control.
   const handTarget = ((): string | null => {

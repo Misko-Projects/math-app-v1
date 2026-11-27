@@ -390,7 +390,7 @@ export function ClockSetWidget({
   // A hand glows while it is turned, chosen or shown by a demo. An invite does not light it: the
   // one cue of an invite is the ring (and the guide's hand) on the button to touch first.
   const glow = lit ?? selectedHand ?? (invite?.op === 'highlight-hand' ? invitedHand : null);
-  // Pip's hand (kit `useInviteHand`) under the button of the hand the child should turn.
+  // The guide's hand (kit `useInviteHand`) under the button of the hand the child should turn.
   const rootRef = useRef<HTMLDivElement | null>(null);
   const handKey = invitedHand !== null && invite?.op !== 'highlight-hand' ? invitedHand : '';
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(

@@ -84,32 +84,32 @@ tp.PV.13.t4.prompt:
 # move to the place-value cards (03 §6.4: a second representation).
 ls.PV.01.w1.s1:
   text: "{n} has {t} tens. Put in {t} bundles of ten."
-  voice: pip
+  voice: guide
 ls.PV.01.w1.s2:
   text: "It has {o} ones. Put in {o} sticks."
-  voice: pip
+  voice: guide
 ls.PV.01.w1.s3:
   text: "Count the tens, then count on the ones. That is {n}!"
-  voice: pip
+  voice: guide
   style: excited
 ls.PV.01.outro:
   text: "Tens first, then ones. Now you can build big numbers!"
-  voice: pip
+  voice: guide
 
 # PV.09 (gateway): fourteen loose sticks become one bundle of ten and four ones.
 ls.PV.09.w1.s1:
   text: "Here are {n} sticks. That is so many to count!"
-  voice: pip
+  voice: guide
 ls.PV.09.w1.s2:
   text: "Ten sticks make one bundle. One ten!"
-  voice: pip
+  voice: guide
 ls.PV.09.w1.s3:
   text: "One ten and {o} ones. It is the same {n}!"
-  voice: pip
+  voice: guide
   style: excited
 ls.PV.09.outro:
   text: "Ten ones make one ten. Bundles are fast to count!"
-  voice: pip
+  voice: guide
 
 # ---------- K02 slice 1a: grade-2 place value to 1000 ----------
 sk.PV.04.intro:
@@ -239,56 +239,56 @@ tp.PV.24.t5.prompt:
 # into one hundred on the mat.
 ls.PV.04.w1.s1:
   text: "Look: ten tens side by side are as big as one hundred."
-  voice: pip
+  voice: guide
 ls.PV.04.w1.s2:
   text: "One hundred and ten tens. That is {n}!"
-  voice: pip
+  voice: guide
 ls.PV.04.w2.s1:
   text: "Here are ten tens. Count them by tens."
-  voice: pip
+  voice: guide
 ls.PV.04.w2.s2:
   text: "Ten tens make one hundred. Put them together!"
-  voice: pip
+  voice: guide
 ls.PV.04.w2.s3:
   text: "One hundred! It is the same as ten tens."
-  voice: pip
+  voice: guide
   style: excited
 ls.PV.04.outro:
   text: "Ten tens make one hundred. Now you can count by hundreds!"
-  voice: pip
+  voice: guide
 
 # PV.12 (gateway): 34 is 3 tens 4 ones, and also 2 tens 14 ones.
 ls.PV.12.w1.s1:
   text: "Here is {n}: {t} tens and {o} ones."
-  voice: pip
+  voice: guide
 ls.PV.12.w1.s2:
   text: "Split one ten. It is ten ones."
-  voice: pip
+  voice: guide
 ls.PV.12.w1.s3:
   text: "Now there are {t} tens and {o} ones. It is the same {n}!"
-  voice: pip
+  voice: guide
   style: excited
 ls.PV.12.outro:
   text: "One number, many ways. A ten is always ten ones!"
-  voice: pip
+  voice: guide
 
 # PV.15 (gateway): build 243 with flats, rods and small blocks.
 ls.PV.15.w1.s1:
   text: "{n} has {h} hundreds. Put in {h} flats."
-  voice: pip
+  voice: guide
 ls.PV.15.w1.s2:
   text: "It has {t} tens. Put in {t} rods."
-  voice: pip
+  voice: guide
 ls.PV.15.w1.s3:
   text: "It has {o} ones. Put in {o} small blocks."
-  voice: pip
+  voice: guide
 ls.PV.15.w1.s4:
   text: "Hundreds, then tens, then ones. That is {n}!"
-  voice: pip
+  voice: guide
   style: excited
 ls.PV.15.outro:
   text: "Hundreds first, then tens, then ones. Now you can build numbers to one thousand!"
-  voice: pip
+  voice: guide
 # K02 (#17) slice 1b: rounding
 sk.PV.08.intro:
   text: "Rounding finds the ten a number is closest to."

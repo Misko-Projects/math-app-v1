@@ -217,7 +217,7 @@
   flex: none;
   align-items: center;
 }
-/* The spot Pip invites the child to mark or drop on (its ring is `.ni-invite`). */
+/* The spot the guide invites the child to mark or drop on (its ring is `.ni-invite`). */
 .ni-fline__spot {
   position: absolute;
   box-sizing: border-box;

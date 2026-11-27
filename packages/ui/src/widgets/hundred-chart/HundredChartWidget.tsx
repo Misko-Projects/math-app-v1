@@ -65,7 +65,7 @@ import './hundred-chart.css';
  * the answer is typed on the pad: 03 §5.5 answers find / next / move with "the tapped or typed
  * value". `fill` always types (the chart is a picture beside the pad).
  *
- * Invites (03 §6.3) ring ONE enabled control and Pip's hand (kit `useInviteHand`) points at it,
+ * Invites (03 §6.3) ring ONE enabled control and the guide's hand (kit `useInviteHand`) points at it,
  * only while the child can act: `tap {n}` / `answer {value}` the cell (stepping the window to it
  * first) or, typed, the next pad key; `answer {values}` the next key of the blank being filled;
  * then Check.
@@ -101,7 +101,7 @@ const pastHundred = (c: Config) => c.first + c.rows * 10 - 1 > 100;
 const picMinW = (c: Config) => (pastHundred(c) ? 3 * PIC_DIGIT_W + PIC_NUM_PAD : PIC_MIN_W);
 /**
  * The gap a `side` layout with width to spare opens between the chart and the pad (at most), so
- * Pip's hand can stand beside a key of the pad's first column without lying on the chart.
+ * The guide's hand can stand beside a key of the pad's first column without lying on the chart.
  */
 const SIDE_HAND_GAP = 68;
 /** The moves strip (move mode): one arrow tile per move. */
@@ -109,12 +109,12 @@ const MOVE_TILE = 44;
 /** The small map of the whole chart, beside the steppers. */
 const MAP_CELL = 5;
 /**
- * How far Pip's hand reaches below a bottom-row pad key's cell (kit useInviteHand: fingertip 10 px
+ * How far the guide's hand reaches below a bottom-row pad key's cell (kit useInviteHand: fingertip 10 px
  * up the key, the 56 px hand, its 8 px bob and 10 px edge margin, less the key's 4 px ledge).
  */
 const HAND_REACH = 52;
 /**
- * At the 960 × 600 minimum in K, three rows of K pad keys and Pip's hand under the bottom row
+ * At the 960 × 600 minimum in K, three rows of K pad keys and the guide's hand under the bottom row
  * cannot both fit 319 px: the hand may hang this far into the workshop card's padding (24 px),
  * where it covers nothing (06 §2 minimum-area relief), and the pad's rows close up to 14 px.
  */
@@ -154,10 +154,10 @@ interface Plan {
   short: boolean;
   /** Px between the chart and the pad beside it (`side`). */
   sideGap: number;
-  /** Px between pad rows, and how far Pip's hand may hang below the widget. */
+  /** Px between pad rows, and how far the guide's hand may hang below the widget. */
   padRowGap: number;
   overhang: number;
-  /** Fits with room for Pip's hand under the pad; fits while no pad key is invited. */
+  /** Fits with room for the guide's hand under the pad; fits while no pad key is invited. */
   fits: boolean;
   fitsAtRest: boolean;
   h: number;
@@ -169,12 +169,12 @@ interface Measured {
 }
 
 /**
- * Rows of pad keys are 26 px apart (not 12): Pip's hand under a key then hangs clear of the digit
+ * Rows of pad keys are 26 px apart (not 12): the guide's hand under a key then hangs clear of the digit
  * on the key below it.
  */
 const PAD_ROW_GAP = 26;
 /**
- * The pad's digit size for its key: small enough that Pip's hand, lowered to clear the invited
+ * The pad's digit size for its key: small enough that the guide's hand, lowered to clear the invited
  * key's own digit, still hangs clear of the digit on the key below (never under 32 px).
  */
 const padDigit = (key: number) =>
@@ -229,7 +229,7 @@ function planLayout(
   const mapW = 10 * MAP_CELL + 8;
   const mapH = c.rows * MAP_CELL + 8;
   /**
-   * Every plan, keeping `reach` px free under each column's lowest control for Pip's hand (an
+   * Every plan, keeping `reach` px free under each column's lowest control for the guide's hand (an
    * invite there would otherwise add room below the widget and scroll the area).
    */
   const gen = (reach: number, minW: number): Plan[] => {
@@ -250,7 +250,7 @@ function planLayout(
         // The steppers stand on a 6 px ledge.
         const sideFull = (paged ? 2 * (T + 6) + mapH + 3 * G : 0) + m.check.h;
         const sideNoMap = (paged ? 2 * (T + 6) + 2 * G : 0) + m.check.h;
-        // Pip's hand hangs below the bottom control of each column (a cell, Check).
+        // The guide's hand hangs below the bottom control of each column (a cell, Check).
         const map = paged && sideFull + reach <= H;
         const h =
           Math.max(
@@ -312,7 +312,7 @@ function planLayout(
         const rowsShown = Math.max(1, Math.min(c.rows, fitRows));
         const map = rowsShown < c.rows && underW(true) <= 10 * cellW;
         const under = underW(map);
-        // The under row (steppers, Check) needs Pip's hand's room below it too.
+        // The under row (steppers, Check) needs the guide's hand's room below it too.
         const chartH = movesH + rowsShown * PIC_H + 6 + G + underH + reach;
         const ok = cellW >= minW && rowsShown >= Math.min(3, c.rows) && under <= 10 * cellW + 0.5;
         const spare = W - G - p.w - 6 - 10 * cellW;
@@ -767,7 +767,7 @@ export function HundredChartWidget({
     setPressedKey(null);
     await pause(reduced ? 0 : KEY_MS);
   };
-  /** Pip chooses the number: the cell lights up, then it is selected (and typed when typing). */
+  /** The guide chooses the number: the cell lights up, then it is selected (and typed when typing). */
   const chooseCell = async (value: number) => {
     reveal(value);
     setPulse(value);
@@ -795,7 +795,7 @@ export function HundredChartWidget({
           const v = num(action, 'n');
           if (v === null || !onChart(v)) return;
           if (fill && hidden.has(v)) {
-            // Pip fills the blank: "the next one is …".
+            // The guide fills the blank: "the next one is …".
             await typeCell(v, v);
             sayNumber(v);
           } else if (fill) {
@@ -1009,7 +1009,7 @@ export function HundredChartWidget({
       'data-start': v === c.from ? 'true' : undefined,
       'data-pulse': pulse === v ? 'true' : undefined,
       'data-decade': colOf(v) === 9 ? 'true' : undefined,
-      // A picture cell is something to read: Pip's hand never lies on it.
+      // A picture cell is something to read: the guide's hand never lies on it.
       'data-invite-glyph': tap ? undefined : '',
     };
     const body = (
@@ -1152,7 +1152,7 @@ export function HundredChartWidget({
         {
           '--pad-key': plan.pad ? `${plan.pad.key}px` : undefined,
           '--pad-row-gap': `${plan.padRowGap}px`,
-          // Digits sized so Pip's hand clears its own key's digit and the one below.
+          // Digits sized so the guide's hand clears its own key's digit and the one below.
           // Closer rows (K at the minimum) take the smallest digit, so the hand clears the row below.
           '--pad-digit': plan.pad
             ? plan.overhang > 0

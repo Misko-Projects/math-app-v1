@@ -1,8 +1,8 @@
 // MC.keyword-more-means-add (03 §7.2), answer: hears "more" (or any comparing words) and adds. On a
 // story.addsub item whose situation is compare/difference-more, compare/difference-fewer,
 // compare/bigger-fewer or compare/smaller-more, or whose words are inconsistent with its operation,
-// when the right operation is − the buggy answer is a + b, the two numbers the story tells ("Pip
-// has 3 more fish than crabs. Pip has 9 fish. How many crabs?" → 12). Items where a + b is the
+// when the right operation is − the buggy answer is a + b, the two numbers the story tells ("The guide
+// has 3 more fish than crabs. The guide has 9 fish. How many crabs?" → 12). Items where a + b is the
 // right answer cannot discriminate: predict is null.
 
 import type { GeneratedItem, ResponseValue } from '@number-island/shared';

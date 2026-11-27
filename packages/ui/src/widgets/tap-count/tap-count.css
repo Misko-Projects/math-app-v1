@@ -1,7 +1,7 @@
 /* tap-count widget (U03): the objects on a paper board, the answer beside or below it. */
 
 .ni-tapc {
-  /* Pip's demo hand (TapCountWidget) is placed relative to the widget. */
+  /* The guide's demo hand (TapCountWidget) is placed relative to the widget. */
   position: relative;
   display: grid;
   align-items: center;
@@ -271,14 +271,14 @@ button.ni-tapc__obj:focus-visible {
   pointer-events: none;
 }
 
-/* Pip counting (demo): the object being counted lifts inside a teal ring. */
+/* The guide counting (demo): the object being counted lifts inside a teal ring. */
 .ni-tapc__obj[data-counting="true"] {
   outline: 5px solid var(--color-sea-deep);
   outline-offset: 4px;
   transform: scale(1.08);
 }
 /*
- * Pip counting on a picture in places: no lift or outside ring (it would cross into the next
+ * The guide counting on a picture in places: no lift or outside ring (it would cross into the next
  * place); a teal ring 5 px inside the object's box (inside its frame cell), behind the drawing.
  */
 .ni-tapc[data-dots="true"] .ni-tapc__obj[data-counting="true"] {

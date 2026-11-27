@@ -930,7 +930,7 @@ export function FractionCutWidget({
   const nextLine = guides.findIndex((_, i) => !state.linesCut.includes(i));
   const invitedLine =
     invite?.op === 'cut' && typeof invite.args?.line === 'number' ? invite.args.line : null;
-  // One knife at a time: the line Pip invites, else the next line to cut.
+  // One knife at a time: the line the guide invites, else the next line to cut.
   const shownLine =
     invitedLine !== null && !state.linesCut.includes(invitedLine) ? invitedLine : nextLine;
   const invitedPart =
@@ -938,7 +938,7 @@ export function FractionCutWidget({
   const invitedSlot: 0 | 1 | null = invite?.op === 'answer' && showEntry ? active : null;
   // Two steps, still cutting: the answer starts with "Name it".
   const invitedNext = invite?.op === 'answer' && twoStep && !naming;
-  // Pip's up-pointing hand under the invited knife, part or box to type into (kit `useInviteHand`).
+  // The guide's up-pointing hand under the invited knife, part or box to type into (kit `useInviteHand`).
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     ref,
     (root) => {

@@ -5,7 +5,7 @@
 //   then `extra` more or fewer); the child types or picks the number (`answer {value}`).
 // - `most` and `least` answer `choice` with a category id (`answer {id}`); the options are the
 //   chart's categories and the asked extreme is never a tie.
-// Ops: `point-bar {id}` (Pip points at a category's bar, row or column), `read-axis {id}` (follow
+// Ops: `point-bar {id}` (the guide points at a category's bar, row or column), `read-axis {id}` (follow
 // the bar's top across to the axis), `count-pictures {id}` (count the symbols, marks or the table
 // cell); all three are visual and leave the answer alone. Response: `{ kind: 'number', value }`
 // or `{ kind: 'choice', id }`, null until the child has answered. `answer {}` with no id takes a
@@ -34,7 +34,7 @@ type Config = WidgetConfigOf<'bar-graph-read'>;
 type QuestionType = Config['question']['type'];
 
 export interface BarGraphReadState extends FormatState<'bar-graph-read'> {
-  /** The category Pip (or the child) points at. */
+  /** The category the guide (or the child) points at. */
   pointed: string | null;
   /** Categories read off the axis or counted, in order (visual marks). */
   read: string[];

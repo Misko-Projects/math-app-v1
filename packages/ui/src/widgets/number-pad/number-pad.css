@@ -4,7 +4,7 @@
  */
 
 .ni-npw {
-  /* Positioned: Pip's invite hand is placed in widget coordinates. */
+  /* Positioned: the guide's invite hand is placed in widget coordinates. */
   position: relative;
   display: flex;
   align-items: center;

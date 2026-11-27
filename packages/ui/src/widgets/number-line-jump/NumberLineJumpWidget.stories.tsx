@@ -574,7 +574,7 @@ export const DemoReducedMotion: Story = {
 
 // ---------- invites (03 §6.3) ----------
 
-/** The ring and Pip's hand are on ONE control, the fingertip on it, the ring clear of the rest. */
+/** The ring and the guide's hand are on ONE control, the fingertip on it, the ring clear of the rest. */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
   // A tapped control keeps its focus ring; the only ring on screen must be the invite.
   (document.activeElement as HTMLElement | null)?.blur();
@@ -614,7 +614,7 @@ export const InviteAnswerK: Story = {
     await userEvent.click(jump(root, 1));
     await expectInviteOn(root, key(root, '6'));
     await userEvent.click(key(root, '6'));
-    // It ends on the invite: one ring, on Check, and Pip's hand.
+    // It ends on the invite: one ring, on Check, and the guide's hand.
     await expectInviteOn(root, checkBtn(root));
   },
 };
@@ -623,7 +623,7 @@ const bridgeInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * Open line, `bridge-to {at: 41}` from 74 with −10 and −1: the −10 hop three times, then −1; it
- * ends on 42 with the ring and Pip's hand on the last −1.
+ * ends on 42 with the ring and the guide's hand on the last −1.
  */
 export const InviteBridgeOpen: Story = {
   args: { config: openBack, tier: 'pictorial', demo: bridgeInvite },
@@ -726,7 +726,7 @@ async function expectFill(canvasElement: HTMLElement, parts: Element[], min = 0.
 }
 
 /**
- * `fits` 'true': the widget fits the area with room for Pip's hand under any pad key. 'at-rest':
+ * `fits` 'true': the widget fits the area with room for the guide's hand under any pad key. 'at-rest':
  * a K pad (three rows of 84 px) leaves no room under its bottom row at 960 × 600, so an invite on
  * 9, 0 or take-back adds a little room below (the only known overflow; see the widget's notes).
  */
@@ -816,7 +816,7 @@ export const LongRoadKMinLandscape: Story = {
 
 /**
  * K, CNT.07.t1 at the minimum: seven K stone buttons would fit across, but not the height with
- * room for Pip's hand under the hop row, so the road is a picture; Check beside the hop buttons.
+ * room for the guide's hand under the hop row, so the road is a picture; Check beside the hop buttons.
  */
 export const NextStoneKMinLandscape: Story = {
   globals: { ageMode: 'k' },

@@ -414,7 +414,7 @@ export const HardestLinesLandscapeMin: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo: Pip counts up 70, 80, 90, a dollar (each spoken), then invites the child's next coin. */
+/** Demo: the guide counts up 70, 80, 90, a dollar (each spoken), then invites the child's next coin. */
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
   parameters: { ui: { audio: spyAudio() } },
@@ -606,7 +606,7 @@ export const DollarLandscapeMin: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo invite (03 §6.3): Pip invites the child to count up from 65¢ to 70¢: the nickel is ringed and Pip's hand hangs under it. The story ends in the invited state, so the settled
+ * Demo invite (03 §6.3): the guide invites the child to count up from 65¢ to 70¢: the nickel is ringed and the guide's hand hangs under it. The story ends in the invited state, so the settled
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {

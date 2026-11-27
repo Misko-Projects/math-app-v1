@@ -289,35 +289,35 @@ describe('clip stitching', () => {
     ]);
   });
 
-  it("stitches a Pip line's numbers in Pip's own voice (02 §5.5)", async () => {
+  it("stitches a guide line's numbers in the guide's own voice (02 §5.5)", async () => {
     const { manager, ctx, speech } = await setup({
-      manifest: fixtureManifest([], ['pip:num.8#0', 'pip:num.8.end#0', 'num.8.end#0']),
+      manifest: fixtureManifest([], ['guide:num.8#0', 'guide:num.8.end#0', 'num.8.end#0']),
     });
     void manager.say('ls.CNT.03.w1.s3', { n: 8 });
     await flush();
     expect(labels(clipSources(ctx))).toEqual([
       'ls.CNT.03.w1.s3#0',
-      'pip:num.8#0',
+      'guide:num.8#0',
       'ls.CNT.03.w1.s3#1',
-      'pip:num.8.end#0',
+      'guide:num.8.end#0',
       'ls.CNT.03.w1.s3#2',
     ]);
     expect(speech.lines).toHaveLength(0);
   });
 
   it("falls back to the narrator's clip when a voice clip is missing", async () => {
-    // Pip has the plain clip of 8 but not its .end variant, and no clip of 3 at all.
+    // The guide has the plain clip of 8 but not its .end variant, and no clip of 3 at all.
     const { manager, ctx, speech, warnings } = await setup({
-      manifest: fixtureManifest([], ['pip:num.8#0']),
+      manifest: fixtureManifest([], ['guide:num.8#0']),
     });
     void manager.say('ls.CNT.03.w1.s3', { n: 8 });
     await flush();
-    // Pip's own plain clip beats the narrator's .end variant: one voice for the whole number.
+    // The guide's own plain clip beats the narrator's .end variant: one voice for the whole number.
     expect(labels(clipSources(ctx))).toEqual([
       'ls.CNT.03.w1.s3#0',
-      'pip:num.8#0',
+      'guide:num.8#0',
       'ls.CNT.03.w1.s3#1',
-      'pip:num.8#0',
+      'guide:num.8#0',
       'ls.CNT.03.w1.s3#2',
     ]);
     manager.stop();
@@ -388,7 +388,7 @@ describe('cancel and queue semantics (06 §5)', () => {
   it('a new line cancels the current one with a short fade', async () => {
     const { manager, ctx, events } = await setup();
     let firstDone = false;
-    void manager.say('game.pip.welcome').then(() => {
+    void manager.say('game.guide.welcome').then(() => {
       firstDone = true;
     });
     await flush();
@@ -404,7 +404,7 @@ describe('cancel and queue semantics (06 §5)', () => {
       value: 0,
       time: 0.3 + CANCEL_FADE_SEC,
     });
-    expect(labels(clipSources(ctx))).toEqual(['game.pip.welcome#0', 'p.count.how-many#0']);
+    expect(labels(clipSources(ctx))).toEqual(['game.guide.welcome#0', 'p.count.how-many#0']);
     expect(events.filter((e) => e.type === 'line-end')).toEqual([
       { type: 'line-end', lineId: 1, reason: 'cancelled' },
     ]);
@@ -449,12 +449,12 @@ describe('cancel and queue semantics (06 §5)', () => {
     void manager.say('p.count.how-many');
     const fb = manager.say('fb.correct.1');
     await flush();
-    void manager.say('game.pip.welcome');
+    void manager.say('game.guide.welcome');
     await fb; // settles (cancelled) without ever playing
     await flush();
     ctx.advance(5);
     await flush();
-    expect(labels(clipSources(ctx))).toEqual(['p.count.how-many#0', 'game.pip.welcome#0']);
+    expect(labels(clipSources(ctx))).toEqual(['p.count.how-many#0', 'game.guide.welcome#0']);
   });
 
   it('cancels a line that is still loading', async () => {
@@ -469,7 +469,7 @@ describe('cancel and queue semantics (06 §5)', () => {
         return fakeEncodedClip(id, 1);
       },
     });
-    const first = manager.say('game.pip.welcome');
+    const first = manager.say('game.guide.welcome');
     await flush();
     void manager.say('p.count.how-many');
     await first;
@@ -540,10 +540,10 @@ describe('Web Speech fallback (02 §5.5)', () => {
     const { manager, speech } = await setup({
       manifest: () => Promise.reject(new Error('404')),
     });
-    void manager.say('game.pip.welcome');
+    void manager.say('game.guide.welcome');
     await flush();
     expect(speech.lines.map((l) => [l.text, l.opts.voice])).toEqual([
-      ["Welcome back! Let's build something today.", 'pip'],
+      ["Welcome back! Let's build something today.", 'guide'],
     ]);
   });
 
@@ -702,7 +702,7 @@ describe('no overlap when a line cuts in (06 §5)', () => {
     await flush();
     ctx.advance(5);
     await warm;
-    void manager.say('game.pip.welcome');
+    void manager.say('game.guide.welcome');
     await flush();
     ctx.advance(0.2);
     void manager.say('p.count.how-many'); // cuts in with the clock held still
@@ -717,7 +717,7 @@ describe('no overlap when a line cuts in (06 §5)', () => {
     const { manager, ctx, speech, timers } = await setup({
       manifest: fixtureManifest(['p.count.how-many#0']),
     });
-    void manager.say('game.pip.welcome');
+    void manager.say('game.guide.welcome');
     await flush();
     ctx.advance(0.2);
     timers.pending.clear();
@@ -870,7 +870,7 @@ describe('review round 2 hardening', () => {
       manifest: fixtureManifest(['p.count.how-many#0']),
     });
     const { duck } = buses(ctx);
-    void manager.say('game.pip.welcome');
+    void manager.say('game.guide.welcome');
     await flush();
     ctx.advance(0.2);
     timers.pending.clear();
@@ -939,7 +939,7 @@ describe('review round 2 hardening', () => {
 describe('review round 3 hardening', () => {
   it('a replacement prompt settles when a line-end listener disposes the manager', async () => {
     const { manager, ctx } = await setup();
-    void manager.say('game.pip.welcome');
+    void manager.say('game.guide.welcome');
     await flush();
     manager.subscribe((e) => {
       if (e.type === 'line-end') void manager.dispose();
@@ -951,7 +951,7 @@ describe('review round 3 hardening', () => {
     await flush();
     expect(settled).toBe(true);
     expect(manager.speaking).toBe(false);
-    expect(labels(clipSources(ctx))).toEqual(['game.pip.welcome#0']);
+    expect(labels(clipSources(ctx))).toEqual(['game.guide.welcome#0']);
   });
 
   it('a manifest loader that throws synchronously still falls back to Web Speech', async () => {
@@ -1000,10 +1000,10 @@ describe('review round 3 hardening', () => {
     await second;
     rejectFirst(new Error('late failure'));
     await flush();
-    void manager.say('game.pip.welcome');
+    void manager.say('game.guide.welcome');
     await flush();
     expect(calls).toBe(2);
-    expect(labels(clipSources(ctx))).toEqual(['p.count.how-many#0', 'game.pip.welcome#0']);
+    expect(labels(clipSources(ctx))).toEqual(['p.count.how-many#0', 'game.guide.welcome#0']);
   });
 });
 

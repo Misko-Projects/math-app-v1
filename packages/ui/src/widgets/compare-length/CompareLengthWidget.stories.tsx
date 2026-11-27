@@ -784,7 +784,7 @@ export const DemoOrderAnswer: Story = {
 
 const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the object to line up. */
+/** The child's turn: the guide's hand points at the object to line up. */
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteDemo },
@@ -832,7 +832,7 @@ export const DemoInvite: Story = {
 const inviteBadge: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn in `order` (K): Pip's hand points at badge 1, below its numeral (the hand never
+ * The child's turn in `order` (K): the guide's hand points at badge 1, below its numeral (the hand never
  * covers it); one ring, inside the badge, 12 px clear of the other badges.
  */
 export const DemoInviteBadgeAlignedK: Story = {

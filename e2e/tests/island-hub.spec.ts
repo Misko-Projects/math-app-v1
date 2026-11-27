@@ -87,6 +87,13 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
     await check.click();
     await expect(page.getByTestId('pier-cue')).toHaveAttribute('data-cue', 'right');
     await expect(pier).toHaveAttribute('data-phase', 'feedback');
+    // The child's guide cheers at the stage corner (05 §1): no touch, nothing read aloud twice.
+    const cheer = page.getByTestId('guide-cheer');
+    await expect(cheer).toHaveAttribute('aria-hidden', 'true');
+    await expect(cheer.locator('svg[data-character="guide"]')).toHaveAttribute(
+      'data-guide',
+      'shelly',
+    );
   };
   // The demo shows the worked example, then the last step of the next one is the child's.
   await until(page, /turn/);
@@ -95,6 +102,8 @@ test('the island loop: requests, one item at the pier, materials in the Storehou
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   // The first item: answered right, it makes one of what the resident asked for.
   await until(page, /answer/);
+  // The cheer went with the last item's cue.
+  await expect(page.getByTestId('guide-cheer')).toHaveCount(0);
   await answerNext();
 
   // Home, mid-request: the request is recorded with what it made so far.

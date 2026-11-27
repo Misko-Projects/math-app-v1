@@ -315,7 +315,7 @@
 
 /*
  * Demo invite on one object (03 §6.3): the teal ring stays inside the object's own hit box, so it
- * keeps the full 12 px gap from every neighbour (as make-set). No pulse: Pip's hand moves.
+ * keeps the full 12 px gap from every neighbour (as make-set). No pulse: the guide's hand moves.
  */
 .ni-tf__counter.ni-invite,
 .ni-tf__shade.ni-invite,

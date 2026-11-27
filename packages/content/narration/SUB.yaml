@@ -39,13 +39,13 @@ tp.SUB.08.t3.prompt:
 
 ls.SUB.03.w1.s1:
   text: "Five fills the top row."
-  voice: pip
+  voice: guide
 ls.SUB.03.w1.s2:
   text: "{more} more go in the next row."
-  voice: pip
+  voice: guide
 ls.SUB.03.w1.s3:
   text: "Five and {more} more make {n}!"
-  voice: pip
+  voice: guide
   style: excited
 
 # K02 (#17) slice 3a

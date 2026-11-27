@@ -53,7 +53,7 @@ import './order.css';
  * Check, Check beside the tray when that fits; a short room gets a compact cue and tighter board.
  *
  * Demo ops (03 §5.5): `drag {id, slot}`, `highlight {id}`, plus `answer {values}`. An invite rings
- * ONE control and Pip's hand points at it (kit `useInviteHand`): `drag` the card, then (once the
+ * ONE control and the guide's hand points at it (kit `useInviteHand`): `drag` the card, then (once the
  * child has picked it up) its slot; `highlight` the card; `answer` the next card the model's
  * solution puts in the first slot that is not yet right (then that slot).
  */
@@ -93,7 +93,7 @@ const FRAC_SIDE_GAP = 10;
 const FRAC_PX = 46;
 /**
  * Above and below a tagged picture (number-path cards): the card border and padding, and 2 px more
- * below, so Pip's hand under the card (fingertip just inside its bottom edge) stays off the path.
+ * below, so the guide's hand under the card (fingertip just inside its bottom edge) stays off the path.
  */
 const TAG_PAD_Y = 8;
 const TAG_PAD_BOTTOM = 10;
@@ -241,7 +241,7 @@ const CHROME = {
 type Chrome = keyof typeof CHROME;
 const CHECK_GAP = 24;
 /**
- * How far Pip's hand reaches below a card's bottom edge (kit useInviteHand: the 56 px hand, its
+ * How far the guide's hand reaches below a card's bottom edge (kit useInviteHand: the 56 px hand, its
  * fingertip ~18 px up the card, its 8 px bob and 10 px edge margin), so a tray card's invite
  * needs no more room than the layout has.
  */
@@ -252,7 +252,7 @@ interface Plan {
   h: number;
   chrome: Chrome;
   check: 'beside' | 'below';
-  /** Bottom room held for Pip's hand under a tray card, so an invite never moves or scrolls. */
+  /** Bottom room held for the guide's hand under a tray card, so an invite never moves or scrolls. */
   handPad?: number;
 }
 
@@ -269,7 +269,7 @@ interface Shape {
   compactGain: number;
   check: { w: number; h: number };
   /**
-   * When set, the plan that fits (room for Pip's hand first) with the best score wins over the
+   * When set, the plan that fits (room for the guide's hand first) with the best score wins over the
    * tallest card (number-path cards: the widest tick pitch).
    */
   score?: (p: Plan, size: { w: number; h: number }) => number;
@@ -298,7 +298,7 @@ function sizeOf(s: Shape, p: Plan) {
 }
 
 /**
- * The biggest card that fits the room with room held for Pip's hand under a tray card: the
+ * The biggest card that fits the room with room held for the guide's hand under a tray card: the
  * tallest card, Check beside the tray when it fits, the widest card its picture can use; the full
  * cue unless the compact one buys clearly bigger cards (or the full one fits nothing). Nothing
  * fits: the smallest layout (the area then scrolls; targets never shrink below the minimum).
@@ -711,7 +711,7 @@ export function OrderWidget({
           ? (byData(root, 'card', cue.id) ?? byData(root, 'placed', cue.id) ?? null)
           : (byData(root, 'slot-pad', String(cue.slot)) ?? null),
     cueKey,
-    // An open box is empty: Pip points down into it ("put it here"), the whole hand inside the
+    // An open box is empty: the guide points down into it ("put it here"), the whole hand inside the
     // box, so it covers neither the cue's pebbles and arrow above it nor the tray below it.
     cue?.kind === 'slot' ? 'inside' : undefined,
   );
@@ -939,7 +939,7 @@ export function OrderWidget({
     if (pictures && spec && spec.kind !== 'none') {
       const tag = it.label !== undefined && !markShows(spec, it.label);
       const pic = cardPicture(spec);
-      // The numeral and the picture are the card's glyphs: Pip's hand stays off both.
+      // The numeral and the picture are the card's glyphs: the guide's hand stays off both.
       if (pic.kind === 'number-line' && compactLine(pic)) {
         return (
           <span className="ni-ord__face" data-face="side">

@@ -321,7 +321,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), a worked example of the SUB.03.t5 solution: Pip shows the frames, rings the
+ * Demo mode (03 §6.3), a worked example of the SUB.03.t5 solution: the guide shows the frames, rings the
  * 5 and the 2, flashes once more, and types 7. Input stays off throughout (the host passes
  * `disabled`), so an invite sent now is held back: no ring and no hand on a control the child can't
  * press. The child's turn, with its invite, is `DemoInvite`.
@@ -364,9 +364,9 @@ export const DemoMode: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo invite (03 §6.3), a faded example of SUB.03.t5: the child's turn. Input is on. Pip's ring
+ * Demo invite (03 §6.3), a faded example of SUB.03.t5: the child's turn. Input is on. The guide's ring
  * and hand point at the ONE control to press next, and only once it can be pressed: "look again"
- * after the first look has gone; then, after Pip rings the groups and flashes, the 7 key for
+ * after the first look has gone; then, after the guide rings the groups and flashes, the 7 key for
  * `answer 7`, moving to Check once 7 is in. Ends on the ring and hand on an enabled Check.
  */
 export const DemoInvite: Story = {
@@ -389,7 +389,7 @@ export const DemoInvite: Story = {
     await expect(again).toBeEnabled();
     await expectPointerOn(hand(root), again, root);
 
-    // Pip's part of the faded example (input off while Pip plays; the invite is cleared).
+    // The guide's part of the faded example (input off while the guide plays; the invite is cleared).
     await inviteController.play({ op: 'circle-groups', args: { groups: [5, 2] } });
     await inviteController.play({ op: 'flash' });
     await shownIs(root, 'false');
@@ -419,8 +419,8 @@ export const DemoInvite: Story = {
 const fingersDemo: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo, worked-example step: Pip's `circle-groups [5, 5]` op (SUB.05.t2 solution) draws a coral
- * ring around each hand while the picture shows. This shows Pip's op, not a child step: input is
+ * Demo, worked-example step: the guide's `circle-groups [5, 5]` op (SUB.05.t2 solution) draws a coral
+ * ring around each hand while the picture shows. This shows the guide's op, not a child step: input is
  * off and nothing is invited, so there is no teal invite ring or pointing hand (see `DemoInvite`).
  */
 export const DemoFingerRings: Story = {

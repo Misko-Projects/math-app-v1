@@ -109,7 +109,7 @@
 }
 /* Picked: a thick ink ring around the whole object, never colour alone; invited: the demo ring in
    the same place. It lies 6 px inside the lane and 6 px clear of the drawing on every side
-   (evidence review); its zone (4 px round it) is what Pip's hand keeps clear of. */
+   (evidence review); its zone (4 px round it) is what the guide's hand keeps clear of. */
 .ni-clen__ring-zone {
   position: absolute;
   display: block;
@@ -307,7 +307,7 @@
 .ni-clen[data-compact="true"] .ni-clen__main {
   gap: 10px;
 }
-/* Where Pip's hand points in an invited object: its box above the lane's 4 px bottom border. */
+/* Where the guide's hand points in an invited object: its box above the lane's 4 px bottom border. */
 .ni-clen__hand-anchor {
   position: absolute;
   inset: 0 0 4px;

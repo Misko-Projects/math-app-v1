@@ -74,7 +74,7 @@ function task(skillId: string, n: number, over: Partial<PlannedTask> = {}): Plan
 function request(tasks: PlannedTask[]): PlannedRequest {
   return {
     id: REQ,
-    residentId: 'pip',
+    residentId: 'guide',
     workshopId: 'counting-hut',
     tasks,
     reward: { materials: {} },

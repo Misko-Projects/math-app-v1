@@ -487,6 +487,37 @@ describe('profiles and settings (LWW per document)', () => {
     put.mockRestore();
   });
 
+  it('setGuide records the choice past the row stamp, so it wins the next LWW sync (05 §10)', async () => {
+    const { store } = await familyStore();
+    const before = (await store.allProfiles()).find((p) => p.id === CHILD_K);
+    if (!before) throw new Error('no child');
+    // A row stamped in the future (another device's clock): the choice still moves past it.
+    await store.mergeProfiles([{ ...before, updatedAt: store.now() + 60_000 }], {
+      source: 'server',
+    });
+    const saved = await store.setGuide(CHILD_K, '22');
+    expect(saved.guide).toBe('22');
+    expect(saved.updatedAt).toBe(store.now() + 60_001);
+    // The server's older copy (without the choice) does not undo it; a newer one does.
+    expect(
+      await store.mergeProfiles([{ ...saved, guide: 'shelly', updatedAt: saved.updatedAt - 1 }], {
+        source: 'server',
+      }),
+    ).toBe(0);
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)?.guide).toBe('22');
+    // A guide this build does not know (a newer device's) is kept, not dropped.
+    expect(
+      await store.mergeProfiles(
+        [{ ...saved, guide: 'later-guide', updatedAt: saved.updatedAt + 1 }],
+        {
+          source: 'server',
+        },
+      ),
+    ).toBe(1);
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)?.guide).toBe('later-guide');
+    await expect(store.setGuide('019c0000-0000-7000-8000-0000000000ff', '22')).rejects.toThrow();
+  });
+
   it('a session ends once: a second session.ended for it is refused, whatever its case', async () => {
     const { store } = await familyStore();
     const end = (sessionId: string, reason: 'child-exit' | 'abandoned') =>

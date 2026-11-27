@@ -272,6 +272,6 @@ function goldenAvatar(): AvatarSpec {
     shoesColor: 'red',
     hat: null,
     accessory: null,
-    buddy: 'pip',
+    buddy: 'guide',
   };
 }

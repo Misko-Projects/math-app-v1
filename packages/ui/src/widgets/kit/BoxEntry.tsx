@@ -27,7 +27,7 @@ export interface BoxEntryProps {
   compact?: boolean;
   /** With `compact`: `wide` puts the boxes beside a 6 × 2 pad, `tall` beside a 3 × 4 pad. */
   shape?: 'wide' | 'tall';
-  /** Demo: the key being pressed, and a box under Pip's hand. */
+  /** Demo: the key being pressed, and a box under the guide's hand. */
   highlightedKey?: PadKey | null;
   invitedBox?: number | null;
   /** Physical Enter (desktop). */

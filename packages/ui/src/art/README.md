@@ -37,7 +37,7 @@ All Number Island art is SVG React components, parameterised by state (05 §11).
 | `core/` | `ArtSvg` root, `paint`/`filled`/`OUTLINE_OF`, `ContactShadow`/`Highlight`, shared types (`BuildingStage`, `BuildingArt`, `ItemArt`), the contrast table |
 | `island/` | the island scene: geometry (`plotBox`, `plotCenter`, outlines), sky, layered sea with parallax, land, terrain tiles, plot markers, numbered road stones |
 | `buildings/` | `buildingArt`: `building/<id>` → component taking `stage: 'construction' \| 1 \| 2 \| 3` |
-| `characters/` | Pip, Glim and the Pebbling generator |
+| `characters/` | the guide, Glim and the Pebbling generator |
 | `decor/`, `materials/` | `decorArt` (`decor/<id>`) and `materialArt` (`material/<id>`) |
 | `effects/` | sparkle, confetti, firefly, splash |
 | `gallery/` | story-only helpers and sample data (not exported) |

@@ -31,7 +31,7 @@ export function fixtureNarration(): NarrationJson {
     },
     'ls.CNT.03.w1.s2': {
       text: 'I count each one once. I stop at {n}.',
-      voice: 'pip',
+      voice: 'guide',
       clips: ['ls.CNT.03.w1.s2#0', '$n', 'ls.CNT.03.w1.s2#1'],
     },
     'num.3': { text: 'three', clips: ['num.3#0'] },

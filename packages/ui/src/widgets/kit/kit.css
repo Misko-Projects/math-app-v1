@@ -539,7 +539,7 @@
   grid-template-columns: repeat(3, var(--pad-key, var(--target-big)));
   grid-auto-rows: var(--pad-key, var(--target-big));
   gap: var(--target-gap);
-  /* A widget may open the rows up (`--pad-row-gap`), so Pip's hand under a key clears the digit below. */
+  /* A widget may open the rows up (`--pad-row-gap`), so the guide's hand under a key clears the digit below. */
   row-gap: var(--pad-row-gap, var(--target-gap));
   margin: 0;
   padding: 0;
@@ -587,7 +587,7 @@
   background-blend-mode: soft-light;
   color: var(--color-ink);
   font-family: var(--font-display);
-  /* `--pad-digit` lets a pad of minimum-size keys keep its digit clear of Pip's fingertip. */
+  /* `--pad-digit` lets a pad of minimum-size keys keep its digit clear of the guide's fingertip. */
   font-size: var(--pad-digit, var(--text-numeral));
   font-weight: 800;
   line-height: 1;
@@ -742,7 +742,7 @@
 }
 /*
  * A demo invite on a numeral card or a pad key: the ring sits inside the control's own box (as
- * make-set's objects), so it keeps the full 12 px gap from its neighbours; Pip's hand moves.
+ * make-set's objects), so it keeps the full 12 px gap from its neighbours; the guide's hand moves.
  */
 .ni-entry .ni-pick.ni-invite,
 .ni-entry .ni-pad__key.ni-invite {

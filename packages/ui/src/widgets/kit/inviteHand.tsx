@@ -9,7 +9,7 @@ import {
 import { HAND_POINTER_TIP, HandPointerIcon } from '../../primitives/icons';
 
 /**
- * Pip's pointing hand for a demo invite (03 §6.3), placed the same way in every widget: an
+ * The guide's pointing hand for a demo invite (03 §6.3), placed the same way in every widget: an
  * UP-pointing hand hangs below the invited control, its drawn fingertip just inside the control's
  * bottom edge (about 10 px up), at the control's lower-right third. The control's glyph (icon,
  * numeral, digit or word, `INVITE_GLYPH_SELECTOR`) stays fully visible: the hand never overlaps it.
@@ -52,7 +52,7 @@ interface Edges {
 }
 
 /**
- * Every other thing a child can use (06 §4): Pip's hand stays clear of all of them, the invited
+ * Every other thing a child can use (06 §4): the guide's hand stays clear of all of them, the invited
  * control excluded. Buttons (enabled or not: a disabled Check is still drawn), role=button items,
  * drag items and drop boxes, pick and numeral cards, pad keys, and anything a widget marks with
  * `data-invite-target`.
@@ -67,7 +67,7 @@ export const INVITE_TARGET_SELECTOR = [
   '.ni-pad__key',
 ].join(', ');
 
-/** How far Pip's hand keeps from every other target, when the widget has the room (06 §4). */
+/** How far the guide's hand keeps from every other target, when the widget has the room (06 §4). */
 const TARGET_CLEAR = 12;
 
 interface Measured {
@@ -145,7 +145,7 @@ function measure(target: HTMLElement, host: HTMLElement): Measured {
   }
 }
 
-/** Which way Pip's finger points: up from below, down from above, or sideways from beside. */
+/** Which way the guide's finger points: up from below, down from above, or sideways from beside. */
 export type InviteHandDirection = 'up' | 'down' | 'left' | 'right';
 
 export interface InviteHandPlacement {
@@ -159,7 +159,7 @@ export interface InviteHandPlacement {
 }
 
 /**
- * Where Pip's hand goes. Left out (`auto`): below the control pointing up, unless the hand there
+ * Where the guide's hand goes. Left out (`auto`): below the control pointing up, unless the hand there
  * would cover another target or glyph; then beside it (right, then left, pointing at it
  * sideways), then above it pointing down; the first that covers nothing and stays inside the
  * widget, else below. Given explicitly, that side only: `below`, `above` (pointing down, for a
@@ -350,7 +350,7 @@ export function placeInviteHand(
 }
 
 /**
- * Places Pip's pointing hand on the control `target(root)` finds (null: no hand), measured
+ * Places the guide's pointing hand on the control `target(root)` finds (null: no hand), measured
  * from the laid-out widget and kept in place as it resizes. `key` names the cue: the hand moves
  * when it changes (an empty key hides it). Render `hand` inside `rootRef`'s element (which must
  * be `position: relative`) and merge `rootStyle` into its style: it adds bottom room when the hand

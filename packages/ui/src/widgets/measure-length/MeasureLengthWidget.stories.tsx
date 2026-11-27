@@ -1009,7 +1009,7 @@ export const Disabled: Story = {
 const demoLay: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo (the MEA.02.t1 solution): Pip lays three cubes end to end, counts them (1, 2, 3, the
+ * Demo (the MEA.02.t1 solution): the guide lays three cubes end to end, counts them (1, 2, 3, the
  * running count shown), and types 3.
  */
 export const DemoLayAndCount: Story = {
@@ -1057,7 +1057,7 @@ export const DemoRuler: Story = {
 const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn (tablet area, K): Pip's hand points at the pile to take a unit from. One ring,
+ * The child's turn (tablet area, K): the guide's hand points at the pile to take a unit from. One ring,
  * round the pile's cubes inside the pile; the hand starts under it (never on its stroke); the
  * composition uses the area; the start line lies inside the drop zone.
  */
@@ -1105,7 +1105,7 @@ const inviteEntry: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * The child's turn to answer (read): one ring, inside the answer box, 12 px clear of the keys;
- * Pip's hand points at the box without covering its text.
+ * The guide's hand points at the box without covering its text.
  */
 export const DemoInviteAnswer: Story = {
   args: { config: ruler, tier: 'pictorial', demo: inviteEntry },

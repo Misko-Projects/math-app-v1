@@ -507,7 +507,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), FRA.07.t4 seed 2's solution: Pip counts the parts aloud (each part is
+ * Demo mode (03 §6.3), FRA.07.t4 seed 2's solution: the guide counts the parts aloud (each part is
  * ringed in turn), lays a guide over the picture, then answers yes. Other ops throw.
  */
 export const DemoMode: Story = {
@@ -540,7 +540,7 @@ export const DemoMode: Story = {
 
 const typeController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo `answer {values}` on the pads: Pip types 3, then 4, key by key. */
+/** Demo `answer {values}` on the pads: the guide types 3, then 4, key by key. */
 export const DemoTypesName: Story = {
   args: { config: namePads, tier: 'abstract', disabled: true, demo: typeController },
   play: async ({ canvasElement }) => {
@@ -553,7 +553,7 @@ export const DemoTypesName: Story = {
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the card to tap (nothing is picked yet). */
+/** The child's turn: the guide's hand points at the card to tap (nothing is picked yet). */
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteController },
@@ -566,14 +566,14 @@ export const DemoInvite: Story = {
     await expect(invited).toHaveAttribute('aria-pressed', 'false');
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
     await expectSingleInvite(root);
-    // The story ends in the invited state: the ring and Pip's hand stay visible.
+    // The story ends in the invited state: the ring and the guide's hand stay visible.
     await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
   },
 };
 
 const clearController: WidgetDemo = createDemoController({ strict: true });
 
-/** An invite cleared with `invite(null)` takes away the ring and Pip's hand. */
+/** An invite cleared with `invite(null)` takes away the ring and the guide's hand. */
 export const DemoInviteCleared: Story = {
   args: { demo: clearController },
   play: async ({ canvasElement }) => {

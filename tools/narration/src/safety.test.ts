@@ -117,7 +117,7 @@ describe('partial runs never remove or swap working audio', () => {
     // A voice change makes every clip new; the provider fails before producing any of them.
     const config = repoVoices();
     config.gemini.voices.narrator = 'Leda';
-    config.gemini.voices.pip = 'Leda';
+    config.gemini.voices.guide = 'Leda';
     const report = await run(out, { renderer: failing, config });
     expect(report).toMatchObject({ aborted: 'provider down', complete: false, pruned: [] });
     expect(read(out).clips).toEqual(before.clips);

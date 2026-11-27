@@ -77,20 +77,20 @@ tp.ADD.26.t2.prompt:
 # ADD.08 authored lesson: make ten on the frames, then on the open number line.
 ls.ADD.08.w1.s1:
   text: "Here are {a} and {b}."
-  voice: pip
+  voice: guide
 ls.ADD.08.w1.s2:
   text: "Move {give} from this group to fill the ten."
-  voice: pip
+  voice: guide
 ls.ADD.08.w1.s3:
   text: "Now this frame is a full ten."
-  voice: pip
+  voice: guide
 ls.ADD.08.w1.s4:
   text: "Ten and {keep} make {n}!"
-  voice: pip
+  voice: guide
   style: excited
 ls.ADD.08.outro:
   text: "You got to ten first. That helps you add!"
-  voice: pip
+  voice: guide
 
 # ---------- equality and story problems (K01 part 5) ----------
 # Lines owned by the relational-equality skills (ADD.10, ADD.11) say "is the same as" for = (03 §8.4).
@@ -169,39 +169,39 @@ tp.ADD.25.t3.prompt:
 # ADD.10 authored lesson: 3 + 4 shells against 5 on the balance.
 ls.ADD.10.w1.s1:
   text: "This side has {a} and {b}."
-  voice: pip
+  voice: guide
 ls.ADD.10.w1.s2:
   text: "This side has {c}. It is up, so it has less."
-  voice: pip
+  voice: guide
 ls.ADD.10.w1.s3:
   text: "Count on from {c} to {m}. How many more does it need?"
-  voice: pip
+  voice: guide
 ls.ADD.10.w1.s4:
   text: "{n} more makes it level. {a} + {b} = {c} + {n}!"
   say: "{n} more makes it level. {a} plus {b} is the same as {c} plus {n}!"
-  voice: pip
+  voice: guide
   style: excited
 ls.ADD.10.outro:
   text: "Both sides are the same. That is what equal is!"
-  voice: pip
+  voice: guide
 
 # ADD.11 authored lesson: 8 + □ = 11 on the balance.
 ls.ADD.11.w1.s1:
   text: "This side is {n}."
-  voice: pip
+  voice: guide
 ls.ADD.11.w1.s2:
   text: "This side has {a} and a box."
-  voice: pip
+  voice: guide
 ls.ADD.11.w1.s3:
   text: "{a} and what make {n}? Count on from {a}."
-  voice: pip
+  voice: guide
 ls.ADD.11.w1.s4:
   text: "{b} makes both sides {n}!"
-  voice: pip
+  voice: guide
   style: excited
 ls.ADD.11.outro:
   text: "The box can be on any side. Make both sides the same!"
-  voice: pip
+  voice: guide
 # K02 (#17) slice 1b: fact fluency names the strategies (03 §6.4: no worked example).
 sk.ADD.14.intro:
   text: "Let's get fast at adding up to twenty. Make a ten or use a double!"

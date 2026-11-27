@@ -546,7 +546,7 @@ export function FractionLineWidget({
   // The invited place on the line (a drop or hop lands there; partition points at the middle).
   const spotAt = invitedAt ?? (invite?.op === 'partition' ? max / 2 : null);
   const invitedSlot: 0 | 1 | null = typing && invite?.op === 'answer' ? active : null;
-  // Pip's up-pointing hand under the invited spot on the line or the box to type into (kit
+  // The guide's up-pointing hand under the invited spot on the line or the box to type into (kit
   // `useInviteHand`).
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     ref,
@@ -896,7 +896,7 @@ export function FractionLineWidget({
           />
         )}
         {spotAt !== null ? (
-          // The invited spot on the line: a ring Pip's hand points at (and the child sees).
+          // The invited spot on the line: a ring the guide's hand points at (and the child sees).
           <span
             className="ni-fline__spot ni-invite"
             aria-hidden="true"

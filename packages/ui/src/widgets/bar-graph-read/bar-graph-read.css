@@ -62,7 +62,7 @@
 .ni-bgr .ni-bgr__cat.ni-invite,
 .ni-bgr .ni-stepper__key.ni-invite {
   /* Demo invite: one ring INSIDE the control's own box, no pulse, so it keeps the full 12 px
-     gap to every neighbour's outline (Pip's hand carries the motion). */
+     gap to every neighbour's outline (the guide's hand carries the motion). */
   outline-offset: -9px;
   animation: none;
   border-radius: var(--radius-pebble);
@@ -109,7 +109,7 @@
   min-height: 0;
   padding: 2px 4px;
 }
-/* The card's face hugs its picture and name, leaving room under it for Pip's invite hand. */
+/* The card's face hugs its picture and name, leaving room under it for the guide's invite hand. */
 .ni-bgr .ni-bgr__cat .ni-pick__face,
 .ni-bgr .ni-bgr__cat .ni-chart__labelface {
   width: auto;

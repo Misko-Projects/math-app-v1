@@ -156,7 +156,7 @@ const pilePad = (root: HTMLElement) =>
 const pileArea = (root: HTMLElement) => root.querySelector('[data-area="pile"]') as HTMLElement;
 const check = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
 const allItems = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.ni-mset__item')];
-/** Pip's hand (one per widget, placed under the invited thing by the kit's `useInviteHand`). */
+/** The guide's hand (one per widget, placed under the invited thing by the kit's `useInviteHand`). */
 const pointerIn = (el: Element) =>
   el.closest('.ni-mset')?.querySelector(':scope > .ni-hand') as HTMLElement;
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
@@ -899,7 +899,7 @@ const ringNeighbours = (root: HTMLElement) => [
 ];
 
 /**
- * The ring and Pip's hand on `el` and nothing else, the ring ≥ 12 px clear of every object, of the
+ * The ring and the guide's hand on `el` and nothing else, the ring ≥ 12 px clear of every object, of the
  * shown ten-frame and of the small frame beside it (whichever it is not on).
  */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
@@ -921,7 +921,7 @@ async function expectRingBelowArtTop(root: HTMLElement, el: HTMLElement) {
   await expect(ringTop - art.top, 'ring below the art top edge').toBeGreaterThanOrEqual(12 - 0.5);
 }
 
-/** Pip's hand carries the action's cue: `take` (remove) or `count`. */
+/** The guide's hand carries the action's cue: `take` (remove) or `count`. */
 async function expectHandCue(root: HTMLElement, cue: 'take' | 'count') {
   const handEl = root.querySelector('.ni-hand') as HTMLElement;
   await expect(handEl.querySelector(`.ni-mset__cue[data-cue="${cue}"]`)).not.toBeNull();
@@ -929,7 +929,7 @@ async function expectHandCue(root: HTMLElement, cue: 'take' | 'count') {
 
 /**
  * One ten-frame at a time (TwentyKMinLandscape's layout) with a remove invite: the object to take
- * out is the last one in, and it can be in the frame not shown. Then the ring and Pip's hand go
+ * out is the last one in, and it can be in the frame not shown. Then the ring and the guide's hand go
  * on the button beside the frame that shows it (the ones, or the tied ten), and on the object
  * once it is in view.
  */
@@ -1021,8 +1021,8 @@ async function expectOnesCountStep(root: HTMLElement, n: number) {
 
 /**
  * One ten-frame at a time, count-aloud (follow-up from #76): nothing is counted out of sight.
- * With the ten tied beside the ones, the invite goes on the tied ten and Pip counts it as one ten
- * ("ten", on the bundle), then on through the ones in view. With the ten shown, Pip counts 1–10
+ * With the ten tied beside the ones, the invite goes on the tied ten and the guide counts it as one ten
+ * ("ten", on the bundle), then on through the ones in view. With the ten shown, the guide counts 1–10
  * in the frame and the ones on their small frame beside it, which shows the running count.
  */
 export const TwentyKMinCountAloud: Story = {
@@ -1097,7 +1097,7 @@ const regroupBefore: WidgetDemo = createDemoController({ strict: true });
  * bow: the model has no bundle yet), and count-aloud counts every crab one by one, 1 … 13: the
  * ten's frame is shown while 1–10 are counted, the ones on their small frame after it, and the page
  * comes back afterwards. The story ends on the solution's next step, an invite on "Make a ten"
- * (one ring, Pip's hand).
+ * (one ring, the guide's hand).
  */
 export const RegroupKShortBeforeBundle: Story = {
   globals: { ageMode: 'k' },
@@ -1153,7 +1153,7 @@ export const RegroupKShortBeforeBundle: Story = {
     await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
     await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
     await waitFor(() => expectPointerOn(pointerIn(makeTen), makeTen, root));
-    // Pip's hand at rest (its tap bob held at the start), and 8 px lower at the bob's bottom,
+    // The guide's hand at rest (its tap bob held at the start), and 8 px lower at the bob's bottom,
     // stays ≥ 12 px clear of Check under the invited "Make a ten".
     const handEl = pointerIn(makeTen);
     for (const a of handEl.getAnimations()) {
@@ -1171,7 +1171,7 @@ export const RegroupKShortBeforeBundle: Story = {
 const resizeCount: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The host shrinks while Pip counts (a tablet turned, a panel opened): 12 crabs in two frames at
+ * The host shrinks while the guide counts (a tablet turned, a panel opened): 12 crabs in two frames at
  * the tablet area, then the minimum area (one frame at a time, the first ten tied beside the
  * ones) right after "one". Every number spoken after that still has a visible highlight: on the
  * tied ten while its crabs are counted, then on the ones in the frame.
@@ -1309,7 +1309,7 @@ const regroupAfter: WidgetDemo = createDemoController({ strict: true });
 /**
  * PV.09.t1, AFTER bundling (the solution's `bundle`): the ten is tied (rope and bow) and is one
  * ten in the model, so counting it as one ten is right: "10, 11, 12, 13". The story ends on a
- * count-aloud invite on the tied ten (one ring, Pip's hand with its "count" cue), where counting
+ * count-aloud invite on the tied ten (one ring, the guide's hand with its "count" cue), where counting
  * now starts. (An invite on Check, at the foot of the column, would need the hand's room below
  * it, more than this short area has.)
  */
@@ -1713,9 +1713,9 @@ async function expectNoCue(root: HTMLElement) {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), the CNT.02.t2 solution as a worked example (Pip acts, input is off): Pip
+ * Demo mode (03 §6.3), the CNT.02.t2 solution as a worked example (the guide acts, input is off): the guide
  * drags fish onto the raft, counts them aloud, takes one off, and closes (a sail goes up). While
- * the widget is disabled an invite shows no cue: Pip never points at something the child can't
+ * the widget is disabled an invite shows no cue: the guide never points at something the child can't
  * use. `DemoInvite` is the child's turn.
  */
 export const DemoMode: Story = {
@@ -1744,8 +1744,8 @@ export const DemoMode: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo, the child's turn (03 §6.3): Pip has put two fish on the raft and input is back on. Each
- * invite puts the ring AND Pip's hand on the one enabled thing to act on, clear of its neighbours.
+ * Demo, the child's turn (03 §6.3): the guide has put two fish on the raft and input is back on. Each
+ * invite puts the ring AND the guide's hand on the one enabled thing to act on, clear of its neighbours.
  * The story ends inviting a drag: one fish in the heap (the last, in the bottom row, so the hand
  * below it covers nothing), never the whole raft.
  */
@@ -1821,7 +1821,7 @@ const untouchedInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * Demo, the child's turn on an untouched container: Check is enabled before any move, so inviting
- * it (`close-container`, or `answer` with the value already there) puts the ring and Pip's hand on
+ * it (`close-container`, or `answer` with the value already there) puts the ring and the guide's hand on
  * it.
  */
 export const DemoInviteCheckUntouched: Story = {
@@ -1847,7 +1847,7 @@ export const DemoInviteCheckUntouched: Story = {
 const handsDemo: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo, hands (CPS.01.t2 solution) as a worked example: Pip raises one finger on each hand.
+ * Demo, hands (CPS.01.t2 solution) as a worked example: the guide raises one finger on each hand.
  * Input is off, so an invite shows no cue (every finger button is disabled).
  */
 export const DemoHands: Story = {
@@ -1870,7 +1870,7 @@ export const DemoHands: Story = {
     await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
     const ok = check(root).getBoundingClientRect();
     await expect(Math.min(ok.left - box.left, box.right - ok.right)).toBeGreaterThanOrEqual(24);
-    // The fingers Pip raised stay raised.
+    // The fingers the guide raised stay raised.
     await new Promise((r) => setTimeout(r, 300));
     await expect(root.querySelectorAll('[data-raised="true"]')).toHaveLength(2);
   },
@@ -1879,7 +1879,7 @@ export const DemoHands: Story = {
 const handsInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo, hands, the child's turn: Pip opens the left hand (5) and raises one on the right; input
+ * Demo, hands, the child's turn: the guide opens the left hand (5) and raises one on the right; input
  * is back on. Inviting the full left hand's "finger up" (disabled) shows no cue; the story ends
  * inviting the right hand's ENABLED "Finger up", ring and hand on it, clear of "Finger down" and
  * the hand card.
@@ -1943,7 +1943,7 @@ export const DemoAnswerBundles: Story = {
     await answerBundles.play({ op: 'answer', args: { value: 13 } });
     await expect(inside(root)).toHaveLength(13);
     await expectKnotOffBorder(root);
-    // The 3 sticks left over are in the supply crate, dimmed while Pip shows, under its tag.
+    // The 3 sticks left over are in the supply crate, dimmed while the guide shows, under its tag.
     await expect(heap(root)).toHaveLength(3);
     for (const el of heap(root)) {
       await expect(Number(getComputedStyle(el).opacity)).toBeLessThan(0.6);

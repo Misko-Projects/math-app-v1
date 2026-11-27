@@ -348,7 +348,7 @@ export interface AudioManager {
 }
 ```
 
-Narration keys resolve through `packages/content/dist/narration.json`: `{ key: { text, say?, voice?, clips: string[] } }`, where `clips` may contain slot tokens `$var[|type[:countVar]]` (03 §8.4). The suffix grammar is defined in 03 §8.4: after `noun`, `unit` and `shape` the suffix is the count variable, and after `dec` it is the number of decimal places (`$v|dec:1`, `$v|dec:2`), not a count variable. Number words are composed from pre-rendered clips ("twenty" + "three") by `numberClips(n)` in `packages/shared/src/narration/numberClips.ts` (|n| ≤ 1,000,000, 03 §8.3). Clip ids resolve to files through **`apps/web/public/audio/manifest.json`** (`{ version, clips: Record<ClipId, { file: string; durationMs: number }> }`, file names content-hashed), produced by `tools/narration` (A02). **Voice-qualified clip ids** (#50): a line's own static clips (`<key>#<i>`) are rendered in its voice, but clip-set words (03 §8.3) are shared by every line. Their ids carry no voice for the narrator (`num.23#0`, as before) and a `<voice>:` prefix for Pip and Glim (`pip:num.23#0`, `glim:num.23.end#0`), built by `voiceClipId(clip, voice)` in `packages/shared/src/audio.ts`. When the AudioManager stitches a clip-set word into a Pip or Glim line (`say` of a key whose `voice` is `pip` or `glim`, and every `sayPhrases` line, which is Glim's), it tries the voice's clip first and then the narrator's: `pip:num.23.end#0`, `pip:num.23#0`, `num.23.end#0`, `num.23#0`. Keeping one voice for the word beats the `.end` intonation. A missing voice clip therefore falls back to the narrator's clip, not to Web Speech. Which clip sets get per-voice copies is set in `narration/voices.yaml` (`voiceClipSets`, 07 §3). Rendered Opus audio is **committed** to the repo, so a fresh clone has narration without any key (expected ≈ 15–40 MB for K–3). The AudioManager tolerates a missing manifest or clip: it falls back to Web Speech for that line and logs a dev warning.
+Narration keys resolve through `packages/content/dist/narration.json`: `{ key: { text, say?, voice?, clips: string[] } }`, where `clips` may contain slot tokens `$var[|type[:countVar]]` (03 §8.4). The suffix grammar is defined in 03 §8.4: after `noun`, `unit` and `shape` the suffix is the count variable, and after `dec` it is the number of decimal places (`$v|dec:1`, `$v|dec:2`), not a count variable. Number words are composed from pre-rendered clips ("twenty" + "three") by `numberClips(n)` in `packages/shared/src/narration/numberClips.ts` (|n| ≤ 1,000,000, 03 §8.3). Clip ids resolve to files through **`apps/web/public/audio/manifest.json`** (`{ version, clips: Record<ClipId, { file: string; durationMs: number }> }`, file names content-hashed), produced by `tools/narration` (A02). **Voice-qualified clip ids** (#50): a line's own static clips (`<key>#<i>`) are rendered in its voice, but clip-set words (03 §8.3) are shared by every line. Their ids carry no voice for the narrator (`num.23#0`, as before) and a `<voice>:` prefix for the guide and Glim (`guide:num.23#0`, `glim:num.23.end#0`), built by `voiceClipId(clip, voice)` in `packages/shared/src/audio.ts`. When the AudioManager stitches a clip-set word into a guide or Glim line (`say` of a key whose `voice` is `guide` or `glim`, and every `sayPhrases` line, which is Glim's), it tries the voice's clip first and then the narrator's: `guide:num.23.end#0`, `guide:num.23#0`, `num.23.end#0`, `num.23#0`. Keeping one voice for the word beats the `.end` intonation. A missing voice clip therefore falls back to the narrator's clip, not to Web Speech. Which clip sets get per-voice copies is set in `narration/voices.yaml` (`voiceClipSets`, 07 §3). Rendered Opus audio is **committed** to the repo, so a fresh clone has narration without any key (expected ≈ 15–40 MB for K–3). The AudioManager tolerates a missing manifest or clip: it falls back to Web Speech for that line and logs a dev warning.
 
 ### 5.6 Workshop module contract (`apps/web/src/workshops/<id>/index.ts`)
 
@@ -461,8 +461,15 @@ export interface ChildProfile {
   advanced: boolean;                // "working above grade": shifts placement priors (04 §5)
   avatar: AvatarSpec;
   picturePasswordHash: string | null; // salted local hash (08 §3)
+  guide?: GuideId;                  // the guide the child chose (05 §1, §10); see below
   createdAt: number; updatedAt: number; deletedAt?: number;
 }
+// GuideId = string (kebab id from the ui guide registry: 'shelly', '22'). Optional, so existing
+// profiles, backups and older devices stay valid with no migration: a profile without it shows the
+// guide chooser before the child's next session. Choosing sets it and moves updatedAt past both now
+// and the row's own stamp, so it syncs with the profile (whole-document LWW, 08 §4), offline
+// included. An id this build does not know (chosen on a newer device) is kept and drawn as the
+// first guide.
 export interface ChildContext {     // what pure engine functions need about a child
   childId: ChildId; grade: Grade; ageBand: AgeBand; advanced: boolean;
   isK: boolean;                     // grade === 'K' → K columns of 04 tables
@@ -729,7 +736,7 @@ Contract adjustment made by #50 (per-voice clip sets, 2026-11-18):
 
 | # | Change | Why |
 |---|---|---|
-| V1 | **Voice-qualified clip ids.** *New* `voiceClipId(clip: ClipId, voice: NarrationVoice): ClipId` in `packages/shared/src/audio.ts`: the clip id unchanged for `narrator`, `<voice>:<clip>` otherwise. The manifest shape and `ClipId` stay as they were, and every existing id is the narrator's. The AudioManager tries a clip-set word in the line's voice before the narrator's (§5.5). | 03 §8.3 renders clip sets once per voice, but the clip ids carried no voice, so Pip's and Glim's lines stitched numbers in the narrator's voice (07 §3). |
+| V1 | **Voice-qualified clip ids.** *New* `voiceClipId(clip: ClipId, voice: NarrationVoice): ClipId` in `packages/shared/src/audio.ts`: the clip id unchanged for `narrator`, `<voice>:<clip>` otherwise. The manifest shape and `ClipId` stay as they were, and every existing id is the narrator's. The AudioManager tries a clip-set word in the line's voice before the narrator's (§5.5). | 03 §8.3 renders clip sets once per voice, but the clip ids carried no voice, so the guide's and Glim's lines stitched numbers in the narrator's voice (07 §3). |
 
 Contract adjustment made by K01 (#11, constructed practice for position words, 2026-11-19):
 

@@ -8,7 +8,7 @@ export const PROVIDERS = ['gemini', 'kokoro', 'stub'] as const;
 export type ProviderId = (typeof PROVIDERS)[number];
 export const providerSchema = z.enum(PROVIDERS);
 
-const voiceMap = z.object({ narrator: z.string(), pip: z.string(), glim: z.string() }).strict();
+const voiceMap = z.object({ narrator: z.string(), guide: z.string(), glim: z.string() }).strict();
 const providerConfig = z.object({ model: z.string().min(1), voices: voiceMap }).strict();
 
 /**
@@ -42,11 +42,11 @@ export const voicesConfigSchema = z
     gemini: providerConfig,
     kokoro: providerConfig,
     /**
-     * Clip sets rendered again in Pip's and Glim's own voices, as `pip:<clip id>` (02 §5.5,
+     * Clip sets rendered again in the guide's and Glim's own voices, as `guide:<clip id>` (02 §5.5,
      * 03 §8.3). The narrator always has every clip set; anything not listed here is stitched in
      * the narrator's voice.
      */
-    voiceClipSets: z.object({ pip: clipSetList, glim: clipSetList }).strict(),
+    voiceClipSets: z.object({ guide: clipSetList, glim: clipSetList }).strict(),
     styles: z
       .object({
         warm: z.string(),

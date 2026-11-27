@@ -5,8 +5,8 @@
 //   slot carry no audio; the AudioManager skips them);
 // - each `num.*` clip also gets its sentence-final variant `num.<n>.end#0` (03 §8.3), which the
 //   AudioManager plays when a number ends the sentence;
-// - the clip sets voices.yaml lists under `voiceClipSets` are rendered again in Pip's and Glim's
-//   own voices as `pip:<clip id>` and `glim:<clip id>` (02 §5.5), so their lines stitch numbers in
+// - the clip sets voices.yaml lists under `voiceClipSets` are rendered again in the guide's and Glim's
+//   own voices as `guide:<clip id>` and `glim:<clip id>` (02 §5.5), so their lines stitch numbers in
 //   their own voice. The AudioManager falls back to the narrator's clip for anything else.
 //
 // Clip file names are content hashes of (provider, model, voice, style, text) plus the encoding
@@ -76,7 +76,7 @@ export function isClipSetWord(key: string): boolean {
 function extraVoicesFor(config: VoicesConfig, key: string): NarrationVoice[] {
   if (!isClipSetWord(key)) return [];
   const ns = key.slice(0, key.indexOf('.'));
-  return (['pip', 'glim'] as const).filter((v) =>
+  return (['guide', 'glim'] as const).filter((v) =>
     (config.voiceClipSets[v] as readonly string[]).includes(ns),
   );
 }
@@ -196,7 +196,7 @@ export function planClips({ narration, styles, config, provider, encoding }: Pla
       jobs.push(job(`${key}.end#0`, words, voice, 'end'));
     }
 
-    // Clip sets listed in `voiceClipSets` again in Pip's and Glim's voices (02 §5.5, 03 §8.3).
+    // Clip sets listed in `voiceClipSets` again in the guide's and Glim's voices (02 §5.5, 03 §8.3).
     const own = jobs.slice(firstJob);
     for (const extra of extraVoicesFor(config, key)) {
       if (extra === voice) continue;

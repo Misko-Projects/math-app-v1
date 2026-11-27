@@ -37,7 +37,7 @@ const NARRATION: NarrationJson = {
   'unit.cm.many': line('centimeters'),
   'shape.triangle.one': line('triangle'),
   'shape.triangle.many': line('triangles'),
-  'res.pip': line('Pip'),
+  'res.nib': line('Nib'),
   'word.more': line('more'),
   'ord.2': line('second'),
 };
@@ -141,7 +141,7 @@ describe('render: looked-up words', () => {
   });
 
   it('name → res.<id>, word → word.<id>', () => {
-    expect(r('l.name', { who: 'pip' })).toBe('Pip found it.');
+    expect(r('l.name', { who: 'nib' })).toBe('Nib found it.');
     expect(r('l.word', { w: 'more' })).toBe('Is it more?');
   });
 });

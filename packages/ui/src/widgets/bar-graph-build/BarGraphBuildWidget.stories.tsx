@@ -383,7 +383,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3), the DAT.09.t4 solution: Pip makes each row's marks one by one. */
+/** Demo mode (03 §6.3), the DAT.09.t4 solution: the guide makes each row's marks one by one. */
 export const DemoMode: Story = {
   args: { config: tableTally8, disabled: true, demo: demoController },
   parameters: { ui: { audio: spyAudio() } },
@@ -421,7 +421,7 @@ export const DemoRaiseBar: Story = {
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the row to mark. */
+/** The child's turn: the guide's hand points at the row to mark. */
 export const Invite: Story = {
   args: { config: tableTally, demo: inviteController, tier: 'pictorial' },
   render: inArea('tablet'),
@@ -464,7 +464,7 @@ export const InviteMovesToTheRow: Story = {
 
 const clearController: WidgetDemo = createDemoController({ strict: true });
 
-/** Clearing an invite (`invite(null)`) takes Pip's hand and the ring away. */
+/** Clearing an invite (`invite(null)`) takes the guide's hand and the ring away. */
 export const InviteCleared: Story = {
   args: { config: tableTally, demo: clearController, tier: 'pictorial' },
   play: async ({ canvasElement }) => {

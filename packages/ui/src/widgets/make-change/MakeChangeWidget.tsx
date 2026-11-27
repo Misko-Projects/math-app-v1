@@ -190,7 +190,7 @@ export function MakeChangeWidget({
     },
   });
 
-  // Pip's hand (kit `useInviteHand`): under the invited coin or the tray, or under "check".
+  // The guide's hand (kit `useInviteHand`): under the invited coin or the tray, or under "check".
   const rootRef = useRef<HTMLDivElement | null>(null);
   const handTarget = highlight?.hand
     ? highlight.item

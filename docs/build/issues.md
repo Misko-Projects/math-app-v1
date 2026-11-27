@@ -134,7 +134,7 @@ Set up the workspace that every other issue builds in, including **every shared 
 - [ ] UI evidence attached.
 
 <!-- issue key=U02 labels=v1,area:art depends=U01,C01 -->
-## Art kit and game data: island, buildings, Pip, Glim, Pebblings, decor, effects
+## Art kit and game data: island, buildings, the guide, Glim, Pebblings, decor, effects
 
 **Spec:** 05 §1, §3–§6, §9 (buddy), §11; 07 §7 (Glim); 02 §5.8 (GameData).
 
@@ -144,7 +144,7 @@ Set up the workspace that every other issue builds in, including **every shared 
   - island terrain tiles and sea, with parallax layers and day/sunset;
   - the numbered road stones;
   - all 13 workshop buildings, plus the Practice Pier, Storehouse, homes and Lighthouse, each under construction and at levels 1–3;
-  - **Pip** (idle, talk, point, cheer, think) and **Glim**, the lantern-robot helper;
+  - **the guide** (idle, talk, point, cheer, think) and **Glim**, the lantern-robot helper;
   - a **procedural Pebbling generator** (species × colour × number → a critter with a 2×5 ten-frame pebble shell, plus the teens and tens families);
   - a decor set (≥ 30 items);
   - effects (sparkle, confetti, firefly, splash) using Motion, with Pixi only for particles.
@@ -222,7 +222,7 @@ Set up the workspace that every other issue builds in, including **every shared 
   - `gemini` (`gemini-3.8-flash-tts`): interactive calls for < 200 clips, Batch API otherwise, polling up to ~4 h, resumable.
   - `kokoro`: local; the model downloads on first local use and never in CI.
   - `stub`.
-- **Default voices:** narrator `Sulafat`, Pip `Puck`, Glim `Achird`, recorded in `narration/voices.yaml`.
+- **Default voices:** narrator `Sulafat`, the guide `Puck`, Glim `Achird`, recorded in `narration/voices.yaml`.
 - `pnpm narration:audition`.
 - Encode to Opus with `ffmpeg-static`.
 - Content-hash the clip file names and write `apps/web/public/audio/` plus `manifest.json` (02 §5.5). **Commit the rendered audio** to the repo.
@@ -413,7 +413,7 @@ Set up the workspace that every other issue builds in, including **every shared 
 **Spec:** 05 §10; 04 §5; 06 §2.
 
 **Scope:** the first-run sequence:
-1. Meet Pip.
+1. Meet the guide.
 2. Create the character and pick a buddy.
 3. Name the island.
 4. The placement adventure: game-framed scenes using the real widgets, split into mini-sessions for K, with an "I haven't learned this" option and a frustration stop.

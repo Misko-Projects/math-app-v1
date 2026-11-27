@@ -65,7 +65,7 @@ const meta = { latencyMs: 3000 };
 function request(tasks: PlannedTask[], materials: PlannedRequest['reward']['materials'] = {}) {
   return {
     id: 'request-1',
-    residentId: 'pip',
+    residentId: 'guide',
     workshopId: 'practice-pier',
     tasks,
     reward: { materials },

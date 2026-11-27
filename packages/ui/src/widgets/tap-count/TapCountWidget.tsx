@@ -655,7 +655,7 @@ export function TapCountWidget({
   const allCounted = order.length >= n;
   /** Objects are buttons: always in C; in P only when the answer is an object (ordinal). */
   const objectsTappable = concrete || ordinal;
-  // Pip's counting (demo) always marks, so a "show me" leaves the counted picture behind.
+  // The guide's counting (demo) always marks, so a "show me" leaves the counted picture behind.
   const showMarks = (concrete && config.marks) || demoMarked;
   /** A picture in places (DOT_LAYOUTS): a dot per counted object and one running count. */
   const onDots = DOT_LAYOUTS.has(config.set.layout);
@@ -1024,7 +1024,7 @@ export function TapCountWidget({
     // A picture (P) keeps full-size objects; tap targets leave the 12 px gap between them.
     const boxFor = (c: number) =>
       objectsTappable ? Math.min(c, Math.floor(step * c - TARGET_GAP_PX)) : c;
-    // Rows get a band for the count badges (any tier: Pip's demo marks pictures too), unless the
+    // Rows get a band for the count badges (any tier: the guide's demo marks pictures too), unless the
     // badges sit inside the objects. Spreading the rows can shrink the cell, which needs a little
     // more spread: settle in a few passes.
     const footprint = ordinal ? BADGE_ORDINAL : inset ? BADGE_INSET : BADGE;
@@ -1301,8 +1301,8 @@ export function TapCountWidget({
   const cueCard = cue?.at === 'card' ? cue.value : null;
   const cueId = cue ? `${cue.at}:${cueObject ?? cueKey ?? cueCard ?? ''}` : '';
 
-  // Pip's hand sits on the invited control, measured from the laid-out widget.
-  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`), its fingertip
+  // The guide's hand sits on the invited control, measured from the laid-out widget.
+  // The guide's up-pointing hand hangs below the invited control (kit `useInviteHand`), its fingertip
   // inside the control's bottom edge and clear of its glyph; it re-measures when the layout moves.
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,

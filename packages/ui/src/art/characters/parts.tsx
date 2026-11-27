@@ -5,7 +5,7 @@ import { PEBBLE_MARK, TEN_FRAME, tenFrameSlots } from './pebbling';
 
 /**
  * Parts every character shares (05 §11): eyes, cheeks, mouths, limbs, the pebble frame, and the idle
- * loops. Sharing them is what makes Pip, Glim and the Pebblings read as one cast: the same eye
+ * loops. Sharing them is what makes Glim and the Pebblings read as one cast: the same eye
  * construction, outline weight and top-left light.
  */
 
@@ -181,7 +181,7 @@ export interface EyeProps {
   edge?: PaletteColor;
   /** Where the pupil looks, as a fraction of the room it has (−1 … 1). */
   look?: readonly [number, number];
-  /** Pip and Pebblings on a light face can use a plain ink eye with no white. */
+  /** Pebblings on a light face can use a plain ink eye with no white. */
   sclera?: boolean;
 }
 

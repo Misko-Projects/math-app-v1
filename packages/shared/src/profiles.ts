@@ -3,8 +3,8 @@ import type { AvatarSpec } from './avatar';
 import { avatarSpecSchema } from './avatar';
 import type { AgeBand, Grade } from './basics';
 import { ageBandSchema, gradeSchema } from './basics';
-import type { ChildId, FamilyId } from './ids';
-import { childIdSchema, familyIdSchema } from './ids';
+import type { ChildId, FamilyId, GuideId } from './ids';
+import { childIdSchema, familyIdSchema, guideIdSchema } from './ids';
 import { assertType, type Equals } from './internal/type-assert';
 import type { ChildSettings } from './settings';
 import { childSettingsSchema } from './settings';
@@ -20,6 +20,12 @@ export interface ChildProfile {
   advanced: boolean; // "working above grade": shifts placement priors (04 §5)
   avatar: AvatarSpec;
   picturePasswordHash: string | null; // salted local hash (08 §3)
+  /**
+   * The guide the child chose (05 §1, §10). Absent until the child chooses: the chooser then comes
+   * before their next session. Synced with the profile (LWW). An id this build does not know is
+   * kept and drawn as the first guide.
+   */
+  guide?: GuideId;
   createdAt: number;
   updatedAt: number;
   deletedAt?: number;
@@ -36,6 +42,7 @@ export const childProfileSchema = z.object({
   advanced: z.boolean(),
   avatar: avatarSpecSchema,
   picturePasswordHash: z.string().min(1).nullable(),
+  guide: guideIdSchema.optional(),
   createdAt: msEpochSchema,
   updatedAt: msEpochSchema,
   deletedAt: msEpochSchema.optional(),

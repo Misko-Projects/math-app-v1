@@ -487,7 +487,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3): Pip shows the addends, slides 3 counters in and counts them all, which
+ * Demo mode (03 §6.3): the guide shows the addends, slides 3 counters in and counts them all, which
  * picks 9; an unsupported op throws in strict mode. No invite while the widget is disabled.
  */
 export const DemoMode: Story = {
@@ -513,7 +513,7 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * Invites (K): place → the last counter in the tray; remove → the last counter placed; answer →
- * the numeral card. Exactly one ring at a time, Pip's fingertip on it, the ring clear of the rest.
+ * the numeral card. Exactly one ring at a time, the guide's fingertip on it, the ring clear of the rest.
  */
 export const DemoInviteK: Story = {
   globals: { ageMode: 'k' },
@@ -851,7 +851,7 @@ const teenInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * CPS.04.t1 in K at 960 × 600: an answer invite on a bottom-row card (17) in the answer step. The
- * ring, Pip's hand and the whole widget stay inside the area (no scroll).
+ * ring, the guide's hand and the whole widget stay inside the area (no scroll).
  */
 export const AreaInviteTeenK: Story = {
   globals: { ageMode: 'k' },

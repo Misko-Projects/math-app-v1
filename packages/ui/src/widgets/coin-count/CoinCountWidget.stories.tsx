@@ -329,7 +329,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3): Pip sorts the coins biggest first, counts up (the ring grows and the
+ * Demo mode (03 §6.3): the guide sorts the coins biggest first, counts up (the ring grows and the
  * running total is always the exact sum of the ringed coins: 25, 35, 45, 50, 51, 52), says the
  * total and types it. Then it invites the child to count the next coin.
  */
@@ -539,7 +539,7 @@ export const CompareLandscapeMin: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo invite (03 §6.3): Pip invites the child to count the third coin: it is ringed and Pip's hand hangs under it. The story ends in the invited state, so the settled
+ * Demo invite (03 §6.3): the guide invites the child to count the third coin: it is ringed and the guide's hand hangs under it. The story ends in the invited state, so the settled
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {

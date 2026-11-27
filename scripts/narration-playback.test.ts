@@ -5,8 +5,8 @@
 // 1. The stub provider renders the real content build; A01's manifest loader accepts the manifest,
 //    and A01's planner finds every clip of every line in it (so no line falls back to Web Speech).
 // 2. A01's WebAudioManager plays stitched lines from those files, using the sentence-final
-//    `num.<n>.end#0` clip when a number ends the sentence, and Pip's own `pip:num.*` clips in
-//    Pip's lines (02 §5.5).
+//    `num.<n>.end#0` clip when a number ends the sentence, and the guide's own `guide:num.*` clips in
+//    the guide's lines (02 §5.5).
 // 3. The committed render (apps/web/public/audio) is a valid manifest whose files all exist, and
 //    it has every per-voice clip voices.yaml asks for.
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
@@ -143,8 +143,8 @@ describe('stub render → A01 AudioManager', () => {
     expect(missing).toEqual([]);
   });
 
-  it("every line's first-choice clips are rendered: Pip and Glim never fall back to the narrator", () => {
-    // A Pip or Glim line with a slot type voices.yaml's `voiceClipSets` does not list fails here.
+  it("every line's first-choice clips are rendered: the guide and Glim never fall back to the narrator", () => {
+    // A guide or Glim line with a slot type voices.yaml's `voiceClipSets` does not list fails here.
     expect(missingClips(manifest, true).missing).toEqual([]);
   });
 
@@ -182,19 +182,19 @@ describe('stub render → A01 AudioManager', () => {
     manager.subscribe((e) => events.push(e));
     await manager.unlock();
 
-    // "I count each one once. I stop at {n}." (Pip, CNT.03): the number ends the sentence.
+    // "I count each one once. I stop at {n}." (the guide, CNT.03): the number ends the sentence.
     const line = manager.say('ls.CNT.03.w1.s2', { n: 23 });
     for (let i = 0; i < 50; i += 1) await Promise.resolve();
     const start = events.find((e) => e.type === 'line-start');
-    expect(start).toMatchObject({ via: 'clips', voice: 'pip' });
-    // Pip says the number in Pip's own voice (02 §5.5).
+    expect(start).toMatchObject({ via: 'clips', voice: 'guide' });
+    // The guide says the number in the guide's own voice (02 §5.5).
     expect(start?.type === 'line-start' && start.clips).toEqual([
       'ls.CNT.03.w1.s2#0',
-      'pip:num.23.end#0',
+      'guide:num.23.end#0',
     ]);
     expect(fetched).toEqual([
       `/audio/${manifest?.clips['ls.CNT.03.w1.s2#0']?.file}`,
-      `/audio/${manifest?.clips['pip:num.23.end#0']?.file}`,
+      `/audio/${manifest?.clips['guide:num.23.end#0']?.file}`,
     ]);
     expect(spoken).toEqual([]);
     manager.stop();
@@ -234,7 +234,7 @@ describe('the committed render (apps/web/public/audio)', () => {
       config: loadVoicesConfig(join(ROOT, 'packages/content/narration/voices.yaml')),
       provider: 'gemini',
       encoding: encodingOf('opus'),
-    }).jobs.filter((j) => /^(pip|glim):/.test(j.id));
+    }).jobs.filter((j) => /^(guide|glim):/.test(j.id));
     expect(voiced.length).toBeGreaterThan(400);
     expect(voiced.filter((j) => committed?.clips[j.id]?.file !== j.file).map((j) => j.id)).toEqual(
       [],

@@ -330,7 +330,7 @@ button.ni-hc__cell[data-given="true"] {
   display: block;
   width: var(--icon-size);
   height: var(--icon-size);
-  /* Sit high in the button: Pip's fingertip goes under it, never over it. */
+  /* Sit high in the button: the guide's fingertip goes under it, never over it. */
   margin-bottom: 12px;
 }
 .ni-hc__stepicon .ni-hc__arrow {
@@ -379,12 +379,12 @@ button.ni-hc__cell[data-given="true"] {
   outline-offset: -9px;
 }
 
-/* A picked cell keeps an ink focus ring (the one teal ring on screen is Pip's invite). */
+/* A picked cell keeps an ink focus ring (the one teal ring on screen is the guide's invite). */
 .ni-hc__cell[data-selected="true"]:focus-visible {
   outline-color: var(--color-ink);
 }
 
-/* K at the minimum: the pad stands at the top, so Pip's hand under its bottom row has the room
+/* K at the minimum: the pad stands at the top, so the guide's hand under its bottom row has the room
    below it (it may hang into the card's padding, covering nothing). */
 .ni-hc[data-overhang] .ni-hc__entry {
   align-self: flex-start;

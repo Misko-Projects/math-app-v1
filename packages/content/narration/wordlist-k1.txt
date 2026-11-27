@@ -91,6 +91,7 @@ building
 builds
 bundle
 bundles
+bunny
 burrow
 but
 button
@@ -513,7 +514,6 @@ pier
 pies
 pig
 pigs
-pip
 place
 places
 plank
@@ -604,6 +604,7 @@ shapes
 share
 she
 sheep
+shelly
 shell
 shells
 shoe

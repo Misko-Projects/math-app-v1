@@ -282,7 +282,7 @@ async function expectFrameMarks(root: HTMLElement, n: number) {
 }
 
 /**
- * Pip's counting highlight on a frame cell (the object being counted, mid-count) stays inside its
+ * The guide's counting highlight on a frame cell (the object being counted, mid-count) stays inside its
  * frame cell: a ring 5 px inside the object's box, never a lift or a ring outside it.
  */
 async function expectCountingInCell(root: HTMLElement) {
@@ -306,7 +306,7 @@ async function expectCountingInCell(root: HTMLElement) {
 }
 
 /**
- * Pip's teal invite ring around `invited` (a circle `outline-offset + outline-width` outside the
+ * The guide's teal invite ring around `invited` (a circle `outline-offset + outline-width` outside the
  * object, pulsing up to 5 % larger) stays at least 8 px clear of every count badge (pebbles:
  * capsules of the badge's height).
  */
@@ -707,8 +707,8 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), a faded CNT.02.t1 example: Pip counts the first four leaves aloud (each
- * marked in turn), then it is the child's turn: the teal ring and Pip's hand invite the next
+ * Demo mode (03 §6.3), a faded CNT.02.t1 example: the guide counts the first four leaves aloud (each
+ * marked in turn), then it is the child's turn: the teal ring and the guide's hand invite the next
  * uncounted leaf ("keep counting").
  */
 export const DemoMode: Story = {
@@ -738,8 +738,8 @@ export const DemoMode: Story = {
 const ordinalDemo: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode, ordinal (a faded CNT.15.t1 example): Pip counts on from the "start here" arrow to
- * the sixth shell, then it is the child's turn: the teal ring and Pip's hand invite the seventh.
+ * Demo mode, ordinal (a faded CNT.15.t1 example): the guide counts on from the "start here" arrow to
+ * the sixth shell, then it is the child's turn: the teal ring and the guide's hand invite the seventh.
  * Nothing is picked yet.
  */
 export const DemoOrdinal: Story = {
@@ -765,7 +765,7 @@ export const DemoOrdinal: Story = {
 const ordinalRingDemo: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode, ordinal "show me" (CNT.15.t1 solution): Pip counts to seven and rings the seventh
+ * Demo mode, ordinal "show me" (CNT.15.t1 solution): the guide counts to seven and rings the seventh
  * shell. The generic `answer {id}` op rings an object too; there is one ring at a time, so the
  * later `ring` moves it.
  */
@@ -781,7 +781,7 @@ export const DemoOrdinalRing: Story = {
     await expect(obj(root, 6)).toHaveAttribute('data-ringed', 'true');
     await expect(root.querySelectorAll('[data-ringed="true"]')).toHaveLength(1);
     await expect(root.querySelector('.ni-invite')).toBeNull();
-    // At rest: Pip's counting lift on the rung shell has ended.
+    // At rest: the guide's counting lift on the rung shell has ended.
     await waitFor(() => expect(root.querySelector('[data-counting="true"]')).toBeNull());
     await settled(root);
     await expectBadgeClearOfRing(root);
@@ -806,7 +806,7 @@ export const DemoReducedMotion: Story = {
     await reducedController.play({ op: 'answer', args: { value: 6 } });
     await expect(performance.now() - started).toBeLessThan(500);
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6]);
-    // Pip's marks on a scattered picture (several rows): each badge clear of every fish.
+    // The guide's marks on a scattered picture (several rows): each badge clear of every fish.
     await expectBadgesOffObjects(root);
     await expect(within(root).getByRole('button', { name: 'Your answer: 6' })).toBeVisible();
     // `answer` replaces the entry, it never appends (as the engine model does).
@@ -820,13 +820,13 @@ export const DemoReducedMotion: Story = {
 const frameCount: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Pip counts aloud on a double ten-frame picture: the marks equal the number. Every crab sits at
+ * The guide counts aloud on a double ten-frame picture: the marks equal the number. Every crab sits at
  * the top of its cell (one size for all), each counted cell gets a dot centred in the room under
  * its crab, and the running count shows once, in the card's top-right corner, ≥ 12 px clear of
  * the card's edges and the frames — part-way (7, first frame) and at the end (15 dots and one
  * "15"). Pictorial: the frame cells are a picture, not tap targets (the child answers on the pad),
  * so they are not held to the 80 px K target size; tappable K frame cells are (TenFrameConcreteK).
- * Pip's demo plays with input off, so it ends with no invite (no ring, no hand).
+ * The guide's demo plays with input off, so it ends with no invite (no ring, no hand).
  */
 export const DemoCountAloudTenFrame: Story = {
   globals: { ageMode: 'k', motion: 'reduced' },
@@ -900,7 +900,7 @@ const frameCountMin: WidgetDemo = createDemoController({ strict: true });
  * DemoCountAloudTenFrame at the 960 × 600 minimum: exactly the 906 × 373 widget area, nothing
  * outside it. The pad's 560 px column cannot fit 373 px, so the K pad is compact: 80 px keys in a
  * 4 × 3 block with the answer slot over Check beside it, and the picture takes the width left
- * (pictorial cells are not tap targets). The same marks rules hold, and Pip's counting highlight
+ * (pictorial cells are not tap targets). The same marks rules hold, and the guide's counting highlight
  * stays inside the cell being counted.
  */
 export const DemoCountAloudTenFrameMin: Story = {
@@ -1238,7 +1238,7 @@ const checkButton = (root: HTMLElement) => within(root).getByRole('button', { na
 const padInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Invite `answer {value: 6}` on the pictorial pad item (K), before any digit: the ring and Pip's
+ * Invite `answer {value: 6}` on the pictorial pad item (K), before any digit: the ring and the guide's
  * hand go on the 6 key (Check cannot be pressed yet). A wrong digit moves them to backspace, then
  * back to 6; once 6 is in, they move to the now-enabled Check.
  */
@@ -1352,7 +1352,7 @@ function EnableLater(args: WidgetHostProps) {
 const heldInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Ordinal example while the widget is disabled (K): Pip counts to six, then invites `ring
+ * Ordinal example while the widget is disabled (K): the guide counts to six, then invites `ring
  * {index: 6}`. The seventh shell is a disabled button, so no ring and no hand show. The invite is
  * kept: once input is back it rings the seventh shell; ringing it moves the cue to Check, and
  * ringing the wrong shell moves it back.

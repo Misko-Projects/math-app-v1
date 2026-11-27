@@ -142,7 +142,7 @@
   background: var(--color-paper);
 }
 /* A card is picked up: the open boxes say "put it here" quietly (darker dashes, a lighter pad),
-   never with a ring that could read as Pip's invite. */
+   never with a ring that could read as the guide's invite. */
 .ni-ord__pad.ni-drop-target[data-armed="true"] {
   outline-color: transparent;
   border-color: var(--color-ink);
@@ -208,7 +208,7 @@ button.ni-ord__card:focus-visible,
   outline-offset: 4px;
 }
 /*
- * Pip's invite: the shared pulsing teal ring (.ni-invite), drawn over the card's or box's own
+ * The guide's invite: the shared pulsing teal ring (.ni-invite), drawn over the card's or box's own
  * edge (no reach past it), so it stays ≥ 12 px clear of its neighbours, the board's and tray's
  * edges and the cue arrow (06 §4). It wins over a box's quiet "put it here" look.
  */
@@ -221,7 +221,7 @@ button.ni-ord__card:focus-visible,
 }
 /*
  * Keyboard focus on a box is always visible (06 §7), armed or invited: a thick INK ring outside
- * the box (a box-shadow, past a thin paper gap), so Pip's teal invite ring (the outline, on the
+ * the box (a box-shadow, past a thin paper gap), so the guide's teal invite ring (the outline, on the
  * box's edge) still shows when the invited box also has focus. An armed box only takes focus
  * from the keys (a tap on it places the card at once), so any focus there shows the ring.
  */
@@ -237,7 +237,7 @@ button.ni-ord__card:focus-visible,
 /*
  * A focused box also draws a solid outline, outside the invite ring's place: invisible here (the
  * ink ring above shows), it is the focus ring in forced colours, where box shadows are not drawn
- * (06 §7), in the system Highlight colour, unlike Pip's ring on the box's own edge.
+ * (06 §7), in the system Highlight colour, unlike the guide's ring on the box's own edge.
  */
 .ni-ord__pad.ni-drop-target:not(.ni-invite):focus-visible,
 .ni-ord__pad.ni-drop-target[data-armed="true"]:not(.ni-invite):focus {
@@ -272,7 +272,7 @@ button.ni-ord__card:focus-visible,
   font-size: var(--text-label);
   font-weight: 700;
 }
-/* A tagged picture card keeps 10 px under its picture: Pip's fingertip rests there, off the path. */
+/* A tagged picture card keeps 10 px under its picture: the guide's fingertip rests there, off the path. */
 .ni-ord[data-tagged="true"] .ni-ord__card {
   padding-bottom: 7px;
 }

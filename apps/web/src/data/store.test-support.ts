@@ -135,9 +135,10 @@ export function profile(id: string, grade: ChildProfile['grade'], name = 'Kid'):
       shoesColor: 'red',
       hat: null,
       accessory: null,
-      buddy: 'pip',
+      buddy: 'nib',
     },
     picturePasswordHash: null,
+    guide: 'shelly',
     createdAt: 0,
     updatedAt: 0,
   };

@@ -17,7 +17,7 @@ describe('pickVoices (on-device only, 07 §3)', () => {
     expect(v.narrator.voice?.name).toBe('Samantha');
     expect(v.glim.voice?.name).toBe('Daniel');
     expect(v.glim.pitch).toBeGreaterThan(v.narrator.pitch);
-    expect(v.pip.pitch).toBeGreaterThan(v.narrator.pitch);
+    expect(v.guide.pitch).toBeGreaterThan(v.narrator.pitch);
   });
 
   it('never picks a remote (cloud) voice, even when it is the only English one', () => {
@@ -27,7 +27,7 @@ describe('pickVoices (on-device only, 07 §3)', () => {
     ]);
     expect(v.narrator.voice).toBeNull();
     expect(v.glim.voice).toBeNull();
-    expect(v.pip.voice).toBeNull();
+    expect(v.guide.voice).toBeNull();
   });
 
   it('keeps Glim distinct by pitch when the device has a single English voice', () => {

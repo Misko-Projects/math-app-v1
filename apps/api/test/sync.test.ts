@@ -107,7 +107,7 @@ describe('POST /api/sync: push and pull', () => {
       type: 'boat.launched',
       payload: {
         boatId: 'b-1',
-        crew: [{ name: 'pip', n: 2 }],
+        crew: [{ name: 'guide', n: 2 }],
         meta: { big: 12345678901, ok: true },
       },
     };
@@ -454,6 +454,16 @@ describe('POST /api/sync: settings and profiles (LWW)', () => {
     const renamed = { ...p, name: 'Addie', updatedAt: 200 };
     expect((await syncOk(b.token, { profiles: [renamed] })).profiles).toEqual([renamed]);
     expect((await syncOk(a.token)).profiles).toEqual([renamed]);
+  });
+
+  it('carries the chosen guide with the profile, and an older device without it does not undo it', async () => {
+    const { family, a, b } = await twoDevices();
+    const p = profileFor(family.familyId, { updatedAt: 100 });
+    await syncOk(a.token, { profiles: [p] });
+    const chose = { ...p, guide: '22', updatedAt: 150 };
+    expect((await syncOk(b.token, { profiles: [chose] })).profiles).toEqual([chose]);
+    // A stale copy without the field (a device that had not seen the choice) loses by LWW.
+    expect((await syncOk(a.token, { profiles: [p] })).profiles).toEqual([chose]);
   });
 
   it("refuses another family's profile", async () => {

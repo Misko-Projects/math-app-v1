@@ -25,11 +25,13 @@ import type {
 } from '@number-island/shared';
 import {
   BigButton,
+  GuideCheer,
   HintButton,
   HomeButton,
   icons,
   ReplayButton,
   SpeechBubble,
+  useGuide,
   useNarrationText,
   VisuallyHidden,
   type WidgetDemo,
@@ -132,6 +134,7 @@ export function PlayItemScreen({
   onResponse: (response: ResponseValue) => void;
   onInteract: (event: InteractionEvent) => void;
 }) {
+  const guide = useGuide();
   return (
     <PlayFrame
       testId="pier"
@@ -139,12 +142,16 @@ export function PlayItemScreen({
       phase={item ? phase : 'loading'}
       lookAgain={cue?.kind === 'again'}
       over={
-        picture &&
-        picture.kind !== 'none' && (
-          <Suspense fallback={null}>
-            <HintPicture spec={picture} onClose={onClosePicture ?? (() => {})} />
-          </Suspense>
-        )
+        <>
+          {picture && picture.kind !== 'none' && (
+            <Suspense fallback={null}>
+              <HintPicture spec={picture} onClose={onClosePicture ?? (() => {})} />
+            </Suspense>
+          )}
+          {/* On a right answer the child's guide cheers at the stage corner (05 §1): an overlay
+              that takes no room and no touch, gone with the cue. */}
+          {cue?.kind === 'right' && <GuideCheer guide={guide} />}
+        </>
       }
       top={
         <>

@@ -80,7 +80,7 @@ export interface PadBoxViewProps {
 
 /**
  * One typed box: big numerals (≥ 32 px), an empty slot per missing digit, the caret when active.
- * `invited` rings it; the widget places Pip's hand with the kit's `useInviteHand`.
+ * `invited` rings it; the widget places the guide's hand with the kit's `useInviteHand`.
  */
 export function PadBoxView({
   box,

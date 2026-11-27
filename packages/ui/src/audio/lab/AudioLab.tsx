@@ -256,7 +256,7 @@ export function AudioLab({
               type="button"
               className="alab-btn"
               onClick={() => {
-                void manager?.say('game.pip.welcome');
+                void manager?.say('game.guide.welcome');
                 setTimeout(() => void manager?.say('p.count.how-many'), 700);
               }}
             >

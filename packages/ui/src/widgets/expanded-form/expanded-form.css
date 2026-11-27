@@ -16,7 +16,7 @@
   --ef-unit-gap: 4px;
   --ef-units-row: calc(5 * var(--ef-unit) + 4 * var(--ef-unit-gap));
 
-  /* Pip's invite hand (kit useInviteHand) is placed relative to the widget root. */
+  /* The guide's invite hand (kit useInviteHand) is placed relative to the widget root. */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -26,7 +26,7 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  /* Extra room below for Pip's pointer when it invites something in the bottom row. */
+  /* Extra room below for the guide's pointer when it invites something in the bottom row. */
   padding: 8px 16px 40px;
 }
 
@@ -169,7 +169,7 @@
   outline-offset: 4px;
 }
 /*
- * What Pip's hand points at for an invited digit: a strip just under the numeral (out of the
+ * What the guide's hand points at for an invited digit: a strip just under the numeral (out of the
  * layout). The kit hangs the up-pointing hand below it, so the digit itself stays uncovered.
  */
 .ni-efw__nd-tip {
@@ -213,7 +213,7 @@
     inset 0 -10px 0 var(--color-wood),
     var(--shadow-soft);
 }
-/* A whole zone invited: the ring and Pip's tapping hand, without scaling a 1000 px wide pad. */
+/* A whole zone invited: the ring and the guide's tapping hand, without scaling a 1000 px wide pad. */
 .ni-efw .ni-efw__pad.ni-invite {
   position: absolute;
   border-radius: var(--radius-card);
@@ -473,7 +473,7 @@
 }
 /*
  * Two rows of cards need the room's whole height: the rows stand a target gap apart (each card
- * keeps its 7 px ledge under it), and the room kept under the tray for Pip's pointer is trimmed.
+ * keeps its 7 px ledge under it), and the room kept under the tray for the guide's pointer is trimmed.
  */
 .ni-efw[data-cards="plain"] {
   padding-bottom: 16px;

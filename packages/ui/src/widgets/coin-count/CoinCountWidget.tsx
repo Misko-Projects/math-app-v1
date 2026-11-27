@@ -305,7 +305,7 @@ export function CoinCountWidget({
     invite?.op === 'answer' && compare && typeof invite.args?.id === 'string'
       ? invite.args.id
       : null;
-  // Pip's hand (kit `useInviteHand`) hangs below the invited coin, choice or box.
+  // The guide's hand (kit `useInviteHand`) hangs below the invited coin, choice or box.
   const invitedTarget =
     invitedPiece !== null
       ? { sel: '.ni-ccount__piece', id: invitedPiece, attr: 'id' }

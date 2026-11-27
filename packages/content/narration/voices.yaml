@@ -3,7 +3,7 @@
 # so the next render re-renders exactly the affected clips.
 #
 # Defaults until the owner auditions (owner verification, not a blocker): narrator Sulafat (warm),
-# Pip Puck (upbeat), Glim Achird (friendly). `pnpm narration:audition` renders the audition lines below
+# the guide Puck (upbeat, one voice shared by every guide), Glim Achird (friendly). `pnpm narration:audition` renders the audition lines below
 # in every candidate voice into tmp/audition/.
 
 # Default renderer. NARRATION_PROVIDER or --provider overrides it (gemini | kokoro | stub).
@@ -13,7 +13,7 @@ gemini:
   model: gemini-3.8-flash-tts
   voices:
     narrator: Sulafat
-    pip: Puck
+    guide: Puck
     glim: Achird
 
 # Local fallback (07 §3): Apache-2.0 Kokoro-82M via kokoro-js. American English voices.
@@ -21,16 +21,16 @@ kokoro:
   model: onnx-community/Kokoro-82M-v1.0-ONNX
   voices:
     narrator: af_heart
-    pip: am_puck
+    guide: am_puck
     glim: af_nicole
 
-# Clip sets (03 §8.3) rendered again in Pip's and Glim's own voices, as `pip:<clip id>` and
+# Clip sets (03 §8.3) rendered again in the guide's and Glim's own voices, as `guide:<clip id>` and
 # `glim:<clip id>` (02 §5.5), so their lines stitch numbers in their own voice. The narrator always
 # has every clip set, and the game falls back to the narrator's clip for anything not listed here.
-# Pip's lessons and Glim's phrase-bank lines only fill number slots today; add a namespace (`noun`,
-# `ord`, …) here when a Pip or Glim line starts using that slot type.
+# The guide's lessons and Glim's phrase-bank lines only fill number slots today; add a namespace (`noun`,
+# `ord`, …) here when a guide or Glim line starts using that slot type.
 voiceClipSets:
-  pip: [num]
+  guide: [num]
   glim: [num]
 
 # Turn-level delivery for each 03 §8.2 `style`, sent as Gemini `speech_metadata.style`. `clip` is for

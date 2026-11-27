@@ -70,7 +70,7 @@ function contentBox(el: Element) {
  * Evidence review (PR #88): logs whether the widget is centred inside its OWN host (the
  * WidgetHost `.ni-widget` box), apart from where the host sits in the area (the shared story
  * harness, #12): `[centre] host in area L/R a/b; widget in host L/R x/y` (CSS px). The widget's
- * extent is the union of its root's in-flow children (Pip's hand and overlays excluded).
+ * extent is the union of its root's in-flow children (the guide's hand and overlays excluded).
  */
 function logCentring(box: HTMLElement, inner: { left: number; right: number }) {
   const host = box.querySelector<HTMLElement>('.ni-widget');
@@ -125,7 +125,7 @@ export async function expectFitsArea(box: HTMLElement, parts: readonly Element[]
 
 /**
  * The settled end of a DemoInvite story: after the widget has had time to re-render and re-measure,
- * Pip's hand is still there, visible (non-zero size) and pointing at `target`.
+ * The guide's hand is still there, visible (non-zero size) and pointing at `target`.
  */
 export async function expectHandStays(root: HTMLElement, target: () => HTMLElement) {
   await new Promise((r) => setTimeout(r, 600));

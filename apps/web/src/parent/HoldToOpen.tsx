@@ -87,7 +87,7 @@ export function HoldToOpen({
         data-progress={progress.toFixed(2)}
         className={[
           'relative grid touch-none select-none place-items-center rounded-full bg-paper ring-2 ring-sand-deep',
-          'shadow-[0_3px_0_var(--color-sand-deep)] focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-ink',
+          'shadow-ledge focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-ink',
           large ? 'size-28' : 'size-16',
         ].join(' ')}
         onPointerDown={(e) => {

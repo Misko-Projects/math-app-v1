@@ -605,7 +605,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), FRA.01.t1 seed 8's solution: Pip cuts line 0 and line 1 (a blade runs
+ * Demo mode (03 §6.3), FRA.01.t1 seed 8's solution: the guide cuts line 0 and line 1 (a blade runs
  * along each), fills part 0, pulls the parts apart, then stacks them (they cover each other
  * exactly). Ops the format does not have throw.
  */
@@ -632,7 +632,7 @@ export const DemoMode: Story = {
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the knife to tap, then at the part to fill. */
+/** The child's turn: the guide's hand points at the knife to tap, then at the part to fill. */
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteController },
@@ -654,7 +654,7 @@ export const DemoInvite: Story = {
       root,
     );
     await expectSingleInvite(root);
-    // The story ends in the invited state: the part's ring and Pip's hand stay visible.
+    // The story ends in the invited state: the part's ring and the guide's hand stay visible.
     await expect(part(root, 1)).toHaveAttribute('data-invite', 'true');
     await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
   },
@@ -849,8 +849,8 @@ export const ThenNameLandscapeMin: Story = {
 const nameInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Pip invites the naming at the 960 × 600 area: in the naming step, one ring on the top box,
- * 12 px clear of everything else, and Pip's hand under it (the story ends invited).
+ * The guide invites the naming at the 960 × 600 area: in the naming step, one ring on the top box,
+ * 12 px clear of everything else, and the guide's hand under it (the story ends invited).
  */
 export const ThenNameInviteLandscapeMin: Story = {
   args: { config: loafThirds, demo: nameInvite },
@@ -860,7 +860,7 @@ export const ThenNameInviteLandscapeMin: Story = {
     await userEvent.click(knife(root, 0));
     await userEvent.click(knife(root, 1));
     await userEvent.click(part(root, 0));
-    // Still cutting: the answer starts with "Name it", so that is what Pip points at.
+    // Still cutting: the answer starts with "Name it", so that is what the guide points at.
     nameInvite.invite({ op: 'answer', args: { values: [1, 3] } });
     await waitFor(() => expect(nameIt(root)).toHaveClass('ni-invite'));
     await expectSingleInvite(root);
