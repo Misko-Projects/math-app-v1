@@ -3454,7 +3454,7 @@ gen.frac.equiv.group:
   text: "Each {w|fracw} of a whole is a group of these small parts."
   level: "3"
 gen.frac.equiv.here:
-  text: "The point for {f|fracw} is also {g|fracw}."
+  text: "The dot for {f|fracw} is at the same place as {g|fracw}."
   level: "3"
 gen.frac.equiv.same-whole:
   text: "Both fractions are parts of the same whole."
@@ -3500,7 +3500,7 @@ h.frac.equiv.same-way:
   text: "Do the same to the other number: the top and the bottom grow the same way."
   level: "3"
 h.frac.equiv.same-point:
-  text: "The same point on a line is the same amount, so the fractions are equal."
+  text: "The same place on a line is the same amount, so the fractions are equal."
   level: "3"
 h.frac.half-strip:
   text: "Look at the strip that is half shaded. Where does its shaded part end?"

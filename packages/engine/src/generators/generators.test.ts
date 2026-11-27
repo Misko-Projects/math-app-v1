@@ -1188,6 +1188,7 @@ describe('registry', () => {
       'equality.eq',
       'estimate.quantity',
       'frac.compare',
+      'frac.equiv',
       'frac.line',
       'frac.partition',
       'frac.shares',

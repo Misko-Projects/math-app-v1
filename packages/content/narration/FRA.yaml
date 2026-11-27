@@ -162,7 +162,7 @@ sk.FRA.05.intro:
   text: "One amount can have two names. One half of a strip is the same as two fourths."
   level: "3"
 sk.FRA.17.intro:
-  text: "Two fractions can sit at the same point on a number line."
+  text: "Two fractions can be at the same place on a number line."
   level: "3"
 sk.FRA.15.intro:
   text: "Is a fraction more or less than one half? More or less than 1?"
@@ -189,7 +189,7 @@ tp.FRA.17.t2.prompt:
   text: "Put the dot at {f|fracw}. Count the small parts."
   level: "3"
 tp.FRA.17.t3.prompt:
-  text: "These fractions sit at the same point on a number line. Type the missing number."
+  text: "These fractions are at the same place on a number line. Type the missing number."
   level: "3"
 tp.FRA.15.t1.prompt:
   text: "One strip shows one half. Which strip shows more? They may be the same."

@@ -164,6 +164,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'FRA.02',
       'FRA.03',
       'FRA.04',
+      'FRA.05',
       'FRA.06',
       'FRA.07',
       'FRA.08',
@@ -172,7 +173,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'FRA.11',
       'FRA.12',
       'FRA.13',
+      'FRA.14',
+      'FRA.15',
       'FRA.16',
+      'FRA.17',
       'GEO.01',
       'GEO.02',
       'GEO.03',
@@ -316,7 +320,11 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.forgot-the-ten',
       'MC.forgot-to-regroup-add',
       'MC.fraction-bigger-denominator',
+      'MC.fraction-bigger-numbers',
       'MC.fraction-compare-tops',
+      'MC.fraction-equiv-add',
+      'MC.fraction-equiv-one-side',
+      'MC.fraction-half-by-top',
       'MC.fraction-line-at-whole',
       'MC.fraction-line-ticks',
       'MC.fraction-line-whole',
@@ -409,6 +417,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'frac.partition',
         'frac.compare',
         'frac.line',
+        'frac.equiv',
         'time.clock',
         'time.sequence',
         'data.sort',
@@ -1994,10 +2003,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // skills, 27 templates, MC.multiply-instead-of-divide, MC.told-number-back and
       // MC.neighbour-fact. Fractions on the number line (K02 slice 5b) added 4 skills, 14
       // templates, MC.fraction-line-ticks, MC.fraction-line-whole, MC.fraction-line-at-whole,
-      // MC.fraction-over-one and MC.fraction-whole-count.
-      skills: 219,
-      templates: 798,
-      misconceptions: 69,
+      // MC.fraction-over-one and MC.fraction-whole-count. Equivalence, benchmarks and equal areas
+      // (K02 slice 5c) added 4 skills, 15 templates, MC.fraction-equiv-add,
+      // MC.fraction-equiv-one-side, MC.fraction-bigger-numbers and MC.fraction-half-by-top.
+      skills: 223,
+      templates: 813,
+      misconceptions: 73,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -2039,6 +2050,7 @@ describe('graph.json (03 §9.1)', () => {
       'CPS.04',
       'FRA.03',
       'FRA.04',
+      'FRA.05',
       'GEO.04',
       'MDA.03',
       'MDA.12',
