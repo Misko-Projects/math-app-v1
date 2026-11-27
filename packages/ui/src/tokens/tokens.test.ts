@@ -80,6 +80,7 @@ describe('design tokens', () => {
       ['disabled dashed edge on its faded felt', 'ink-soft', 'pebble'],
       ['focus ring on linen', 'ink', 'sand'],
       ['invite ring on linen', 'sea-deep', 'sand'],
+      ['pad key invite ring (inside the key) on wood', 'sea-dark', 'wood'],
     ] as const) {
       expect(contrastRatio(PALETTE[fg], PALETTE[bg]), use).toBeGreaterThanOrEqual(3);
     }

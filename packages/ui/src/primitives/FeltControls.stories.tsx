@@ -226,3 +226,57 @@ export const K: Story = {
   render: () => <Sheet />,
   play: async ({ canvasElement }) => checkFelt(canvasElement),
 };
+
+/** The squished controls (pressed previews) that are not selected. */
+const pressed = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('[data-preview="pressed"]')].filter(
+    (el) => el.getAttribute('aria-pressed') !== 'true',
+  );
+
+/**
+ * A press held near a squished control's edge still lands on it (06 §4): the hit area stays where
+ * the edges were, so a finger or mouse lifting at the same point activates the control.
+ */
+export const PressKeepsHitArea: Story = {
+  globals: { ageMode: 'g1-up' },
+  render: () => <Sheet />,
+  play: async ({ canvasElement }) => {
+    const els = pressed(canvasElement);
+    await expect(els.length).toBeGreaterThan(2);
+    for (const el of els) {
+      // The layout box, not the squished one: where the edges were before the press.
+      const r = el.getBoundingClientRect();
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      for (const [x, y] of [
+        [cx + w / 2 - 1, cy],
+        [cx - w / 2 + 1, cy],
+        [cx, cy - h / 2 + 1],
+        [cx, cy + h / 2 - 1],
+      ] as const) {
+        const hit = document.elementFromPoint(x, y);
+        await expect(
+          hit && el.contains(hit),
+          `${el.className} at its edge (${Math.round(x - cx)}, ${Math.round(y - cy)}): ${hit?.className}`,
+        ).toBe(true);
+      }
+    }
+  },
+};
+
+/** 06 §7: under reduced motion a press is a colour change only; the control keeps its size. */
+export const ReducedMotionPress: Story = {
+  globals: { ageMode: 'g1-up', motion: 'reduced' },
+  render: () => <Sheet />,
+  play: async ({ canvasElement }) => {
+    const els = pressed(canvasElement);
+    await expect(els.length).toBeGreaterThan(2);
+    for (const el of els) {
+      const cs = getComputedStyle(el);
+      await expect(cs.transform, `${el.className}: no squish`).toBe('none');
+      await expect(cs.filter, `${el.className}: darker face`).toContain('brightness');
+    }
+  },
+};

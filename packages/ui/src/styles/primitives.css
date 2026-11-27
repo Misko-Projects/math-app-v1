@@ -112,6 +112,38 @@
   box-shadow: var(--btn-edge), var(--shadow-felt-pressed), var(--shadow-ledge-pressed);
 }
 
+/*
+ * While a control is squished, an invisible margin keeps its hit area where its edges were, so a
+ * press held near an edge still lands on it when the finger or mouse lifts (06 §4).
+ */
+.ni-btn:active:not(:disabled):not([aria-pressed="true"])::after,
+.ni-btn[data-preview="pressed"]:not([aria-pressed="true"])::after,
+button.ni-bubble:active::after {
+  content: "";
+  position: absolute;
+  /* Measured from the padding box, so the 3 px border is added back. */
+  inset: calc(-3.5% - 3px) calc(-2.5% - 3px);
+}
+
+/*
+ * 06 §7 reduced motion: the press is a colour change only. The control keeps its size and place;
+ * the face darkens a step and the inner shadow still shows.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ni-btn:active:not(:disabled):not([aria-pressed="true"]),
+  .ni-btn[data-preview="pressed"]:not([aria-pressed="true"]),
+  button.ni-bubble:active {
+    transform: none;
+    filter: brightness(0.9);
+  }
+}
+[data-reduced-motion="true"] .ni-btn:active:not(:disabled):not([aria-pressed="true"]),
+[data-reduced-motion="true"] .ni-btn[data-preview="pressed"]:not([aria-pressed="true"]),
+[data-reduced-motion="true"] button.ni-bubble:active {
+  transform: none;
+  filter: brightness(0.9);
+}
+
 /* Keyboard focus: a thick ink ring, clear of the button so it reads on every tone (≥ 3:1). */
 .ni-btn:focus-visible,
 .ni-btn[data-preview="focus"] {
@@ -123,8 +155,9 @@
  * Selected (aria-pressed): more than colour. The button is pressed in, a cream gap and a thick ink
  * ring surround it, and a check badge sits on its corner.
  */
-.ni-btn[aria-pressed="true"] {
-  /* Pressed in by 3 px, as before, so the glyph keeps its place. */
+.ni-btn[aria-pressed="true"],
+.ni-btn[aria-pressed="true"]:active:not(:disabled) {
+  /* Pressed in by 3 px, as before, so the glyph keeps its place (a second press does not squish). */
   transform: translateY(3px);
   box-shadow:
     var(--btn-edge),
@@ -519,7 +552,11 @@ button.ni-bubble:active {
     var(--felt-grain) 0 0 / var(--felt-grain-size),
     var(--mat-bg, var(--color-paper));
   background-blend-mode: soft-light;
-  box-shadow: var(--shadow-highlight), var(--shadow-soft);
+  /* Tailwind's ring utilities (the stage's look-again ring) draw through these variables; this
+     unlayered rule must keep them, or it would hide the ring. */
+  box-shadow:
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    var(--shadow-highlight), var(--shadow-soft);
 }
 .ni-mat::before {
   content: "";

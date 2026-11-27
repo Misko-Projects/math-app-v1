@@ -202,7 +202,8 @@ export function AnchorArt({ sprite, className }: AnchorArtProps): ReactElement {
   const { w, h } = ANCHOR_VIEWBOX[id];
   return (
     <svg
-      className={className}
+      // `ni-art` pins the legacy art palette (theme.css) until the scene props are redrawn in felt.
+      className={className ? `ni-art ${className}` : 'ni-art'}
       viewBox={`0 0 ${w} ${h}`}
       width="100%"
       height="100%"
