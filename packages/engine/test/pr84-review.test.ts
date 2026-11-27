@@ -652,8 +652,9 @@ describe('PR #84 review: class sweep', () => {
       for (const [set, ks] of keys) expect([...ks].sort().join(' | '), `${t.id}: ${set}`).toBe(set);
       if (keys.size > 0) checked += 1;
     }
-    // TIM.09.t3, FRA.01.t3, FRA.02.t3 and the most / least reads DAT.02.t3, DAT.09.t3, DAT.10.t2.
-    expect(checked).toBe(6);
+    // TIM.09.t3, FRA.01.t3, FRA.02.t3 and the most / least reads DAT.02.t3, DAT.09.t3, DAT.10.t2;
+    // K02 slice 3c's fact picks MUL.09.t3 (neighbour facts) and MUL.17.t3 (four quotients in a row).
+    expect(checked).toBe(8);
   });
 
   it('PUZ.02 corner hint holds when no corner is blank', () => {

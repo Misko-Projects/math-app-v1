@@ -395,7 +395,8 @@ export const mulFacts: GeneratorDef = {
     },
     corner: {
       type: 'int',
-      default: { kind: 'int', min: 0, max: 3 },
+      // Const by default so the templates that never pick keep their draws; pick templates draw it.
+      default: { kind: 'const', value: 0 },
       doc: 'numeral-pick: where the key sits in its option set (× : the corner of the 2 × 2 grid of neighbour facts; ÷ : the place among four quotients in a row)',
     },
     mode: {

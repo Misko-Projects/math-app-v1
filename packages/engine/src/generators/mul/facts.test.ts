@@ -18,6 +18,11 @@ import { checkResponse } from '../../items/check';
 import { generateItemFromParams } from '../../items/generate';
 import { itemSolution, replaySteps } from '../../items/solution';
 import {
+  multiplyInsteadOfDivide,
+  neighbourFact,
+  toldNumberBack,
+} from '../../misconceptions/rules/division';
+import {
   addInsteadOfMultiply,
   doubleOnce,
   partialProductDropped,
@@ -566,5 +571,64 @@ describe('mul.facts ÷, unknown factors and picks (K02 slice 3c)', () => {
     }
     // 6 × 7 sits beside 6 × 8, 7 × 7 and 7 × 8 (or the facts below it).
     expect(pickSet({ a: 6, b: 7, corner: 0 }, factPlan({ a: 6, b: 7 }))).toEqual([42, 48, 49, 56]);
+  });
+});
+
+describe('slice 3c misconception rules (÷ and missing factors)', () => {
+  const pad = tpl('number-pad', 'abstract', 'symbols');
+  const pick = tpl('numeral-pick', 'abstract', 'symbols');
+  const num = (value: number) => ({ kind: 'number', value }) as const;
+  const item = (p: ParamValues, t = pad) =>
+    generateItemFromParams(t, p, { checkConstraints: false });
+
+  it('multiply-instead-of-divide: 24 ÷ 4 → 96, 4 × ? = 24 → 96; not when the product is the answer (÷ 1)', () => {
+    expect(multiplyInsteadOfDivide.match(item({ a: 4, b: 6, op: '÷' }), num(96))).toBe(true);
+    expect(multiplyInsteadOfDivide.match(item({ a: 4, b: 6, unknown: 'factor' }), num(96))).toBe(
+      true,
+    );
+    expect(multiplyInsteadOfDivide.match(item({ a: 4, b: 6, op: '÷' }), num(6))).toBe(false);
+    // 7 ÷ 1 = 7: the told numbers times each other is the answer, so nothing is read.
+    expect(multiplyInsteadOfDivide.applies(item({ a: 1, b: 7, op: '÷' }))).toBe(true);
+    expect(multiplyInsteadOfDivide.predict?.(item({ a: 1, b: 7, op: '÷' }))).toBeNull();
+    // Product facts are not read here.
+    expect(multiplyInsteadOfDivide.applies(item({ a: 4, b: 6 }))).toBe(false);
+  });
+
+  it('told-number-back: the divisor or dividend given back, the product for a missing factor; not a square', () => {
+    const div = item({ a: 4, b: 6, op: '÷' });
+    expect(toldNumberBack.match(div, num(4))).toBe(true);
+    expect(toldNumberBack.match(div, num(24))).toBe(true);
+    expect(toldNumberBack.match(item({ a: 4, b: 6, unknown: 'factor' }), num(24))).toBe(true);
+    // 16 ÷ 4 = 4: the divisor is the answer.
+    expect(toldNumberBack.match(item({ a: 4, b: 4, op: '÷' }), num(4))).toBe(false);
+    expect(toldNumberBack.match(item({ a: 4, b: 4, op: '÷' }), num(16))).toBe(true);
+  });
+
+  it('neighbour-fact: one more or less for a quotient or factor, one divisor more or less for a dividend', () => {
+    expect(neighbourFact.match(item({ a: 4, b: 6, op: '÷' }), num(7))).toBe(true);
+    expect(neighbourFact.match(item({ a: 4, b: 6, op: '÷' }), num(5))).toBe(true);
+    expect(neighbourFact.match(item({ a: 4, b: 6, op: '÷' }), num(8))).toBe(false);
+    const dividend = item({ a: 6, b: 8, op: '÷', unknown: 'dividend' });
+    expect(neighbourFact.match(dividend, num(42))).toBe(true);
+    expect(neighbourFact.match(dividend, num(49))).toBe(false);
+  });
+
+  it('a pick is only wrong with an option it offers', () => {
+    const it0 = item({ a: 4, b: 6, op: '÷', corner: 0 }, pick);
+    expect(multiplyInsteadOfDivide.predict?.(it0)).toBeNull();
+    const p = neighbourFact.predict?.(it0);
+    expect(p).toEqual({ kind: 'choice', id: 'opt-7' });
+  });
+
+  it('a story pad (sentence hidden) writes no sentence and asks one number', () => {
+    const story = item({ a: 3, b: 5, op: '÷', sentence: 'hidden' });
+    if (story.widget.format !== 'number-pad') throw new Error('number-pad');
+    expect(story.widget.expression).toBeUndefined();
+    expect(story.widget.blanks).toEqual([{ id: 'x', maxDigits: 2 }]);
+    expect(story.answer).toEqual(num(5));
+    expect(mulFacts.accepts?.({ a: 3, b: 5, sentence: 'hidden', strategy: 'double' }, pad)).toBe(
+      false,
+    );
+    expect(mulFacts.accepts?.({ a: 3, b: 5, sentence: 'hidden' }, pick)).toBe(false);
   });
 });
