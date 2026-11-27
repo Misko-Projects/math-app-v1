@@ -92,18 +92,18 @@ ui.btn.okay:
   level: K
 ui.island.hello:
   text: "Hello! Who do you want to help?"
-  voice: pip
+  voice: guide
   level: K
 ui.island.requests:
   text: "Friends who want help"
   level: K
 ui.island.made:
   text: "Look! Your new things are in the Storehouse."
-  voice: pip
+  voice: guide
   level: K
 ui.island.empty:
   text: "The Storehouse is empty. Help a friend to fill it!"
-  voice: pip
+  voice: guide
   level: K
 # The shared island (I01 part 3): said once to the child whose building lost its plots to one a
 # sibling placed there first on another tablet (02 §4.3).
@@ -116,15 +116,15 @@ ui.decor.open:
   level: K
 ui.decor.pick:
   text: "Pick a thing to put on the island!"
-  voice: pip
+  voice: guide
   level: K
 ui.decor.place:
   text: "Now tap where it goes."
-  voice: pip
+  voice: guide
   level: K
 ui.decor.all:
   text: "All your things are on the island!"
-  voice: pip
+  voice: guide
   level: K
 ui.decor.item:
   text: "Thing {n}"
@@ -136,7 +136,7 @@ ui.decor.away:
 # ("help a friend"), which are on the K–1 word list.
 ui.decor.closed:
   text: "Decorating is open after you help a friend!"
-  voice: pip
+  voice: guide
   level: K
 # The island's name (I01 part 4, apps/web/src/island/naming; 05 §10 step 3). The names to choose
 # from and their spoken lines are game data (game/island.yaml `names`, narration/game.yaml).
@@ -145,17 +145,17 @@ ui.island.name.open:
   level: K
 ui.island.name.pick:
   text: "What is the name of our island? Pick one!"
-  voice: pip
+  voice: guide
   level: K
 # The wind-down recap (I01 part 4, apps/web/src/island/recap.ts; 06 §2 "Wind-down"): each line is
 # followed by what it names, as counts and names.
 ui.winddown.made:
   text: "Look at your new things!"
-  voice: pip
+  voice: guide
   level: K
 ui.winddown.built:
   text: "You helped build"
-  voice: pip
+  voice: guide
   level: K
 # Building and the Numbered Road on the island (I01 part 2, apps/web/src/island/building).
 ui.build.open:
@@ -211,7 +211,7 @@ ui.road.short:
   level: K
 ui.winddown.done:
   text: "Great playing! See you next time!"
-  voice: pip
+  voice: guide
   level: K
 
 # Design-system primitives (U01, packages/ui/src/primitives).
@@ -245,8 +245,8 @@ ui.tray.empty:
 
 # Widget registry (U01, packages/ui/src/widgets).
 ui.widget.coming-soon:
-  text: "Pip is building this game. Let's try the next one!"
-  voice: pip
+  text: "This game is still being built. Let's try the next one!"
+  voice: guide
   level: K
 ui.widget.pebble:
   text: "Pebble"
@@ -1910,7 +1910,7 @@ ui.widget.at.cursor.drawn:
 # Practice Pier (#20, apps/web/src/workshops/practice-pier).
 ui.pier.done:
   text: "All done! Great playing!"
-  voice: pip
+  voice: guide
   level: K
 ui.pier.progress:
   text: "How many are done"
@@ -1929,7 +1929,7 @@ ui.roadcrew.laid:
 # The break offer after an easy item (04 §6.4 rule 4), and the picture a hint shows.
 ui.pier.break:
   text: "Do you want to stop now? We can go and build!"
-  voice: pip
+  voice: guide
   level: K
 ui.pier.break.yes:
   text: "Stop now"

@@ -2,7 +2,7 @@
 
 ## 1. Fantasy and tone
 
-Two siblings wash up on a tiny sandbar with **Pip**, a cheerful puffin ferry captain. The island grows into a busy, cozy town as they do math in its workshops. Island critters called **Pebblings** move in, ask for help, and become friends. The tone is warm, gently funny and never scary. Even storms are cozy ("let's batten down together!").
+Two siblings wash up on a tiny sandbar with **their guide**, a felt plush friend each child chooses: **Shelly** the turtle or the bunny **22** (the name is the numeral, said "twenty-two"). More guides can follow (for example the children's own stuffed animals). Every guide says the same lines in one shared guide voice and behaves the same; only the character and the name differ. A guide's name is written only on its name tag and said only in the guide chooser, so "22" never stands as a bare number inside a maths prompt or speech bubble. The guide stands beside the island's line on the home screen and cheers for about a second at the stage corner on a right answer (an overlay that takes no room); it is not drawn in the play header, where it would take the prompt's room. The island grows into a busy, cozy town as they do math in its workshops. Island critters called **Pebblings** move in, ask for help, and become friends. The tone is warm, gently funny and never scary. Even storms are cozy ("let's batten down together!").
 
 **Originality rule:** do not imitate existing IP. In particular, Pebblings must not resemble Numberblocks (stacked blocks with faces) or DragonBox Nooms. Use sea and shore critters with pebble-filled shells. No characters, names, art or music from existing games or shows.
 
@@ -10,12 +10,12 @@ Two siblings wash up on a tiny sandbar with **Pip**, a cheerful puffin ferry cap
 
 ```
 Open app → pick profile (avatar tap + picture password)
- → Island: Pip greets by name; 2–3 residents show request bubbles (from the session planner, 04 §6.3)
+ → Island: the guide greets by name; 2–3 residents show request bubbles (from the session planner, 04 §6.3)
  → Child picks a request (autonomy) → walks/boats to that workshop
  → Workshop: 2–4 min of math-mechanic play; every correct action visibly PRODUCES material
  → Materials parade to the Storehouse; resident cheers
  → Build moment: place or upgrade something, or decorate (capped, see §8)
- → Next request … → Sunset wind-down: Pip recaps what you learned (spoken), Pebblings wave goodbye
+ → Next request … → Sunset wind-down: the guide recaps what you learned (spoken), Pebblings wave goodbye
 ```
 
 **First problem within 10 s:** on a returning session, the recommended request is pre-highlighted. One tap goes straight into the workshop, with the walk skipped or playing over the loading time.
@@ -46,7 +46,7 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 | W11 | **Weigh Station & Lookout** | ALG.01 ready | ALG, DAT | `balance`, `pattern-extend`, `bar-graph-read`, `bar-graph-build` | rope & flags | Keep the cargo scale level (= means "the same as", `__ = 3 + 4`), extend bead-rope patterns, survey Pebblings and build bar graphs at the Lookout. |
 | W12 | **Rhythm Orchard** | any fact-fluency skill practiced | ADD, MUL (fact strands) | `number-pad`, `numeral-pick` | fruit | Fruit ripens to a gentle beat and answering a fact picks it. Per-fact adaptive pacing. A "beat your best" ghost appears for G1+ only if `timedChallenges` is on. Never a fail state. |
 | W13 | **Puzzle Tower** | G1+ or any child after 10 mastered skills | PUZ + any | `puzzle-grid`, `balance`, `story-problem` | star shards (rare decor) | Optional "spicy" challenges: mini KenKen, magic squares, missing-number puzzles, a 24-style game, Hidato paths. Challenge is the reward. |
-| — | **Practice Pier** | start | any | **all formats** | any requested material | The fallback host (04 §6.3): a plain pier where Pip brings crates of tasks. Used only when no themed workshop hosts a needed format. |
+| — | **Practice Pier** | start | any | **all formats** | any requested material | The fallback host (04 §6.3): a plain pier where the guide brings crates of tasks. Used only when no themed workshop hosts a needed format. |
 
 **Road Crew and the road.** A Road Crew request that makes at least one stone lays the road's next stone with one of them at its parade, for the same cost as the island's "Lay the next stone" (one stone; 02 §5.6). The request's other stones go to the Storehouse, where buildings need them, and the island's button stays for laying more.
 
@@ -55,7 +55,7 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 2. **Feedback is diegetic first:** the boat tips when unbalanced, the brick doesn't fuse, the pie slices look unequal. Narration explains next.
 3. **Celebrate the product:** each correct action yields a visible, countable product (a plank, a brick) that flies to a tray. At the end of a request the tray parades to the Storehouse.
 4. **CPA inside the workshop:** a workshop renders the item's `tier`: concrete (draggable objects), pictorial (drawn), or abstract (symbols with a number pad). Same theme throughout.
-5. **Lessons in-world:** a skill's first appearance plays its worked example as Pip demonstrating in the workshop, then a faded example, then hands over (03 §6).
+5. **Lessons in-world:** a skill's first appearance plays its worked example as the guide demonstrating in the workshop, then a faded example, then hands over (03 §6).
 6. **Exit anytime:** a big "home" button returns to the island with whatever was produced so far.
 7. **Unlocks are family-wide:** a workshop unlocked or built by either child is available to both. The `Unlock` column uses `UnlockRule` (02 §5.8), with skill rules satisfied when *any* child reaches them.
 8. **Data, not code:** buildings, recipes, residents, decor and unlock rules are `GameData` in `packages/content/game/*.yaml` (02 §5.8), authored by U02.
@@ -85,15 +85,15 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 | Weekly goal | "Help 6 Pebblings this week": a jar fills with shells | Accumulates only; never resets mid-week; never lost |
 | Festivals | Every ~7 days of play (or a mastery milestone): a festival scene plus a mixed-review **"Storm Watch"** co-op event (both kids contribute) that reveals a rainbow decor | No timer for K; can't fail. The storm passes when items are done. |
 | Personal bests | Rhythm Orchard ghost, Puzzle Tower stars | Self-comparison only; opt-in timing; never sibling vs. sibling |
-| Surprise gifts | Parent leaves a wrapped gift (decor plus an optional typed message, read aloud on-device via `sayText`); random "Pip found something!" moments | Unexpected, not contingent per problem |
+| Surprise gifts | Parent leaves a wrapped gift (decor plus an optional typed message, read aloud on-device via `sayText`); random "The guide found something!" moments | Unexpected, not contingent per problem |
 | Real-world milestones | Parent-defined ("When the Lighthouse is built: pancake breakfast!") shown as a treasure chest card | Parent-controlled |
-| Mastery moments | When a skill reaches `mastered`: the buddy gets a badge and Pip announces "You've really got this now!" | Informational praise ("you made a ten first!"), never "you're smart" |
+| Mastery moments | When a skill reaches `mastered`: the buddy gets a badge and the guide announces "You've really got this now!" | Informational praise ("you made a ten first!"), never "you're smart" |
 
 **Hard nos** (see research 03 §3.5): no ads, purchases, loot boxes, lives, game-over, negative points, streak loss, FOMO timers, guilt notifications, or leaderboards.
 
 ## 8. Pacing and math density
 
-- **Non-math time cap:** building, decorating and walking outside workshops ≤ 25% of session time. After the cap, decor mode shows "Decorating is open after your next request!", and Pip points to a request. The parent may allow a free-build period after the session's math budget is complete.
+- **Non-math time cap:** building, decorating and walking outside workshops ≤ 25% of session time. After the cap, decor mode shows "Decorating is open after your next request!", and the guide points to a request. The parent may allow a free-build period after the session's math budget is complete.
 - **Session length:** from settings (04 §6.1). At the budget, the child finishes the current item, the request ends with its parade, and the sunset wind-down starts (04 §6.4). There is no further overrun.
 - **Math density** is measured per session (04 §7) and shown to the parent.
 
@@ -101,15 +101,15 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 
 - **Attribute creator:** skin tone (12), face shape (4), hair style (16, including covered/hijab and short/long/curly/coily/braids/locs), hair colour (10 natural + 6 fun), eyes (6 shapes × 8 colours), eyebrows, glasses (6), freckles/beauty marks, outfits (top 12, bottom 8, shoes 6; colours), hats/accessories (unlockable), plus buddy choice. Renders as layered SVG with idle animations (blink, bob, wave, cheer, think) and expressions (happy, proud, curious, oops).
 - **Photo option (parent-gated, AI):** "Make my look from a photo": the parent uploads or takes a photo in the parent area. AI maps it to the creator's attributes (07 §4), the result pre-fills the creator, and the child adjusts and confirms. No AI-generated images of the child are made: provider policies bar it for minors. The animated SVG avatar is the likeness. The photo itself is never stored.
-- **Where it shows:** the profile picker, walking the island, inside workshops as Pip's helper (hands doing the manipulatives), festivals, and the wind-down.
+- **Where it shows:** the profile picker, walking the island, inside workshops as the guide's helper (hands doing the manipulatives), festivals, and the wind-down.
 - **Unlocks:** new outfits and accessories through festivals, projects and the Collection Book, all informational and visible in the creator.
 
 ## 10. Child onboarding (first run per child)
 
-1. **Meet Pip** (≤ 30 s, skippable for the second child).
+1. **Choose your guide** (once per child, before the first session; also for an existing child whose profile has no guide yet): every guide on a big card, the question spoken and repeatable, a tap picks a guide (it cheers and says its name), one big "Let's go!" confirms. The child can switch at any time by tapping the guide on the island home (Home leaves without a change), never in the middle of an item.
 2. **Create your character** (or confirm the photo-based one) and pick a buddy.
 3. **Name the island** (first child only; shown later to the sibling as "Welcome to <name> Island!").
-4. **Placement adventure** (04 §5): framed as "help Pip sort the shipwrecked cargo". Probes appear as mini scenes using the real widgets (count crates, place a float on the line, fix a 10-boat, read the ferry clock…). It is split across days for K, and every answer is celebrated the same way.
+4. **Placement adventure** (04 §5): framed as "help the guide sort the shipwrecked cargo". Probes appear as mini scenes using the real widgets (count crates, place a float on the line, fix a 10-boat, read the ferry clock…). It is split across days for K, and every answer is celebrated the same way.
 5. **First build:** the first Pebbling home, using materials from placement. The first resident moves in.
 6. **Wind-down.**
 
@@ -124,7 +124,7 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 
 ## 12. Audio direction
 
-- **Voices:** a warm, unhurried narrator (instructions, lessons, feedback) and Pip's voice (brighter, playful). Pebblings use short non-verbal chirps plus narrator lines. **Glim** (a lantern-robot helper) voices AI feedback when it is enabled (07 §7). Everything is pre-rendered at build time (07 §3), with number words composed from clips.
+- **Voices:** a warm, unhurried narrator (instructions, lessons, feedback) and the guide voice (brighter, playful; one voice shared by every guide for now). Pebblings use short non-verbal chirps plus narrator lines. **Glim** (a lantern-robot helper) voices AI feedback when it is enabled (07 §7). Everything is pre-rendered at build time (07 §3), with number words composed from clips.
 - **Music:** gentle island loop, workshop loops (one per workshop family), festival theme and sunset theme. Sources: original procedural/Web Audio compositions or verified CC0 tracks with licences recorded in `LICENSES-ASSETS.md`. Music is off by default during lessons and ducked under narration.
 - **SFX:** pebble chime (correct), soft "hmm" wood knock (try again, never a buzzer), fuse/pop, boat horn, firefly twinkle, coin clink, page turn, construction tap. Procedural Web Audio or CC0, recorded in the asset licence file.
 

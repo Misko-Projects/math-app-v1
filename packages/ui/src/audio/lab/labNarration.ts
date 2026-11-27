@@ -141,7 +141,7 @@ export const labNarration: NarrationJson = {
 /** Sample lines the lab can play (key + vars, or an AI line). */
 export const SAMPLE_LINES = [
   { id: 'prompt', label: 'Prompt with numbers', key: 'tp.ADD.08.t1.prompt', vars: { a: 7, b: 3 } },
-  { id: 'pip', label: 'Pip, lesson step', key: 'ls.CNT.03.w1.s3', vars: { n: 12 } },
+  { id: 'guide', label: 'Guide, lesson step', key: 'ls.CNT.03.w1.s3', vars: { n: 12 } },
   {
     id: 'request',
     label: 'Resident request',
@@ -150,7 +150,7 @@ export const SAMPLE_LINES = [
   },
   { id: 'money', label: 'Money', key: 'p.money.pay', vars: { price: 125 } },
   { id: 'symbols', label: 'Symbols, no `say`', key: 'p.add.what-is', vars: { a: 3, b: 4 } },
-  { id: 'welcome', label: 'Pip welcome', key: 'game.pip.welcome', vars: {} },
+  { id: 'welcome', label: 'Guide welcome', key: 'game.guide.welcome', vars: {} },
 ] as const;
 
 /**

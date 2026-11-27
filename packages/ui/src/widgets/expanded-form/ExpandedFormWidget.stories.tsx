@@ -615,7 +615,7 @@ export const RemoveCard: Story = {
 const stackController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * `stack-cards`: Pip places 5, 300 and 40, then slides them together like arrow cards,
+ * `stack-cards`: the guide places 5, 300 and 40, then slides them together like arrow cards,
  * right-aligned, reading 345. When the demo ends the widget is interactive again.
  */
 export const StackCards: Story = {
@@ -1264,7 +1264,7 @@ export const Disabled: Story = {
 const playController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo play, every op: Pip flies 300, 40 and 5 onto the mat, pulses the tens digit, stacks the
+ * Demo play, every op: the guide flies 300, 40 and 5 onto the mat, pulses the tens digit, stacks the
  * cards, takes the 5 back and finally enters the whole answer.
  */
 export const DemoPlay: Story = {
@@ -1293,7 +1293,7 @@ export const DemoPlay: Story = {
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo invite (the child's turn, K): Pip's hand points at the 40 card, then at the mat. */
+/** Demo invite (the child's turn, K): the guide's hand points at the 40 card, then at the mat. */
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteController },
@@ -1315,7 +1315,7 @@ export const DemoInvite: Story = {
   },
 };
 
-/** Waits for Pip's one hand to settle on `target` (kit placement, checked by `expectPointerOn`). */
+/** Waits for the guide's one hand to settle on `target` (kit placement, checked by `expectPointerOn`). */
 async function expectHandOn(root: HTMLElement, target: HTMLElement) {
   await waitFor(() => expect(target).toHaveClass('ni-invite'));
   await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
@@ -1371,7 +1371,7 @@ const everyTargetController: WidgetDemo = createDemoController({ strict: true })
 
 /**
  * Demo invite on every build target (G1 pictorial): a tray card, a placed card to take back, the
- * mat and a digit of the number. Each time the ring sits on the target and Pip's ONE hand hangs
+ * mat and a digit of the number. Each time the ring sits on the target and the guide's ONE hand hangs
  * below it, fingertip inside, glyphs clear, all inside the widget.
  */
 export const DemoInviteEveryTarget: Story = {
@@ -1434,7 +1434,7 @@ export const DemoInvitePadBox: Story = {
 const fillRemoveController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * A faded lesson clears a filled blank (fill with cards): the child fills box 1 with 40; Pip's
+ * A faded lesson clears a filled blank (fill with cards): the child fills box 1 with 40; the guide's
  * hand points at that box for `place-card {remove, blank: 'b0'}` (the child's own clear payload,
  * no value); playing it empties the box and flies the 40 back to the tray, submitting nothing.
  * A removal without a blank changes nothing, as in the model.
@@ -1536,7 +1536,7 @@ const padRemoveController: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * The same removal on the pad (□ + □ + □ = 345): the child typed 300 and 40; the invite points at
- * box 2 and Pip erases it with the backspace key, so box 2 is empty and nothing is submitted.
+ * box 2 and the guide erases it with the backspace key, so box 2 is empty and nothing is submitted.
  */
 export const DemoFillRemovePad: Story = {
   args: { config: fillThree, tier: 'abstract', demo: padRemoveController },
@@ -1580,7 +1580,7 @@ function ItemSwapHarness(args: WidgetHostProps) {
 }
 
 /**
- * The host moves on while Pip is still placing a card: the widget unmounts before the move
+ * The host moves on while the guide is still placing a card: the widget unmounts before the move
  * commits, and the op's promise settles at once instead of waiting out its timers.
  */
 export const DemoSettlesOnUnmount: Story = {

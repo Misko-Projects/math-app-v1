@@ -1,7 +1,7 @@
 /* coin-count widget (U05 #14): the purse on the left, the answer pad and "check" on the right. */
 
 .ni-ccount {
-  /* Positioned: the running total and Pip's hand are placed in widget coordinates. */
+  /* Positioned: the running total and the guide's hand are placed in widget coordinates. */
   position: relative;
   display: grid;
   /* Content-sized columns, centred as one block in the area (no lopsided margins). */

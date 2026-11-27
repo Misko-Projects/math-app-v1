@@ -447,7 +447,7 @@ export function DotFlashWidget({
   const cueCard = cue?.at === 'card' ? cue.value : null;
   const cueId = cue ? `${cue.at}:${cueKey ?? cueCard ?? ''}` : '';
 
-  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`), its fingertip
+  // The guide's up-pointing hand hangs below the invited control (kit `useInviteHand`), its fingertip
   // inside the control's bottom edge and clear of its glyph.
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,

@@ -345,7 +345,7 @@ export function ShapeSortWidget({
     );
   };
 
-  // Pip's hand under the invited card (kit useInviteHand); the bin it goes in pulses too.
+  // The guide's hand under the invited card (kit useInviteHand); the bin it goes in pulses too.
   const { hand, rootStyle: handStyle } = useInviteHand(
     root,
     (r) =>
@@ -416,7 +416,7 @@ export function ShapeSortWidget({
   const trayCards = config.cards.filter((c) => binOf(c.id) === TRAY);
   // One card size (outer px) for the tray and the bins: as large as the area allows for where the
   // cards are now, never under the target size plus 4 (cards in bins are tapped and dragged too).
-  // A tray card invited: room under the tray's cards for Pip's hand (it hangs about 46 px below
+  // A tray card invited: room under the tray's cards for the guide's hand (it hangs about 46 px below
   // the card), 8+ px clear of the tray's border; only while invited.
   const trayInvited = invite?.id ? binOf(invite.id) === TRAY : false;
   const L = sortLayout(compact);
@@ -594,7 +594,7 @@ export function ShapeSortWidget({
 }
 
 /**
- * Room for Pip's hand under an invited tray card (8+ px clear of the tray's border), added above
+ * Room for the guide's hand under an invited tray card (8+ px clear of the tray's border), added above
  * the cards too, so they stay centred in the tray (evidence review: top-packed, 14 vs 53 px).
  */
 const TRAY_HAND_ROOM = 42;

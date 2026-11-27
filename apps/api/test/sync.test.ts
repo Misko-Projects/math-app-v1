@@ -107,7 +107,7 @@ describe('POST /api/sync: push and pull', () => {
       type: 'boat.launched',
       payload: {
         boatId: 'b-1',
-        crew: [{ name: 'pip', n: 2 }],
+        crew: [{ name: 'guide', n: 2 }],
         meta: { big: 12345678901, ok: true },
       },
     };

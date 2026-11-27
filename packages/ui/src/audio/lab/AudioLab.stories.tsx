@@ -135,7 +135,7 @@ export const ScriptedEngine: Story = {
     ]);
 
     // A new line cuts in: the log records the cancellation.
-    await userEvent.click(canvas.getByRole('button', { name: /Pip welcome/ }));
+    await userEvent.click(canvas.getByRole('button', { name: /Guide welcome/ }));
     await waitFor(() => expect(now.getByText('Line 1 cancelled')).toBeVisible());
 
     // Switching to the fallback routes the next line through Web Speech.

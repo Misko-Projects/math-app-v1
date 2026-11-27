@@ -746,7 +746,7 @@ packages/content/
   narration/phrases.yaml        AI feedback phrase bank (ph.*; content owned by 07 §2)
   narration/voices.yaml         voice choices (07 §3)
   narration/ui.yaml             child-facing app chrome lines (ui.*): profile picker, buttons, parent-gate prompt…
-  narration/game.yaml           island and story lines (game.*, req.*, res.*): Pip, onboarding, request lines,
+  narration/game.yaml           island and story lines (game.*, req.*, res.*): the guide, onboarding, request lines,
                                 resident lines, Glim intro, wind-down recaps. Each UI issue authors its own keys here.
   game/*.yaml                   GameData (02 §5.8): buildings, recipes, residents, decor, materials (authored by U02)
   contexts.yaml                 story contexts and nouns (§4.6)
@@ -1007,7 +1007,7 @@ contexts:
 | `lighthouse-lanterns` | lantern, firefly | counting, subitizing, data |
 | `weigh-station` | sack, crate, jug | mass, liquid volume, balance |
 
-Resident names in stories come from game data (`ResidentId`, 05 §5) and are spoken with `res.<id>` clips. Generators stay pure (`generateItem(t, seed, target)` has no world input), so a generator never picks a resident. It emits the variable `who` with the placeholder value `@resident`. The `TaskRunner` replaces it with the `residentId` of the current `PlannedRequest` (02 §5.4), or with `pip` outside requests. Only the name changes, never numbers or answers.
+Resident names in stories come from game data (`ResidentId`, 05 §5) and are spoken with `res.<id>` clips. Generators stay pure (`generateItem(t, seed, target)` has no world input), so a generator never picks a resident. It emits the variable `who` with the placeholder value `@resident`. The `TaskRunner` replaces it with the `residentId` of the current `PlannedRequest` (02 §5.4), or with `guide` outside requests. Only the name changes, never numbers or answers.
 
 ---
 
@@ -1919,7 +1919,7 @@ If a template lists fewer than three hint keys, the missing levels are skipped a
 
 ## 6. Lessons
 
-A lesson introduces a skill the first time the planner schedules it (04 §6.3). It follows the worked-example → faded-example → scaffolded-practice pattern (research 02 §1.6), playing on the same widget the child will use. In-world, Pip (or the child's buddy Pebbling) demonstrates in the workshop (05 §4, rule 5).
+A lesson introduces a skill the first time the planner schedules it (04 §6.3). It follows the worked-example → faded-example → scaffolded-practice pattern (research 02 §1.6), playing on the same widget the child will use. In-world, the guide (or the child's buddy Pebbling) demonstrates in the workshop (05 §4, rule 5).
 
 ### 6.1 Types (`packages/content/src/schema/lesson.ts`)
 
@@ -2073,7 +2073,7 @@ Notation: `v` is the correct answer, `r` the response, digits of `a` are `a₀` 
 | `MC.round-wrong-place` | Rounds 347 to the nearest hundred as 350 | answer: r = n rounded to the next smaller place (≠ v) | PV.18, PV.22 | PV.08, PV.18 |
 | `MC.forgot-the-ten` | 8 + 5 → 3: makes the ten, then drops it | answer: v ≥ 11 and r = v − 10. On the place-value mat (base-ten-trade `compute`), only when the mat is worth the result: 37 + 5 left at 3 tens 7 ones with 32 typed is not tagged. Priority 55, above MC.wrong-operation, which shares 7 + 5 → 2 on ADD.14 | ADD.08, ADD.13, ADD.14, ADD.26, MDA.08 | CPS.04, ADD.26 |
 | `MC.wrong-operation` | 9 − 4 → 13, or 9 + 4 → 5 | answer: `-` and r = a + b; or `+` and r = abs(a − b), a ≠ b | ADD.06, ADD.09, ADD.14, ADD.22, MDA.11, MDA.12 | ADD.09 |
-| `MC.keyword-more-means-add` | "The crab has 3 more fish than Pip. The crab has 9. How many does Pip have?" → 12 | answer: story item with situation `compare/bigger-fewer`, `compare/smaller-more`, `compare/difference-*` or `inconsistentLanguage = 1`, the correct operation is `-`, and r = a + b | ADD.12, ADD.21, MDA.06, MDA.19 | ADD.21 |
+| `MC.keyword-more-means-add` | "The crab has 3 more fish than the guide. The crab has 9. How many does the guide have?" → 12 | answer: story item with situation `compare/bigger-fewer`, `compare/smaller-more`, `compare/difference-*` or `inconsistentLanguage = 1`, the correct operation is `-`, and r = a + b | ADD.12, ADD.21, MDA.06, MDA.19 | ADD.21 |
 | `MC.start-unknown-reversed` | ? − 3 = 5 → 2 | answer: unknown = start, and r = abs(a − b) where v = a + b (or r = a + b where v = abs(a − b)), for the two numbers shown (K01: equality.eq `_ op b = c`, addsub.facts `unknown: start`, the start-unknown stories) | ADD.11, ADD.12, MDA.22 | ADD.09, ADD.11 |
 | `MC.equals-means-answer` | 3 + 4 = □ + 5 → 7 | answer: equality form `a+b=_+d` or `a+b=c+_`, and r = a + b; true-false: judges `_ = a + b`-style (answer on the left) true equations false. K01 readings: a true equation with operations on both sides is judged false too, and on a two-sided make-equal balance the left side's answer is added to the right pan | ADD.10, ADD.11, ALG.06, ALG.07, MDA.22 | ALG.05, ADD.10 |
 | `MC.equals-add-all` | 3 + 4 = □ + 5 → 12 | answer: r = the sum of every number shown | ADD.11, ALG.06, ALG.07 | ALG.05, ADD.10 |
@@ -2172,7 +2172,7 @@ tp.ADD.08.t4.prompt:
   say: "What is {a} plus {b}?"
 ls.ADD.08.w1.s2:
   text: "Move {give} from this group to fill the ten."
-  voice: pip
+  voice: guide
 fb.mc.forgot-the-ten:
   text: "You made a ten. Count the ten too!"
   level: K
@@ -2182,7 +2182,7 @@ fb.mc.forgot-the-ten:
 |---|---|---|
 | `text` | yes | The display text (captions, G2 text mode). Numbers as numerals, math symbols as symbols. |
 | `say` | no | The spoken form when it differs from `text`. When omitted, `text` is spoken with the symbol rules in §8.4. |
-| `voice` | no | `narrator` (default), `pip`, or `glim` (07 §7) |
+| `voice` | no | `narrator` (default), `guide`, or `glim` (07 §7) |
 | `style` | no | Delivery hint passed to TTS: `warm` (default), `excited`, `calm`, `playful` |
 | `level` | no | Reading level for §8.5 checks. Default: the grade label of the owning skill (for shared keys, the lowest grade of any skill that references them). |
 
@@ -2190,7 +2190,7 @@ One key is one line: one or two short sentences, spoken without a pause longer t
 
 ### 8.3 Number words and clip composition (0–1,000,000)
 
-Number words are composed from a fixed clip inventory (`narration/numbers.yaml`), rendered once per voice: every clip set in the narrator's voice, and the clip sets `voices.yaml` lists under `voiceClipSets` (v1: `num`) again for Pip and Glim, with voice-qualified clip ids such as `pip:num.23#0` (02 §5.5, 07 §3). A voice clip that is missing falls back to the narrator's:
+Number words are composed from a fixed clip inventory (`narration/numbers.yaml`), rendered once per voice: every clip set in the narrator's voice, and the clip sets `voices.yaml` lists under `voiceClipSets` (v1: `num`) again for the guide and Glim, with voice-qualified clip ids such as `guide:num.23#0` (02 §5.5, 07 §3). A voice clip that is missing falls back to the narrator's:
 
 | Clip set | Clips |
 |---|---|

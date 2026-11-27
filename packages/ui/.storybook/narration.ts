@@ -44,7 +44,7 @@ const texts = {
 const storyTexts: Record<string, string> = {
   'res.shelly.hello': 'Hello! Can you help me fix my boat?',
   'req.dock.needs-planks': 'I need 4 planks for my boat!',
-  'game.pip.welcome': "Welcome back! Let's build something today.",
+  'game.guide.welcome': "Welcome back! Let's build something today.",
   'ui.story.sheet': 'Your treasure chest',
   'ui.story.answer': 'Your answer',
 };

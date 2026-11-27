@@ -697,7 +697,7 @@ export const DemoMode: Story = {
   },
 };
 
-/** The ring and Pip's hand are on ONE control, the hand's fingertip on it, the ring clear. */
+/** The ring and the guide's hand are on ONE control, the hand's fingertip on it, the ring clear. */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement, others: Element[]) {
   // A tapped control keeps its focus ring; the only ring on screen must be the invite.
   (document.activeElement as HTMLElement | null)?.blur();
@@ -745,7 +745,7 @@ async function expectRingInsidePanel(el: HTMLElement, panel: HTMLElement) {
 const placeInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn, K: `answer {value: 13}` rings the flag in its dock (Pip's hand on it); a
+ * The child's turn, K: `answer {value: 13}` rings the flag in its dock (the guide's hand on it); a
  * flag planted on 6 is still invited; once it stands on 13 the cue moves to Check.
  */
 export const InvitePlaceK: Story = {
@@ -761,7 +761,7 @@ export const InvitePlaceK: Story = {
     await expectInviteOn(root, marker(root), [checkBtn(root)]);
     await pointerDrag(marker(root), linePoint(root, place, 13), 'touch');
     await waitFor(() => expect(placedValue(root)).toBe(13));
-    // It ends on the invite: one ring, on Check, and Pip's hand.
+    // It ends on the invite: one ring, on Check, and the guide's hand.
     await expectInviteOn(root, checkBtn(root), [marker(root), strip(root)]);
   },
 };

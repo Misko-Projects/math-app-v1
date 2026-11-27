@@ -9,7 +9,7 @@ const audio = spyAudio();
 const meta = {
   title: 'Primitives/SpeechBubble',
   component: SpeechBubble,
-  args: { say: 'game.pip.welcome' },
+  args: { say: 'game.guide.welcome' },
   parameters: { ui: { audio } },
 } satisfies Meta<typeof SpeechBubble>;
 
@@ -49,8 +49,8 @@ function Variants() {
     >
       <style>{'.story-grid--bubbles .story-cell { gap: 44px; }'}</style>
       <div className="story-cell">
-        <SpeechBubble say="game.pip.welcome" tail="bottom-left" />
-        <span className="story-cell__name">Pip · tail bottom-left</span>
+        <SpeechBubble say="game.guide.welcome" tail="bottom-left" />
+        <span className="story-cell__name">Guide · tail bottom-left</span>
       </div>
       <div className="story-cell">
         <SpeechBubble say="res.shelly.hello" tail="bottom" tone="sky" />

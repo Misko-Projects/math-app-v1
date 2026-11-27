@@ -75,7 +75,7 @@
 /*
  * Demo invite (03 §6.3): one ring, inside the card's own box, so it stays the full 12 px gap
  * from the neighbouring cards and the tray's or bin's border. No pulse (it would push the ring
- * into the gap); Pip's hand carries the motion.
+ * into the gap); the guide's hand carries the motion.
  */
 /* A picked-up card's ring (and its double ring when it also has keyboard focus) lies inside the
    card too, so it never reaches the next card or the tray's border. */

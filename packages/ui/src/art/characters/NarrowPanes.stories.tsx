@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactNode } from 'react';
+import * as GuideStories from '../guides/Guides.stories';
 import * as GlimStories from './Glim.stories';
 import * as PebblingStories from './Pebblings.stories';
-import * as PipStories from './Pip.stories';
 import { expectPaneTidy } from './storyChecks';
 
 /**
@@ -67,9 +67,9 @@ export const Families: Story = paneStory({
   FractionsClocksCoins: PebblingStories.FractionsClocksCoins,
 });
 
-/** Pip, Glim and the cast pages, and the colour-vision check. */
+/** The guides, Glim and the cast pages, and the colour-vision check. */
 export const CastAndColourVision: Story = paneStory({
-  PipPoses: PipStories.Poses,
+  GuideMoods: GuideStories.AllMoods,
   GlimStates: GlimStories.States,
   IdleCast: PebblingStories.IdleCast,
   ReducedMotion: PebblingStories.ReducedMotion,

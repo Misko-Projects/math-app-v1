@@ -62,7 +62,7 @@ export function startingAvatar(gameData: GameData): AvatarSpec {
     shoesColor: 'coral',
     hat: null,
     accessory: null,
-    buddy: buddy ?? 'pip',
+    buddy: buddy ?? 'nib',
   };
 }
 

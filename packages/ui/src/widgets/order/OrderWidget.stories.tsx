@@ -220,7 +220,7 @@ function rgbOf(root: HTMLElement, cssVar: string) {
 
 /**
  * The keyboard focus ring on a box (06 §7): an ink ring outside it (box-shadow, ≥ 3 px of ink past
- * a paper gap), visible whatever the box's outline shows (Pip's teal invite ring, or none).
+ * a paper gap), visible whatever the box's outline shows (the guide's teal invite ring, or none).
  */
 async function expectInkFocusRing(el: HTMLElement) {
   await waitForSettled(el);
@@ -415,7 +415,7 @@ const keyInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * Keyboard and invite on one box: the card picked up with Enter moves focus to the invited first
- * box; it shows BOTH Pip's teal invite ring (on its edge) and the ink keyboard focus ring outside.
+ * box; it shows BOTH the guide's teal invite ring (on its edge) and the ink keyboard focus ring outside.
  */
 export const KeyboardOnInvitedBox: Story = {
   args: { demo: keyInvite },
@@ -437,7 +437,7 @@ export const KeyboardOnInvitedBox: Story = {
     await expectInkFocusRing(box);
     await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
     // Forced colours (06 §7) draw no box shadows: the focused box draws a solid Highlight outline
-    // there, outside the box, unlike Pip's ring on an unfocused invited box (the same box, blurred).
+    // there, outside the box, unlike the guide's ring on an unfocused invited box (the same box, blurred).
     const forced = forcedColorOutline(box);
     await expect(forced, 'a forced-colours focus outline for the focused box').not.toBeNull();
     await expect(forced?.style).toBe('solid');
@@ -583,7 +583,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3): Pip points at 6 and slides it into the first box. While the host keeps
+ * Demo mode (03 §6.3): the guide points at 6 and slides it into the first box. While the host keeps
  * input off, an invite shows nothing (the child can't act yet).
  */
 export const DemoMode: Story = {
@@ -657,7 +657,7 @@ async function expectRingInside(root: HTMLElement, el: HTMLElement) {
   }
 }
 
-/** ONE ring, on `el`; Pip's fingertip on it at rest; the ring ≥ 12 px clear of every other target. */
+/** ONE ring, on `el`; the guide's fingertip on it at rest; the ring ≥ 12 px clear of every other target. */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
   await waitFor(() => expect(el).toHaveClass('ni-invite'));
   await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
@@ -670,7 +670,7 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
     targets(root).filter((t) => t !== el),
   );
   await expectRingInside(root, el);
-  // Pip's hand covers no other control: ≥ 12 px from each, off every glyph.
+  // The guide's hand covers no other control: ≥ 12 px from each, off every glyph.
   await expectHandClearOfOthers(root, el);
 }
 
@@ -682,7 +682,7 @@ const noInvite = async (root: HTMLElement) => {
 const dragInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn (03 §6.3), `drag {id, slot}`: the ring and Pip's hand on the card; once the
+ * The child's turn (03 §6.3), `drag {id, slot}`: the ring and the guide's hand on the card; once the
  * child has picked it up, on its box; once it is in, nothing.
  */
 export const InviteDragK: Story = {
@@ -1008,7 +1008,7 @@ const noteInk = (canvasElement: HTMLElement, ink: Awaited<ReturnType<typeof expe
   );
 
 /**
- * Pip's hand at rest (its bob included) covers no ink of the cue or of any path: no pebble, no
+ * The guide's hand at rest (its bob included) covers no ink of the cue or of any path: no pebble, no
  * arrow, no tick, line, end arrow or mark.
  */
 async function expectHandOffInk(root: HTMLElement) {
@@ -1110,7 +1110,7 @@ export const FiveCardsKMinLandscape: Story = {
 const minInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The same area with a drag invite: Pip's hand under the tray card still fits; no scroll. At the
+ * The same area with a drag invite: the guide's hand under the tray card still fits; no scroll. At the
  * minimum area (and only there) the hand may cross the tray's lower edge (the Orchestrator's
  * min-area relief), as long as it covers nothing: it stays ≥ 12 px from every other target and
  * off its own card's numeral.
@@ -1215,7 +1215,7 @@ export const ThreeDigitFiveKMinLandscape: Story = {
 const pathInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The same area with an invite on a picture card: the layout already holds room for Pip's hand
+ * The same area with an invite on a picture card: the layout already holds room for the guide's hand
  * under the tray, so nothing moves or scrolls; then on its box once the card is picked up.
  */
 export const PathCardsKMinLandscapeInvite: Story = {
@@ -1235,9 +1235,9 @@ export const PathCardsKMinLandscapeInvite: Story = {
     // The compact path's ink reads at K size (screen px), as on the tablet card.
     noteInk(canvasElement, await expectPathInk(root));
     await expectOrderFits(canvasElement, root, 'k');
-    // Under the card, Pip's hand stays off its path (and off every cue mark).
+    // Under the card, the guide's hand stays off its path (and off every cue mark).
     await expectHandOffInk(root);
-    // The cards did not move or resize when Pip came in.
+    // The cards did not move or resize when the guide came in.
     const after = box(card(root, '8'));
     await expect(after).toEqual(before);
     await userEvent.click(card(root, '8'));
@@ -1246,7 +1246,7 @@ export const PathCardsKMinLandscapeInvite: Story = {
     // In the empty box, pointing down into it: off the cue's pebbles and arrow, off every path.
     await expectHandOffInk(root);
     // The picked-up card is lifted (raised, a little bigger, a deeper shadow) with no ring; the
-    // invited box wears Pip's teal ring; the other open boxes show no ring: one ring on screen.
+    // invited box wears the guide's teal ring; the other open boxes show no ring: one ring on screen.
     const picked = card(root, '8');
     await expect(picked).toHaveAttribute('data-selected', 'true');
     picked.blur();
@@ -1270,7 +1270,7 @@ export const PathCardsKMinLandscapeInvite: Story = {
 };
 
 /**
- * Pip's hand (at rest, bob included) stays ≥ 12 px from every target but its own and from the
+ * The guide's hand (at rest, bob included) stays ≥ 12 px from every target but its own and from the
  * cue's pebbles and arrow, and ≥ 12 px inside the panel its control sits in (the board or the
  * tray), crossing no panel edge.
  */

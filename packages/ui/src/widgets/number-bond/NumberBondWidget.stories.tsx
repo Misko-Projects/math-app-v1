@@ -359,7 +359,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (pictorial): Pip highlights the whole and fills the parts; strict mode throws. */
+/** Demo mode (pictorial): the guide highlights the whole and fills the parts; strict mode throws. */
 export const DemoMode: Story = {
   args: { config: split5, disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -381,7 +381,7 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * Invites (K): `fill` a blank that isn't active → the blank itself; once it is active → the
- * numeral card; when the number is in → Check. One ring at a time, Pip's fingertip on it.
+ * numeral card; when the number is in → Check. One ring at a time, the guide's fingertip on it.
  */
 export const DemoInviteK: Story = {
   globals: { ageMode: 'k' },
@@ -411,7 +411,7 @@ export const DemoInviteK: Story = {
 
 /**
  * The same invite in the tablet widget area (1226 × 493), where the bond is drawn to the room: one
- * ring on the numeral card, Pip's hand clear of the other cards, and the bond centred.
+ * ring on the numeral card, the guide's hand clear of the other cards, and the bond centred.
  */
 export const AreaTabletInviteK: Story = {
   ...DemoInviteK,

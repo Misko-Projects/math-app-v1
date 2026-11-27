@@ -635,7 +635,7 @@ export function runSession(sim: SimChild, session: number, startTs: number): Ses
     capability(sim, PRACTICE_PIER);
   const warmup: PlannedRequest = {
     id: `${clock.sessionId}-warmup`,
-    residentId: wCap.residents[0] ?? 'pip',
+    residentId: wCap.residents[0] ?? 'guide',
     workshopId: wCap.workshopId,
     tasks: [w],
     reward: { materials: {} },

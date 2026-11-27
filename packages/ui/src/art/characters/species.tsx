@@ -608,7 +608,7 @@ function Puffin({ c, pose, slot, delay }: BodyProps) {
       <Shine x={110} y={108} rx={86} ry={76} />
       <Eyes left={[88, 68]} right={[132, 68]} r={11} edge={c.deep} look={[0, 0.2]} delay={delay} />
       <Cheeks left={[70, 86]} right={[150, 86]} color={c.cheek} rx={6.5} />
-      {/* A tiny chick beak (Pip's is the big striped one). */}
+      {/* A tiny chick beak. */}
       <path
         d={pose === 'cheer' ? 'M100 80H120L110 92Z M102 88H118L110 98Z' : 'M100 80H120L110 94Z'}
         {...fillOf('sunshine', 2.5)}

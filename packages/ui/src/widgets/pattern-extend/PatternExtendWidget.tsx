@@ -557,7 +557,7 @@ export function PatternExtendWidget({
         ? argIndex(invite, 'from')
         : null;
   const selected = new Set(state.selected);
-  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`).
+  // The guide's up-pointing hand hangs below the invited control (kit `useInviteHand`).
   const handScope =
     mode === 'translate' && invite?.op === 'place-token'
       ? '[data-row="new"]'

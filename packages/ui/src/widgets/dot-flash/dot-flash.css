@@ -5,7 +5,7 @@
  */
 
 .ni-flash {
-  /* Positioned: Pip's invite hand is placed in widget coordinates. */
+  /* Positioned: the guide's invite hand is placed in widget coordinates. */
   position: relative;
   display: flex;
   align-items: center;
@@ -115,7 +115,7 @@
   display: inline-flex;
   border-radius: 32px;
 }
-/* Pip's hand: left/top are measured onto the invited control (DotFlashWidget). */
+/* The guide's hand: left/top are measured onto the invited control (DotFlashWidget). */
 .ni-flash__answer {
   display: flex;
   flex: none;

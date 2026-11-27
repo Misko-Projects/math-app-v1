@@ -54,7 +54,7 @@ export function arrangedSize(
 }
 
 /**
- * Room a demo invite needs below its control at the bottom of the widget: Pip's hand hangs below
+ * Room a demo invite needs below its control at the bottom of the widget: the guide's hand hangs below
  * the control (kit `useInviteHand`), its tip just inside it: about 47 px of hand plus its 8 px bob
  * and 10 px edge, less the ~21 px a tray already has under its last row. Answer steps first look
  * for a layout that leaves this, so an invited card in the bottom row does not make it scroll.

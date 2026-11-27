@@ -70,7 +70,7 @@ export async function seedLocalChild(
                   shoesColor: 'red',
                   hat: null,
                   accessory: null,
-                  buddy: 'pip',
+                  buddy: 'nib',
                 },
                 picturePasswordHash: null,
                 ...(c.guide === null ? {} : { guide: c.guide ?? 'shelly' }),

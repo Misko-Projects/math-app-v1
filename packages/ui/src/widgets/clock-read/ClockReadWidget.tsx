@@ -44,7 +44,7 @@ import './clock-read.css';
  * spoken as numbers; time options are spoken as times); `ampm` picks a.m. or p.m. Every response
  * is built by the engine model.
  *
- * Demo ops: `point-hour`, `point-minute` (Pip points at the hand, which lights up),
+ * Demo ops: `point-hour`, `point-minute` (the guide points at the hand, which lights up),
  * `count-fives {to}` (the long hand's way round is counted by fives, each spoken), and `answer`.
  */
 
@@ -301,7 +301,7 @@ export function ClockReadWidget({
 
   const pointed =
     invite?.op === 'point-hour' ? 'hour' : invite?.op === 'point-minute' ? 'minute' : state.pointed;
-  // Pip's hand rests on the middle of the hand being pointed at.
+  // The guide's hand rests on the middle of the hand being pointed at.
   const handAt = (() => {
     if (!pointed) return null;
     const deg = pointed === 'hour' ? hourAngle(time) : minuteAngle(time);
@@ -313,7 +313,7 @@ export function ClockReadWidget({
   const invitedId =
     invite?.op === 'answer' && typeof invite.args?.id === 'string' ? invite.args.id : null;
   const invitedBox = invite?.op === 'answer' && !isPick ? pad.active : -1;
-  // Pip's hand for a child step (kit `useInviteHand`): under the invited choice or typed box. The
+  // The guide's hand for a child step (kit `useInviteHand`): under the invited choice or typed box. The
   // demo's point-hour / point-minute hand above is different: it rests ON a hand of the clock.
   const rootRef = useRef<HTMLDivElement | null>(null);
   const invitedBoxId = invitedBox >= 0 ? (BOXES[invitedBox]?.id ?? '') : '';

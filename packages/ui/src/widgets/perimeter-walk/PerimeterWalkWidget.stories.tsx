@@ -1094,7 +1094,7 @@ export const DemoWalk: Story = {
 
 const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the side to walk. */
+/** The child's turn: the guide's hand points at the side to walk. */
 export const DemoInvite: Story = {
   args: { demo: inviteDemo },
   play: async ({ canvasElement }) => {

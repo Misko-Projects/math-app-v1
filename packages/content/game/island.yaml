@@ -17,7 +17,7 @@
 island:
   grid: [12, 8]
   rings:
-    # ring 0: the sandbar the siblings wash up on with Pip (05 §1, §3) (3 plots)
+    # ring 0: the sandbar the siblings wash up on with the guide (05 §1, §3) (3 plots)
     - unlock: { start: true }
       plots: [[3, 4], [4, 4], [5, 4]]
     # ring 1: the first shore, once the first Pebbling (the buddy) moves in (33 plots)

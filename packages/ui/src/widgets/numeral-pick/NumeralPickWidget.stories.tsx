@@ -383,7 +383,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3): Pip shows the answer, then taps it (input stays off while Pip plays). */
+/** Demo mode (03 §6.3): the guide shows the answer, then taps it (input stays off while the guide plays). */
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -403,7 +403,7 @@ export const DemoMode: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn in a faded example (03 §6.3): nothing is picked yet, input is on, and Pip's
+ * The child's turn in a faded example (03 §6.3): nothing is picked yet, input is on, and the guide's
  * hand points at the choice to tap.
  */
 export const DemoInvite: Story = {
@@ -438,7 +438,7 @@ const quotedController: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * Options whose IDs hold a quote or are empty (any string is a valid ID): inviting each rings that
- * card and Pip's hand points at it; the widget stays mounted.
+ * card and the guide's hand points at it; the widget stays mounted.
  */
 export const DemoInviteQuotedId: Story = {
   globals: { ageMode: 'k' },

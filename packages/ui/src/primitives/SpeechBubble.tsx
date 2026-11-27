@@ -33,7 +33,7 @@ function Tail() {
 }
 
 /**
- * A speech bubble for Pip, residents and requests (06 §2). Audio-first: the words are spoken, and
+ * A speech bubble for the guide, residents and requests (06 §2). Audio-first: the words are spoken, and
  * the text is shown only in text mode. With no visible words or pictures, a speaker glyph invites a
  * tap to hear the line.
  */

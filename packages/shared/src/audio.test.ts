@@ -8,7 +8,7 @@ describe('voiceClipId (02 §5.5)', () => {
   });
 
   it("prefixes another character's clip ids with the voice", () => {
-    expect(voiceClipId('num.23#0', 'pip')).toBe('pip:num.23#0');
+    expect(voiceClipId('num.23#0', 'guide')).toBe('guide:num.23#0');
     expect(voiceClipId('num.7.end#0', 'glim')).toBe('glim:num.7.end#0');
   });
 
@@ -17,7 +17,7 @@ describe('voiceClipId (02 §5.5)', () => {
       version: 'v',
       clips: {
         'num.23#0': { file: 'a.ogg', durationMs: 400 },
-        [voiceClipId('num.23#0', 'pip')]: { file: 'b.ogg', durationMs: 420 },
+        [voiceClipId('num.23#0', 'guide')]: { file: 'b.ogg', durationMs: 420 },
       },
     };
     expect(audioManifestSchema.parse(manifest)).toEqual(manifest);

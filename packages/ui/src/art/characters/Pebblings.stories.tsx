@@ -4,9 +4,9 @@ import type { Lighting } from '../../tokens/tokens';
 import { ArtSvg } from '../core/ArtSvg';
 import { paint } from '../core/paint';
 import { CvdCompare, GalleryCell, GallerySection } from '../gallery/Gallery';
+import { Guide } from '../guides/Guide';
 import { Glim } from './Glim';
 import { Pebbling } from './Pebbling';
-import { Pip } from './Pip';
 import { PebbleFrame } from './parts';
 import {
   PALETTE_FILLS,
@@ -605,7 +605,7 @@ async function expectFractionsClocksCoins(canvasElement: HTMLElement) {
 }
 
 /**
- * The cast at rest, each in its idle loop: Pip bobs and blinks, Glim hovers and glows, a crab and
+ * The cast at rest, each in its idle loop: the guide (Shelly) at rest, Glim hovers and glows, a crab and
  * the Ten Turtles bob and blink. (Reduced motion holds them still: see ReducedMotion.)
  */
 export const IdleCast: Story = {
@@ -621,8 +621,8 @@ export const IdleCast: Story = {
         width: 'min(1200px, 100%)',
       }}
     >
-      <GalleryCell name="Pip">
-        <Pip pose="idle" size={300} title="Pip idle" />
+      <GalleryCell name="Shelly">
+        <Guide guide="shelly" mood="idle" height={300} labelled />
       </GalleryCell>
       <GalleryCell name="Glim">
         <Glim state="idle" size={230} title="Glim idle" />
@@ -884,8 +884,8 @@ export const ReducedMotion: Story = {
       }}
     >
       {/* The same sizes as the Idle cast story, so every character is at the shared scale. */}
-      <GalleryCell name="Pip cheering">
-        <Pip pose="cheer" size={300} title="Pip cheering" />
+      <GalleryCell name="Shelly cheering">
+        <Guide guide="shelly" mood="cheer" height={300} labelled />
       </GalleryCell>
       <GalleryCell name="Glim talking">
         <Glim state="talk" size={230} title="Glim talking" />

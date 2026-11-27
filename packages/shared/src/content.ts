@@ -255,9 +255,9 @@ assertType<Equals<z.infer<typeof misconceptionSpecSchema>, MisconceptionSpec>>(t
 
 // ---------- 03 §8.2 narration source and 02 §5.5 compiled narration.json ----------
 
-export type NarrationVoice = 'narrator' | 'pip' | 'glim';
+export type NarrationVoice = 'narrator' | 'guide' | 'glim';
 export type NarrationStyle = 'warm' | 'excited' | 'calm' | 'playful';
-export const narrationVoiceSchema = z.enum(['narrator', 'pip', 'glim']);
+export const narrationVoiceSchema = z.enum(['narrator', 'guide', 'glim']);
 export const narrationStyleSchema = z.enum(['warm', 'excited', 'calm', 'playful']);
 assertType<Equals<z.infer<typeof narrationVoiceSchema>, NarrationVoice>>(true);
 assertType<Equals<z.infer<typeof narrationStyleSchema>, NarrationStyle>>(true);

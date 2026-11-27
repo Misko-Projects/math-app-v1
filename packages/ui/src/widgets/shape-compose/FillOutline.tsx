@@ -28,7 +28,7 @@ const COLOR: Record<string, string> = {
   rectangle: 'purple',
 };
 
-/** Tray gaps (px): badge to tile, tile to its turn button (room for Pip's hand), kind to kind. */
+/** Tray gaps (px): badge to tile, tile to its turn button (room for the guide's hand), kind to kind. */
 const BADGE_GAP = 6;
 const TURN_GAP = 28;
 /** A picked-up tile's ring (8 px out) stays 12 px clear of the next kind's tile. */
@@ -65,7 +65,7 @@ export function FillOutline({
   const h = b.maxY - b.minY;
   const minT = MIN_TARGET_PX[ageMode];
   // The tray: one column per piece kind, side by side: the turn button, then the count badge
-  // (never on the piece, whose corners a child counts), then the tile at the bottom, so Pip's
+  // (never on the piece, whose corners a child counts), then the tile at the bottom, so the guide's
   // hand, which hangs below an invited tile, touches nothing else (evidence review: it covered
   // the turn button). A column is minT + TURN_GAP + 64 (badge) + BADGE_GAP + tile tall (274 px in
   // K), so even four kinds fit the smallest area (960 × 600: about 289 px of height inside the
@@ -256,7 +256,7 @@ export function FillOutline({
     }
   }
 
-  // Pip's hand under the invited tray piece or turn button (kit useInviteHand).
+  // The guide's hand under the invited tray piece or turn button (kit useInviteHand).
   const { hand, rootStyle: handStyle } = useInviteHand(
     host,
     (r) =>

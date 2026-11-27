@@ -242,7 +242,7 @@ export function FractionPickWidget({
       : null;
   const inviteStimulus = invite?.op === 'count-parts' || invitedId === 'stimulus';
   const invitedSlot: 0 | 1 | null = pads && invite?.op === 'answer' && !invitedId ? active : null;
-  // Pip's up-pointing hand under the invited card, the picture or the box to type into (kit
+  // The guide's up-pointing hand under the invited card, the picture or the box to type into (kit
   // `useInviteHand`). Option ids are matched by value, not in a selector.
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     ref,

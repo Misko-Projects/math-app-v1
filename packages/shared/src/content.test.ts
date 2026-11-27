@@ -168,7 +168,7 @@ describe('content schemas round-trip', () => {
         text: 'Fill the shell to make ten. How many is {a} + {b}?',
         say: 'Fill the shell to make ten. How many is {a} plus {b}?',
       },
-      { text: 'Move {give} from this group to fill the ten.', voice: 'pip', style: 'playful' },
+      { text: 'Move {give} from this group to fill the ten.', voice: 'guide', style: 'playful' },
       { text: 'You made a ten. Count the ten too!', level: 'K' },
     ];
     for (const e of entries) expect(narrationEntrySchema.parse(e)).toStrictEqual(e);

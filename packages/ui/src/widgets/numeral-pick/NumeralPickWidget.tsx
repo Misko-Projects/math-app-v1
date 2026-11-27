@@ -105,7 +105,7 @@ export function NumeralPickWidget({
     ro.observe(grid);
     return () => ro.disconnect();
   }, [choiceStep]);
-  // Pip's up-pointing hand hangs below the invited card (kit `useInviteHand`), its fingertip inside
+  // The guide's up-pointing hand hangs below the invited card (kit `useInviteHand`), its fingertip inside
   // the card's bottom edge and clear of its numeral, word or picture.
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
@@ -194,7 +194,7 @@ export function NumeralPickWidget({
           ? { cols: n <= 4 ? 2 : 3, check: 'below' }
           : { cols: n, check: 'beside' },
     });
-  // Room below for Pip's pointer under an invited card, wherever a layout leaves it.
+  // Room below for the guide's pointer under an invited card, wherever a layout leaves it.
   const roomy = planIn(withInviteRoom(room));
   const plan = roomy.fits ? roomy : planIn(room);
   const box = plan.picture ?? { w: STIMULUS_BOX.width, h: STIMULUS_BOX.height };

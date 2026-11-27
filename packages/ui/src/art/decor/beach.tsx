@@ -1,7 +1,7 @@
 import { filled, paint } from '../core/paint';
 import { type DecorDef, decor, G1, Ground, Line, Loop, Shine, scallopFan, Twinkle } from './kit';
 
-/* Beach finds (05 §7 surprise gifts and "Pip found something!"): umbrella, castle, pool, sign, kite. */
+/* Beach finds (05 §7 surprise gifts and "The guide found something!"): umbrella, castle, pool, sign, kite. */
 
 const f = (n: number) => Number(n.toFixed(2));
 

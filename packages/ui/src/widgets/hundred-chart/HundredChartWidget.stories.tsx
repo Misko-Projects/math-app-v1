@@ -382,7 +382,7 @@ export const InviteFillTapAfterFilled: Story = {
     await expectInviteOn(root, key(root, '4'));
     await userEvent.click(key(root, '4'));
     await expectInviteOn(root, key(root, '7'));
-    // Pip's hand stands beside the key, in the free room between the chart and the pad: it lies
+    // The guide's hand stands beside the key, in the free room between the chart and the pad: it lies
     // on no chart cell (evidence round 1: it lay across the chart's edge, on the 0 of 70).
     const hand = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
     const chart = (root.querySelector('.ni-hc__chart') as HTMLElement).getBoundingClientRect();
@@ -506,7 +506,7 @@ function targets(root: HTMLElement): HTMLElement[] {
   ].filter((el): el is HTMLElement => el !== null);
 }
 
-/** The ring and Pip's hand are on ONE control, the fingertip on it, the ring clear of the rest. */
+/** The ring and the guide's hand are on ONE control, the fingertip on it, the ring clear of the rest. */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
   // A tapped control keeps its focus ring; the only ring on screen must be the invite.
   (document.activeElement as HTMLElement | null)?.blur();
@@ -621,7 +621,7 @@ const tensInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * K fill at the minimum (CNT.09.t2 tens): the window follows the blank being filled. Review F4:
- * an answer invite on the bottom-row 0 key keeps Pip's hand inside the area card (it may hang
+ * an answer invite on the bottom-row 0 key keeps the guide's hand inside the area card (it may hang
  * into the card's padding, covering nothing) and nothing scrolls.
  */
 export const FillTensKMinLandscape: Story = {
@@ -649,7 +649,7 @@ export const FillTensKMinLandscape: Story = {
     await expectHcFits(canvasElement, root, 'k');
     await expectTruthfulChart(root, fillTens);
     // Type the rest (the window follows the blanks) and check; the invite stays on, so the story
-    // ends with its one ring and Pip's hand on Check.
+    // ends with its one ring and the guide's hand on Check.
     await typeKeys(root, '0304050');
     await expect(cell(root, 50)).not.toBeNull();
     await expectTruthfulChart(root, fillTens);

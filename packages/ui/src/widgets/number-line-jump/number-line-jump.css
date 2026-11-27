@@ -227,7 +227,7 @@ button.ni-nlj__stone:disabled {
 
 /*
  * Hop controls are 12 px taller than wide: the arrow and size sit in the top, leaving the
- * bottom free for Pip's fingertip, so an invite's hand never covers the size it points at.
+ * bottom free for the guide's fingertip, so an invite's hand never covers the size it points at.
  */
 .ni-nlj__jumps {
   display: grid;
@@ -348,7 +348,7 @@ button.ni-nlj__stone:disabled {
   outline-offset: -9px;
 }
 
-/* Stacked: Pip's hand under a hop button hangs clear of the pad below (STACK_HAND_GAP). */
+/* Stacked: the guide's hand under a hop button hangs clear of the pad below (STACK_HAND_GAP). */
 .ni-nlj[data-layout="stack"] .ni-nlj__entry {
   margin-top: 32px;
 }
@@ -395,7 +395,7 @@ button.ni-nlj__stone:disabled {
   border-radius: var(--radius-pebble);
 }
 
-/* The answer above the pad: Pip's hand under Check or the minus hangs clear of the keys
+/* The answer above the pad: the guide's hand under Check or the minus hangs clear of the keys
    (ANSWER_HAND_GAP in the planner). */
 .ni-nlj__entry[data-dir="column"] {
   gap: 48px;

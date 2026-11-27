@@ -85,7 +85,7 @@ const PILE_HAND_ROOM = 44;
 const ZONE_PAD = 14;
 const ZONE_PAD_LEFT = 18;
 /**
- * The pile's invite ring (evidence review: Pip's hand crossed the ring on the pile's edge): a 5 px
+ * The pile's invite ring (evidence review: the guide's hand crossed the ring on the pile's edge): a 5 px
  * ring round the pile's units, 2 px clear of them, inside the pile; 3 px round the ring is the
  * pile's glyph, so the hand starts under it (kit useInviteHand) and never touches the stroke.
  */
@@ -512,7 +512,7 @@ export function MeasureLengthWidget({
     },
   });
 
-  // Pip's hand under the invited pile, ruler, options or answer box (kit useInviteHand).
+  // The guide's hand under the invited pile, ruler, options or answer box (kit useInviteHand).
   const { hand, rootStyle: handStyle } = useInviteHand(
     root,
     (r) => {
@@ -648,7 +648,7 @@ export function MeasureLengthWidget({
             p.onPointerDown(e);
           }}
         >
-          {/* The units are the pile's picture, in their ring's place: a glyph Pip's hand keeps
+          {/* The units are the pile's picture, in their ring's place: a glyph the guide's hand keeps
               clear of (it points under them and under the invite ring; evidence review). */}
           <span
             className="ni-mlen__pile-units ni-btn__label"
@@ -677,7 +677,7 @@ export function MeasureLengthWidget({
       <fieldset
         className="ni-mlen__stage"
         aria-label={name}
-        // A pile invited: room under the stage for Pip's hand, clear of the keypad and boxes.
+        // A pile invited: room under the stage for the guide's hand, clear of the keypad and boxes.
         style={invite?.startsWith('pile-') ? { marginBottom: PILE_HAND_ROOM } : undefined}
       >
         {!drawnUnits ? <div className="ni-mlen__piles">{units.map(pile)}</div> : null}

@@ -204,7 +204,7 @@ export function PlaceRelative({
     },
   });
 
-  // Pip's hand under the item to move (kit useInviteHand); an invited scene pulses instead.
+  // The guide's hand under the item to move (kit useInviteHand); an invited scene pulses instead.
   const { hand, rootStyle: handStyle } = useInviteHand(
     host,
     (r) => (invite === 'item' ? r.querySelector<HTMLElement>('.ni-scomp__item') : null),

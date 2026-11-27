@@ -77,7 +77,7 @@ import './tenframe-fill.css';
  * engine model: `{ cells, value? }` (engine README).
  *
  * Demo ops (03 §5.5): `show-addends`, `place`, `remove`, `move-counters`, `highlight`,
- * `count-total`, plus `answer`. One invite at a time: the ring and Pip's hand on the one control
+ * `count-total`, plus `answer`. One invite at a time: the ring and the guide's hand on the one control
  * the child uses next, only while the child can act.
  */
 

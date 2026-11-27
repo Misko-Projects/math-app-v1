@@ -395,7 +395,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo (03 §6.3), FRA.01.t4 seed 2's solution: Pip marks the fourths one by one. */
+/** Demo (03 §6.3), FRA.01.t4 seed 2's solution: the guide marks the fourths one by one. */
 export const DemoPartition: Story = {
   args: { disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -429,7 +429,7 @@ export const DemoHops: Story = {
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the middle of the strip, where the mark goes. */
+/** The child's turn: the guide's hand points at the middle of the strip, where the mark goes. */
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { config: stripHalves, demo: inviteController },
@@ -446,7 +446,7 @@ export const DemoInvite: Story = {
     await expect(r.bottom).toBeLessThanOrEqual(strip.bottom + 1);
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, spot, root);
     await expectSingleInvite(root);
-    // The story ends in the invited state: the ring and Pip's hand stay visible.
+    // The story ends in the invited state: the ring and the guide's hand stay visible.
     await expect(spot).toBeVisible();
     await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
   },

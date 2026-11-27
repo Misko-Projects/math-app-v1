@@ -46,7 +46,7 @@ export async function expectTraceOrdered(trace: InteractionEvent[]) {
 
 export type { WidgetConfig };
 /**
- * Pip's pointer is ON its target, measured at rest (the hand's tap bob and the ring's pulse paused
+ * The guide's pointer is ON its target, measured at rest (the hand's tap bob and the ring's pulse paused
  * at their start): the DRAWN fingertip (`HAND_POINTER_TIP` for the icon's direction) lies inside
  * the target's box, the hand box overlaps none of the target's glyphs (icon, numeral, digit or
  * word: `INVITE_GLYPH_SELECTOR`), and the hand, bob included, stays inside the widget.
@@ -93,7 +93,7 @@ export async function expectPointerOn(hand: HTMLElement, target: HTMLElement, wi
 }
 
 /**
- * Pip's hand at rest, its bob included, covers no other control: it stays ≥ `margin` px (default
+ * The guide's hand at rest, its bob included, covers no other control: it stays ≥ `margin` px (default
  * 12, 06 §4) from every target but `target` (the kit's `INVITE_TARGET_SELECTOR`) and overlaps no
  * glyph outside `target`. Returns the smallest gap to another target.
  */
@@ -324,7 +324,7 @@ export async function expectFitsArea(
 }
 
 /**
- * Pip's hand covers no other control's glyph (icon, numeral, digit or word): measured at rest, it
+ * The guide's hand covers no other control's glyph (icon, numeral, digit or word): measured at rest, it
  * may hang over another control's edge, never over what that control shows.
  */
 export async function expectHandOffGlyphsOf(hand: HTMLElement, others: Element[]) {

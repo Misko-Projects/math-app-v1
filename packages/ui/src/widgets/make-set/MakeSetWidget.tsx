@@ -94,7 +94,7 @@ const PILE_EDGE_Y = 2 * (26 + 3);
 /** The supply crate's taller top (44 px padding): its tag sits on the floor, under the rim. */
 const CRATE_TAG_Y = 44 - 26;
 /**
- * Under a drag invite the crate's bottom padding grows from 26 to 80 px: Pip's hand hangs ~52 px
+ * Under a drag invite the crate's bottom padding grows from 26 to 80 px: the guide's hand hangs ~52 px
  * below the invited object (with its tap bob), and stays ≥ 12 px above the 11 px rim.
  */
 const HAND_ROOM = 80 - 26;
@@ -140,7 +140,7 @@ const TENS_TAG_GAP = 2;
  * 96 × 168 (TENS_W wide).
  */
 const BUNDLE_ART_H = 168;
-/** The tied ten: the bundle, its "10" tag, and a 10 px strip under the tag for Pip's fingertip. */
+/** The tied ten: the bundle, its "10" tag, and a 10 px strip under the tag for the guide's fingertip. */
 const BUNDLE_H = BUNDLE_ART_H + TENS_TAG_GAP + TENS_TAG + 10;
 /**
  * Between the shown frame and the token beside it (a token keeps ≥ 16 px from the working
@@ -255,7 +255,7 @@ interface Flight {
 
 const ID = (i: number): ItemId => `set-${i}`;
 
-/** The "count" cue on Pip's hand: three counting dots in a row. */
+/** The "count" cue on the guide's hand: three counting dots in a row. */
 function CountDots() {
   return (
     <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" focusable="false">
@@ -349,7 +349,7 @@ export function MakeSetWidget({
   const [flyingId, setFlyingId] = useState<ItemId | null>(null);
   const [counting, setCounting] = useState<number | null>(null);
   /**
-   * After Pip counts aloud, the count marks stay up to the last object counted, and so does the
+   * After the guide counts aloud, the count marks stay up to the last object counted, and so does the
    * view counting used (a ten counted one by one stays in its frame, every object loose and
    * marked), until anything changes.
    */
@@ -361,7 +361,7 @@ export function MakeSetWidget({
   /** Between the shown frame and the thing beside it (TENS_GAP, or room for a bow). */
   const tensGap = config.groupsOf === 10 ? TENS_GAP_BOW : TENS_GAP;
   /**
-   * A drag invite points at the last object of the supply crate (its bottom row): Pip's hand hangs
+   * A drag invite points at the last object of the supply crate (its bottom row): the guide's hand hangs
    * below it, so the crate keeps room under its objects for the hand while the invite shows
    * (≥ 12 px above the crate's rim; `data-hand-room` in make-set.css, HAND_ROOM in the plans).
    */
@@ -579,7 +579,7 @@ export function MakeSetWidget({
           case 'count-aloud': {
             const now = view(stateRef.current);
             const n = now.count;
-            // One ten-frame at a time with the first ten beside the ones. Pip counts it as one
+            // One ten-frame at a time with the first ten beside the ones. The guide counts it as one
             // ten ("ten", on it; the K teen-number idea) only where it really is a ten: tied in
             // the model (groupsOf 10, bundled), or an item with no bundling, where the tie is just
             // how one frame shows a full ten. A ten still to be bundled (CNT.19 / PV.09: "count
@@ -1031,7 +1031,7 @@ export function MakeSetWidget({
   /**
    * A ten still to be bundled (groupsOf 10, nothing bundled) is counted one by one, each crab in
    * its own slot (see `count-aloud`). Counting that started with both frames in view can land in
-   * one-frame mode on the ones page (the host shrinks while Pip counts): the ten's frame comes back
+   * one-frame mode on the ones page (the host shrinks while the guide counts): the ten's frame comes back
    * before the next paint, so no number is spoken over the loose sheaf as a whole, and the view
    * stays as when counting starts in one frame.
    */
@@ -1055,10 +1055,10 @@ export function MakeSetWidget({
     }
   };
 
-  // Demo invite (03 §6.3): the ring and Pip's hand sit on the ONE thing the child acts on next.
+  // Demo invite (03 §6.3): the ring and the guide's hand sit on the ONE thing the child acts on next.
   // `answer` invites a drag or a remove, whichever moves the count towards the value.
   // The cue shows only while the child can act on it: never on a disabled control, and not while
-  // the widget is disabled or Pip is playing (the invite is kept and shows once input is back).
+  // the widget is disabled or the guide is playing (the invite is kept and shows once input is back).
   const cue = interactive;
   const answerWant = invite?.op === 'answer' ? Number(invite.args?.value) : Number.NaN;
   const inviteStep: 'drag' | 'remove' | null =
@@ -1125,7 +1125,7 @@ export function MakeSetWidget({
 
   const thingName = t(spriteNameKey(sprite));
 
-  // Pip's up-pointing hand hangs below the ONE invited thing (kit `useInviteHand`): an object, the
+  // The guide's up-pointing hand hangs below the ONE invited thing (kit `useInviteHand`): an object, the
   // frames, a hand card or a button, its fingertip inside the bottom edge and clear of the
   // button's icon.
   const invitedFinger = (h: 0 | 1) =>
@@ -1152,7 +1152,7 @@ export function MakeSetWidget({
               ? '.ni-mset__action .ni-btn.ni-invite'
               : null;
   /**
-   * What Pip's hand asks for, on its wrist (kit `useInviteHand` cue), so a remove invite never
+   * What the guide's hand asks for, on its wrist (kit `useInviteHand` cue), so a remove invite never
    * looks like a count invite on the same thing: "take one out" (an arrow up, out of the
    * container) or "count" (three counting dots).
    */
@@ -1294,7 +1294,7 @@ export function MakeSetWidget({
    * highlighted), then the ones in view; with the first ten shown, each one after it is counted on
    * its own cell of the small frame (steps 10 and up), the running number under that frame.
    * Any step on an object the tied ten holds lights the ten, not only step 9: the layout can
-   * change while Pip counts (the host shrinks to one frame after "one"), and a spoken number must
+   * change while the guide counts (the host shrinks to one frame after "one"), and a spoken number must
    * never be left without its highlight. Only a tied ten is lit as a whole: a ten still to be
    * bundled is counted crab by crab in its own frame (`looseTenCounted` above brings it back).
    */

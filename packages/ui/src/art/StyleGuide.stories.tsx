@@ -339,8 +339,8 @@ export const StyleGuide: Story = {
             Nooms.
           </li>
           <li>
-            Pip is a puffin ferry captain; Glim is a small lantern-robot. Neither copies an existing
-            character's silhouette, outfit or colours.
+            The guides (Shelly the turtle, the bunny 22) are felt plush toys; Glim is a small
+            lantern-robot. None copies an existing character's silhouette, outfit or colours.
           </li>
           <li>Any non-original asset is listed in LICENSES-ASSETS.md (none in the art kit).</li>
         </ul>

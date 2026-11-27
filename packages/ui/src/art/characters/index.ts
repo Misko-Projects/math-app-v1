@@ -1,8 +1,8 @@
-// Characters (05 §1, §5, §9; 07 §7; U02): Pip, Glim and the procedural Pebbling generator.
+// Characters (05 §5, §9; 07 §7; U02): Glim and the procedural Pebbling generator. The guides a
+// child chooses are in ../guides.
 export { CHARACTER_CONTRAST_PAIRS } from './contrast';
 export { GLIM_STATES, Glim, type GlimProps, type GlimState } from './Glim';
 export { Pebbling, type PebblingProps } from './Pebbling';
-export { PIP_POSES, Pip, type PipPose, type PipProps } from './Pip';
 export {
   COIN_LOOK,
   COIN_VALUES,

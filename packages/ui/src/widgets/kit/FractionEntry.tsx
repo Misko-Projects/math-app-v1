@@ -24,7 +24,7 @@ export interface FractionEntryProps {
   disabled?: boolean;
   /** One box with a decimal point instead of a fraction. */
   decimal?: boolean;
-  /** Demo: the key being pressed, and the box (or key) Pip points at. */
+  /** Demo: the key being pressed, and the box (or key) the guide points at. */
   pressedKey?: PadKey | null;
   invitedSlot?: 0 | 1 | null;
   captureKeyboard?: boolean;

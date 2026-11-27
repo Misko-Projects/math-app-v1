@@ -519,7 +519,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3), the ALG.01.t2 solution: Pip places each missing unit. */
+/** Demo mode (03 §6.3), the ALG.01.t2 solution: the guide places each missing unit. */
 export const DemoMode: Story = {
   args: { config: shapesExtend, disabled: true, demo: demoController, tier: 'pictorial' },
   play: async ({ canvasElement }) => {
@@ -552,7 +552,7 @@ export const DemoBracketCore: Story = {
 
 const ruleDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** `answer {value}`: Pip types the rule on the pad. */
+/** `answer {value}`: the guide types the rule on the pad. */
 export const DemoAnswerRule: Story = {
   args: { config: rule, disabled: true, demo: ruleDemo, tier: 'abstract' },
   play: async ({ canvasElement }) => {
@@ -564,7 +564,7 @@ export const DemoAnswerRule: Story = {
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the blank to fill (and the piece rings). */
+/** The child's turn: the guide's hand points at the blank to fill (and the piece rings). */
 export const Invite: Story = {
   args: { config: shapesFill, demo: inviteController, tier: 'pictorial' },
   render: inArea('tablet'),
@@ -575,14 +575,14 @@ export const Invite: Story = {
     await waitFor(() => expect(blank).toHaveClass('ni-invite'));
     await expect(units(root)[0]).not.toHaveClass('ni-invite');
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, blank, root);
-    // One invited control, one ring inside it; the story ends with Pip's hand visible under it.
+    // One invited control, one ring inside it; the story ends with the guide's hand visible under it.
     await expectOneInvite(root);
   },
 };
 
 const clearController: WidgetDemo = createDemoController({ strict: true });
 
-/** Clearing an invite (`invite(null)`) takes Pip's hand and the ring away. */
+/** Clearing an invite (`invite(null)`) takes the guide's hand and the ring away. */
 export const InviteCleared: Story = {
   args: { config: shapesFill, demo: clearController, tier: 'pictorial' },
   play: async ({ canvasElement }) => {

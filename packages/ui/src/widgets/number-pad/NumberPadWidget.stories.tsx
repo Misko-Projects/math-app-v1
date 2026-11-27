@@ -287,7 +287,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3): Pip types the answer key by key, then invites the child's step. */
+/** Demo mode (03 §6.3): the guide types the answer key by key, then invites the child's step. */
 export const DemoMode: Story = {
   args: { config: twoBlanks, tier: 'pictorial', disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -330,7 +330,7 @@ const quotedController: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * Blanks whose IDs hold a quote or are empty (any string is a valid ID): inviting each rings that
- * blank and Pip's hand points at it; the widget stays mounted.
+ * blank and the guide's hand points at it; the widget stays mounted.
  */
 export const DemoInviteQuotedId: Story = {
   args: { config: quotedBlanks, tier: 'pictorial', demo: quotedController },

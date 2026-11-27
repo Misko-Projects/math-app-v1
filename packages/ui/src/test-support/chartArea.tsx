@@ -122,7 +122,7 @@ export function recordControls(story: string, groups: Record<string, Element[]>)
 /**
  * Demo invite (03 §6.3): exactly one invited control and one ring, drawn inside the control's own
  * box (outline offset ≤ −width), so the full 12 px target gap stays clear of every other outline;
- * Pip's hand is visible.
+ * The guide's hand is visible.
  */
 export async function expectOneInvite(root: HTMLElement) {
   const invited = [...root.querySelectorAll<HTMLElement>('.ni-invite')];

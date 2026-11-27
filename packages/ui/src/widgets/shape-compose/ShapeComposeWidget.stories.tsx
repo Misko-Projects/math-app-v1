@@ -1024,7 +1024,7 @@ export const DemoDraw: Story = {
 
 const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the piece to place. */
+/** The child's turn: the guide's hand points at the piece to place. */
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteDemo },

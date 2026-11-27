@@ -436,8 +436,8 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), the DAT.02.t2 solution: Pip reads each bar across to the axis, counts the
- * pictures, types the answer. Input stays off while Pip plays.
+ * Demo mode (03 §6.3), the DAT.02.t2 solution: the guide reads each bar across to the axis, counts the
+ * pictures, types the answer. Input stays off while the guide plays.
  */
 export const DemoMode: Story = {
   args: { config: barDifference, disabled: true, demo: demoController },
@@ -462,7 +462,7 @@ export const DemoMode: Story = {
 
 const countController: WidgetDemo = createDemoController({ strict: true });
 
-/** `count-pictures`: Pip rings the pictures one by one and counts them aloud (num.* clips). */
+/** `count-pictures`: the guide rings the pictures one by one and counts them aloud (num.* clips). */
 export const DemoCountPictures: Story = {
   args: { disabled: true, demo: countController },
   parameters: { ui: { audio: spyAudio() } },
@@ -507,7 +507,7 @@ export const DemoReducedMotion: Story = {
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn (faded example): Pip's hand points at the category to tap. */
+/** The child's turn (faded example): the guide's hand points at the category to tap. */
 export const Invite: Story = {
   args: { config: pictureLeast, demo: inviteController },
   render: inArea('tablet'),
@@ -519,14 +519,14 @@ export const Invite: Story = {
     const hand = root.querySelector('.ni-hand') as HTMLElement;
     await expectPointerOn(hand, card, root);
     await expect(card).toBeEnabled();
-    // One invited control, one ring inside it; the story ends with Pip's hand visible under it.
+    // One invited control, one ring inside it; the story ends with the guide's hand visible under it.
     await expectOneInvite(root);
   },
 };
 
 const clearController: WidgetDemo = createDemoController({ strict: true });
 
-/** Clearing an invite (`invite(null)`) takes Pip's hand and the ring away. */
+/** Clearing an invite (`invite(null)`) takes the guide's hand and the ring away. */
 export const InviteCleared: Story = {
   args: { config: pictureLeast, demo: clearController },
   play: async ({ canvasElement }) => {
@@ -798,7 +798,7 @@ export const ChoiceUndo: Story = {
 
 const stepperInvite: WidgetDemo = createDemoController({ strict: true });
 
-/** K invite on a counting question: one ring, on "one more", with Pip's hand under it. */
+/** K invite on a counting question: one ring, on "one more", with the guide's hand under it. */
 export const InviteStepperK: Story = {
   globals: { ageMode: 'k' },
   args: { demo: stepperInvite },

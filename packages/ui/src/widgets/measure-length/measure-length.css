@@ -30,7 +30,7 @@
   position: relative;
   display: flex;
 }
-/* The units sit at the top of the pile (their glyph and invite ring), room under them for Pip's
+/* The units sit at the top of the pile (their glyph and invite ring), room under them for the guide's
    finger when the pile is invited. */
 .ni-mlen__pile {
   display: grid;

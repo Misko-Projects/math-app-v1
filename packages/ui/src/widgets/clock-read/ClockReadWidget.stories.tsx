@@ -328,7 +328,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo: Pip points at the short hand (it lights up, the hand pointer rests on it), counts the long
+ * Demo: the guide points at the short hand (it lights up, the hand pointer rests on it), counts the long
  * hand round by fives (5, 10, … 30, a dot on each five-minute mark) and types 3:30.
  */
 export const DemoMode: Story = {
@@ -457,7 +457,7 @@ export const PickMaxLandscapeMin: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo invite (03 §6.3): Pip invites the child to type the time: the hours box is ringed and Pip's hand hangs under it. The story ends in the invited state, so the settled
+ * Demo invite (03 §6.3): the guide invites the child to type the time: the hours box is ringed and the guide's hand hangs under it. The story ends in the invited state, so the settled
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {

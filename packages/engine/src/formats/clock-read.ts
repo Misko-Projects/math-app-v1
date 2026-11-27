@@ -3,7 +3,7 @@
 // `options` (#84: hour picks use the numeric ids `opt-<h>`); `ampm` (TIM.05) answers `am` | `pm`.
 // The face's hands come from the one time `time` (formats/clock.ts).
 //
-// Ops: `point-hour`, `point-minute` (Pip points at a hand), `count-fives {to}` (count the long
+// Ops: `point-hour`, `point-minute` (the guide points at a hand), `count-fives {to}` (count the long
 // hand round by fives from 12 to minute `to`), and the generic `answer {values}` / `{id}`.
 
 import { type AnswerSpec, clockReadConfigSchema, type WidgetConfigOf } from '@number-island/shared';

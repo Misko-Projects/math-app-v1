@@ -55,14 +55,14 @@ type Config = ConfigFor<'compare-length'>;
 type Obj = Config['objects'][number];
 
 /**
- * Room under an invited lane for Pip's hand (it hangs about 45 px below the lane): 8+ px clear of
+ * Room under an invited lane for the guide's hand (it hangs about 45 px below the lane): 8+ px clear of
  * the next lane (evidence review).
  */
 const HAND_ROOM = 44;
 /**
  * The ring around a picked or invited object (evidence review): 6 px inside its lane, a 5 px
  * stroke, 6 px clear of the drawing on every side, and 4+ px right of the start line (it then
- * leaves the left tip of an object on the line outside). Under it 28 px of lane, so Pip's hand
+ * leaves the left tip of an object on the line outside). Under it 28 px of lane, so the guide's hand
  * (which starts below the ring, `RING_ZONE` px clear) points inside the object's box with its
  * fingertip 8+ px above the lane's bottom border.
  */
@@ -359,7 +359,7 @@ export function CompareLengthWidget({
   const longest = sorted[sorted.length - 1] as Obj;
   const endOf = (o: Obj) => startPx(o) + o.length * unit;
 
-  // Pip's hand under the invited object, badge, string or answer box (kit useInviteHand).
+  // The guide's hand under the invited object, badge, string or answer box (kit useInviteHand).
   const { hand, rootStyle: handStyle } = useInviteHand(
     root,
     (r) => {
@@ -389,7 +389,7 @@ export function CompareLengthWidget({
             .join(' ')}
           data-badge={slot}
         >
-          {/* The numeral is a glyph Pip's hand keeps clear of (kit useInviteHand). */}
+          {/* The numeral is a glyph the guide's hand keeps clear of (kit useInviteHand). */}
           <span className="ni-btn__label">{slot + 1}</span>
         </span>
       </span>
@@ -409,7 +409,7 @@ export function CompareLengthWidget({
         key={o.id}
         className="ni-clen__lane"
         data-lane={o.id}
-        // Invited: room under the lane for Pip's hand, which hangs below the object, so it never
+        // Invited: room under the lane for the guide's hand, which hangs below the object, so it never
         // reaches the next lane (evidence review).
         style={{ height: rowH, marginBottom: invite === o.id ? HAND_ROOM : undefined }}
       >
@@ -524,7 +524,7 @@ export function CompareLengthWidget({
             <LengthObject sprite={o.sprite} width={objW} height={artH} />
             {invite === o.id ? (
               // The ring encloses the whole drawing. Invited, its zone (the ring and 4 px round
-              // it) is the control's glyph, so Pip's hand starts under the ring, never on it.
+              // it) is the control's glyph, so the guide's hand starts under the ring, never on it.
               <span
                 className={['ni-clen__ring-zone', invite === o.id ? 'ni-btn__label' : '']
                   .filter(Boolean)
@@ -594,7 +594,7 @@ export function CompareLengthWidget({
           })()}
           <div
             className="ni-clen__badge-grid"
-            // A badge invited: room under its row for Pip's hand, clear of the badge below.
+            // A badge invited: room under its row for the guide's hand, clear of the badge below.
             style={invite?.startsWith('slot-') ? { rowGap: 12 + HAND_ROOM } : undefined}
           >
             {config.objects.map((_, slot) =>

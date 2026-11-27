@@ -19,8 +19,8 @@ export const clipIdSchema = z.string().min(1);
 
 /**
  * 02 §5.5: the id of a clip-set clip (03 §8.3) in a character's own voice. The narrator's ids carry
- * no voice, so every existing id is the narrator's: `voiceClipId('num.23#0', 'pip')` is
- * `pip:num.23#0`, and `voiceClipId('num.23#0', 'narrator')` is `num.23#0`.
+ * no voice, so every existing id is the narrator's: `voiceClipId('num.23#0', 'guide')` is
+ * `guide:num.23#0`, and `voiceClipId('num.23#0', 'narrator')` is `num.23#0`.
  */
 export function voiceClipId(clip: ClipId, voice: NarrationVoice): ClipId {
   return voice === 'narrator' ? clip : `${voice}:${clip}`;

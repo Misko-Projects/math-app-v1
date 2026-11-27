@@ -148,7 +148,7 @@ export function planPhrases(narration: NarrationJson, parts: readonly PhrasePart
 
 /**
  * The clips of clip-set keys (`num.23`) spoken in `voice`. Each clip tries the voice's own clip
- * (`pip:num.23#0`), then the narrator's (`num.23#0`), so a missing voice clip still stitches
+ * (`guide:num.23#0`), then the narrator's (`num.23#0`), so a missing voice clip still stitches
  * (02 §5.5, 03 §8.3).
  */
 function keysToClips(

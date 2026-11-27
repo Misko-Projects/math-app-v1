@@ -134,7 +134,7 @@
   outline-offset: 2px;
 }
 /* The line is a quiet drop target: no teal ring while the flag is picked up or dragged over it
-   (the one teal ring is Pip's invite); a soft foam wash says "put it here". */
+   (the one teal ring is the guide's invite); a soft foam wash says "put it here". */
 .ni-nlp .ni-nlp__strip.ni-drop-target[data-armed="true"],
 .ni-nlp .ni-nlp__strip.ni-drop-target[data-over="true"] {
   outline-color: transparent;

@@ -66,7 +66,7 @@ function score(v: SpeechSynthesisVoice): number {
 }
 
 /**
- * Picks the narrator, Pip and Glim voices from the device's on-device English voices; null when
+ * Picks the narrator, the guide and Glim voices from the device's on-device English voices; null when
  * there are none, and then nothing is spoken. Glim (the lantern-robot helper, 07 §7) gets a
  * different voice from the narrator when one exists, and a higher, slightly brisker delivery
  * either way, so children can always tell an AI line from the narrator.
@@ -84,7 +84,7 @@ export function pickVoices(
   const glimShared = glim === narrator;
   return {
     narrator: { voice: narrator, pitch: 1, rateScale: 0.95 },
-    pip: { voice: narrator, pitch: 1.25, rateScale: 1.02 },
+    guide: { voice: narrator, pitch: 1.25, rateScale: 1.02 },
     glim: { voice: glim, pitch: glimShared ? 1.5 : 1.3, rateScale: 1.04 },
   };
 }

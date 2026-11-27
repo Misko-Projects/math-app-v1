@@ -22,7 +22,7 @@ The module default-exports a `WidgetComponent<'tap-count'>`. Because entries are
 widget lands in the chunk of the workshop that first renders it (02 §6). `preloadWidget(format)`
 starts a load early, for example to prefetch the recommended workshop (06 §8).
 
-A format with no entry renders `PlaceholderWidget`: Pip says the game is still being built, and
+A format with no entry renders `PlaceholderWidget`: the guide says the game is still being built, and
 "next" answers `{ kind: 'skip' }`, so a session never gets stuck. The placeholder also shows when a
 widget fails to load or throws while rendering (`WidgetHost` has an error boundary). In development
 it tags the missing format.

@@ -1700,8 +1700,8 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo (03 §6.3), 42 − 15 with the algorithm and the pad: Pip splits a ten, takes five ones and a
- * ten, writes 7 and 2 under the line and types 27. Input stays off while Pip plays.
+ * Demo (03 §6.3), 42 − 15 with the algorithm and the pad: the guide splits a ten, takes five ones and a
+ * ten, writes 7 and 2 under the line and types 27. Input stays off while the guide plays.
  */
 export const DemoPlay: Story = {
   args: {
@@ -1735,7 +1735,7 @@ export const DemoPlay: Story = {
 
 const combineController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo: Pip adds the waiting ten and ones (they fly onto the mat) and groups ten ones. */
+/** Demo: the guide adds the waiting ten and ones (they fly onto the mat) and groups ten ones. */
 export const DemoPlayCombine: Story = {
   args: { disabled: true, demo: combineController },
   play: async ({ canvasElement }) => {
@@ -1776,7 +1776,7 @@ export const DemoReducedMotion: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn (03 §6.3): Pip's hand points at the button to press, the group to add, the
+ * The child's turn (03 §6.3): the guide's hand points at the button to press, the group to add, the
  * column to take from, and the answer box.
  */
 export const DemoInvite: Story = {
@@ -1791,7 +1791,7 @@ export const DemoInvite: Story = {
     inviteController.invite({ op: 'answer', args: { value: 42 } });
     await waitFor(() => expect(root.querySelector('.ni-btt__answer.ni-invite')).not.toBeNull());
     await expectPointerOn(hand(), q(root, '.ni-btt__answer'), root);
-    // The child adds the groups; then Pip points at the button that groups ten ones.
+    // The child adds the groups; then the guide points at the button that groups ten ones.
     inviteController.invite(null);
     await tapPlace(pending(root, 'tens'), columnPad(root, 'tens'));
     await tapPlace(pending(root, 'ones'), columnPad(root, 'ones'));
@@ -1807,7 +1807,7 @@ export const DemoInvite: Story = {
 
 const takeInviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn in a take-away: Pip points at the tens column (drag one into the nest). */
+/** The child's turn in a take-away: the guide points at the tens column (drag one into the nest). */
 export const DemoInviteTake: Story = {
   args: { demo: takeInviteController, config: { ...take42minus15, showAlgorithm: true } },
   play: async ({ canvasElement }) => {
@@ -1846,7 +1846,7 @@ async function expectTradeIconSize(button: HTMLElement, w: number, h: number) {
 const algoInviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The child's turn with the algorithm and a typed answer (G1, captioned trade buttons): Pip's
+ * The child's turn with the algorithm and a typed answer (G1, captioned trade buttons): the guide's
  * up-pointing hand hangs below the split button (clear of its icon and word), the answer's box
  * being typed into, a named result box and the column to take from. One hand at a time.
  */
@@ -1908,7 +1908,7 @@ const outcomeOf = (playing: Promise<void>, ms: number) =>
   ]);
 
 /**
- * The host moves on while Pip is mid-op: the widget unmounts and the op's promise settles at once,
+ * The host moves on while the guide is mid-op: the widget unmounts and the op's promise settles at once,
  * both before a take commits (same tick) and in the middle of a trade's animation.
  */
 export const DemoSettlesOnUnmount: Story = {

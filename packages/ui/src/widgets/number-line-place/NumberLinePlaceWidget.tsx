@@ -67,7 +67,7 @@ import './number-line-place.css';
  * (measured, so its ticks and numerals are drawn at their real pixel size); the pad keeps full-size
  * keys and turns into four columns of three rows when four rows would not fit.
  *
- * Invites (03 §6.3) ring ONE enabled control and Pip's hand (kit `useInviteHand`) points at it,
+ * Invites (03 §6.3) ring ONE enabled control and the guide's hand (kit `useInviteHand`) points at it,
  * only while the child can act: in `place` every op invites the flag (the child's step is always
  * to plant it), then Check once an `answer` value is planted; in `read` the next pad key (minus
  * first below zero), then Check; in `closer` the benchmark card, then Check.
@@ -137,12 +137,12 @@ const headroomFor = (c: Config, target: number) =>
 const BELOW = 64;
 
 /**
- * Rows of pad keys are 26 px apart (not 12): Pip's hand under a key then hangs clear of the digit
+ * Rows of pad keys are 26 px apart (not 12): the guide's hand under a key then hangs clear of the digit
  * on the key below it.
  */
 const PAD_ROW_GAP = 26;
 /**
- * The pad's digit size for its key: small enough that Pip's hand, lowered to clear the invited
+ * The pad's digit size for its key: small enough that the guide's hand, lowered to clear the invited
  * key's own digit, still hangs clear of the digit on the key below (never under 32 px).
  */
 const padDigit = (key: number) =>
@@ -1305,7 +1305,7 @@ export function NumberLinePlaceWidget({
         {
           '--pad-key': `${plan.pad.key}px`,
           '--pad-row-gap': `${PAD_ROW_GAP}px`,
-          // Digits sized so Pip's hand clears its own key's digit and the one below.
+          // Digits sized so the guide's hand clears its own key's digit and the one below.
           '--pad-digit': padDigit(plan.pad.key),
           ...handRootStyle,
         } as CSSProperties

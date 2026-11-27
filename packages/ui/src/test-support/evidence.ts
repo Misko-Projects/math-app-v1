@@ -60,13 +60,13 @@ export function recordEvidence(anchor: Element | null, entries: Record<string, u
   host.setAttribute('data-evidence', JSON.stringify({ ...prev, ...entries }));
 }
 
-/** What `recordKeyRects` measures: every control, the invite ring and Pip's hand. */
+/** What `recordKeyRects` measures: every control, the invite ring and the guide's hand. */
 const KEY_PARTS =
   'button, [role="button"], [role="slider"], [role="application"], .ni-invite, .ni-hand';
 
 /**
  * Evidence for every story (a story meta's `afterEach`): the live rects of the widget's key
- * parts (every control, the invite ring, Pip's hand) as `"x,y,w,h"` in CSS px from the story's
+ * parts (every control, the invite ring, the guide's hand) as `"x,y,w,h"` in CSS px from the story's
  * area (or stage) box, under `rects` in its `data-evidence`. Names are the part's accessible
  * name (or its first class), numbered when repeated; the ring is `ring:…`, the hand `hand`.
  */
@@ -307,7 +307,7 @@ export async function expectNumeralInk(root: Element, selector: string, min = 32
 }
 
 /**
- * Pip's whole hand (its box, and where its tap bob takes it: 6 px left, 8 px down) touches no
+ * The guide's whole hand (its box, and where its tap bob takes it: 6 px left, 8 px down) touches no
  * control but the invited one: every element of `others` (neighbouring controls, frames that are
  * not the invited control's own container) is clear of it. Returns the smallest clearance (px).
  */

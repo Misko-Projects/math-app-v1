@@ -54,27 +54,27 @@ game.island.name.boat:
   level: K
 game.island.welcome.shell:
   text: "Welcome to Shell Island!"
-  voice: pip
+  voice: guide
   level: K
 game.island.welcome.lantern:
   text: "Welcome to Lantern Island!"
-  voice: pip
+  voice: guide
   level: K
 game.island.welcome.stone:
   text: "Welcome to Stone Island!"
-  voice: pip
+  voice: guide
   level: K
 game.island.welcome.garden:
   text: "Welcome to Garden Island!"
-  voice: pip
+  voice: guide
   level: K
 game.island.welcome.lighthouse:
   text: "Welcome to Lighthouse Island!"
-  voice: pip
+  voice: guide
   level: K
 game.island.welcome.boat:
   text: "Welcome to Boat Island!"
-  voice: pip
+  voice: guide
   level: K
 
 # ---------- buildings (game.building.<id>): spoken names ----------
@@ -666,8 +666,8 @@ req.help:
 req.idea:
   text: "I know a fun new trick! Want to try it with me?"
 
-# ---------- Pip ----------
-game.pip.welcome:
-  text: "Welcome to the island! I'm Pip."
-  voice: pip
+# ---------- the guide (05 §1: every guide says the same lines, none says its name) ----------
+game.guide.welcome:
+  text: "Welcome to the island!"
+  voice: guide
   style: excited

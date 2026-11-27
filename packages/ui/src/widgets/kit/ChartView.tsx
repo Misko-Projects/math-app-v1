@@ -45,7 +45,7 @@ export interface ChartViewProps {
   renderLabel?: (slot: SlotGeometry, content: ReactNode) => ReactNode;
   /** Draws over the chart in its own px coordinates (drop targets, handles). */
   renderOverlay?: (g: ChartGeometry) => ReactNode;
-  /** A slot Pip points at (demo `point-bar`). */
+  /** A slot the guide points at (demo `point-bar`). */
   pointed?: string | null;
   /** A bar whose top is followed across to the axis (demo `read-axis`). */
   readLine?: string | null;

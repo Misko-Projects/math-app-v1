@@ -51,7 +51,7 @@ If a key is missing, the issue still completes with stub or mock providers and r
 
 - Add keys to `~/.config/math-app-v1/secrets.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
 - Ask Google whether build-time narration rendering for a children's app is permitted (07 §3). If not, switch to `NARRATION_PROVIDER=kokoro`.
-- Pick the narrator, Pip and Glim voices from `pnpm narration:audition` output (defaults until then: Sulafat, Puck, Achird).
+- Pick the narrator, the guide and Glim voices from `pnpm narration:audition` output (defaults until then: Sulafat, Puck, Achird).
 - Verify on the real tablet: PWA install, Amazon Kids profile access, audio behaviour (checklist in `docs/PLAYTEST.md`).
 - Playtest with the kids using `docs/PLAYTEST.md`, then file feedback as issues.
 - Deploy to Cloudflare later (`docs/DEPLOY.md`).

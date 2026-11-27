@@ -607,7 +607,7 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3): Pip counts up as it pays 40¢ (25, 35, 40: each the tray's exact sum), says
+ * Demo mode (03 §6.3): the guide counts up as it pays 40¢ (25, 35, 40: each the tray's exact sum), says
  * the total, takes a coin back and pays with `answer`; then invites the child to drop a dime.
  */
 export const DemoMode: Story = {
@@ -749,7 +749,7 @@ export const DollarLandscapeMin: Story = {
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo invite (03 §6.3): Pip invites the child to drop a dime: the dime on top of its stack is ringed and Pip's hand hangs under it. The story ends in the invited state, so the settled
+ * Demo invite (03 §6.3): the guide invites the child to drop a dime: the dime on top of its stack is ringed and the guide's hand hangs under it. The story ends in the invited state, so the settled
  * picture shows the ring and the hand.
  */
 export const DemoInvite: Story = {

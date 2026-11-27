@@ -476,7 +476,7 @@ function TrayDemo() {
           [
             ['idle', 4, {}],
             ['picked', 5, { selected: true }],
-            ['shown by Pip (demo)', 6, { highlighted: true }],
+            ['shown by the guide (demo)', 6, { highlighted: true }],
             ['off', 7, { disabled: true }],
           ] as const
         ).map(([state, n, flags]) => (
@@ -528,10 +528,10 @@ export const ChoicesK: Story = {
   },
 };
 
-// ---------- Pip's invite hand: never over another control ----------
+// ---------- the guide's invite hand: never over another control ----------
 
 /**
- * A 3 × 3 grid of K buttons with Pip's invite on one of them (kit `useInviteHand`, no fixed side).
+ * A 3 × 3 grid of K buttons with the guide's invite on one of them (kit `useInviteHand`, no fixed side).
  * `colGap` / `rowGap` set the room between the buttons.
  */
 function InviteGrid({
@@ -610,7 +610,7 @@ async function inviteHandOn(canvasElement: HTMLElement, invite: number) {
 }
 
 /**
- * The middle button of a 3 × 3 grid whose rows are only 16 px apart: Pip's hand below it would
+ * The middle button of a 3 × 3 grid whose rows are only 16 px apart: the guide's hand below it would
  * cover the button under it (and above it, the one over it), so the kit points from beside it,
  * where the columns leave room; the hand stays ≥ 12 px from all eight other buttons and their
  * numerals.

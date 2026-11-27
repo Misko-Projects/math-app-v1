@@ -1255,7 +1255,7 @@ describe('hosting and the Practice Pier (04 §6.3)', () => {
     }
   });
 
-  it('uses the input pier capability, an island resident, else Pip', () => {
+  it('uses the input pier capability, an island resident, else the guide', () => {
     const unavailable = cap('road-crew', ['tap-count'], { available: false, residents: ['nib'] });
     const withPier = plan(
       input({ workshopsAvailable: [cap(PRACTICE_PIER, ['tap-count'], { residents: ['pebble'] })] }),
@@ -1270,7 +1270,7 @@ describe('hosting and the Practice Pier (04 §6.3)', () => {
     const anyCap = plan(input({ workshopsAvailable: [unavailable], island: island([]) }));
     expect(anyCap.requests[0]?.residentId).toBe('nib');
     const none = plan(input({ workshopsAvailable: [], island: island([]) }));
-    expect(none.requests.map((r) => r.residentId)).toEqual(['pip', 'pip']);
+    expect(none.requests.map((r) => r.residentId)).toEqual(['guide', 'guide']);
     // The synthesised pier hosts every format.
     expect(ITEM_FORMATS.length).toBeGreaterThan(30);
   });

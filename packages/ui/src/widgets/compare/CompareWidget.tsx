@@ -72,7 +72,7 @@ import './compare.css';
  * answer row goes below the sides, or in a column beside them when that gives bigger pictures.
  *
  * Demo ops (03 §5.5): `match {left, right}`, `highlight {side}`, `place-symbol {symbol}`, plus
- * `answer {id}`. An invite rings ONE enabled control and Pip's hand points at it (kit
+ * `answer {id}`. An invite rings ONE enabled control and the guide's hand points at it (kit
  * `useInviteHand`), only while the child can act.
  */
 
@@ -199,7 +199,7 @@ function Thumb({ up }: { up: boolean }) {
 }
 
 /**
- * "This one" at the start of a match row: Pip's pointing hand, turned to point along its row, so
+ * "This one" at the start of a match row: the guide's pointing hand, turned to point along its row, so
  * a pre-reader sees which row the card picks (a bare triangle read as "play").
  */
 function RowPointer() {
@@ -235,12 +235,12 @@ const ROOT_PAD = { x: 8, y: 6 };
 /** Between the sides (and the gap or relation between them), and between sides and answers. */
 const SIDE_GAP = 24;
 /**
- * Between stacked sides the child picks: room for Pip's hand under the upper card (it hangs
+ * Between stacked sides the child picks: room for the guide's hand under the upper card (it hangs
  * ~46 px below the card, bob included) ≥ 12 px clear of the card below, past its 6 px ledge.
  */
 const STACK_PICK_GAP = 53;
 /**
- * Length strips (stacked ribbons over one ruler) keep the plain gap between the rows: Pip points
+ * Length strips (stacked ribbons over one ruler) keep the plain gap between the rows: the guide points
  * at a strip from its right instead (the ribbons and the ruler are its glyphs), so the answers
  * column stands this far off: the hand's 38 px reach past the card plus 12 px clear, and more.
  */
@@ -264,7 +264,7 @@ const OBJ_GAP = 18;
 /** Pictures never grow past this (an unbounded story stage, or a huge tablet). */
 const MAX_SIDE_H = 420;
 /**
- * Room Pip's hand needs under the content's lowest control, past the widget's 6 px padding: the
+ * Room the guide's hand needs under the content's lowest control, past the widget's 6 px padding: the
  * kit hangs it ~18 px up that control, 56 px tall, plus its 8 px bob and a 10 px edge (57 px from
  * the control's bottom to the widget's). A widget that can invite (a demo is attached) plans its
  * layout without it, so an invite never moves anything or scrolls.
@@ -365,7 +365,7 @@ function planLayout(opts: {
   stackOnly?: boolean;
   /** Height under the stacked sides for a shared ruler (length strips). */
   rulerH?: number;
-  /** Height held back for Pip's hand (a widget that can invite). */
+  /** Height held back for the guide's hand (a widget that can invite). */
   handRoom?: number;
 }): Plan {
   const { room, specs, mid, answer, match } = opts;
@@ -376,7 +376,7 @@ function planLayout(opts: {
   // Match rows only when both rows fit at full target size with the answer controls; then the
   // biggest objects (up to 1.5 ×) that still fit, so the rows use the room.
   // Match rows win over the hand's room: rows that fit only without it still beat the pictures
-  // (10 against 9 in K at the tablet area), and Pip's hand then makes its own room below.
+  // (10 against 9 in K at the tablet area), and the guide's hand then makes its own room below.
   const fullH = H + (opts.handRoom ?? 0);
   const heights = !match ? [] : fullH > H ? [H, fullH] : [H];
   for (const h of heights) {
@@ -735,7 +735,7 @@ export function CompareWidget({
   const ruler = specs.every((sp) => isLengthStrip(sp, ask)) ? sharedRange(specs) : null;
   const strips = ruler !== null;
   const bounded = room !== null && Number.isFinite(room.height);
-  // A widget in a bounded room fills its height and keeps room under its content for Pip's hand
+  // A widget in a bounded room fills its height and keeps room under its content for the guide's hand
   // (see `lift` below). When centring the planned layout leaves less than `HAND_ROOM` there, the
   // layout is planned again with that much held back (once per room size, so it never flips).
   const reserve = bounded && room !== null;
@@ -784,7 +784,7 @@ export function CompareWidget({
   const matchMode = plan.arrange === 'match';
 
   /**
-   * Pip's hand under the lowest control (an answer, a row's "this one") needs `HAND_ROOM` below
+   * The guide's hand under the lowest control (an answer, a row's "this one") needs `HAND_ROOM` below
    * the content. Any widget may be invited (03 §6.3), so the room is there in both states, with
    * an invite and without, and an invite never moves anything: the widget fills its room's height
    * with its content centred, raised just enough to leave that room under it (`lift`).
@@ -1423,7 +1423,7 @@ export function CompareWidget({
       : {}),
     '--cmp-gap': `${ANSWER_GAP}px`,
     '--cmp-side-gap': `${stacked && sidePick && !strips ? STACK_PICK_GAP : SIDE_GAP}px`,
-    // Beside length strips, the answers stand off far enough for Pip's hand at a strip's right.
+    // Beside length strips, the answers stand off far enough for the guide's hand at a strip's right.
     '--cmp-stage-gap': `${strips && sidePick && plan.answers === 'column' ? STRIP_ANSWER_GAP : ANSWER_GAP}px`,
     '--cmp-row-gap': `${ROW_GAP}px`,
     '--cmp-choice-gap': `${CHOICE_GAP}px`,

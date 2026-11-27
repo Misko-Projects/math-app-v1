@@ -174,7 +174,7 @@ function useBalancedRow(key: string, enabled: boolean) {
 }
 
 /**
- * The element an invite key (`inviteTarget`) names, for Pip's hand: a card (`card-40`,
+ * The element an invite key (`inviteTarget`) names, for the guide's hand: a card (`card-40`,
  * `placed-1`), the mat or tray (`build`, `tray`), a blank (`blank-<id>`, cards or pad), a word card
  * (`opt-<id>`), or for a digit of the target (`digit-<i>`) the strip just under its numeral: a
  * digit is its own glyph, so the hand points up at it from below instead of covering it.
@@ -741,7 +741,7 @@ export function ExpandedFormWidget({
     active,
   });
   const marked = (key: string) => invited === key || flash === key;
-  // Pip's up-pointing hand hangs below the ONE invited thing (kit `useInviteHand`), its fingertip
+  // The guide's up-pointing hand hangs below the ONE invited thing (kit `useInviteHand`), its fingertip
   // inside the bottom edge and clear of the thing's glyph; the ring stays on the thing itself.
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
@@ -872,7 +872,7 @@ export function ExpandedFormWidget({
               >
                 {d}
                 {invited === key ? (
-                  // Where Pip's hand points at an invited digit: a strip just under the numeral,
+                  // Where the guide's hand points at an invited digit: a strip just under the numeral,
                   // so the up-pointing hand hangs below the digit and never covers it.
                   <span className="ni-efw__nd-tip" aria-hidden="true" />
                 ) : null}

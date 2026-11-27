@@ -352,7 +352,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3): Pip slides beads, highlights them and counts them all (picks 12). */
+/** Demo mode (03 §6.3): the guide slides beads, highlights them and counts them all (picks 12). */
 export const DemoMode: Story = {
   args: { config: { ...add75, preset: [0, 0] }, disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -406,7 +406,7 @@ const areaSlideController: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * The `slide` invite in the tablet widget area (1226 × 493), K, "show 14" with nothing pushed over
- * yet: sliding the top wire is the next step, so that wire carries the one ring and Pip's hand,
+ * yet: sliding the top wire is the next step, so that wire carries the one ring and the guide's hand,
  * which covers no bead of the other wire, no key and no numeral. The answer box is live beside it
  * and is not a second ring (it has no sea-deep outline).
  */
@@ -437,7 +437,7 @@ const areaInviteController: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * The `answer` invite at 960 × 600 (906 × 373), K, 14 shown on the rack: the answer step's tray,
- * one ring on the numeral card, and Pip's hand covers no other card and no numeral. (The invited
+ * one ring on the numeral card, and the guide's hand covers no other card and no numeral. (The invited
  * card has free room below it. A card or key with a row of others under it has none: a kit
  * matter, listed as a follow-up.)
  */
@@ -620,7 +620,7 @@ export const TapOnly: Story = {
 const cancelController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * PR #93 F4: a drag in progress is cancelled when input goes away (Pip starts a demo): the wire
+ * PR #93 F4: a drag in progress is cancelled when input goes away (the guide starts a demo): the wire
  * goes back to where it was and lifting the finger afterwards does nothing.
  */
 export const DemoCancelsDrag: Story = {

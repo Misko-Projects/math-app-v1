@@ -476,7 +476,7 @@ export function PerimeterWalkWidget({
     },
   });
 
-  // Pip's hand under the invited side number, grid or answer box (kit useInviteHand).
+  // The guide's hand under the invited side number, grid or answer box (kit useInviteHand).
   const { hand, rootStyle: handStyle } = useInviteHand(
     root,
     (r) => {
@@ -651,7 +651,7 @@ export function PerimeterWalkWidget({
                   onClick={() => tapSide(i)}
                   style={{ minWidth: bubbleSize(i)[0] }}
                 >
-                  {/* A glyph Pip's hand keeps clear of (kit useInviteHand). */}
+                  {/* A glyph the guide's hand keeps clear of (kit useInviteHand). */}
                   <span className="ni-btn__label">{label}</span>
                 </button>
               </span>
