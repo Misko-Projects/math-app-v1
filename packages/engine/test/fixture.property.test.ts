@@ -20,11 +20,15 @@ describe(`03 §9.4 property test (${n} seeds per template)`, () => {
   });
 
   for (const t of fixture.templates) {
-    it(`${t.id} (${t.generator} → ${t.format})`, () => {
-      loadFixture();
-      const report = runTemplateProperties(t, { n });
-      expect(report.failures).toEqual([]);
-      expect(report.targeting.rate).toBeGreaterThanOrEqual(0.9);
-    }, CASE_TIMEOUT_MS);
+    it(
+      `${t.id} (${t.generator} → ${t.format})`,
+      () => {
+        loadFixture();
+        const report = runTemplateProperties(t, { n });
+        expect(report.failures).toEqual([]);
+        expect(report.targeting.rate).toBeGreaterThanOrEqual(0.9);
+      },
+      CASE_TIMEOUT_MS,
+    );
   }
 });

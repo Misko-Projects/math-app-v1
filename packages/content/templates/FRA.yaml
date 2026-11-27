@@ -573,7 +573,8 @@ templates:
       num: { int: [1, 7] }
       num2: { int: [1, 7] }
       num3: { int: [1, 7] }
-    constraints: ["num < den", "num2 < den", "num3 < den", "num != num2", "num != num3", "num2 != num3"]
+    constraints:
+      ["num < den", "num2 < den", "num3 < den", "num != num2", "num != num3", "num2 != num3"]
     difficulty: { base: -1.37, features: { ratio: 1.5 } }
     narration:
       prompt: tp.FRA.06.t4.prompt
@@ -651,7 +652,8 @@ templates:
       den: { choice: [2, 3, 4, 6, 8] }
       den2: { choice: [2, 3, 4, 6, 8] }
       den3: { choice: [2, 3, 4, 6, 8] }
-    constraints: ["num < den", "num < den2", "num < den3", "den != den2", "den != den3", "den2 != den3"]
+    constraints:
+      ["num < den", "num < den2", "num < den3", "den != den2", "den != den3", "den2 != den3"]
     difficulty: { base: -2.2, features: { ratio: 1.6 } }
     narration:
       prompt: tp.FRA.06.t4.prompt

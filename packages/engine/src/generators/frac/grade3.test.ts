@@ -265,7 +265,6 @@ describe('frac.compare with symbols (FRA.06, FRA.13)', () => {
             expect(keys).toContain('gen.frac.compare.same-den-equal');
             expect(keys).not.toContain('gen.frac.compare.same-num-more');
           }
-
         }
       }
     }

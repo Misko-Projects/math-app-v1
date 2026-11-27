@@ -1960,4 +1960,3 @@ ui.frac.picture-shaded-bar:
 ui.frac.picture-shaded-loaf:
   text: "A loaf in {n|num} equal parts, {s|num} of them shaded"
   level: "3"
-
