@@ -246,16 +246,16 @@ describe('the first plan of a new child', () => {
     expect(later).toMatchInlineSnapshot(`
       [
         [
+          "MUL.04",
+          "MDA.19",
+          "MDA.22",
+          "ADD.01",
+        ],
+        [
           "ADD.06",
           "MDA.19",
           "MDA.22",
           "MON.03",
-          "ADD.01",
-        ],
-        [
-          "MUL.04",
-          "MDA.19",
-          "MDA.22",
           "ADD.01",
         ],
         [
@@ -271,12 +271,12 @@ describe('the first plan of a new child', () => {
     expect(plan).toMatchInlineSnapshot(`
       [
         [
-          "ADD.06",
-          "ADD.14",
+          "MUL.04",
           "ADD.01",
         ],
         [
-          "MUL.04",
+          "ADD.06",
+          "ADD.14",
           "ADD.01",
         ],
         [

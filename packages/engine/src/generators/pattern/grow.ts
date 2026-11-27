@@ -34,6 +34,11 @@ const KINDS = ['number', 'shape'] as const;
 export const SHAPE_STEP_MAX = 3;
 const SHOWN = 3;
 
+/** The multiples of 3–9 (start = step), a times-table row; other steps are 1, 2 or 10. */
+export const MULTIPLES_STEPS = [3, 4, 5, 6, 7, 8, 9] as const;
+const isMultiples = (start: number, step: number): boolean =>
+  start === step && (MULTIPLES_STEPS as readonly number[]).includes(step);
+
 /** The k-th term (0 = start). */
 export const term = (start: number, step: number, k: number): number => start + k * step;
 
@@ -60,7 +65,7 @@ export const patternGrow: GeneratorDef = {
     step: {
       type: 'int',
       default: { kind: 'choice', values: [1, 2, 10] },
-      doc: 'how much the pattern grows each time (1, 2 or 10)',
+      doc: 'how much the pattern grows each time (1, 2 or 10; 3–9 when start = step, the multiples of a times table)',
     },
     ask: {
       type: 'int',
@@ -124,6 +129,12 @@ export const patternGrow: GeneratorDef = {
         step <= SHAPE_STEP_MAX &&
         last <= MAX_TILES
       );
+    }
+    // A row of the multiplication table (ALG.03, K02 slice 3c): k, 2k, 3k for k 3–9, on the chart
+    // or extended as numbers; never jumped (the jump widget hops by 1, 2 or 10) or a rule.
+    if (isMultiples(start, step)) {
+      if (t.format === 'hundred-chart') return last <= 100;
+      return t.format === 'pattern-extend' && asStr(p.mode, 'extend') === 'extend' && last <= 100;
     }
     if (start < 0 || ![1, 2, 10].includes(step)) return false;
     if (t.format === 'hundred-chart') return start >= 1 && last <= 100;

@@ -920,6 +920,22 @@ h.story.count-groups:
 h.story.two-steps:
   text: "What happens first? Find that. Then do the next step."
   level: "2"
+# K02 slice 3c (#17): equal-group stories.
+h.story.bar-equal:
+  text: "Every part of the bar is the same size."
+  level: "2"
+h.story.groups-total:
+  text: "Equal groups: times the number of groups by the number in each group."
+  level: "2"
+h.story.share-each:
+  text: "Share them out equally. How many go in each one?"
+  level: "2"
+h.story.groups-how-many:
+  text: "How many groups of that size make the total?"
+  level: "2"
+h.story.which-op:
+  text: "If you know the total, divide. If you need the total, times."
+  level: "2"
 h.len.same-unit:
   text: "All the lengths use the same unit. Is the length you need a part or the whole?"
   level: "2"
@@ -2029,6 +2045,33 @@ h.mul.times-ten:
   text: "Then times by ten: put a zero on the end."
 h.mul.think-array:
   text: "Turn it to the side. The total is the same."
+# K02 slice 3c (#17): division facts and missing factors.
+h.div.what-times:
+  text: "Think of times: what number times the one you divide by makes the big number?"
+  level: "2"
+h.div.cover:
+  text: "Cover the box. Which times fact has the two numbers you see?"
+  level: "2"
+h.div.family:
+  text: "The same three numbers make times facts and divide facts."
+  level: "2"
+h.div.count-groups:
+  text: "Count the groups, not the things inside them."
+  level: "2"
+h.div.count-by:
+  text: "Count by the number in each group up to the total. How many numbers did you say?"
+  level: "2"
+h.div.count-by-divisor:
+  text: "Count by the number you divide by. Stop at the big number. How many numbers did you say?"
+  level: "2"
+h.div.count-rows:
+  text: "Count the rows."
+h.div.undo:
+  text: "The box is the number you start with. Times the other two numbers."
+  level: "2"
+h.mul.known-fact:
+  text: "Use a fact you know, like a double or times ten, to help."
+  level: "2"
 h.geo.name-sides:
   text: "Three sides: a triangle. Five sides: a pentagon. Six sides: a hexagon."
 h.partition.lines:
@@ -2125,6 +2168,18 @@ gen.mul.facts.split-half:
 gen.mul.facts.pair:
   text: "Do {x} times {y} first. That makes {part}."
   level: "2"
+gen.mul.facts.think-times:
+  text: "Think: {n} times what makes {r}?"
+  level: "2"
+gen.mul.facts.so-divide:
+  text: "{d} times {q} is {r}. So {r} divided by {d} is {q}."
+  level: "2"
+gen.mul.facts.think-divisor:
+  text: "Think: what times {q} makes {r}?"
+  level: "2"
+gen.mul.facts.make-rows:
+  text: "Make {a} rows. Put the same number in each row until there are {r}."
+  level: "2"
 gen.mul.tens.tens:
   text: "{a} times {t} tens is {tens} tens."
   level: "2"
@@ -2165,6 +2220,12 @@ fb.mc.add-instead-of-multiply:
   text: "That adds two numbers. Count every one in every group."
 fb.mc.skip-count-slip:
   text: "So close! Count the groups again. Did you skip one?"
+fb.mc.multiply-instead-of-divide:
+  text: "That made it bigger. Look again: which number is missing?"
+fb.mc.told-number-back:
+  text: "That number is in the fact. Which number is missing?"
+fb.mc.neighbour-fact:
+  text: "So close! Check the fact once more."
 fb.mc.times-zero-keeps:
   text: "Times zero makes zero. Zero groups have nothing in them."
 fb.mc.double-once:
@@ -2412,6 +2473,9 @@ h.pattern.grow-rule:
   text: "Count up from one number to the next."
 h.pattern.grow-same:
   text: "It grows the same way each time. Do it again and again."
+h.pattern.table-row:
+  text: "Count on by the first number each time."
+  level: "2"
 h.puzzle.path-given:
   text: "Start next to a number you can see."
 h.puzzle.path-step:

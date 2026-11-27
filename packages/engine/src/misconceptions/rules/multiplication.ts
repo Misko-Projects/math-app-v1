@@ -39,6 +39,8 @@ function totalItem(item: GeneratedItem): Product | null {
     p = ps.perGroup;
   } else if (typeof ps.a === 'number' && typeof ps.b === 'number') {
     if ((ps.form ?? 'fact') !== 'fact' || (typeof ps.c === 'number' && ps.c > 0)) return null;
+    // ÷ and missing-factor sentences (slice 3c) ask a factor or quotient: rules/division.ts.
+    if ((ps.op ?? '×') !== '×' || (ps.unknown ?? 'result') !== 'result') return null;
     g = ps.a;
     p = ps.b;
   } else return null;

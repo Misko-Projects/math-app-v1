@@ -17,7 +17,7 @@ import { checkResponse } from '../../items/check';
 import { generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { earlyCoreLength, patternRestart } from '../../misconceptions/rules/patternRestart';
-import { patternGrow } from './grow';
+import { MULTIPLES_STEPS, patternGrow } from './grow';
 import { patternRepeat, themeUnits, tokenAt } from './repeat';
 
 let nextId = 0;
@@ -229,5 +229,27 @@ describe('pattern.grow', () => {
     const rule = build(ext, { start: 7, step: 2, ask: 1, mode: 'rule' }).item;
     expect(rule.answer).toEqual({ kind: 'number', value: 2 });
     expect(patternGrow.accepts?.({ start: 80, step: 10, ask: 1, mode: 'rule' }, ext)).toBe(false);
+  });
+
+  it('times-table rows (ALG.03): k, 2k, 3k for k 3–9 on the chart and extended, never jumped or a rule', () => {
+    const chart = tpl('pattern.grow', 'hundred-chart', 'pictorial', 'hundred-chart');
+    const ext = tpl('pattern.grow', 'pattern-extend', 'abstract', 'symbols');
+    const jump = tpl('pattern.grow', 'number-line-jump', 'pictorial', 'number-line');
+    for (const k of MULTIPLES_STEPS) {
+      for (const ask of [1, 2, 3]) {
+        const c = build(chart, { start: k, step: k, ask }).item;
+        expect(c.answer).toMatchObject({
+          target: { values: Array.from({ length: ask }, (_, i) => (4 + i) * k) },
+        });
+        const e = build(ext, { start: k, step: k, ask, mode: 'extend' }).item;
+        expect(e.answer).toMatchObject({
+          target: { expected: Array.from({ length: ask }, (_, i) => ({ n: (4 + i) * k })) },
+        });
+      }
+      expect(patternGrow.accepts?.({ start: k, step: k, ask: 1 }, jump)).toBe(false);
+      expect(patternGrow.accepts?.({ start: k, step: k, ask: 1, mode: 'rule' }, ext)).toBe(false);
+      // Other starts keep steps 1, 2 and 10.
+      expect(patternGrow.accepts?.({ start: k + 1, step: k, ask: 1 }, chart)).toBe(false);
+    }
   });
 });

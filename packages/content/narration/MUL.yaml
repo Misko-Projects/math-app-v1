@@ -138,3 +138,72 @@ tp.MUL.11.t4.prompt:
   text: "Think in tens to find the answer."
 ls.MUL.07.outro:
   text: "Break a fact into parts you know, then add the parts. That is breaking apart!"
+# K02 slice 3c (#17): division facts, fluency, unknown factors and equal-group stories.
+sk.MUL.08.intro:
+  text: "Dividing is a times fact with a missing number."
+  level: "2"
+sk.MUL.21.intro:
+  text: "Divide by 2, 5 and 10 with a times fact you know."
+  level: "2"
+sk.MUL.09.intro:
+  text: "Know your times facts well."
+  level: "2"
+sk.MUL.17.intro:
+  text: "Know your divide facts well."
+  level: "2"
+sk.MUL.18.intro:
+  text: "Find the missing number in times and divide facts."
+  level: "2"
+sk.MUL.10.intro:
+  text: "Solve stories about equal groups."
+  level: "2"
+tp.MUL.08.t2.prompt:
+  text: "Make {a} equal rows with {r} {sprite|noun:r} in all."
+tp.MUL.08.t1.prompt:
+  text: "{r} {sprite|noun:r} are in {a} equal rows. How many are in each row?"
+tp.MUL.08.t3.prompt:
+  text: "Share {r} into {d} equal rows. How many go in each row?"
+tp.MUL.08.t4.prompt:
+  text: "Think of a times fact you know. What is the missing number?"
+tp.MUL.08.t5.prompt:
+  text: "Which number is missing? Think of a times fact."
+tp.MUL.21.t1.prompt:
+  text: "Make groups of {perGroup}. How many groups can you make?"
+tp.MUL.21.t2.prompt:
+  text: "How many groups of {b} make {r}?"
+tp.MUL.21.t3.prompt:
+  text: "Think: {d} times what makes {r}?"
+tp.MUL.09.t1.prompt:
+  text: "How many in all? Use a fact you know."
+tp.MUL.09.t2.prompt:
+  text: "Find the answer."
+tp.MUL.09.t3.prompt:
+  text: "Tap the answer."
+tp.MUL.17.t1.prompt:
+  text: "Share {r} into {d} equal rows. How many are in each row?"
+tp.MUL.17.t2.prompt:
+  text: "Find the answer."
+tp.MUL.17.t3.prompt:
+  text: "Tap the answer."
+tp.MUL.18.t1.prompt:
+  text: "Make {a} equal rows with {r} {sprite|noun:r} in all."
+tp.MUL.18.t2.prompt:
+  text: "Find the missing number. The picture can help."
+tp.MUL.18.t3.prompt:
+  text: "Find the missing number. The picture can help."
+tp.MUL.18.t4.prompt:
+  text: "Find the missing number."
+tp.MUL.18.t5.prompt:
+  text: "Find the missing number."
+tp.MUL.18.t6.prompt:
+  text: "Find the missing number."
+tp.MUL.10.t1.prompt:
+  text: "{total} {sprite|noun:total} are shared equally into {groups} baskets. How many go in each basket?"
+tp.MUL.10.t2.prompt:
+  text: "There are {a} baskets with {b} {sprite|noun:b} in each basket. How many {sprite|noun:r} are there in all?"
+tp.MUL.10.t3.prompt:
+  text: "{r} {sprite|noun:r} are shared equally into {d} baskets. How many go in each basket?"
+tp.MUL.10.t4.prompt:
+  text: "{r} {sprite|noun:r} are put into baskets, {q} in each basket. How many baskets do they need?"
+tp.MUL.10.t5.prompt:
+  text: "{r} {sprite|noun:r} are put in {d} equal rows. How many are in each row?"

@@ -102,6 +102,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ADD.27',
       'ALG.01',
       'ALG.02',
+      'ALG.03',
       'ALG.04',
       'ALG.05',
       'ALG.06',
@@ -226,12 +227,18 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MUL.05',
       'MUL.06',
       'MUL.07',
+      'MUL.08',
+      'MUL.09',
+      'MUL.10',
       'MUL.11',
       'MUL.12',
       'MUL.13',
       'MUL.14',
       'MUL.15',
       'MUL.16',
+      'MUL.17',
+      'MUL.18',
+      'MUL.21',
       'MUL.22',
       'PUZ.01',
       'PUZ.02',
@@ -313,6 +320,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.lineplot-position-as-count',
       'MC.lineplot-wrong-stack',
       'MC.minute-hand-number',
+      'MC.multiply-instead-of-divide',
+      'MC.neighbour-fact',
       'MC.off-by-one-counting',
       'MC.partial-product-dropped',
       'MC.pattern-restart',
@@ -331,6 +340,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.teen-reversal',
       'MC.tens-dropped',
       'MC.times-zero-keeps',
+      'MC.told-number-back',
       'MC.unequal-share',
       'MC.unit-gaps',
       'MC.way-counted-twice',
@@ -659,7 +669,7 @@ describe('V03: sequential ids', () => {
     expectFinding(
       variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = []))),
       'V03',
-      /missing ALG.03/,
+      /missing ALG.08/,
     );
     expectFinding(
       variant((f) =>
@@ -671,13 +681,13 @@ describe('V03: sequential ids', () => {
   });
   it('accepts a retired gap', () => {
     const diags = variant((f) => {
-      // ALG.03 moves from planned to retired; the other planned gaps stay planned.
+      // ALG.08 moves from planned to retired; the other planned gaps stay planned.
       editYaml(
         f,
         'graph.yaml',
-        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ALG.03')),
+        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ALG.08')),
       );
-      f['retired.yaml'] = 'skills: [ALG.03]\n';
+      f['retired.yaml'] = 'skills: [ALG.08]\n';
     });
     expect(diags.filter((d) => d.check === 'V03')).toEqual([]);
   });
@@ -1751,12 +1761,12 @@ describe('V21: test-out choice rule and gateway item count', () => {
 });
 
 describe('V02/V03: excused ids must be canonical', () => {
-  it('does not let ALG.003 excuse the missing ALG.03', () => {
+  it('does not let ALG.008 excuse the missing ALG.08', () => {
     const diags = variant((f) =>
-      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ALG.003'])),
+      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ALG.008'])),
     );
-    expectFinding(diags, 'V02', /'ALG.003' is not a canonical SkillId or TemplateId/);
-    expectFinding(diags, 'V03', /missing ALG.03/);
+    expectFinding(diags, 'V02', /'ALG.008' is not a canonical SkillId or TemplateId/);
+    expectFinding(diags, 'V03', /missing ALG.08/);
   });
   it('rejects excused template ids that could never be authored', () => {
     expectFinding(
@@ -1963,10 +1973,12 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // MC.ruler-count-ticks and MC.ruler-read-end; grade 2 story problems (K02 slice 4d) added 4
       // skills, 13 templates, MC.first-step-only and MC.dollar-as-one; grade 2 patterns and puzzles
       // (K02 slice 4e) added 7 skills, 19 templates, MC.grow-as-repeat, MC.cage-repeat-digit,
-      // MC.digit-order-reversed and MC.way-counted-twice.
-      skills: 204,
-      templates: 741,
-      misconceptions: 58,
+      // MC.digit-order-reversed and MC.way-counted-twice; division facts (K02 slice 3c) added 7
+      // skills, 27 templates, MC.multiply-instead-of-divide, MC.told-number-back and
+      // MC.neighbour-fact.
+      skills: 211,
+      templates: 768,
+      misconceptions: 61,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -2065,6 +2077,12 @@ describe('graph.json (03 §9.1)', () => {
       ['MDA.21', 'MDA.17', 1],
       ['MDA.21', 'MDA.18', 0.5],
       ['MON.02', 'MON.04', 1],
+      ['MUL.09', 'MUL.07', 0.3],
+      ['MUL.09', 'MUL.13', 0.6],
+      ['MUL.09', 'MUL.14', 0.5],
+      ['MUL.09', 'MUL.15', 0.5],
+      ['MUL.17', 'MUL.08', 0.5],
+      ['MUL.17', 'MUL.09', 0.5],
       ['PV.06', 'PV.02', 0.6],
       ['PV.06', 'PV.05', 0.5],
       ['PV.07', 'PV.03', 1],

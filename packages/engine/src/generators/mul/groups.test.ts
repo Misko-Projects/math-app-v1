@@ -318,3 +318,28 @@ describe('equal-groups misconception rules', () => {
     expect(skipCountSlip.predict?.(one)).toBeNull();
   });
 });
+
+describe('PR #138 review round 1', () => {
+  it('a build that asks the number of groups always shows GROUPS_MAX places, whatever the answer', () => {
+    const t = tpl('mul.groups', 'equal-groups', 'concrete', 'groups');
+    let built = 0;
+    for (let groups = 1; groups <= GROUPS_MAX; groups += 1) {
+      for (let perGroup = 1; perGroup <= GROUP_CAPACITY; perGroup += 1) {
+        const p: ParamValues = {
+          groups,
+          perGroup,
+          unknown: 'groups',
+          mode: 'build',
+          sprite: 'shell',
+        };
+        if (!mulGroups.accepts?.(p, t)) continue;
+        const item = solved(t, p);
+        if (item.widget.format !== 'equal-groups') throw new Error('equal-groups');
+        expect(item.widget.maxGroups).toBe(GROUPS_MAX);
+        expect(groups * perGroup).toBeLessThanOrEqual(groupsPileMax(GROUPS_MAX));
+        built += 1;
+      }
+    }
+    expect(built).toBeGreaterThan(10);
+  });
+});

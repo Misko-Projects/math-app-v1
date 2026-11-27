@@ -130,3 +130,65 @@ skills:
     prerequisites: [MUL.06, MUL.13]
     gateway: false
     representations: [groups, symbols]
+
+  # K02 (#17) slice 3c: division facts, fluency and unknown factors (mul.facts ÷ and unknown
+  # factor). MUL.09 and MUL.17 add the `array` representation for a pictorial pad (V27, as the
+  # ADD fluency rows do with ten-frames); MUL.18 has no balance item and MUL.10 no story-problem
+  # item yet; both build with mul.facts or mul.groups instead (03 §3.10 As built).
+  - id: MUL.08
+    name: "Division as a missing factor; × and ÷ fact families"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.OA.B.6] }
+    prerequisites: [MUL.05, MUL.22, MUL.06]
+    gateway: false
+    representations: [array, symbols]
+
+  - id: MUL.21
+    name: "Divide by 2, 5 and 10 using a related multiplication"
+    kind: strategy
+    grade: 3
+    standards: { ccss: [3.OA.C.7] }
+    prerequisites: [MUL.08, MUL.13]
+    gateway: false
+    representations: [groups, symbols]
+
+  - id: MUL.09
+    name: "Fluency: products within 100"
+    kind: fact-fluency
+    grade: 3
+    standards: { ccss: [3.OA.C.7] }
+    prerequisites: [MUL.07, MUL.14, MUL.13]
+    encompasses: { MUL.13: 0.6, MUL.14: 0.5, MUL.15: 0.5, MUL.07: 0.3 }
+    gateway: false
+    representations: [array, symbols] # the pictorial pad gives practiced its second tier (V27)
+    fluency: { medianLatencyMs: 4000 }
+
+  - id: MUL.17
+    name: "Fluency: quotients within 100"
+    kind: fact-fluency
+    grade: 3
+    standards: { ccss: [3.OA.C.7] }
+    prerequisites: [MUL.09, MUL.08]
+    encompasses: { MUL.09: 0.5, MUL.08: 0.5 }
+    gateway: false
+    representations: [array, symbols] # the pictorial pad gives practiced its second tier (V27)
+    fluency: { medianLatencyMs: 4500 }
+
+  - id: MUL.18
+    name: "Find the unknown in × and ÷ equations (8 × ? = 48)"
+    kind: concept
+    grade: 3
+    standards: { ccss: [3.OA.A.4] }
+    prerequisites: [MUL.08, ADD.11]
+    gateway: false
+    representations: [array, symbols]
+
+  - id: MUL.10
+    name: "Equal-group and array story problems with the unknown anywhere"
+    kind: problem-solving
+    grade: 3
+    standards: { ccss: [3.OA.A.3] }
+    prerequisites: [MUL.08, ADD.11]
+    gateway: false
+    representations: [groups, bar-model, symbols]

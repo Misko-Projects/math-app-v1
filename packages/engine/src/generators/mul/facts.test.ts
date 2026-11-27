@@ -13,9 +13,15 @@ import type {
 } from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../../content/binding';
+import { ARRAY_SIDE_MAX } from '../../formats/array-build';
 import { checkResponse } from '../../items/check';
 import { generateItemFromParams } from '../../items/generate';
 import { itemSolution, replaySteps } from '../../items/solution';
+import {
+  multiplyInsteadOfDivide,
+  neighbourFact,
+  toldNumberBack,
+} from '../../misconceptions/rules/division';
 import {
   addInsteadOfMultiply,
   doubleOnce,
@@ -25,12 +31,16 @@ import {
   timesZeroKeeps,
 } from '../../misconceptions/rules/multiplication';
 import {
+  BAR_PARTS_MAX,
   easyPair,
   FACT_FAMILIES,
+  FACT_OPS,
   FACT_STRATEGIES,
+  FACT_UNKNOWNS,
   FACTOR_MAX,
   factPlan,
   mulFacts,
+  pickSet,
   THREE_PRODUCT_MAX,
 } from './facts';
 import { mulTens, TENS_A_MAX, TENS_A_MIN, TENS_B_MAX, TENS_READ_MAX, tensPlan } from './tens';
@@ -424,5 +434,228 @@ describe('PR #131 review round 1', () => {
     expect(keys({ a: 9, b: 7, family: 'x9' })).toContain('gen.mul.facts.take-group');
     expect(keys({ a: 6, b: 7, family: 'x6' })).toContain('gen.mul.facts.add-group');
     expect(keys({ a: 5, b: 7, family: 'x5' })).toContain('gen.mul.facts.count-by');
+  });
+});
+
+describe('mul.facts ÷, unknown factors and picks (K02 slice 3c)', () => {
+  /** r ÷ d with the asked values filled in, checked as d × q = r (× and ÷ only). */
+  function trueSentence(tokens: ExpressionToken[], values: number[]): boolean {
+    let k = 0;
+    const v = tokens.map((t) =>
+      t.t === 'num' ? t.v : t.t === 'blank' ? (values[k++] as number) : t.t === 'op' ? t.v : '=',
+    );
+    const [x, o, y, , z] = v as [number, string, number, string, number];
+    return o === '×' ? x * y === z : y !== 0 && x === y * z;
+  }
+  const cases: [ItemFormat, Tier, Representation, string][] = [
+    ['number-pad', 'abstract', 'symbols', 'read'],
+    ['number-pad', 'pictorial', 'array', 'read'],
+    ['number-pad', 'pictorial', 'groups', 'read'],
+    ['number-pad', 'pictorial', 'bar-model', 'read'],
+    ['numeral-pick', 'abstract', 'symbols', 'read'],
+    ['array-build', 'concrete', 'tiles', 'build'],
+  ];
+  it.each(cases)(
+    '%s %s %s (%s): every accepted ÷ or unknown-factor draw solves and is true',
+    (format, tier, rep, mode) => {
+      const t = tpl(format, tier, rep);
+      let built = 0;
+      for (const family of FACT_FAMILIES) {
+        for (const op of FACT_OPS) {
+          for (const unknown of FACT_UNKNOWNS) {
+            for (const at of ['first', 'second']) {
+              for (const corner of [0, 1, 2, 3]) {
+                for (const a of range(0, FACTOR_MAX)) {
+                  for (const b of range(0, FACTOR_MAX)) {
+                    const p: ParamValues = {
+                      a,
+                      b,
+                      family,
+                      op,
+                      unknown,
+                      at,
+                      corner,
+                      mode,
+                      sprite: 'shell',
+                    };
+                    if (op === '×' && unknown === 'result' && format !== 'numeral-pick') continue;
+                    if (!mulFacts.accepts?.(p, t)) continue;
+                    const item = solved(t, p);
+                    built += 1;
+                    const plan = factPlan(p);
+                    // Factors 1–10: no ÷ 0, no 0 quotient, a dividend of at most 100.
+                    expect(a >= 1 && b >= 1 && a * b <= 100, JSON.stringify(p)).toBe(true);
+                    if (item.widget.format === 'number-pad') {
+                      const tokens = item.widget.expression?.tokens ?? [];
+                      expect(trueSentence(tokens, plan.values), JSON.stringify(p)).toBe(true);
+                      // The asked value is never written in the sentence (squares and ÷ 1 aside,
+                      // where it equals a told number by the fact itself).
+                      if (rep === 'symbols') expect(item.widget.stimulus.kind).toBe('none');
+                      const s = item.widget.stimulus;
+                      if (s.kind === 'bar-model') {
+                        // Equal parts; "?" only where the asked value goes; the number of parts is
+                        // never the asked value's place.
+                        expect(s.parts.length).toBeLessThanOrEqual(BAR_PARTS_MAX);
+                        expect(new Set(s.parts).size).toBe(1);
+                        const asked = s.whole === '?' ? 'whole' : 'parts';
+                        if (asked === 'whole')
+                          expect(plan.op === '×' && plan.unknown === 'result').toBe(true);
+                        else {
+                          expect(s.parts[0]).toBe('?');
+                          expect(s.whole).toBe(a * b);
+                        }
+                      }
+                    }
+                    if (item.widget.format === 'numeral-pick') {
+                      const opts = item.widget.options.map((o) => Number(o.label));
+                      expect(new Set(opts).size, JSON.stringify(p)).toBe(4);
+                      expect(opts).toContain(plan.values[0]);
+                    }
+                    if (item.widget.format === 'array-build') {
+                      expect(item.widget.maxRows).toBe(ARRAY_SIDE_MAX);
+                      expect(item.widget.maxCols).toBe(ARRAY_SIDE_MAX);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      expect(built).toBeGreaterThan(0);
+    },
+  );
+
+  it('asks the quotient, the divisor, the dividend and a missing factor', () => {
+    expect(factPlan({ a: 4, b: 6, op: '÷' }).values).toEqual([6]);
+    expect(factPlan({ a: 4, b: 6, op: '÷', unknown: 'factor' }).values).toEqual([4]);
+    expect(factPlan({ a: 4, b: 6, op: '÷', unknown: 'dividend' }).values).toEqual([24]);
+    expect(factPlan({ a: 4, b: 6, unknown: 'factor' }).values).toEqual([6]);
+    expect(factPlan({ a: 4, b: 6, unknown: 'factor', at: 'first' }).values).toEqual([4]);
+    // ÷ by the family factor: 6 × 5 in the fives divides by 5.
+    expect(factPlan({ a: 6, b: 5, op: '÷', family: 'x5' }).tokens).toEqual([
+      { t: 'num', v: 30 },
+      { t: 'op', v: '÷' },
+      { t: 'num', v: 5 },
+      { t: 'rel', v: '=' },
+      { t: 'blank', id: 'x' },
+    ]);
+    const t = tpl('number-pad', 'abstract', 'symbols');
+    expect(mulFacts.accepts?.({ a: 0, b: 6, op: '÷' }, t)).toBe(false);
+    expect(mulFacts.accepts?.({ a: 6, b: 0, op: '÷' }, t)).toBe(false);
+    expect(mulFacts.accepts?.({ a: 6, b: 7, unknown: 'dividend' }, t)).toBe(false);
+    expect(mulFacts.accepts?.({ a: 7, b: 3, family: 'x7', op: '÷' }, t)).toBe(true);
+    expect(mulFacts.accepts?.({ a: 6, b: 3, family: 'x7', op: '÷' }, t)).toBe(false);
+  });
+
+  it('numeral-pick option sets: every option of a set is the key of some draw, four distinct values', () => {
+    // The whole domain (a 400-seed sweep cannot reach every set's four keys).
+    for (const op of FACT_OPS) {
+      const t = tpl('numeral-pick', 'abstract', 'symbols');
+      const keys = new Map<string, Set<number>>();
+      for (const corner of [0, 1, 2, 3]) {
+        for (const a of range(0, FACTOR_MAX)) {
+          for (const b of range(0, FACTOR_MAX)) {
+            const p: ParamValues = { a, b, op, corner };
+            if (!mulFacts.accepts?.(p, t)) continue;
+            const plan = factPlan(p);
+            const set = pickSet(p, plan);
+            expect(new Set(set).size).toBe(4);
+            const id = set.join(' ');
+            keys.set(id, (keys.get(id) ?? new Set()).add(plan.values[0] as number));
+          }
+        }
+      }
+      expect(keys.size).toBeGreaterThan(op === '×' ? 20 : 5);
+      for (const [set, ks] of keys) expect([...ks].sort((m, n) => m - n).join(' '), set).toBe(set);
+    }
+    // 6 × 7 sits beside 6 × 8, 7 × 7 and 7 × 8 (or the facts below it).
+    expect(pickSet({ a: 6, b: 7, corner: 0 }, factPlan({ a: 6, b: 7 }))).toEqual([42, 48, 49, 56]);
+  });
+});
+
+describe('slice 3c misconception rules (÷ and missing factors)', () => {
+  const pad = tpl('number-pad', 'abstract', 'symbols');
+  const pick = tpl('numeral-pick', 'abstract', 'symbols');
+  const num = (value: number) => ({ kind: 'number', value }) as const;
+  const item = (p: ParamValues, t = pad) =>
+    generateItemFromParams(t, p, { checkConstraints: false });
+
+  it('multiply-instead-of-divide: 24 ÷ 4 → 96, 4 × ? = 24 → 96; not when the product is the answer (÷ 1)', () => {
+    expect(multiplyInsteadOfDivide.match(item({ a: 4, b: 6, op: '÷' }), num(96))).toBe(true);
+    expect(multiplyInsteadOfDivide.match(item({ a: 4, b: 6, unknown: 'factor' }), num(96))).toBe(
+      true,
+    );
+    expect(multiplyInsteadOfDivide.match(item({ a: 4, b: 6, op: '÷' }), num(6))).toBe(false);
+    // 7 ÷ 1 = 7: the told numbers times each other is the answer, so nothing is read.
+    expect(multiplyInsteadOfDivide.applies?.(item({ a: 1, b: 7, op: '÷' }))).toBe(true);
+    expect(multiplyInsteadOfDivide.predict?.(item({ a: 1, b: 7, op: '÷' }))).toBeNull();
+    // Product facts are not read here.
+    expect(multiplyInsteadOfDivide.applies?.(item({ a: 4, b: 6 }))).toBe(false);
+  });
+
+  it('told-number-back: the divisor or dividend given back, the product for a missing factor; not a square', () => {
+    const div = item({ a: 4, b: 6, op: '÷' });
+    expect(toldNumberBack.match(div, num(4))).toBe(true);
+    expect(toldNumberBack.match(div, num(24))).toBe(true);
+    expect(toldNumberBack.match(item({ a: 4, b: 6, unknown: 'factor' }), num(24))).toBe(true);
+    // 16 ÷ 4 = 4: the divisor is the answer.
+    expect(toldNumberBack.match(item({ a: 4, b: 4, op: '÷' }), num(4))).toBe(false);
+    expect(toldNumberBack.match(item({ a: 4, b: 4, op: '÷' }), num(16))).toBe(true);
+  });
+
+  it('neighbour-fact: one more or less for a quotient or factor, one divisor more or less for a dividend', () => {
+    expect(neighbourFact.match(item({ a: 4, b: 6, op: '÷' }), num(7))).toBe(true);
+    expect(neighbourFact.match(item({ a: 4, b: 6, op: '÷' }), num(5))).toBe(true);
+    expect(neighbourFact.match(item({ a: 4, b: 6, op: '÷' }), num(8))).toBe(false);
+    const dividend = item({ a: 6, b: 8, op: '÷', unknown: 'dividend' });
+    expect(neighbourFact.match(dividend, num(42))).toBe(true);
+    expect(neighbourFact.match(dividend, num(49))).toBe(false);
+  });
+
+  it('a pick is only wrong with an option it offers', () => {
+    const it0 = item({ a: 4, b: 6, op: '÷', corner: 0 }, pick);
+    expect(multiplyInsteadOfDivide.predict?.(it0)).toBeNull();
+    const p = neighbourFact.predict?.(it0);
+    expect(p).toEqual({ kind: 'choice', id: 'opt-7' });
+  });
+
+  it('a story pad (sentence hidden) writes no sentence and asks one number', () => {
+    const story = item({ a: 3, b: 5, op: '÷', sentence: 'hidden' });
+    if (story.widget.format !== 'number-pad') throw new Error('number-pad');
+    expect(story.widget.expression).toBeUndefined();
+    expect(story.widget.blanks).toEqual([{ id: 'x', maxDigits: 2 }]);
+    expect(story.answer).toEqual(num(5));
+    expect(mulFacts.accepts?.({ a: 3, b: 5, sentence: 'hidden', strategy: 'double' }, pad)).toBe(
+      false,
+    );
+    expect(mulFacts.accepts?.({ a: 3, b: 5, sentence: 'hidden' }, pick)).toBe(false);
+  });
+});
+
+describe('PR #138 review round 1 (mul.facts)', () => {
+  it('three factors only multiply, with the sentence shown', () => {
+    const t = tpl('number-pad', 'abstract', 'symbols');
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4 }, t)).toBe(true);
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4, op: '÷' }, t)).toBe(false);
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4, unknown: 'factor' }, t)).toBe(false);
+    expect(mulFacts.accepts?.({ a: 2, b: 3, c: 4, sentence: 'hidden' }, t)).toBe(false);
+  });
+
+  it('a dividend blank is three digits wide for every dividend, not only 100', () => {
+    const t = tpl('number-pad', 'abstract', 'symbols');
+    for (const [a, b] of [
+      [10, 10],
+      [10, 9],
+      [2, 3],
+    ] as const) {
+      const item = generateItemFromParams(
+        t,
+        { a, b, op: '÷', unknown: 'dividend' },
+        { checkConstraints: false },
+      );
+      if (item.widget.format !== 'number-pad') throw new Error('number-pad');
+      expect(item.widget.blanks).toEqual([{ id: 'x', maxDigits: 3 }]);
+    }
   });
 });

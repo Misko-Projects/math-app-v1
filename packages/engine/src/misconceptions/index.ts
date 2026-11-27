@@ -16,6 +16,7 @@ import { compareFirstDigit } from './rules/compareFirstDigit';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
+import { multiplyInsteadOfDivide, neighbourFact, toldNumberBack } from './rules/division';
 import { dollarAsOne } from './rules/dollarAsOne';
 import { equalsAddAll } from './rules/equalsAddAll';
 import { equalsMeansAnswer } from './rules/equalsMeansAnswer';
@@ -122,6 +123,10 @@ const RULES: Record<string, MisconceptionRule> = {
   doubleOnce: doubleOnce,
   tensDropped: tensDropped,
   partialProductDropped: partialProductDropped,
+  // K02 (#17) slice 3c: division facts and missing factors
+  multiplyInsteadOfDivide: multiplyInsteadOfDivide,
+  toldNumberBack: toldNumberBack,
+  neighbourFact: neighbourFact,
   // K02 (#17) slice 4a: time and money
   minuteHandNumber: minuteHandAsMinutes,
   coinsAsOnes: coinsAsOnes,

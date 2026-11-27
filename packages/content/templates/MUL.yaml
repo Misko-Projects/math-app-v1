@@ -670,3 +670,334 @@ templates:
     narration:
       prompt: tp.MUL.11.t4.prompt
       hints: [h.mul.tens, h.mul.times-ten]
+
+  # MUL.17: quotients within 100 (4500 ms median): the array shared into rows, the ÷ fact, and the
+  # quotient picked from four in a row.
+  - id: MUL.17.t1
+    skillId: MUL.17
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "÷" }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.17.t1.prompt
+      hints: [h.mul.share-rows, h.div.what-times]
+
+  - id: MUL.17.t2
+    skillId: MUL.17
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [1, 10] }, b: { int: [1, 10] }, op: "÷" }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MUL.17.t2.prompt
+      hints: [h.div.what-times, h.div.family]
+
+  - id: MUL.17.t3
+    skillId: MUL.17
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [1, 10] }, b: { int: [1, 10] }, op: "÷", corner: { int: [0, 3] } }
+    difficulty: { base: -0.47 }
+    narration:
+      prompt: tp.MUL.17.t3.prompt
+      hints: [h.div.what-times, h.div.family]
+
+  # K02 (#17) slice 3c. MUL.08: division as a missing factor. The array with a missing factor, the
+  # rows built to a told total, the array shared into rows, then ÷ in symbols (both unknowns).
+  - id: MUL.08.t1
+    skillId: MUL.08
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [2, 6] }, b: { int: [2, 9] }, op: "×", unknown: factor, at: second }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.08.t1.prompt
+      hints: [h.mul.see-rows, h.div.cover]
+
+  - id: MUL.08.t2
+    skillId: MUL.08
+    format: array-build
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params:
+      { a: { int: [2, 5] }, b: { int: [2, 8] }, op: "×", unknown: factor, at: second, mode: build }
+    difficulty: { base: -1.15 }
+    narration:
+      prompt: tp.MUL.08.t2.prompt
+      hints: [h.mul.row-across, h.mul.same-row]
+
+  - id: MUL.08.t3
+    skillId: MUL.08
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [2, 6] }, b: { int: [2, 9] }, op: "÷" }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.08.t3.prompt
+      hints: [h.mul.share-rows, h.div.what-times]
+
+  - id: MUL.08.t4
+    skillId: MUL.08
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "÷" }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.08.t4.prompt
+      hints: [h.div.what-times, h.div.family]
+
+  - id: MUL.08.t5
+    skillId: MUL.08
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "÷", unknown: factor }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.08.t5.prompt
+      hints: [h.div.cover, h.div.family]
+
+  # MUL.21: ÷ 2, ÷ 5 and ÷ 10 by the related multiplication: make groups of 2, 5 or 10, find how
+  # many groups make the total (? × 5 = 20), then divide in symbols.
+  - id: MUL.21.t1
+    skillId: MUL.21
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params: { groups: { int: [2, 4] }, perGroup: { choice: [2, 5] }, unknown: groups, mode: build }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.21.t1.prompt
+      hints: [h.mul.make-groups, h.div.count-groups]
+
+  - id: MUL.21.t2
+    skillId: MUL.21
+    format: number-pad
+    tier: pictorial
+    representation: groups
+    generator: mul.facts
+    params: { a: { int: [2, 6] }, b: { choice: [2, 5, 10] }, op: "×", unknown: factor, at: first }
+    difficulty: { base: 0 }
+    narration:
+      prompt: tp.MUL.21.t2.prompt
+      hints: [h.div.count-groups, h.div.count-by]
+
+  - id: MUL.21.t3
+    skillId: MUL.21
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "÷", family: { choice: [x2, x5, x10] } }
+    difficulty: { base: 0 }
+    narration:
+      prompt: tp.MUL.21.t3.prompt
+      hints: [h.div.count-by-divisor, h.div.what-times]
+
+  # MUL.09: products within 100 (4000 ms median, 03 §3.10): the array, the fact, and the fact
+  # picked from its neighbour facts. No timer and no speed words anywhere.
+  - id: MUL.09.t1
+    skillId: MUL.09
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] } }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.MUL.09.t1.prompt
+      hints: [h.mul.see-rows, h.mul.known-fact]
+
+  - id: MUL.09.t2
+    skillId: MUL.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [1, 10] }, b: { int: [1, 10] } }
+    constraints: ["result <= 99"]
+    difficulty: { base: 0 }
+    narration:
+      prompt: tp.MUL.09.t2.prompt
+      hints: [h.mul.known-fact, h.mul.turn]
+
+  - id: MUL.09.t3
+    skillId: MUL.09
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, corner: { int: [0, 3] } }
+    difficulty: { base: -0.15 }
+    narration:
+      prompt: tp.MUL.09.t3.prompt
+      hints: [h.mul.known-fact, h.mul.turn]
+
+  # MUL.18: the unknown anywhere in × and ÷ sentences: a missing factor beside the array (either
+  # place), then the divisor and the dividend in symbols. No balance item (03 §3.10 As built).
+  - id: MUL.18.t1
+    skillId: MUL.18
+    format: array-build
+    tier: concrete
+    representation: array
+    generator: mul.facts
+    params:
+      { a: { int: [2, 5] }, b: { int: [2, 9] }, op: "×", unknown: factor, at: second, mode: build }
+    difficulty: { base: -1.63 }
+    narration:
+      prompt: tp.MUL.18.t1.prompt
+      hints: [h.mul.row-across, h.mul.same-row]
+
+  - id: MUL.18.t2
+    skillId: MUL.18
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "×", unknown: factor, at: second }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.18.t2.prompt
+      hints: [h.mul.see-rows, h.div.cover]
+
+  - id: MUL.18.t3
+    skillId: MUL.18
+    format: number-pad
+    tier: pictorial
+    representation: array
+    generator: mul.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "×", unknown: factor, at: first }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.18.t3.prompt
+      hints: [h.div.count-rows, h.div.cover]
+
+  - id: MUL.18.t4
+    skillId: MUL.18
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "÷", unknown: factor }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.18.t4.prompt
+      hints: [h.div.cover, h.div.family]
+
+  - id: MUL.18.t5
+    skillId: MUL.18
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "÷", unknown: dividend }
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: tp.MUL.18.t5.prompt
+      hints: [h.div.undo, h.div.family]
+
+  - id: MUL.18.t6
+    skillId: MUL.18
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params:
+      {
+        a: { int: [2, 10] },
+        b: { int: [2, 10] },
+        op: "×",
+        unknown: factor,
+        at: { choice: [first, second] },
+      }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.MUL.18.t6.prompt
+      hints: [h.div.cover, h.div.family]
+
+  # MUL.10: equal-group and array stories, told in the prompt, with no number sentence (choosing ×
+  # or ÷ is the child's work). The product and the size of each group beside a bar of equal parts
+  # (at most BAR_PARTS_MAX parts); the number of groups and the array story in words alone. Every
+  # count is 2 or more, so every noun is plural.
+  - id: MUL.10.t1
+    skillId: MUL.10
+    format: equal-groups
+    tier: concrete
+    representation: groups
+    generator: mul.groups
+    params:
+      {
+        groups: { int: [2, 5] },
+        perGroup: { int: [2, 6] },
+        unknown: size,
+        mode: build,
+        container: basket,
+      }
+    difficulty: { base: -0.76 }
+    narration:
+      prompt: tp.MUL.10.t1.prompt
+      hints: [h.story.share-each, h.mul.share-round]
+
+  - id: MUL.10.t2
+    skillId: MUL.10
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: mul.facts
+    params: { a: { int: [2, 6] }, b: { int: [2, 10] }, sentence: hidden }
+    difficulty: { base: 0 }
+    narration:
+      prompt: tp.MUL.10.t2.prompt
+      hints: [h.story.bar-equal, h.story.groups-total]
+
+  - id: MUL.10.t3
+    skillId: MUL.10
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: mul.facts
+    params: { a: { int: [2, 6] }, b: { int: [2, 10] }, op: "÷", sentence: hidden }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.10.t3.prompt
+      hints: [h.story.bar-equal, h.story.share-each]
+
+  - id: MUL.10.t4
+    skillId: MUL.10
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "÷", unknown: factor, sentence: hidden }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.MUL.10.t4.prompt
+      hints: [h.story.groups-how-many, h.story.which-op]
+
+  - id: MUL.10.t5
+    skillId: MUL.10
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mul.facts
+    params: { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "÷", sentence: hidden }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.MUL.10.t5.prompt
+      hints: [h.story.share-each, h.story.which-op]

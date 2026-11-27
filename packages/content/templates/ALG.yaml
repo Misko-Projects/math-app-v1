@@ -119,6 +119,41 @@ templates:
       prompt: tp.ALG.02.t4.prompt
       hints: [h.pattern.grow-look, h.pattern.grow-rule]
 
+  # K02 (#17) slice 3c. ALG.03: a row of the multiplication table (k, 2k, 3k for k 3–9) as a
+  # pattern on the hundred chart (tap the next multiples) and as numbers to extend.
+  - id: ALG.03.t1
+    skillId: ALG.03
+    format: hundred-chart
+    tier: pictorial
+    representation: hundred-chart
+    generator: pattern.grow
+    params:
+      start: { choice: [3, 4, 5, 6, 7, 8, 9] }
+      step: { choice: [3, 4, 5, 6, 7, 8, 9] }
+      ask: { int: [2, 3] }
+    constraints: ["start == step"]
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: tp.ALG.03.t1.prompt
+      hints: [h.pattern.table-row, h.pattern.grow-same]
+
+  - id: ALG.03.t2
+    skillId: ALG.03
+    format: pattern-extend
+    tier: abstract
+    representation: symbols
+    generator: pattern.grow
+    params:
+      mode: extend
+      start: { choice: [3, 4, 5, 6, 7, 8, 9] }
+      step: { choice: [3, 4, 5, 6, 7, 8, 9] }
+      ask: { int: [1, 2] }
+    constraints: ["start == step"]
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.ALG.03.t2.prompt
+      hints: [h.pattern.table-row, h.pattern.grow-same]
+
   # ---------- ALG.04: find the core ----------
   # AAB and AABB weigh more: on them, stopping where the first unit comes back is a wrong core.
   - id: ALG.04.t1
