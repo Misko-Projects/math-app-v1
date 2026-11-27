@@ -377,7 +377,7 @@ function crabFace(v: number, c: FeltColors) {
 }
 
 const crab: FeltDraw = ({ c, grain, variant }) => (
-  <g transform="translate(32 37) scale(0.72)">
+  <g transform="translate(32 36) scale(0.6)">
     <path
       d={CRAB_LIMBS}
       fill="none"

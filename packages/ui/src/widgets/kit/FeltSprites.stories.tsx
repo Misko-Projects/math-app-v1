@@ -119,6 +119,53 @@ export const SizeSheet: Story = {
   },
 };
 
+/**
+ * Every kind at the smallest size content draws it, on what it sits on there: a picture card
+ * (numeral-pick, order), the cream mat, and the sage tray edge. Silhouettes alone tell them apart.
+ */
+export const SmallestOnSurfaces: Story = {
+  render: () => {
+    const surfaces: [string, CSSProperties][] = [
+      [
+        'card',
+        {
+          background: 'var(--color-cloud)',
+          border: '3px solid var(--color-ink)',
+          borderRadius: 12,
+        },
+      ],
+      ['mat', { background: 'var(--color-paper)', borderRadius: 12 }],
+      ['sage', { background: 'var(--color-leaf)', borderRadius: 12 }],
+    ];
+    return (
+      <div style={{ display: 'grid', gap: 10 }}>
+        {surfaces.map(([name, style]) => (
+          <Row key={name} label={name}>
+            {[
+              ...KINDS.map((k) => [k, 'a'] as const),
+              ['counter', 'b'] as const,
+              ['pebble', 'b'] as const,
+            ].map(([k, tone]) => (
+              <div
+                key={`${k}${tone}`}
+                style={{
+                  ...style,
+                  width: Math.max(44, DRAWN_PX[k][0] + 10),
+                  height: Math.max(44, DRAWN_PX[k][0] + 10),
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <Sprite kind={k} px={DRAWN_PX[k][0]} tone={tone} />
+              </div>
+            ))}
+          </Row>
+        ))}
+      </div>
+    );
+  },
+};
+
 /** Every tone content gives each kind, small and large, on the cream mat and the sage tray. */
 export const Tones: Story = {
   render: () => (
@@ -142,7 +189,7 @@ export const Tones: Story = {
 /** The two counters (ten-frames, number bonds) under each simulation: the ring tells them apart. */
 export const CountersColourVision: Story = {
   render: () => (
-    <CvdCompare col={250}>
+    <CvdCompare col={330}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
         {[10, 16, 24, 48].flatMap((px) => [
           <Sprite key={`a${px}`} kind="counter" px={px} tone="a" />,
