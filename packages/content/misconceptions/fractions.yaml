@@ -149,3 +149,99 @@ misconceptions:
       - params: { cut: 0, mirror: false }
         response: { kind: number, value: 4 }
         match: false
+
+  # K02 slice 5b (#17): fractions on the number line (frac.line).
+  - id: MC.fraction-line-ticks
+    name: Counts tick marks instead of spaces on a number line
+    detect: { kind: answer, rule: fractionLineTicks }
+    appliesTo: { generators: [frac.line] }
+    skills: [FRA.04, FRA.10, FRA.11]
+    remediation: [FRA.04]
+    feedback: fb.mc.fraction-line-ticks
+    priority: 40
+    parentTip: >-
+      Draw a line from 0 to 1 and cut it into four equal jumps. Hop a finger along it: each hop is
+      one fourth, and you count hops, not tick marks.
+    examples:
+      - params: { mode: place, skin: strip, den: 4, num: 1, max: 1 }
+        response: { kind: placement, value: 0 }
+        match: true
+      - params: { mode: place, skin: strip, den: 4, num: 1, max: 1 }
+        response: { kind: placement, value: 0.25 }
+        match: false
+
+  - id: MC.fraction-line-whole
+    name: Takes the whole number line as one whole when it runs past 1
+    detect: { kind: answer, rule: fractionLineWhole }
+    appliesTo: { generators: [frac.line] }
+    skills: [FRA.12, FRA.11]
+    remediation: [FRA.10]
+    feedback: fb.mc.fraction-line-whole
+    priority: 40
+    parentTip: >-
+      On a line from 0 to 2, point to 0 and 1 together: that is one whole. The line holds two of
+      them.
+    examples:
+      - params: { mode: place, skin: strip, den: 4, num: 4, max: 2 }
+        response: { kind: placement, value: 2 }
+        match: true
+      - params: { mode: place, skin: strip, den: 4, num: 4, max: 2 }
+        response: { kind: placement, value: 1 }
+        match: false
+
+  - id: MC.fraction-line-at-whole
+    name: Puts a fraction at its top number (2/3 at 2) or a fraction less than 1 at 1
+    detect: { kind: answer, rule: fractionLineAtWhole }
+    appliesTo: { generators: [frac.line] }
+    skills: [FRA.04, FRA.10, FRA.11]
+    remediation: [FRA.04]
+    feedback: fb.mc.fraction-line-at-whole
+    priority: 30
+    parentTip: >-
+      Say the fraction as hops: "two thirds" is two hops, each one third, from 0. It never reaches
+      2.
+    examples:
+      - params: { mode: place, skin: strip, den: 4, num: 1, max: 1 }
+        response: { kind: placement, value: 1 }
+        match: true
+      - params: { mode: place, skin: strip, den: 4, num: 1, max: 1 }
+        response: { kind: placement, value: 0.25 }
+        match: false
+
+  - id: MC.fraction-over-one
+    name: Thinks a fraction cannot be more than 1 (puts 5/4 at 1/4)
+    detect: { kind: answer, rule: fractionOverOne }
+    appliesTo: { generators: [frac.line] }
+    skills: [FRA.11]
+    remediation: [FRA.10]
+    feedback: fb.mc.fraction-over-one
+    priority: 40
+    parentTip: >-
+      Count fourths out loud along a line past 1: one fourth, two fourths, three, four, five
+      fourths. Five fourths is past the 1.
+    examples:
+      - params: { mode: place, skin: strip, den: 4, num: 5, max: 2 }
+        response: { kind: placement, value: 0.25 }
+        match: true
+      - params: { mode: place, skin: strip, den: 4, num: 5, max: 2 }
+        response: { kind: placement, value: 1.25 }
+        match: false
+
+  - id: MC.fraction-whole-count
+    name: Takes four fourths for four (counts the parts, not the wholes)
+    detect: { kind: answer, rule: fractionWholeCount }
+    appliesTo: { generators: [frac.line] }
+    skills: [FRA.12]
+    remediation: [FRA.02]
+    feedback: fb.mc.fraction-whole-count
+    priority: 40
+    parentTip: >-
+      Cut a paper strip into four equal parts and put them back together: four fourths are one
+      strip, one whole.
+    examples:
+      - params: { mode: place, skin: strip, den: 2, num: 2, max: 3 }
+        response: { kind: placement, value: 2 }
+        match: true
+      - params: { mode: place, skin: strip, den: 2, num: 2, max: 3 }
+        response: { kind: placement, value: 1 }
+        match: false

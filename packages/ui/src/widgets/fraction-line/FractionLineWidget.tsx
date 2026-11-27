@@ -90,6 +90,29 @@ function useWidth() {
 
 const near = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 
+/**
+ * Where a value on a line with shown ticks is, told the way a child counts it (#17 slice 5b): on a
+ * labelled number (`at`: 0, a whole, or the end), or tick `k` of the `n` parts between the two
+ * labelled numbers around it (the wholes; with `ends` or `none`, 0 and the end). Never the
+ * fraction itself, so a placed or flagged point is found by counting, as a sighted child does.
+ */
+export type TickPlace =
+  | { kind: 'at'; at: number }
+  | { kind: 'between'; k: number; n: number; lo: number; hi: number };
+
+export function tickPlace(
+  value: number,
+  den: number,
+  max: number,
+  labels: Config['labels'],
+): TickPlace {
+  const kk = Math.round(Math.min(max, Math.max(0, value)) * den);
+  const span = labels === 'ends' || labels === 'none' ? den * max : den;
+  if (kk % span === 0) return { kind: 'at', at: kk / den };
+  const from = Math.floor(kk / span) * span;
+  return { kind: 'between', k: kk - from, n: span, lo: from / den, hi: (from + span) / den };
+}
+
 /** A label for value k/den: a whole as an integer, else a stacked fraction (or a decimal). */
 function labelParts(k: number, den: number, decimal: boolean) {
   if (k % den === 0) return { whole: String(k / den) };
@@ -575,6 +598,41 @@ export function FractionLineWidget({
     );
 
   const rangeName = t(strip ? 'ui.frac.strip' : 'ui.frac.line');
+  // Counted places (#17 slice 5b): the slider says where its point is as a tick between two
+  // numbers, and a read line's picture where the flag is; neither says the fraction.
+  const counted = config.ticksShown && !config.decimalLabels;
+  const placeText = (p: TickPlace) =>
+    p.kind === 'at'
+      ? t('ui.frac.at', { n: p.at })
+      : t('ui.frac.tick', { k: p.k, n: p.n, lo: p.lo, hi: p.hi });
+  const sliderValue = cursor ?? (mode === 'place' ? (state.marker ?? 0) : max / 2);
+  const sliderText =
+    mode === 'place' && counted
+      ? placeText(tickPlace(sliderValue, den, max, config.labels))
+      : undefined;
+  const flagPlace =
+    mode === 'read' && counted && tv !== null && !strip
+      ? tickPlace(tv, den, max, config.labels)
+      : null;
+  const flagKey = (at: boolean) =>
+    ruler
+      ? at
+        ? 'ui.frac.flag-ruler-at'
+        : 'ui.frac.flag-ruler-tick'
+      : at
+        ? 'ui.frac.flag-line-at'
+        : 'ui.frac.flag-line-tick';
+  const pictureName = !flagPlace
+    ? t('ui.widget.picture')
+    : flagPlace.kind === 'at'
+      ? t(flagKey(true), { max, n: flagPlace.at })
+      : t(flagKey(false), {
+          max,
+          k: flagPlace.k,
+          n: flagPlace.n,
+          lo: flagPlace.lo,
+          hi: flagPlace.hi,
+        });
   let side: ReactNode = null;
   if (typing) {
     side = (
@@ -653,7 +711,7 @@ export function FractionLineWidget({
           height={stageH}
           viewBox={`0 0 ${stageW} ${stageH}`}
           role="img"
-          aria-label={t('ui.widget.picture')}
+          aria-label={pictureName}
         >
           {strip ? (
             Array.from({ length: max }, (_, w) => (
@@ -825,7 +883,8 @@ export function FractionLineWidget({
             min={0}
             max={max}
             step={cursorStep}
-            value={cursor ?? (mode === 'place' ? (state.marker ?? 0) : max / 2)}
+            value={sliderValue}
+            aria-valuetext={sliderText}
             disabled={!interactive}
             onFocus={() =>
               setCursor((c) => c ?? (mode === 'place' ? (state.marker ?? 0) : max / 2))

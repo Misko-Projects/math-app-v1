@@ -24,6 +24,7 @@ import {
   FractionEntry,
   FractionView,
   fractionWords,
+  NumberLineView,
   type PadKey,
   PickCard,
   padValue,
@@ -270,6 +271,21 @@ export function FractionPickWidget({
 
   const stimulus = config.stimulus;
   const stimFraction = fractionOf(stimulus);
+  // A name item's number line (#17 slice 5b, FRA.10): 0 to 1 cut into equal parts with a dot,
+  // named by its parts and the dot's counted tick, never the fraction.
+  const dot = stimulus?.kind === 'number-line' ? stimulus.marks?.[0] : undefined;
+  const lineName =
+    config.mode === 'name' &&
+    stimulus?.kind === 'number-line' &&
+    stimulus.ticksEvery !== null &&
+    dot &&
+    dot.label === undefined
+      ? t('ui.frac.dot-line', {
+          max: stimulus.max,
+          n: Math.round(1 / stimulus.ticksEvery),
+          k: Math.round(dot.at / stimulus.ticksEvery),
+        })
+      : undefined;
   const k = ageMode === 'k';
   // Option pictures share one box (abstract tier with labels: a small one beside the symbols), so
   // every option's whole is drawn the same size.
@@ -292,7 +308,11 @@ export function FractionPickWidget({
     ? optionPicBox
     : compact
       ? pads
-        ? { w: k ? 180 : 200, h: 220 }
+        ? // A number line (#17 slice 5b) is long and low: wide enough that eighths of its whole
+          // stay ≥ 22 px apart beside the pads at 960 × 600.
+          stimulus?.kind === 'number-line'
+          ? { w: k ? 230 : 256, h: 160 }
+          : { w: k ? 180 : 200, h: 220 }
         : { w: 280, h: 230 }
       : { w: 420, h: 330 };
 
@@ -327,6 +347,18 @@ export function FractionPickWidget({
           }
           overlay={state.overlay}
           counting={counting}
+        />
+      ) : lineName && stimulus.kind === 'number-line' ? (
+        // Drawn without a second card and with narrow ends, so its parts get the room.
+        <NumberLineView
+          min={stimulus.min}
+          max={stimulus.max}
+          ticksEvery={stimulus.ticksEvery}
+          labelsEvery={stimulus.labelsEvery}
+          marks={stimulus.marks ?? []}
+          width={stimBox.w}
+          pad={30}
+          label={lineName}
         />
       ) : (
         <StimulusView spec={stimulus} maxWidth={stimBox.w} maxHeight={stimBox.h} />

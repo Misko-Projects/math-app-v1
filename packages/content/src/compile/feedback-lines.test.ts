@@ -31,3 +31,35 @@ describe('grade 3 fraction hints (K02 slice 5a)', () => {
     expect(line).toMatch(/^Equal\? Use =\./);
   });
 });
+
+describe('fractions on the number line (K02 slice 5b)', () => {
+  const fra = parse(
+    readFileSync(fileURLToPath(new URL('../../narration/FRA.yaml', import.meta.url)), 'utf8'),
+  ) as Record<string, { text: string }>;
+
+  it('read prompts say which parts make the bottom number, so b/b-style equal answers are not invited (PR #140 review)', () => {
+    expect(fra['tp.FRA.04.t2.prompt']?.text ?? '').toMatch(/equal parts drawn on the ruler/);
+    expect(fra['tp.FRA.10.t3.prompt']?.text ?? '').toMatch(/equal parts drawn on the line/);
+    for (const key of ['tp.FRA.11.t3.prompt', 'tp.FRA.12.t2.prompt'])
+      expect(fra[key]?.text ?? '', key).toMatch(/\{den\} equal parts/);
+  });
+
+  it('a line and a ruler retry name what is drawn, not a strip (PR #140 review)', () => {
+    expect(common['fb.fraction-line.retry-line']?.text ?? '').toMatch(/\bline\b/);
+    expect(common['fb.fraction-line.retry-ruler']?.text ?? '').toMatch(/\bruler\b/);
+  });
+
+  it('no line of the slice writes a fraction as a/b text: fractions are fracw words', () => {
+    const mine = [
+      ...Object.entries(fra).filter(([k]) => /^(sk|tp)\.FRA\.(04|10|11|12)\./.test(k)),
+      ...Object.entries(common).filter(([k]) =>
+        /^(h|gen)\.frac\.line\.|^fb\.mc\.fraction-(line|over|whole)/.test(k),
+      ),
+    ];
+    expect(mine.length).toBeGreaterThan(40);
+    for (const [k, v] of mine) {
+      expect(v.text, k).not.toMatch(/\d\s*\/\s*\d/);
+      expect(v.text, k).not.toMatch(/\{\w+\|frac\}/);
+    }
+  });
+});

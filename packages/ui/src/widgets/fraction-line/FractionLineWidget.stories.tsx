@@ -662,3 +662,47 @@ export const PlacedDotTakenBack: Story = {
     await expect(lastResponse(args.onResponse)).toEqual({ kind: 'placement', value: 0.75 });
   },
 };
+
+// #17 slice 5b: a screen-reader child learns where the point is by counting ticks, never by
+// hearing the fraction.
+const placeFourthsTwo: Line = {
+  ...base,
+  max: 2,
+  denominator: 4,
+  labels: 'wholes',
+  mode: 'place',
+  target: { a: 5, b: 4 },
+};
+
+/** The slider says "Tick k of n between lo and hi", and a whole its number (FRA.11 on 0 to 2). */
+export const PlaceSliderCountsTicks: Story = {
+  args: { config: placeFourthsTwo },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const range = within(root).getByRole('slider', { name: 'The number line' });
+    range.focus();
+    await expect(range).toHaveAttribute('aria-valuetext', '0');
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(range).toHaveAttribute('aria-valuetext', 'Tick 1 of 4 between 0 and 1');
+    for (let i = 0; i < 3; i += 1) await userEvent.keyboard('{ArrowRight}');
+    await expect(range).toHaveAttribute('aria-valuetext', '1');
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(range).toHaveAttribute('aria-valuetext', 'Tick 1 of 4 between 1 and 2');
+    check(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(lastResponse(args.onResponse)).toEqual({ kind: 'placement', value: 1.25 });
+  },
+};
+
+/** A read line's picture says where the flag is as a counted tick (FRA.11 on 0 to 2). */
+export const ReadFlagCounted: Story = {
+  args: { config: { ...placeFourthsTwo, mode: 'read' } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(
+      within(root).getByRole('img', {
+        name: 'A number line from 0 to 2. The flag is on tick 1 of 4 between 1 and 2.',
+      }),
+    ).toBeVisible();
+  },
+};

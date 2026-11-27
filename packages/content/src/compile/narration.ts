@@ -11,6 +11,8 @@ export const SLOT_TYPES = [
   'dollars',
   'time',
   'frac',
+  /** A fraction "a/b" shown in words on screen ("seven fourths"), said like `frac` (#17 slice 5b). */
+  'fracw',
   'dec',
   'noun',
   'unit',

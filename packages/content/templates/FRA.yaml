@@ -658,3 +658,256 @@ templates:
     narration:
       prompt: tp.FRA.06.t4.prompt
       hints: [h.frac.same-top, h.frac.fewest-bottom]
+
+  # ---------- K02 slice 5b (#17): fractions on the number line (frac.line) ----------
+  # Bounds at 960 × 600: a line the child taps keeps ticks ≥ 64 px apart (0–1 in any of 2, 3, 4,
+  # 6, 8 parts; 0–2 in halves, thirds or fourths; 0–3 in halves); only whole numbers are labelled.
+  # FRA.04 (gateway): one jump of 1/b from 0 on a strip, a ruler and a line; a path story names it.
+  - id: FRA.04.t1
+    skillId: FRA.04
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.line
+    params:
+      mode: place
+      skin: strip
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
+      num: 1
+      max: 1
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.FRA.04.t1.prompt
+      hints: [h.frac.line.parts-whole, h.frac.line.one-part, h.frac.line.spaces]
+
+  - id: FRA.04.t2
+    skillId: FRA.04
+    format: fraction-line
+    tier: pictorial
+    representation: ruler
+    generator: frac.line
+    params:
+      mode: read
+      skin: ruler
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
+      num: 1
+      max: 1
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.FRA.04.t2.prompt
+      hints: [h.frac.line.read-bottom, h.frac.line.read-top, h.frac.line.spaces]
+
+  - id: FRA.04.t3
+    skillId: FRA.04
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.line
+    params:
+      mode: place
+      skin: line
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
+      num: 1
+      max: 1
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.FRA.04.t3.prompt
+      hints: [h.frac.line.parts-whole, h.frac.line.one-part, h.frac.line.spaces]
+
+  - id: FRA.04.t4
+    skillId: FRA.04
+    format: fraction-pick
+    tier: abstract
+    representation: symbols
+    generator: frac.line
+    params:
+      mode: name
+      words: true
+      den: { choice: [2, 3, 4, 6, 8], weights: [1, 2, 2, 2, 2] }
+      num: 1
+      max: 1
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.FRA.04.t4.prompt
+      hints: [h.frac.line.path-bottom, h.frac.line.path-top]
+
+  # FRA.10: a/b as a jumps of 1/b from 0 (a ≥ 2, a < b), placed on a strip or a line, and a dot
+  # named on the pads.
+  - id: FRA.10.t1
+    skillId: FRA.10
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.line
+    params:
+      mode: place
+      skin: strip
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [2, 7] }
+      max: 1
+    constraints: ["num < den"]
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.FRA.10.t1.prompt
+      hints: [h.frac.line.parts-whole, h.frac.line.hop-top, h.frac.line.spaces]
+
+  - id: FRA.10.t2
+    skillId: FRA.10
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.line
+    params:
+      mode: place
+      skin: line
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [2, 7] }
+      max: 1
+    constraints: ["num < den"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.10.t2.prompt
+      hints: [h.frac.line.parts-whole, h.frac.line.hop-top, h.frac.line.spaces]
+
+  - id: FRA.10.t3
+    skillId: FRA.10
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.line
+    params:
+      mode: name
+      den: { choice: [3, 4, 6, 8] }
+      num: { int: [2, 7] }
+      max: 1
+    constraints: ["num < den"]
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.FRA.10.t3.prompt
+      hints: [h.frac.line.read-bottom, h.frac.line.dot-top, h.frac.line.spaces]
+
+  # FRA.11: a/b > 1 (never a whole) on a line past 1, the wholes labelled; no mixed numbers.
+  - id: FRA.11.t1
+    skillId: FRA.11
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.line
+    params:
+      mode: place
+      skin: strip
+      den: { choice: [2, 3, 4] }
+      num: { int: [3, 7] }
+      max: 2
+    constraints: ["num > den", "num < 2 * den", "num % den != 0"]
+    difficulty: { base: -1.2, features: { denominator: 0.3 } }
+    narration:
+      prompt: tp.FRA.11.t1.prompt
+      hints: [h.frac.line.past-one, h.frac.line.hop-top, h.frac.line.spaces]
+
+  - id: FRA.11.t2
+    skillId: FRA.11
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.line
+    params:
+      mode: place
+      skin: line
+      den: { choice: [2, 3, 4] }
+      num: { int: [3, 11] }
+      max: { choice: [2, 3] }
+    constraints: ["num > den", "num < max * den", "num % den != 0", "max == 2 || den == 2"]
+    difficulty: { base: -1.2, features: { denominator: 0.3 } }
+    narration:
+      prompt: tp.FRA.11.t2.prompt
+      hints: [h.frac.line.past-one, h.frac.line.hop-top, h.frac.line.spaces]
+
+  - id: FRA.11.t3
+    skillId: FRA.11
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.line
+    params:
+      mode: read
+      skin: line
+      den: { choice: [2, 3, 4] }
+      num: { int: [3, 7] }
+      max: 2
+    constraints: ["num > den", "num < 2 * den", "num % den != 0"]
+    difficulty: { base: -1.4, features: { denominator: 0.3 } }
+    narration:
+      prompt: tp.FRA.11.t3.prompt
+      hints: [h.frac.line.read-bottom, h.frac.line.read-top-past, h.frac.line.spaces]
+
+  - id: FRA.11.t4
+    skillId: FRA.11
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: frac.line
+    params:
+      mode: between
+      den: { choice: [2, 3, 4, 6, 8] }
+      num: { int: [3, 23] }
+    constraints: ["num > den", "num < 3 * den", "num % den != 0"]
+    difficulty: { base: -1.6 }
+    narration:
+      prompt: tp.FRA.11.t4.prompt
+      hints: [h.frac.line.one-whole, h.frac.line.count-wholes]
+
+  # FRA.12: wholes as fractions. A whole target stands inside a line labelled only at its ends;
+  # the read prompt names the parts to use, so b/b is the natural answer (an equal fraction is
+  # wrong and claims no misconception). n = n/1 is not asked.
+  - id: FRA.12.t1
+    skillId: FRA.12
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.line
+    params:
+      mode: place
+      skin: strip
+      den: { choice: [2, 3, 4] }
+      num: { int: [2, 4] }
+      max: { choice: [2, 3] }
+    constraints: ["num % den == 0", "num < max * den", "max == 2 || den == 2"]
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.FRA.12.t1.prompt
+      hints: [h.frac.line.whole-group, h.frac.line.hop-top]
+
+  - id: FRA.12.t2
+    skillId: FRA.12
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-line
+    generator: frac.line
+    params:
+      mode: read
+      skin: line
+      den: { choice: [2, 3, 4] }
+      num: { int: [2, 4] }
+      max: { choice: [2, 3] }
+    constraints: ["num % den == 0", "num < max * den", "max == 2 || den == 2"]
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.FRA.12.t2.prompt
+      hints: [h.frac.line.read-top, h.frac.line.whole-group]
+
+  - id: FRA.12.t3
+    skillId: FRA.12
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: frac.line
+    params:
+      mode: wholes
+      den: { choice: [2, 3, 4, 6, 8] }
+      num: { int: [2, 24] }
+    constraints: ["num % den == 0", "num <= 3 * den"]
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.FRA.12.t3.prompt
+      hints: [h.frac.line.whole-group, h.frac.line.count-wholes]

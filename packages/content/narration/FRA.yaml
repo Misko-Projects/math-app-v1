@@ -102,3 +102,59 @@ tp.FRA.06.t4.prompt:
 tp.FRA.13.t1.prompt:
   text: "The strips are the same size. Which one shows more? They may be the same."
   level: "3"
+# K02 slice 5b (#17): fractions on the number line. Fractions are said and shown as words
+# (`fracw`), never as a/b text.
+sk.FRA.04.intro:
+  text: "Fractions live on the number line too. One fourth is one jump of one fourth from 0."
+  level: "3"
+sk.FRA.10.intro:
+  text: "Three fourths is three jumps of one fourth from 0."
+  level: "3"
+sk.FRA.11.intro:
+  text: "A fraction can be more than one. Five fourths is one whole and one fourth more."
+  level: "3"
+sk.FRA.12.intro:
+  text: "Four fourths make one whole. On the number line, four fourths is at 1."
+  level: "3"
+tp.FRA.04.t1.prompt:
+  text: "Put the dot at {f|fracw} on the strip."
+  level: "3"
+tp.FRA.04.t2.prompt:
+  text: "Where is the flag on the ruler? Count the equal parts drawn on the ruler for the bottom number."
+  level: "3"
+tp.FRA.04.t3.prompt:
+  text: "Put the dot at {f|fracw} on the number line."
+  level: "3"
+tp.FRA.04.t4.prompt:
+  text: "A path is cut into {den} equal steps. You take 1 step. What fraction of the path did you walk?"
+  level: "3"
+tp.FRA.10.t1.prompt:
+  text: "Put the dot at {f|fracw} on the strip."
+  level: "3"
+tp.FRA.10.t2.prompt:
+  text: "Put the dot at {f|fracw} on the number line."
+  level: "3"
+tp.FRA.10.t3.prompt:
+  text: "What fraction is at the dot? Count the equal parts drawn on the line for the bottom number."
+  level: "3"
+tp.FRA.11.t1.prompt:
+  text: "Put the dot at {f|fracw}. Each strip is one whole."
+  level: "3"
+tp.FRA.11.t2.prompt:
+  text: "Put the dot at {f|fracw} on the number line."
+  level: "3"
+tp.FRA.11.t3.prompt:
+  text: "Each whole is cut into {den} equal parts. Where is the flag? Type the top number and the bottom number."
+  level: "3"
+tp.FRA.11.t4.prompt:
+  text: "Which two whole numbers is {f|fracw} between? Type the smaller one first."
+  level: "3"
+tp.FRA.12.t1.prompt:
+  text: "Put the dot at {f|fracw}. Each strip is one whole."
+  level: "3"
+tp.FRA.12.t2.prompt:
+  text: "Each whole is cut into {den} equal parts. Write where the flag is, with {den} on the bottom."
+  level: "3"
+tp.FRA.12.t3.prompt:
+  text: "How many wholes make {f|fracw}?"
+  level: "3"

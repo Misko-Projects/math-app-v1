@@ -99,6 +99,8 @@ export function retryFeedback(item: GeneratedItem): NarrationKey {
   if (w.format === 'story-problem' && w.workspace !== 'counters') {
     return 'fb.story-problem.retry-listen';
   }
+  // A bare line or a ruler has no strip to look at (#17 slice 5b, PR #140 review).
+  if (w.format === 'fraction-line' && w.skin !== 'strip') return `fb.fraction-line.retry-${w.skin}`;
   return `fb.${item.format}.retry`;
 }
 
