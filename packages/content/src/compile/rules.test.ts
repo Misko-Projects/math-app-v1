@@ -106,6 +106,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ALG.05',
       'ALG.06',
       'ALG.07',
+      'ALG.09',
       'ALG.10',
       'CMP.01',
       'CMP.02',
@@ -162,6 +163,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'FRA.02',
       'FRA.07',
       'FRA.08',
+      'FRA.16',
       'GEO.01',
       'GEO.02',
       'GEO.03',
@@ -291,6 +293,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.digit-order-reversed',
       'MC.dollar-as-one',
       'MC.double-once',
+      'MC.equal-shares-look-alike',
       'MC.equals-add-all',
       'MC.equals-means-answer',
       'MC.face-value',
@@ -299,6 +302,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.forgot-to-regroup-add',
       'MC.fraction-bigger-denominator',
       'MC.fraction-unequal-parts',
+      'MC.function-add-for-take',
+      'MC.function-backwards',
+      'MC.function-column-pattern',
+      'MC.function-first-pair-double',
       'MC.grow-as-repeat',
       'MC.hour-hand-next',
       'MC.hour-minute-swap',
@@ -316,6 +323,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.round-wrong-place',
       'MC.ruler-count-ticks',
       'MC.ruler-read-end',
+      'MC.share-counted-whole',
       'MC.skip-count-slip',
       'MC.smaller-from-larger',
       'MC.start-unknown-reversed',
@@ -382,6 +390,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'pattern.repeat',
         'pattern.grow',
         'puzzle.grid',
+        // K02 (#17) slice 4c-2: function machines and equal shares
+        'alg.function',
+        'frac.shares',
         // K01 (#11): place value and two-digit addition and subtraction
         'pv.regroup',
         'pv.tenmore',
@@ -1953,9 +1964,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // skills, 13 templates, MC.first-step-only and MC.dollar-as-one; grade 2 patterns and puzzles
       // (K02 slice 4e) added 7 skills, 19 templates, MC.grow-as-repeat, MC.cage-repeat-digit,
       // MC.digit-order-reversed and MC.way-counted-twice.
-      skills: 202,
-      templates: 734,
-      misconceptions: 52,
+      skills: 204,
+      templates: 741,
+      misconceptions: 58,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([

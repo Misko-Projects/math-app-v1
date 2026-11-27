@@ -6,8 +6,8 @@ misconceptions:
   - id: MC.fraction-unequal-parts
     name: Calls unequal pieces halves or fourths, or an unequal share fair
     detect: { kind: answer, rule: fractionUnequalParts }
-    appliesTo: { generators: [frac.partition, div.share] }
-    skills: [FRA.01, FRA.07]
+    appliesTo: { generators: [frac.partition, div.share, frac.shares] }
+    skills: [FRA.01, FRA.07, FRA.16]
     remediation: [FRA.07]
     feedback: fb.mc.fraction-unequal-parts
     priority: 50
@@ -47,4 +47,44 @@ misconceptions:
         match: true
       - params: { shape: bar, den: 2, den2: 4 }
         response: { kind: choice, id: same }
+        match: false
+
+  # K02 slice 4c-2 (#17): equal shares that look different (FRA.16, frac.shares).
+  - id: MC.equal-shares-look-alike
+    name: Thinks equal shares must look alike (a longer part looks bigger)
+    detect: { kind: answer, rule: equalSharesLookAlike }
+    appliesTo: { generators: [frac.shares] }
+    skills: [FRA.16]
+    remediation: [FRA.02]
+    feedback: fb.mc.equal-shares-look-alike
+    priority: 50
+    parentTip: >-
+      Fold one paper square into two long strips and another into two small squares, and ask
+      whether a strip and a small square are the same amount of paper.
+    examples:
+      # A 4 × 4 grid in two 2 × 2 squares and two bars of 4: equal shares, judged not equal.
+      - params: { cut: 0, mirror: false, equalParts: true }
+        response: { kind: choice, id: no }
+        match: true
+      - params: { cut: 0, mirror: false, equalParts: true }
+        response: { kind: choice, id: yes }
+        match: false
+
+  - id: MC.share-counted-whole
+    name: Counts every square of the whole for the squares in one share
+    detect: { kind: answer, rule: shareCountedWhole }
+    appliesTo: { generators: [frac.shares] }
+    skills: [FRA.16]
+    remediation: [FRA.02]
+    feedback: fb.mc.share-counted-whole
+    priority: 50
+    parentTip: >-
+      Cut a small grid of crackers into equal parts, and count the crackers in one part together.
+    examples:
+      # A 4 × 4 grid in fourths: 4 squares in each part; all 16 counted.
+      - params: { cut: 0, mirror: false }
+        response: { kind: number, value: 16 }
+        match: true
+      - params: { cut: 0, mirror: false }
+        response: { kind: number, value: 4 }
         match: false

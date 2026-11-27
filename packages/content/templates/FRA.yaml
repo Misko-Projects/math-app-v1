@@ -301,3 +301,55 @@ templates:
     narration:
       prompt: tp.FRA.08.t4.prompt
       hints: [h.frac.more-parts, h.frac.order-biggest]
+
+  # K02 slice 4c-2 (#17): equal shares that look different. t1 is the free grid cut (the grids
+  # worked solutions cut squares and bars of one size); t2 and t3 draw a grid-parts picture: equal
+  # parts of different shapes (count the squares in each), or equal or unequal parts to judge.
+  - id: FRA.16.t1
+    skillId: FRA.16
+    format: fraction-cut
+    tier: concrete
+    representation: area-grid
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: grid
+      acceptNonCongruent: true
+      den: { choice: [3, 4] }
+      cols: { choice: [4, 6, 8] }
+      rows: { choice: [2, 4] }
+      num: 0
+    difficulty: { base: -1.4, features: { parts.hard: 0.6 } }
+    expectedLatencyMs: 20000
+    narration:
+      prompt: tp.FRA.16.t1.prompt
+      hints: [h.shares.same-squares, h.shares.count-all]
+
+  - id: FRA.16.t2
+    skillId: FRA.16
+    format: number-pad
+    tier: pictorial
+    representation: area-grid
+    generator: frac.shares
+    params:
+      cut: { int: [0, 7] }
+      mirror: { choice: [true, false] }
+    difficulty: { base: 0.0 }
+    narration:
+      prompt: tp.FRA.16.t2.prompt
+      hints: [h.shares.count-one, h.shares.check-another]
+
+  - id: FRA.16.t3
+    skillId: FRA.16
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-shape
+    generator: frac.shares
+    params:
+      cut: { int: [0, 7] }
+      mirror: { choice: [true, false] }
+      equalParts: { choice: [true, false] }
+    difficulty: { base: -0.1, features: { lookDifferent: 0.2 } }
+    narration:
+      prompt: tp.FRA.16.t3.prompt
+      hints: [h.shares.count-each, h.shares.shape-ok]

@@ -220,6 +220,7 @@ export {
   MAX_CUT_PARTS,
   partCount,
   shadedParts,
+  snapAt as snapCutAt,
 } from './formats/fraction-cut';
 export * from './formats/fraction-geometry';
 export {

@@ -215,6 +215,12 @@ export interface OrderConfig extends WidgetBase {
   items: { id: string; value: number; stimulus?: StimulusSpec; label?: string }[];
   direction: 'asc' | 'desc';
   fixed?: Record<number, string>;
+  /**
+   * What the row above the slots shows: `size` (the default) pebbles growing or shrinking with the
+   * direction; `places` the place of each slot in words (hundreds, tens, ones; 2 or 3 slots), so a
+   * digit-card puzzle (PUZ.06) gets no big-to-small strategy cue.
+   */
+  cue?: 'size' | 'places';
 }
 export const orderConfigSchema = z.object({
   format: z.literal('order'),
@@ -229,6 +235,7 @@ export const orderConfigSchema = z.object({
   ),
   direction: z.enum(['asc', 'desc']),
   fixed: z.record(z.number(), z.string()).optional(),
+  cue: z.enum(['size', 'places']).optional(),
 });
 assertType<Equals<z.infer<typeof orderConfigSchema>, OrderConfig>>(true);
 

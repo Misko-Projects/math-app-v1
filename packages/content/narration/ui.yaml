@@ -1126,6 +1126,33 @@ ui.order.fixed:
 ui.order.picture:
   text: "Picture {n}"
   level: K
+ui.order.place.hundreds:
+  text: "hundreds"
+  level: "2"
+ui.order.place.tens:
+  text: "tens"
+  level: "1"
+ui.order.place.ones:
+  text: "ones"
+  level: "1"
+ui.order.slot.hundreds:
+  text: "The hundreds place"
+  level: "2"
+ui.order.slot.tens:
+  text: "The tens place"
+  level: "1"
+ui.order.slot.ones:
+  text: "The ones place"
+  level: "1"
+ui.order.in.hundreds:
+  text: "{n} in the hundreds place"
+  level: "2"
+ui.order.in.tens:
+  text: "{n} in the tens place"
+  level: "1"
+ui.order.in.ones:
+  text: "{n} in the ones place"
+  level: "1"
 
 # tenframe-fill, number-bond, rekenrek (U03, packages/ui/src/widgets/tenframe-fill, number-bond,
 # rekenrek). Accessible names and spoken labels.
@@ -1339,6 +1366,33 @@ ui.widget.pattern.jump:
   level: K
 ui.widget.pattern.biggest:
   text: "That is the biggest one."
+  level: K
+ui.widget.grid.intro:
+  text: "A grid of {rows} rows of {cols} squares, cut into {n} parts:"
+  level: "2"
+ui.widget.grid.square:
+  text: "a square {w} squares wide and {h} tall"
+  level: "2"
+ui.widget.grid.rect:
+  text: "a rectangle {w} squares wide and {h} tall"
+  level: "2"
+ui.widget.grid.bar:
+  text: "a bar {n} squares long"
+  level: "2"
+ui.widget.pattern.machine:
+  text: "The number machine"
+  level: "2"
+ui.widget.pattern.in:
+  text: "In"
+  level: K
+ui.widget.pattern.out:
+  text: "Out"
+  level: K
+ui.widget.pattern.pair:
+  text: "In {in}, out {out}"
+  level: K
+ui.widget.pattern.out-for:
+  text: "Out for {in}"
   level: K
 ui.widget.chart.full:
   text: "{n} is the most here."

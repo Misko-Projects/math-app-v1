@@ -188,3 +188,81 @@ misconceptions:
           }
         response: { kind: number, value: 4 }
         match: false
+
+  # K02 slice 4c-2 (#17): input–output machines (ALG.09, alg.function tables).
+  - id: MC.function-column-pattern
+    name: Continues the Out numbers as a pattern instead of using the machine
+    detect: { kind: answer, rule: functionColumnPattern }
+    appliesTo: { generators: [alg.function] }
+    skills: [ALG.09]
+    remediation: [ALG.02]
+    feedback: fb.mc.function-column-pattern
+    priority: 52
+    parentTip: >-
+      Play "number machine": you secretly add 3 to every number your child says, out of order,
+      and they guess your rule from what comes out.
+    examples:
+      # Add 3: 16 → 19, 1 → 4, 9 → 12, then 2 → 5. The Outs 4, 12 read as a pattern give 20.
+      - params: { op: add, n: 3, max: 20, rows: 4, blanks: 1, lure: 0, arrange: 1 }
+        response: { kind: numbers, values: [20] }
+        match: true
+      - params: { op: add, n: 3, max: 20, rows: 4, blanks: 1, lure: 0, arrange: 1 }
+        response: { kind: numbers, values: [5] }
+        match: false
+
+  - id: MC.function-first-pair-double
+    name: Takes a rule from the first pair only (doubling)
+    detect: { kind: answer, rule: functionFirstPairDouble }
+    appliesTo: { generators: [alg.function] }
+    skills: [ALG.09]
+    remediation: [ALG.09]
+    feedback: fb.mc.function-first-pair-double
+    priority: 53
+    parentTip: >-
+      When a rule fits one pair, ask your child to try it on a second pair before using it.
+    examples:
+      # Add 3: 3 → 6 also doubles, but 16 → 19 does not; 9 doubled gives 18, not 12.
+      - params: { op: add, n: 3, max: 20, rows: 4, blanks: 1, lure: 1, arrange: 1 }
+        response: { kind: numbers, values: [18] }
+        match: true
+      - params: { op: add, n: 3, max: 20, rows: 4, blanks: 1, lure: 1, arrange: 1 }
+        response: { kind: numbers, values: [12] }
+        match: false
+
+  - id: MC.function-backwards
+    name: Runs an adding machine backwards (takes away)
+    detect: { kind: answer, rule: functionBackwards }
+    appliesTo: { generators: [alg.function] }
+    skills: [ALG.09]
+    remediation: [ADD.11]
+    feedback: fb.mc.function-backwards
+    priority: 51
+    parentTip: >-
+      Ask whether each Out is bigger or smaller than its In before deciding what the machine does.
+    examples:
+      # Add 3, asked for 9: 9 take away 3 gives 6.
+      - params: { op: add, n: 3, max: 20, rows: 4, blanks: 1, lure: 1, arrange: 1 }
+        response: { kind: numbers, values: [6] }
+        match: true
+      - params: { op: add, n: 3, max: 20, rows: 4, blanks: 1, lure: 1, arrange: 1 }
+        response: { kind: numbers, values: [12] }
+        match: false
+
+  - id: MC.function-add-for-take
+    name: Adds where the machine takes away
+    detect: { kind: answer, rule: functionAddForTake }
+    appliesTo: { generators: [alg.function] }
+    skills: [ALG.09]
+    remediation: [ADD.11]
+    feedback: fb.mc.function-add-for-take
+    priority: 51
+    parentTip: >-
+      Ask whether each Out is bigger or smaller than its In before deciding what the machine does.
+    examples:
+      # Take away 7, asked for 26 and 23: adding 7 gives 33 and 30.
+      - params: { op: sub, n: 7, max: 60, rows: 4, blanks: 2, lure: 0, arrange: 1 }
+        response: { kind: numbers, values: [33, 30] }
+        match: true
+      - params: { op: sub, n: 7, max: 60, rows: 4, blanks: 2, lure: 0, arrange: 1 }
+        response: { kind: numbers, values: [19, 16] }
+        match: false

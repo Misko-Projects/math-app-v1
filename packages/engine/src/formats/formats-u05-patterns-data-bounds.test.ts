@@ -228,14 +228,18 @@ describe('pattern-extend: the supported domain', () => {
     );
   });
 
-  it('table is refused until the widget has a layout for it', () => {
-    const table: Pattern = {
+  it('a table of 4 rows is accepted; 5 rows are refused (the widget lays out 4 columns)', () => {
+    const table = (inputs: number[], outputs: (number | null)[]): Pattern => ({
       ...numbers([1, 2]),
+      sequence: [],
       mode: 'table',
       kind: 'function',
-      table: { inputs: [1, 2], outputs: [3, null] },
-    };
-    expect(refuses(issues(patternExtend, table), 'table is not supported yet')).toBe(true);
+      table: { inputs, outputs },
+    });
+    expect(issues(patternExtend, table([41, 15, 58, 23], [34, null, 51, null]))).toEqual([]);
+    expect(
+      refuses(issues(patternExtend, table([1, 2, 3, 4, 5], [2, 3, 4, 5, null])), 'at most 4 rows'),
+    ).toBe(true);
   });
 });
 

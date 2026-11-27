@@ -3075,3 +3075,93 @@ fb.mc.digit-order-reversed:
   text: "The first card is the biggest place. Which card goes there?"
 fb.mc.way-counted-twice:
   text: "We found those coins before. A new order is the same way."
+
+# K02 slice 4c-2 (#17): equal shares that look different (FRA.16) and input–output machines
+# (ALG.09). Hints, worked-solution lines and misconception feedback.
+h.shares.same-squares:
+  text: "Each share needs the same number of squares."
+  level: "2"
+h.shares.count-all:
+  text: "Count all the squares first. Then give each share the same number."
+  level: "2"
+h.shares.count-one:
+  text: "Count the squares in one part."
+  level: "2"
+h.shares.check-another:
+  text: "Count another part. Equal shares have the same number of squares."
+  level: "2"
+h.shares.count-each:
+  text: "Count the squares in each part."
+  level: "2"
+h.shares.shape-ok:
+  text: "Equal shares have the same number of squares, even if their shapes are not the same."
+  level: "2"
+h.machine.one-pair:
+  text: "Look at one In and its Out. How did the number change?"
+  level: "2"
+h.machine.check-pair:
+  text: "Check: does another In change the same way?"
+  level: "2"
+h.machine.do-same:
+  text: "Change the new number the same way."
+  level: "2"
+h.machine.bigger-smaller:
+  text: "Is each Out bigger or smaller than its In?"
+  level: "2"
+h.machine.count-up:
+  text: "Count up from an In to its Out."
+  level: "2"
+h.machine.count-back:
+  text: "Count back from an In to its Out."
+  level: "2"
+gen.alg.function.rule-add:
+  text: "{a} goes in and {b} comes out. {a} and {n} make {b}."
+  level: "2"
+gen.alg.function.rule-sub:
+  text: "{a} goes in and {b} comes out. {a} take away {n} is {b}."
+  level: "2"
+gen.alg.function.check-add:
+  text: "Check another pair: {a} and {n} make {b}."
+  level: "2"
+gen.alg.function.check-sub:
+  text: "Check another pair: {a} take away {n} is {b}."
+  level: "2"
+gen.alg.function.out-add:
+  text: "So {a} and {n} make {b}."
+  level: "2"
+gen.alg.function.out-sub:
+  text: "So {a} take away {n} is {b}."
+  level: "2"
+gen.alg.function.name-add:
+  text: "The machine adds {n}."
+  level: "2"
+gen.alg.function.name-sub:
+  text: "The machine takes away {n}."
+  level: "2"
+gen.frac.shares.count-part:
+  text: "Count the squares in one part: {n}."
+  level: "2"
+gen.frac.shares.each-same:
+  text: "Every part has {n} squares."
+  level: "2"
+gen.frac.shares.sizes:
+  text: "The same number of squares, so they are equal shares."
+  level: "2"
+gen.frac.shares.not-equal:
+  text: "One part has {big} squares, and one has {small}."
+  level: "2"
+gen.frac.shares.no:
+  text: "So they are not equal shares."
+  level: "2"
+fb.mc.equal-shares-look-alike:
+  text: "Count the squares. Equal shares can have different shapes."
+fb.mc.share-counted-whole:
+  text: "That is all the squares. Count the squares in one part."
+fb.mc.function-column-pattern:
+  text: "Use the machine on each In, not a pattern of Outs."
+fb.mc.function-first-pair-double:
+  text: "Double works for one pair only. Check each pair."
+fb.mc.function-backwards:
+  text: "The machine goes from In to Out. Go that way."
+fb.mc.function-add-for-take:
+  text: "This machine takes away. Each Out is smaller than its In."

@@ -722,3 +722,78 @@ export const WordsLandscapeMinK: Story = {
     await expectFitsArea(root, areaBox(canvasElement), 'k', [...cards(root), check(root)]);
   },
 };
+
+// ---------- FRA.16: are these equal shares? (a grid cut into parts of different shapes) ----------
+
+/** FRA.16.t3, equal: a 6 × 2 grid in thirds, a 2 × 2 square and two 4 × 1 bars (answer yes). */
+const fairGridThirds: ConfigFor<'fraction-pick'> = {
+  format: 'fraction-pick',
+  mode: 'fair-or-not',
+  stimulus: {
+    kind: 'grid-parts',
+    cols: 6,
+    rows: 2,
+    parts: [
+      [0, 1, 6, 7],
+      [2, 3, 4, 5],
+      [8, 9, 10, 11],
+    ],
+  },
+};
+/** FRA.16.t3, not equal: an 8 × 2 grid in four parts of 4, 6, 3 and 3 squares (answer no). */
+const fairGridUnequal: ConfigFor<'fraction-pick'> = {
+  format: 'fraction-pick',
+  mode: 'fair-or-not',
+  stimulus: {
+    kind: 'grid-parts',
+    cols: 8,
+    rows: 2,
+    parts: [
+      [0, 1, 8, 9],
+      [2, 3, 4, 10, 11, 12],
+      [5, 6, 7],
+      [13, 14, 15],
+    ],
+  },
+};
+
+export const FairGridLandscapeMin: Story = {
+  args: { config: fairGridThirds, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const yes = within(root).getByRole('button', { name: 'yes' });
+    const no = within(root).getByRole('button', { name: 'no' });
+    const picture = root.querySelector('.ni-fpick__stimulus svg.ni-grid-parts') as SVGSVGElement;
+    await expect(picture).toHaveAttribute(
+      'aria-label',
+      'A grid of 2 rows of 6 squares, cut into 3 parts: a square 2 squares wide and 2 tall, a bar 4 squares long, a bar 4 squares long.',
+    );
+    await expect(Number(picture.dataset.squarePx)).toBeGreaterThanOrEqual(22);
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [yes, no, check(root)]);
+    await userEvent.click(yes);
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'yes' });
+  },
+};
+
+export const FairGridUnequalTablet: Story = {
+  args: { config: fairGridUnequal, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const yes = within(root).getByRole('button', { name: 'yes' });
+    const no = within(root).getByRole('button', { name: 'no' });
+    const picture = root.querySelector('.ni-fpick__stimulus svg.ni-grid-parts') as SVGSVGElement;
+    await expect(picture).toHaveAttribute(
+      'aria-label',
+      'A grid of 2 rows of 8 squares, cut into 4 parts: a square 2 squares wide and 2 tall, a rectangle 3 squares wide and 2 tall, a bar 3 squares long, a bar 3 squares long.',
+    );
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [yes, no, check(root)]);
+    no.focus();
+    await userEvent.keyboard('{Enter}');
+    check(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'no' });
+  },
+};

@@ -67,10 +67,76 @@ export function tilePositions(n: number): { col: number; row: number }[] {
 }
 
 /**
- * A stack of `n` tiles, drawn at the scale of a `frame`-tile stack (the largest in the pattern), so
- * every step of a growing pattern uses the same tile size and the growth shows.
+ * A growing shape pattern drawn as one shape (ALG.10): step 1 is a column of `start` tiles and each
+ * step adds a column of `step` tiles on its right, bottom-aligned, every tile `tile` px square.
  */
-export function TileStack({ n, frame = n }: { n: number; frame?: number }) {
+export type Growth = { start: number; step: number; tile: number };
+
+/** Columns a stack of `n` tiles takes in a growing shape. */
+export const growthCols = (n: number, g: Pick<Growth, 'start' | 'step'>): number =>
+  n <= g.start ? 1 : 1 + Math.ceil((n - g.start) / g.step);
+/** Rows of a growing shape: its first column or an added one, whichever is taller. */
+export const growthRows = (g: Pick<Growth, 'start' | 'step'>): number => Math.max(g.start, g.step);
+
+/** Where tile k sits in a growing shape: the first column fills up, then each added column. */
+export function growthPositions(
+  n: number,
+  g: Pick<Growth, 'start' | 'step'>,
+): { col: number; row: number }[] {
+  return Array.from({ length: Math.max(0, n) }, (_, k) =>
+    k < g.start
+      ? { col: 0, row: k }
+      : { col: 1 + Math.floor((k - g.start) / g.step), row: (k - g.start) % g.step },
+  );
+}
+
+/**
+ * A stack of `n` tiles, drawn at the scale of a `frame`-tile stack (the largest in the pattern), so
+ * every step of a growing pattern uses the same tile size and the growth shows. With `growth` the
+ * stack is that shape at a fixed tile size instead.
+ */
+export function TileStack({
+  n,
+  frame = n,
+  growth,
+}: {
+  n: number;
+  frame?: number;
+  growth?: Growth;
+}) {
+  if (growth) {
+    const cols = growthCols(n, growth);
+    const rows = growthRows(growth);
+    const u = growth.tile;
+    const w = cols * u + 4;
+    const h = rows * u + 4;
+    return (
+      <svg
+        className="ni-pattern__tiles"
+        viewBox={`0 0 ${w} ${h}`}
+        width={w}
+        height={h}
+        style={{ width: w, height: h }}
+        aria-hidden="true"
+        focusable="false"
+        data-tiles={n}
+        data-tile-px={u}
+      >
+        {growthPositions(n, growth).map((p, k) => (
+          <rect
+            // biome-ignore lint/suspicious/noArrayIndexKey: tile k of the shape
+            key={k}
+            className="ni-pattern__tile"
+            x={2 + p.col * u}
+            y={2 + (rows - 1 - p.row) * u}
+            width={u}
+            height={u}
+            rx="2"
+          />
+        ))}
+      </svg>
+    );
+  }
   const tiles = tilePositions(n);
   const size = Math.max(n, frame, 1);
   const cols = Math.max(1, Math.ceil(size / 5));
@@ -103,9 +169,17 @@ export function TileStack({ n, frame = n }: { n: number; frame?: number }) {
   );
 }
 
-export function PatternTokenView({ token, frame }: { token: PatternToken; frame?: number }) {
+export function PatternTokenView({
+  token,
+  frame,
+  growth,
+}: {
+  token: PatternToken;
+  frame?: number;
+  growth?: Growth;
+}) {
   if ('n' in token) return <span className="ni-pattern__numeral">{token.n}</span>;
-  if ('tiles' in token) return <TileStack n={token.tiles} frame={frame} />;
+  if ('tiles' in token) return <TileStack n={token.tiles} frame={frame} growth={growth} />;
   if (token.color !== undefined || isShape(token.sprite)) {
     return <ShapeArt kind={token.sprite} color={token.color} />;
   }

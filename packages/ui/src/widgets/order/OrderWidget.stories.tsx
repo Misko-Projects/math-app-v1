@@ -2047,3 +2047,103 @@ export const ObjectDemoSpeaks: Story = {
     await expect(audio.say).toHaveBeenCalledWith('ui.sprite.event-wake-up', undefined);
   },
 };
+
+// ---------- digit-card puzzles (PUZ.06): place names, no size cue ----------
+
+/** PUZ.06.t1: three digit cards, make the biggest number; the slots are named by place. */
+const digitsBiggest: Config = {
+  format: 'order',
+  items: cards([4, 9, 7]),
+  direction: 'desc',
+  cue: 'places',
+};
+/** PUZ.06.t2: two digit cards, make the smallest number. */
+const digitsSmallest: Config = {
+  format: 'order',
+  items: cards([8, 3]),
+  direction: 'asc',
+  cue: 'places',
+};
+
+/**
+ * The places cue: one place name a slot (hundreds, tens, ones; the last slot is the ones), each
+ * centred over its slot, 24 px, inside the board and clear of its neighbours; no pebbles, no
+ * arrow, nothing that grows or shrinks.
+ */
+async function expectPlaces(root: HTMLElement, words: string[]) {
+  await waitForSettled(root);
+  await expect(root.querySelector('.ni-ord__pebble')).toBeNull();
+  await expect(root.querySelector('.ni-ord__arrow')).toBeNull();
+  const labels = [...root.querySelectorAll<HTMLElement>('.ni-ord__place')];
+  await expect(labels.map((l) => l.textContent)).toEqual(words);
+  const board = (root.querySelector('.ni-ord__board') as HTMLElement).getBoundingClientRect();
+  const pads = [...root.querySelectorAll<HTMLElement>('.ni-ord__slot')].map((s) =>
+    s.getBoundingClientRect(),
+  );
+  const boxes = labels.map((l) => l.getBoundingClientRect());
+  for (const [k, b] of boxes.entries()) {
+    await expect(Number.parseFloat(getComputedStyle(labels[k] as HTMLElement).fontSize)).toBe(24);
+    await expect(b.left).toBeGreaterThanOrEqual(board.left);
+    await expect(b.right).toBeLessThanOrEqual(board.right);
+    const pad = pads[k] as DOMRect;
+    await expect(Math.abs(b.left + b.width / 2 - (pad.left + pad.width / 2))).toBeLessThan(2);
+    await expect(b.bottom).toBeLessThanOrEqual(pad.top);
+    const next = boxes[k + 1];
+    if (next) await expect(next.left - b.right).toBeGreaterThanOrEqual(8);
+  }
+}
+
+const placeSlot = (root: HTMLElement, place: string) =>
+  within(root).getByRole('button', { name: `The ${place} place` });
+
+/** Three cards at the smallest area: fits, and each placed card says its place. */
+export const DigitCardsPlacesMinLandscape: Story = {
+  args: { config: digitsBiggest },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPlaces(root, ['hundreds', 'tens', 'ones']);
+    await expectOrderFits(canvasElement, root, 'g1-up');
+    await expect(within(root).queryByRole('img', { name: /big|small/i })).toBeNull();
+    await userEvent.click(card(root, '9'));
+    await userEvent.click(placeSlot(root, 'hundreds'));
+    await userEvent.click(card(root, '7'));
+    await userEvent.click(placeSlot(root, 'tens'));
+    await userEvent.click(card(root, '4'));
+    await userEvent.click(placeSlot(root, 'ones'));
+    await expect(
+      within(root).getByRole('button', { name: '9 in the hundreds place' }),
+    ).toBeInTheDocument();
+    await expect(
+      within(root).getByRole('button', { name: '4 in the ones place' }),
+    ).toBeInTheDocument();
+    await expectPlaces(root, ['hundreds', 'tens', 'ones']);
+    await expectOrderFits(canvasElement, root, 'g1-up');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [9, 7, 4] });
+  },
+};
+
+/**
+ * Two cards, tens and ones, by keyboard: Enter picks a card up, Enter on a slot puts it down.
+ * (The stage, not a workshop area: two numeral cards cover under 60 % of an area at the card
+ * size cap, as shipped; the fit test checks both viewports.)
+ */
+export const DigitCardsTwoPlacesKeyboard: Story = {
+  args: { config: digitsSmallest },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPlaces(root, ['tens', 'ones']);
+    card(root, '3').focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(placeSlot(root, 'tens')).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    card(root, '8').focus();
+    await userEvent.keyboard('{Enter}{Enter}');
+    await expect(
+      within(root).getByRole('button', { name: '3 in the tens place' }),
+    ).toBeInTheDocument();
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [3, 8] });
+  },
+};

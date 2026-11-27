@@ -87,6 +87,9 @@ function predict(item: GeneratedItem): ResponseValue | null {
 export const fractionUnequalParts: MisconceptionRule = {
   id: 'fractionUnequalParts',
   kind: 'answer',
+  // A grid's "how many squares in each part?" (FRA.16) has equal parts: nothing to call fair.
+  applies: (item) =>
+    item.widget.format !== 'number-pad' || item.widget.stimulus.kind !== 'grid-parts',
   predict,
   match(item, r) {
     const a = item.answer;

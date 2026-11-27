@@ -1174,6 +1174,7 @@ describe('registry', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
       'addsub.three',
+      'alg.function',
       'bond.parts',
       'compare.numbers',
       'compare.sets',
@@ -1188,6 +1189,7 @@ describe('registry', () => {
       'estimate.quantity',
       'frac.compare',
       'frac.partition',
+      'frac.shares',
       'geo.compose',
       'geo.draw',
       'geo.identify',

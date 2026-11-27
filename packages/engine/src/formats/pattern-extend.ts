@@ -27,8 +27,9 @@
 // - `rule` shows numbers that grow by one whole step of 1 or more (the pad has no minus sign);
 // - a pattern of numbers or tile stacks has at most PATTERN_TYPED_LENGTH_MAX places (one line of
 //   three-digit cells above the pad);
-// - `table` is not supported yet: the widget has no table layout that fits the smallest area at
-//   kindergarten sizes, so the schema refuses it (the model keeps its ops for that follow-up);
+// - `table` (ALG.09, K02 slice 4c-2): kind `function`, no sequence or palette, 2 to
+//   PATTERN_TABLE_ROWS_MAX rows of distinct inputs, at least one output shown and one missing; the
+//   widget lays it out as an In / Out table with the pad beside it (or under it where narrow);
 // - `translate` rebuilds a picture pattern (island objects or coloured shapes) with picture units.
 // `patternAnswerIssues` ties the item's answer to the config: what Check can send is what the
 // checker is asked for.
@@ -273,9 +274,46 @@ export function patternAnswerIssues(c: Config, answer: AnswerSpec): string[] {
   return out;
 }
 
+/** A table's rows: 2 to PATTERN_TABLE_ROWS_MAX, distinct whole inputs, a blank and a shown output. */
+function tableIssues(c: Config, add: (path: (string | number)[], message: string) => void) {
+  if (!c.table) {
+    add(['table'], 'table needs the table');
+    return;
+  }
+  const { inputs, outputs } = c.table;
+  if (inputs.length !== outputs.length || inputs.length < 2) {
+    add(['table'], 'one output per input, two rows or more');
+  }
+  if (tableBlanks(c).length === 0) add(['table', 'outputs'], 'no missing output');
+  if (outputs.every((o) => o === null)) add(['table', 'outputs'], 'no output is shown');
+  if (inputs.length > PATTERN_TABLE_ROWS_MAX) {
+    add(['table'], `a table has at most ${PATTERN_TABLE_ROWS_MAX} rows`);
+  }
+  if (new Set(inputs).size !== inputs.length) add(['table', 'inputs'], 'inputs are distinct');
+  inputs.forEach((x, i) => {
+    if (!isPatternNumber(x)) {
+      add(['table', 'inputs', i], `a number is whole, 0–${PATTERN_NUMBER_MAX}`);
+    }
+  });
+  outputs.forEach((x, i) => {
+    if (x !== null && !isPatternNumber(x)) {
+      add(['table', 'outputs', i], `a number is whole, 0–${PATTERN_NUMBER_MAX}`);
+    }
+  });
+}
+
 const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
   const add = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: 'custom', path, message });
+  // A table (an input–output machine, ALG.09) has no pattern: only its rows are checked.
+  if (c.mode === 'table') {
+    if (c.kind !== 'function') add(['kind'], 'a table is a function machine (kind function)');
+    if (c.sequence.length > 0 || c.palette.length > 0) {
+      add(['sequence'], 'a table shows no pattern and has no palette');
+    }
+    tableIssues(c, add);
+    return;
+  }
   const shown = c.sequence.filter((t): t is PatternToken => t !== null);
   const blanks = blankIndexes(c);
   if (c.sequence.length < 2) add(['sequence'], 'a pattern has at least two places');
@@ -373,30 +411,6 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
       if (step === null || !steady || !Number.isInteger(step) || step < 1) {
         add(['sequence'], 'rule shows numbers that grow by one whole step of 1 or more');
       }
-    }
-  }
-  if (c.mode === 'table') {
-    add(['mode'], 'table is not supported yet (no layout fits the smallest widget area)');
-    if (!c.table) add(['table'], 'table needs the table');
-    else {
-      if (c.table.inputs.length !== c.table.outputs.length || c.table.inputs.length < 2) {
-        add(['table'], 'one output per input, two rows or more');
-      }
-      if (tableBlanks(c).length === 0) add(['table', 'outputs'], 'no missing output');
-      if (c.table.outputs.every((o) => o === null)) add(['table', 'outputs'], 'no output is shown');
-      if (c.table.inputs.length > PATTERN_TABLE_ROWS_MAX) {
-        add(['table'], `a table has at most ${PATTERN_TABLE_ROWS_MAX} rows`);
-      }
-      c.table.inputs.forEach((x, i) => {
-        if (!isPatternNumber(x)) {
-          add(['table', 'inputs', i], `a number is whole, 0–${PATTERN_NUMBER_MAX}`);
-        }
-      });
-      c.table.outputs.forEach((x, i) => {
-        if (x !== null && !isPatternNumber(x)) {
-          add(['table', 'outputs', i], `a number is whole, 0–${PATTERN_NUMBER_MAX}`);
-        }
-      });
     }
   }
   if (c.mode === 'translate') {

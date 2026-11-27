@@ -4,6 +4,7 @@
 import type { GeneratorId } from '@number-island/shared';
 import { addsubFacts } from './addsub/facts';
 import { addsubThree } from './addsub/three';
+import { algFunction } from './alg/function';
 import { bondParts } from './bond/parts';
 import { compareNumbers } from './compare/numbers';
 import { compareSets } from './compare/sets';
@@ -18,6 +19,7 @@ import { equalityEq } from './equality/eq';
 import { estimateQuantity } from './estimate/quantity';
 import { fracCompare } from './frac/compare';
 import { fracPartition } from './frac/partition';
+import { fracShares } from './frac/shares';
 import { geoCompose } from './geo/compose';
 import { geoDraw } from './geo/draw';
 import { geoIdentify } from './geo/identify';
@@ -79,6 +81,8 @@ const GENERATORS: GeneratorDef[] = [
   dataLineplot, // K02 line plots (DAT.03, planned: no shipped template yet)
   patternRepeat, // K01 patterns (ALG.01, ALG.04)
   patternGrow, // K01 patterns (ALG.02)
+  algFunction, // K02 (#17) slice 4c-2: input–output machines (ALG.09)
+  fracShares, // K02 (#17) slice 4c-2: equal shares that look different (FRA.16)
   puzzleGrid, // K01 puzzles (PUZ.01, PUZ.02, CPS.06)
   // K01 (#11): place value and two-digit addition and subtraction
   pvRegroup,

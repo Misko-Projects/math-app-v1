@@ -243,7 +243,13 @@ export function k02Build(p: ParamValues, format: string, rng: Rng): K02Build {
       return {
         vars: {},
         math: { items: Math.max(0, ds.length - 3), three: ds.length === 3 ? 1 : 0 },
-        widget: { format: 'order', items: cards, direction: want === 'smallest' ? 'asc' : 'desc' },
+        widget: {
+          format: 'order',
+          items: cards,
+          direction: want === 'smallest' ? 'asc' : 'desc',
+          // Place names over the slots, not growing pebbles: the size cue gave the strategy away.
+          cue: 'places',
+        },
         answer: { kind: 'numbers', values: order, ordered: true },
       };
     }

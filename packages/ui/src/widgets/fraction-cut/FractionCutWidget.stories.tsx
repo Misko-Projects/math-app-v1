@@ -474,14 +474,92 @@ export const GridNotCongruent: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const g = 44;
+    // The grid's squares show on the whole (the part's fill does not hide them), at ≥ 22 px.
+    await expect(root.querySelectorAll('.ni-fcut__cells')).toHaveLength(1);
+    const svg = root.querySelector('svg.ni-fcut__svg') as SVGSVGElement;
+    const unit = svg.getBoundingClientRect().width / (svg.viewBox.baseVal.width || 1);
+    await expect(g * unit).toBeGreaterThanOrEqual(22);
     await swipe(at(root, 10 + 2 * g, 12), at(root, 10 + 2 * g, 10 + 4 * g - 2));
     await swipe(at(root, 10 + g, 20 + g), at(root, 10 + g, 10 + 3 * g));
     await swipe(at(root, 10 + 2.1 * g, 10 + 2 * g), at(root, 10 + 3.9 * g, 10 + 2 * g));
     await expect(partEls(root)).toHaveLength(4);
+    // Every cut part keeps its squares, so the child can count them.
+    await expect(root.querySelectorAll('.ni-fcut__cells')).toHaveLength(4);
     await expectEqualShares(measuredShares(stage(root)), 4);
     await userEvent.click(part(root, 0));
     await userEvent.click(check(root));
     await expectCorrect(lastResponse(args.onResponse), 4, 1, { acceptNonCongruent: true });
+  },
+};
+
+/**
+ * The same cut by keyboard alone (FRA.16, PR #137 review): with a knife picked, the arrows along
+ * its line choose one part it crosses (the knife then says "Part 1"), so the top half is cut into
+ * two squares and the bottom half into two bars, as the worked solution does.
+ */
+export const GridNotCongruentKeyboard: Story = {
+  args: { config: { ...gridFourths, shade: 0 } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const side = root.querySelector('[data-free-knife="h"]') as HTMLElement;
+    const down = root.querySelector('[data-free-knife="v"]') as HTMLElement;
+    // Side to side through the middle: two halves.
+    side.focus();
+    await userEvent.keyboard('{Enter}{Enter}');
+    await expect(partEls(root)).toHaveLength(2);
+    // Up and down through the top half only.
+    down.focus();
+    await userEvent.keyboard('{Enter}{ArrowDown}');
+    await expect(down).toHaveAccessibleName('Cut up and down: Part 1');
+    await userEvent.keyboard('{Enter}');
+    await expect(partEls(root)).toHaveLength(3);
+    // Side to side a quarter lower, through the bottom half only.
+    side.focus();
+    await userEvent.keyboard('{Enter}');
+    for (let i = 0; i < 12; i += 1) await userEvent.keyboard('{ArrowDown}');
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(side).toHaveAccessibleName('Cut side to side: Part 3');
+    await userEvent.keyboard('{Enter}');
+    await expect(partEls(root)).toHaveLength(4);
+    await expectEqualShares(measuredShares(stage(root)), 4);
+    await userEvent.click(check(root));
+    await expectCorrect(lastResponse(args.onResponse), 4, 0, { acceptNonCongruent: true });
+  },
+};
+
+/**
+ * Keyboard targets follow where the cut really lands (PR #137 review round 2): a line that snaps
+ * onto a seam offers no part, a grid line inside a part does; Take back drops a chosen part, and
+ * the knife then cuts the whole again.
+ */
+export const GridKeyboardTargetsFollowTheCut: Story = {
+  args: { config: { ...gridFourths, shade: 0 } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const side = root.querySelector('[data-free-knife="h"]') as HTMLElement;
+    const down = root.querySelector('[data-free-knife="v"]') as HTMLElement;
+    side.focus();
+    await userEvent.keyboard('{Enter}{Enter}');
+    await expect(partEls(root)).toHaveLength(2);
+    // One step up snaps back onto the seam at the middle: no part to cut there.
+    side.focus();
+    await userEvent.keyboard('{Enter}{ArrowUp}{ArrowRight}');
+    await expect(side).toHaveAccessibleName('Cut side to side');
+    // Up to the next grid line, inside the top half: the top half is the target.
+    for (let i = 0; i < 11; i += 1) await userEvent.keyboard('{ArrowUp}');
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(side).toHaveAccessibleName('Cut side to side: Part 1');
+    await userEvent.keyboard('{Escape}');
+    // Choose the bottom half with the down knife, then take the first cut back.
+    down.focus();
+    await userEvent.keyboard('{Enter}{ArrowDown}{ArrowDown}');
+    await expect(down).toHaveAccessibleName('Cut up and down: Part 2');
+    await userEvent.click(back(root));
+    await expect(partEls(root)).toHaveLength(1);
+    await expect(down).toHaveAccessibleName('Cut up and down');
+    down.focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(partEls(root)).toHaveLength(2);
   },
 };
 

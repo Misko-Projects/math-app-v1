@@ -38,3 +38,14 @@ skills:
     gateway: false
     # symbols: the abstract order cards name each strip's part count (FRA.08.t4).
     representations: [fraction-shape, fraction-strip, symbols]
+
+  # K02 slice 4c-2 (#17): equal shares that look different (frac.partition grid cut, frac.shares).
+  # number-pad (the squares in each part) is added to the catalog row as built.
+  - id: FRA.16
+    name: Equal shares of the same whole need not look the same
+    kind: concept
+    grade: 2
+    standards: { ccss: [2.G.A.3] }
+    prerequisites: [FRA.02]
+    gateway: false
+    representations: [fraction-shape, area-grid]

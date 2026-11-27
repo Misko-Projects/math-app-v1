@@ -36,6 +36,10 @@
 .ni-fcut__part {
   cursor: default;
 }
+/* A grid's squares over each part: drawn, never a target (a tap is the part's). */
+.ni-fcut__cells {
+  pointer-events: none;
+}
 .ni-fcut__part[role="button"] {
   cursor: pointer;
 }

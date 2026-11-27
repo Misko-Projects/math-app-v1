@@ -158,11 +158,17 @@ const configSchema = fractionPickConfigSchema.superRefine((c, ctx) => {
   if ((c.mode === 'fair-or-not' || c.mode === 'name') && !c.stimulus) {
     ctx.addIssue({ code: 'custom', path: ['stimulus'], message: `${c.mode} shows a picture` });
   }
-  if (c.mode === 'fair-or-not' && c.stimulus && c.stimulus.kind !== 'fraction') {
+  // A fraction picture, or a grid cut into parts of any rectangular shapes (FRA.16).
+  if (
+    c.mode === 'fair-or-not' &&
+    c.stimulus &&
+    c.stimulus.kind !== 'fraction' &&
+    c.stimulus.kind !== 'grid-parts'
+  ) {
     ctx.addIssue({
       code: 'custom',
       path: ['stimulus'],
-      message: 'fair-or-not judges a fraction picture',
+      message: 'fair-or-not judges a fraction or grid-parts picture',
     });
   }
   if (c.nameInput !== undefined && c.mode !== 'name') {

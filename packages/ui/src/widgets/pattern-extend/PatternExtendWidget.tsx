@@ -4,6 +4,7 @@ import {
   formatModel,
   MAX_TILES,
   type PatternExtendState,
+  tableBlanks,
   tokenFamily,
 } from '@number-island/engine';
 import type { PatternToken, WidgetAction } from '@number-island/shared';
@@ -38,7 +39,14 @@ import {
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
-import { PatternTokenView, tokenName, tokenSpeech } from './PatternTokenView';
+import {
+  type Growth,
+  growthCols,
+  growthRows,
+  PatternTokenView,
+  tokenName,
+  tokenSpeech,
+} from './PatternTokenView';
 import './pattern-extend.css';
 
 /**
@@ -58,7 +66,9 @@ import './pattern-extend.css';
  *
  * Layout: the controls sit under the pattern (the pad in two rows of six keys where the area is
  * wide), so every pattern the model accepts fits the smallest widget area at kindergarten sizes.
- * The model does not accept `table` yet (it needs its own layout there).
+ * `table` (an input–output machine): the machine, "In" over "Out" and a column a pair, the pad
+ * under it; tap a missing output to choose it and type it. Growing tile stacks draw as one shape
+ * that adds a column a step, tiles ≥ 22 px.
  *
  * Demo ops: `place-token {index, token}`, `bracket-core {from, to}`, `highlight {index}`, plus
  * `answer {value | values}`.
@@ -81,6 +91,108 @@ function useModel(): FormatModel<'pattern-extend', PatternExtendState> {
 
 const sameToken = (a: PatternToken | null | undefined, b: PatternToken | null | undefined) =>
   Boolean(a && b) && JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * The number machine beside a table (decorative): a hopper the In row drops into, a body with a
+ * gear, and a chute the Out row leaves by, with an arrow from in to out.
+ */
+function MachineArt() {
+  return (
+    <svg viewBox="0 0 64 164" width="56" height="152" aria-hidden="true" focusable="false">
+      <path
+        d="M10 8h44l-10 22H20Z"
+        fill="var(--color-sea)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <rect
+        x="6"
+        y="30"
+        width="52"
+        height="104"
+        rx="12"
+        fill="var(--color-sun)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+      />
+      <circle
+        cx="32"
+        cy="62"
+        r="13"
+        fill="var(--color-cloud)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+      />
+      <circle cx="32" cy="62" r="4" fill="var(--color-ink)" />
+      <path
+        d="M32 86v30M23 107l9 10 9-10"
+        fill="none"
+        stroke="var(--color-ink)"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 134h24l8 22H12Z"
+        fill="var(--color-coral)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** A tile a child counts is at least 22 px (06 §4); a growing shape draws them up to 30. */
+export const GROW_TILE_MIN = 22;
+const GROW_TILE_MAX = 30;
+/** A cell's padding and border around its drawing (pattern-extend.css). */
+const CELL_PAD = 22;
+/** The drawing's own margin around its tiles (TileStack). */
+const DRAW_PAD = 4;
+
+/**
+ * A growing shape pattern's layout (ALG.10), from the shown stacks: steps 1 and 2 give the first
+ * column and the column each step adds. The tile size is the largest (22 to 30 px) at which every
+ * shown step and a blank built up to the biggest stack fit the strip's width on one line; a
+ * narrower strip than any shipped viewport gives smaller tiles rather than a wrap. `null` when the
+ * pattern is not a growing tile pattern (every other screen keeps its layout).
+ */
+function growthOf(
+  sequence: (PatternToken | null)[],
+  width: number,
+  height: number,
+  gap: number,
+  target: number,
+): Growth | null {
+  const a = sequence[0];
+  const b = sequence[1];
+  if (!a || !b || !('tiles' in a) || !('tiles' in b)) return null;
+  const start = a.tiles;
+  const step = b.tiles - a.tiles;
+  if (start < 1 || step < 1) return null;
+  const g = { start, step };
+  const cellW = (n: number, tile: number) =>
+    Math.max(target, growthCols(n, g) * tile + DRAW_PAD + CELL_PAD);
+  const fits = (tile: number) =>
+    growthRows(g) * tile + DRAW_PAD + CELL_PAD <= height &&
+    sequence.reduce(
+      (sum, x) => sum + cellW(x && 'tiles' in x ? x.tiles : MAX_TILES, tile),
+      (sequence.length - 1) * gap,
+    ) <= width;
+  let tile = GROW_TILE_MAX;
+  while (tile > 12 && !fits(tile)) tile -= 1;
+  return { start, step, tile };
+}
+
+/** A growing-shape cell's box: as wide as its stack's columns, as tall as the shape's rows. */
+function growthCellStyle(g: Growth, n: number, target: number): CSSProperties {
+  return {
+    '--cell': `${Math.max(target, growthRows(g) * g.tile + DRAW_PAD + CELL_PAD)}px`,
+    '--cell-width': `${Math.max(target, growthCols(n, g) * g.tile + DRAW_PAD + CELL_PAD)}px`,
+  } as CSSProperties;
+}
 
 const argIndex = (a: WidgetAction | null, key = 'index'): number | null => {
   const v = a?.args?.[key];
@@ -105,6 +217,8 @@ export function PatternExtendWidget({
   const pause = useDemoPause();
   // The strip takes the whole width; the controls sit under it, centred in the widget area.
   const [layoutRef, layoutBox] = useMeasuredBox<HTMLDivElement>();
+  // The controls' height, so a growing shape's strip takes only the height left above them.
+  const [controlsRef, controlsBox] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<PatternExtendState>(() => model.initialState(config));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
@@ -123,7 +237,9 @@ export function PatternExtendWidget({
       ? config.sequence.map((_, i) => i)
       : mode === 'extend' || mode === 'fill'
         ? blankIndexes(config)
-        : [];
+        : mode === 'table'
+          ? tableBlanks(config)
+          : [];
 
   const [texts, setTexts] = useState<Record<number, string>>({});
   const [ruleText, setRuleText] = useState('');
@@ -412,7 +528,13 @@ export function PatternExtendWidget({
   const cell = Math.max(target, Math.min(grow, Math.floor((width - (len - 1) * gap) / len)));
   // A number cell is wide enough for three digits, whatever the age mode.
   const cellWidth = family === 'n' ? Math.max(cell, NUMBER_CELL) : cell;
-  const perRow = Math.max(1, Math.floor((width + gap) / (cellWidth + gap)));
+  // Height left for a growing shape's cells: the area less the controls, the 16 px gap between
+  // them and the strip's padding and border (30 px).
+  const cellRoom =
+    layoutBox && controlsBox ? layoutBox.height - controlsBox.height - 16 - 30 : Infinity;
+  const growth = growthOf(config.sequence, width, cellRoom, gap, target);
+  // A growing shape keeps its steps on one line, so each step reads as the last one plus a column.
+  const perRow = growth ? len : Math.max(1, Math.floor((width + gap) / (cellWidth + gap)));
   // Even columns (as the numeral tray lays out cards): full rows line up, the last is centred.
   const grid = trayGrid(len, perRow);
   const rows = Array.from({ length: grid.rows }, (_, r) =>
@@ -467,6 +589,11 @@ export function PatternExtendWidget({
     5,
     ...[...config.sequence, ...state.placed].map((x) => (x && 'tiles' in x ? x.tiles : 0)),
   );
+  // An empty growing-shape blank is as wide as the last shown step (nothing about the answer).
+  const lastShownTiles = Math.max(
+    0,
+    ...config.sequence.map((x) => (x && 'tiles' in x ? x.tiles : 0)),
+  );
 
   /** A shown unit: a button that speaks it (and, in core, marks the part that repeats). */
   const shownCell = (i: number, token: PatternToken) => {
@@ -482,6 +609,9 @@ export function PatternExtendWidget({
           data-core={coreEdge(i)}
           data-pending={pending === i ? 'true' : undefined}
           data-flash={flash === i || state.highlighted === i ? 'true' : undefined}
+          style={
+            growth && 'tiles' in token ? growthCellStyle(growth, token.tiles, target) : undefined
+          }
           aria-label={mode === 'core' ? t('ui.widget.pattern.place', { name, n: i + 1 }) : name}
           aria-pressed={mode === 'core' ? selected.has(i) : undefined}
           disabled={!interactive}
@@ -497,7 +627,7 @@ export function PatternExtendWidget({
           }}
           onPointerDown={onCorePointerDown(i)}
         >
-          <PatternTokenView token={token} frame={tileFrame} />
+          <PatternTokenView token={token} frame={tileFrame} growth={growth ?? undefined} />
         </button>
       </span>
     );
@@ -571,6 +701,15 @@ export function PatternExtendWidget({
           data-index={i}
           data-state={isActive ? 'active' : 'idle'}
           data-empty={(tiles ? !placed : text === '') ? 'true' : undefined}
+          style={
+            growth && tiles
+              ? growthCellStyle(
+                  growth,
+                  Math.max(placed && 'tiles' in placed ? placed.tiles : 0, lastShownTiles),
+                  target,
+                )
+              : undefined
+          }
           data-flash={flash === i ? 'true' : undefined}
           aria-label={`${label}: ${tiles ? (placed ? tokenName(placed, t) : '') : text}`.trim()}
           aria-current={isActive ? 'true' : undefined}
@@ -582,7 +721,7 @@ export function PatternExtendWidget({
         >
           {tiles ? (
             placed ? (
-              <PatternTokenView token={placed} frame={tileFrame} />
+              <PatternTokenView token={placed} frame={tileFrame} growth={growth ?? undefined} />
             ) : null
           ) : text === '' ? (
             <span className="ni-number__slot" />
@@ -701,12 +840,107 @@ export function PatternExtendWidget({
       </div>
     ) : null;
 
-  const main: ReactNode = (
-    <>
-      {sequenceRow(false)}
-      {mode === 'translate' ? sequenceRow(true) : null}
-    </>
-  );
+  /**
+   * An input–output machine (`table`): the machine, then "In" over "Out", then one column a pair.
+   * A shown pair is a button that says "In 7, out 10"; a missing output is a typed box named
+   * "Out for 12" (tap it to choose it). Cells show numbers only, never the rule.
+   */
+  const tableView = () => {
+    const rows = config.table;
+    if (!rows) return null;
+    return (
+      <fieldset
+        className="ni-pattern__rows ni-pattern__table"
+        aria-label={t('ui.widget.pattern.machine')}
+        data-row="pattern"
+      >
+        <div className="ni-pattern__row">
+          <span className="ni-pattern__machine" aria-hidden="true">
+            <MachineArt />
+          </span>
+          <span className="ni-pattern__col ni-pattern__heads" aria-hidden="true">
+            <span className="ni-pattern__head">{t('ui.widget.pattern.in')}</span>
+            <span className="ni-pattern__head">{t('ui.widget.pattern.out')}</span>
+          </span>
+          {rows.inputs.map((x, i) => {
+            const out = rows.outputs[i];
+            const invited = invitedIndex === i;
+            if (out !== null && out !== undefined) {
+              return (
+                <button
+                  // biome-ignore lint/suspicious/noArrayIndexKey: table columns are positional
+                  key={i}
+                  type="button"
+                  className={['ni-pattern__col', 'ni-pattern__pair', invited ? 'ni-invite' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  data-index={i}
+                  data-flash={flash === i || state.highlighted === i ? 'true' : undefined}
+                  aria-label={t('ui.widget.pattern.pair', { in: x, out })}
+                  disabled={!interactive}
+                  onClick={() => {
+                    if (!interactive) return;
+                    trace('tap', `tok-${i}`);
+                    if (speakOnTap) say('ui.widget.pattern.pair', { in: x, out });
+                  }}
+                >
+                  {/* The numbers print through CSS: the pair's name says them ("In 7, out 10"). */}
+                  <span className="ni-pattern__tcell" data-n={x} />
+                  <span className="ni-pattern__tcell" data-n={out} />
+                </button>
+              );
+            }
+            const text = texts[i] ?? '';
+            const isActive = active === i && !disabled;
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: table columns are positional
+              <span key={i} className="ni-pattern__col">
+                <span className="ni-pattern__tcell" data-n={x} aria-hidden="true" />
+                <button
+                  type="button"
+                  className={[
+                    'ni-pattern__tcell',
+                    'ni-pattern__blank',
+                    'ni-number',
+                    invited ? 'ni-invite' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  data-index={i}
+                  data-state={isActive ? 'active' : 'idle'}
+                  data-empty={text === '' ? 'true' : undefined}
+                  data-flash={flash === i ? 'true' : undefined}
+                  aria-label={`${t('ui.widget.pattern.out-for', { in: x })}: ${text}`.trim()}
+                  aria-current={isActive ? 'true' : undefined}
+                  disabled={!interactive}
+                  onClick={() => {
+                    trace('tap', `blank-${i}`);
+                    setActive(i);
+                  }}
+                >
+                  {text === '' ? (
+                    <span className="ni-number__slot" />
+                  ) : (
+                    <span className="ni-pattern__numeral">{text}</span>
+                  )}
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      </fieldset>
+    );
+  };
+
+  const main: ReactNode =
+    mode === 'table' ? (
+      tableView()
+    ) : (
+      <>
+        {sequenceRow(false)}
+        {mode === 'translate' ? sequenceRow(true) : null}
+      </>
+    );
 
   return (
     <div
@@ -716,12 +950,13 @@ export function PatternExtendWidget({
       data-mode={mode}
       data-family={family}
       data-typed={typed ? 'true' : undefined}
+      data-growth={growth ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={{ ...style, ...handRootStyle }}
     >
       <div className="ni-pattern__layout" ref={layoutRef}>
         <div className="ni-pattern__main">{main}</div>
-        <div className="ni-pattern__controls">
+        <div className="ni-pattern__controls" ref={controlsRef}>
           {ruleAnswer}
           {palette}
           {tilesControl}

@@ -70,6 +70,15 @@
 .ni-ord__pebble {
   display: block;
 }
+/* Place names over the slots (cue "places"), in the cue row's room (06: labels 24 px). */
+.ni-ord__place {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+}
 .ni-ord__arrow {
   position: absolute;
   left: 8px;

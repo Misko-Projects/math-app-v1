@@ -56,6 +56,8 @@ import './order.css';
  */
 
 const OPS = ['drag', 'highlight', 'answer'] as const;
+/** Place names for a `places` cue, from the ones up. */
+const PLACE_WORDS = ['ones', 'tens', 'hundreds'] as const;
 const FLY_MS = 480;
 
 type Config = ConfigFor<'order'>;
@@ -938,6 +940,11 @@ export function OrderWidget({
   };
 
   const asc = config.direction === 'asc';
+  // `places`: each slot's place in words over it (the last slot is the ones), no size cue.
+  const places =
+    config.cue === 'places'
+      ? Array.from({ length: n }, (_, k) => PLACE_WORDS[n - 1 - k] ?? 'ones')
+      : null;
   const compact = plan.chrome === 'compact';
   const [cueMin, cueMax] = compact ? [14, 26] : [20, 50];
   const cueSizes = Array.from({ length: n }, (_, k) => {
@@ -986,35 +993,47 @@ export function OrderWidget({
       style={{ ...vars, ...handRootStyle }}
     >
       <div className="ni-ord__board">
-        <div
-          className="ni-ord__cue"
-          role="img"
-          aria-label={t(asc ? 'ui.order.small-to-big' : 'ui.order.big-to-small')}
-        >
-          {cueSizes.map((size, k) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: one cue pebble per slot position
-            <span key={k} className="ni-ord__cue-cell">
-              <CuePebble size={size} />
-            </span>
-          ))}
-          <svg
-            className="ni-ord__arrow"
-            viewBox="0 0 100 12"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-            focusable="false"
+        {places ? (
+          // Each slot's place, read left to right; the slots carry the names for screen readers.
+          <div className="ni-ord__cue" data-cue="places" aria-hidden="true">
+            {places.map((place, k) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: one place name per slot position
+              <span key={k} className="ni-ord__cue-cell">
+                <span className="ni-ord__place">{t(`ui.order.place.${place}`)}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="ni-ord__cue"
+            role="img"
+            aria-label={t(asc ? 'ui.order.small-to-big' : 'ui.order.big-to-small')}
           >
-            <path d="M2 6h98" />
-          </svg>
-          <svg
-            className="ni-ord__arrowhead"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M4 3l16 9-16 9V3Z" />
-          </svg>
-        </div>
+            {cueSizes.map((size, k) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: one cue pebble per slot position
+              <span key={k} className="ni-ord__cue-cell">
+                <CuePebble size={size} />
+              </span>
+            ))}
+            <svg
+              className="ni-ord__arrow"
+              viewBox="0 0 100 12"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M2 6h98" />
+            </svg>
+            <svg
+              className="ni-ord__arrowhead"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M4 3l16 9-16 9V3Z" />
+            </svg>
+          </div>
+        )}
 
         <div className="ni-ord__slots">
           {slots.map((id, k) => {
@@ -1025,7 +1044,11 @@ export function OrderWidget({
             // backdrop, out of the tab order and of the arrow keys' way.
             const pad = it
               ? null
-              : dnd.targetProps(slotId(k), { label: t('ui.widget.blank', { n: k + 1 }) });
+              : dnd.targetProps(slotId(k), {
+                  label: places
+                    ? t(`ui.order.slot.${places[k]}`)
+                    : t('ui.widget.blank', { n: k + 1 }),
+                });
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: slots are positional
               <div key={k} className="ni-ord__slot">
@@ -1064,7 +1087,9 @@ export function OrderWidget({
                       .filter(Boolean)
                       .join(' ')}
                     data-placed={it.id}
-                    aria-label={itemName(it)}
+                    aria-label={
+                      places ? t(`ui.order.in.${places[k]}`, { n: itemName(it) }) : itemName(it)
+                    }
                     disabled={!interactive}
                     onClick={() => sendBack(k)}
                   >
