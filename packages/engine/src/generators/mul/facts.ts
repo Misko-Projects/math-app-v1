@@ -35,6 +35,7 @@ import type {
 } from '@number-island/shared';
 import { ARRAY_SIDE_MAX } from '../../formats/array-build';
 import { GROUP_CAPACITY, GROUPS_MAX } from '../../formats/equal-groups';
+import { numberOptionId } from '../../formats/numeral-pick';
 import {
   asNum,
   asStr,
@@ -62,6 +63,7 @@ export const FACT_FAMILIES = [
   'x3',
   'x6',
   'x9',
+  'x7',
   'squares',
   'any',
 ] as const;
@@ -81,6 +83,7 @@ const FAMILY_FACTORS: Record<string, readonly number[]> = {
   x3: [3],
   x6: [6],
   x9: [9],
+  x7: [7],
 };
 
 const say = (
@@ -91,7 +94,7 @@ const say = (
   action ? { actor: 'demo', say: key, vars, action } : { actor: 'demo', say: key, vars };
 
 const num = (v: number): ExpressionToken => ({ t: 'num', v });
-const op = (v: '+' | '-' | '×'): ExpressionToken => ({ t: 'op', v });
+const op = (v: '+' | '-' | '×' | '÷'): ExpressionToken => ({ t: 'op', v });
 const eq: ExpressionToken = { t: 'rel', v: '=' };
 const blank = (id: string): ExpressionToken => ({ t: 'blank', id });
 
@@ -145,7 +148,20 @@ export interface FactPlan {
   c: number;
   pair: [number, number] | null;
   left: number;
+  /** `op` ÷ or an unknown factor (K02 slice 3c): what the sentence asks, else 'result'. */
+  unknown: (typeof FACT_UNKNOWNS)[number];
+  op: (typeof FACT_OPS)[number];
+  /**
+   * The picture's rows (or groups) and the number in each: a and b, or for ÷ the divisor and the
+   * quotient (the dividend shared into divisor rows).
+   */
+  rows: number;
+  perRow: number;
 }
+
+export const FACT_OPS = ['×', '÷'] as const;
+/** result: the product or quotient; factor: a missing factor (× ) or the divisor (÷); dividend: ? ÷ d = q. */
+export const FACT_UNKNOWNS = ['result', 'factor', 'dividend'] as const;
 
 /**
  * The pair of a × b × c to multiply first: the first pair (a b, b c, a c) whose product is a
@@ -185,6 +201,10 @@ function threePlan(a: number, b: number, c: number): FactPlan {
     rest: 0,
     pair: [x, y],
     left,
+    unknown: 'result',
+    op: '×',
+    rows: left,
+    perRow: part,
     values: [part, result],
     tokens: [num(a), op('×'), num(b), op('×'), num(c), eq, ...rest, eq, blank('x')],
   };
@@ -216,7 +236,38 @@ export function factPlan(p: ParamValues): FactPlan {
     k: 0,
     takeAway: false,
     rest: 0,
+    unknown: 'result' as FactPlan['unknown'],
+    op: '×' as FactPlan['op'],
+    rows: a,
+    perRow: b,
   };
+  const askOp = asStr(p.op, '×') as FactPlan['op'];
+  const unknown = asStr(p.unknown, 'result') as FactPlan['unknown'];
+  if (askOp === '÷') {
+    // The dividend a × b shared by the family factor (a with family any): d = f, q = o.
+    const d = f;
+    const q = o;
+    const div = { ...base, op: askOp, unknown, rows: d, perRow: q };
+    if (unknown === 'factor') {
+      return { ...div, values: [d], tokens: [num(result), op('÷'), blank('x'), eq, num(q)] };
+    }
+    if (unknown === 'dividend') {
+      return { ...div, values: [result], tokens: [blank('x'), op('÷'), num(d), eq, num(q)] };
+    }
+    return { ...div, values: [q], tokens: [num(result), op('÷'), num(d), eq, blank('x')] };
+  }
+  if (unknown === 'factor') {
+    // a × ? = r (at second) or ? × b = r (at first).
+    const first = asStr(p.at, 'second') === 'first';
+    return {
+      ...base,
+      unknown,
+      values: [first ? a : b],
+      tokens: first
+        ? [blank('x'), op('×'), num(b), eq, num(result)]
+        : [num(a), op('×'), blank('x'), eq, num(result)],
+    };
+  }
   if (asStr(p.form, 'fact') === 'turn-around') {
     return { ...base, values: [a], tokens: [...head, num(b), op('×'), blank('x')] };
   }
@@ -291,7 +342,7 @@ export function factPlan(p: ParamValues): FactPlan {
 
 export const mulFacts: GeneratorDef = {
   id: 'mul.facts',
-  formats: ['number-pad', 'equal-groups', 'array-build'],
+  formats: ['number-pad', 'numeral-pick', 'equal-groups', 'array-build'],
   params: {
     a: { type: 'int', default: { kind: 'int', min: 0, max: 10 }, doc: 'the first factor, 0–10' },
     b: { type: 'int', default: { kind: 'int', min: 0, max: 10 }, doc: 'the second factor, 0–10' },
@@ -318,11 +369,34 @@ export const mulFacts: GeneratorDef = {
       default: { kind: 'const', value: 'fact' },
       doc: 'fact: a × b = ?; turn-around: a × b = b × ? (MUL.06)',
     },
+    op: {
+      type: 'string',
+      values: [...FACT_OPS],
+      default: { kind: 'const', value: '×' },
+      doc: '÷: the dividend a × b shared by the family factor (a with family any), the quotient the other factor',
+    },
+    unknown: {
+      type: 'string',
+      values: [...FACT_UNKNOWNS],
+      default: { kind: 'const', value: 'result' },
+      doc: 'result; factor (× : a missing factor, see `at`; ÷ : the divisor); dividend (÷ only: ? ÷ d = q)',
+    },
+    at: {
+      type: 'string',
+      values: ['first', 'second'],
+      default: { kind: 'const', value: 'second' },
+      doc: '× with unknown factor: a × ? = r (second) or ? × b = r (first)',
+    },
+    corner: {
+      type: 'int',
+      default: { kind: 'int', min: 0, max: 3 },
+      doc: 'numeral-pick: where the key sits in its option set (× : the corner of the 2 × 2 grid of neighbour facts; ÷ : the place among four quotients in a row)',
+    },
     mode: {
       type: 'string',
-      values: ['read', 'split'],
+      values: ['read', 'split', 'build'],
       default: { kind: 'const', value: 'read' },
-      doc: 'array-build: read the array, or split it (break-apart, double)',
+      doc: 'array-build: read the array, split it (break-apart, double), or build a rows to a total (a × ? = r)',
     },
     container: {
       type: 'string',
@@ -343,6 +417,8 @@ export const mulFacts: GeneratorDef = {
     zeroOne: { weight: -0.5, doc: 'a factor is 0 or 1' },
     fivesTens: { weight: -0.4, doc: 'a factor is 5 or 10' },
     square: { weight: -0.2, doc: 'a square fact (a = b)' },
+    div: { weight: 0.4, doc: 'the sentence divides' },
+    'unknown.factor': { weight: 0.5, doc: 'a factor, the divisor or the dividend is asked' },
   },
   narration: [
     'gen.mul.facts.zero',
@@ -361,6 +437,10 @@ export const mulFacts: GeneratorDef = {
     'gen.mul.facts.split',
     'gen.mul.facts.split-half',
     'gen.mul.facts.pair',
+    'gen.mul.facts.think-times',
+    'gen.mul.facts.so-divide',
+    'gen.mul.facts.think-divisor',
+    'gen.mul.facts.make-rows',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive(p) {
@@ -391,6 +471,53 @@ export const mulFacts: GeneratorDef = {
       return rep === 'symbols' || (rep === 'groups' && groupsFit);
     }
     if (!inFamily(a, b, family)) return false;
+    const askOp = asStr(p.op, '×');
+    const unknown = asStr(p.unknown, 'result');
+    const corner = asNum(p.corner);
+    if (corner < 0 || corner > 3) return false;
+    if (askOp === '÷' || unknown !== 'result') {
+      // Division and missing factors: factors 1–10 (no ÷ 0, no 0 quotient), no strategy or turn.
+      if (strategy !== 'none' || turn || a < 1 || b < 1) return false;
+      if (askOp === '×' && unknown === 'dividend') return false;
+      const plan = factPlan(p);
+      const rep = t.representation ?? 'symbols';
+      switch (t.format) {
+        case 'number-pad':
+          if (rep === 'groups') return plan.rows <= GROUPS_MAX && plan.perRow <= GROUP_CAPACITY;
+          if (rep === 'bar-model') {
+            // Equal parts whose size is the unknown (a × ? = r, r ÷ d = ?); never the number of
+            // parts, which counting the parts would give away.
+            const sizeAsked =
+              (askOp === '÷' && unknown === 'result') ||
+              (askOp === '×' && unknown === 'factor' && asStr(p.at, 'second') === 'second');
+            return sizeAsked && plan.rows <= BAR_PARTS_MAX;
+          }
+          return rep === 'symbols' || rep === 'array';
+        case 'numeral-pick':
+          return rep === 'symbols' && unknown === 'result' && askOp === '÷' && pickOk(p, plan);
+        case 'array-build':
+          // Build a rows to the told total: the board is always the full side, so its size says
+          // nothing about the missing side.
+          return (
+            askOp === '×' &&
+            unknown === 'factor' &&
+            asStr(p.at, 'second') === 'second' &&
+            asStr(p.mode, 'read') === 'build'
+          );
+        default:
+          return false;
+      }
+    }
+    if (t.format === 'numeral-pick') {
+      return (
+        (t.representation ?? 'symbols') === 'symbols' &&
+        strategy === 'none' &&
+        !turn &&
+        family === 'any' &&
+        pickOk(p, factPlan(p))
+      );
+    }
+    if (asStr(p.mode, 'read') === 'build') return false;
     if (strategy !== 'none' && (turn || strategyFactor(a, b, strategy, family) === null)) {
       return false;
     }
@@ -418,6 +545,7 @@ export const mulFacts: GeneratorDef = {
         const rep = t.representation ?? 'symbols';
         if (rep === 'groups') return a <= GROUPS_MAX && b <= GROUP_CAPACITY;
         if (rep === 'number-line') return a * b <= MUL_LINE_MAX && !turn;
+        if (rep === 'bar-model') return strategy === 'none' && !turn && a <= BAR_PARTS_MAX;
         return true;
       }
       default:
@@ -431,8 +559,8 @@ export const mulFacts: GeneratorDef = {
     const sprite = asStr(params.sprite, 'shell');
     // Three factors are pictured as the easy pair's groups: `left` groups of x × y.
     const [x, y] = plan.pair ?? [0, 0];
-    const groups = plan.pair ? plan.left : a;
-    const perGroup = plan.pair ? x * y : b;
+    const groups = plan.rows;
+    const perGroup = plan.perRow;
     const vars = pickVars(t, {
       a,
       b,
@@ -446,6 +574,9 @@ export const mulFacts: GeneratorDef = {
       known: plan.k * o,
       half: f / 2,
       rest: plan.rest,
+      r: result,
+      d: plan.rows,
+      q: plan.perRow,
       sprite,
     });
     const math: Record<string, number> = {
@@ -453,6 +584,8 @@ export const mulFacts: GeneratorDef = {
       zeroOne: a <= 1 || b <= 1 ? 1 : 0,
       fivesTens: [5, 10].includes(a) || [5, 10].includes(b) ? 1 : 0,
       square: a === b ? 1 : 0,
+      div: plan.op === '÷' ? 1 : 0,
+      'unknown.factor': plan.unknown === 'result' ? 0 : 1,
     };
     const digits = (v: number) => (v >= 100 ? 3 : 2);
     let p: PartialOutput;
@@ -476,6 +609,31 @@ export const mulFacts: GeneratorDef = {
         };
         break;
       case 'array-build': {
+        if (asStr(params.mode, 'read') === 'build') {
+          // a × ? = r: make a rows with r tiles in all (the prompt tells a and r).
+          p = {
+            params,
+            vars,
+            math,
+            widget: {
+              format: 'array-build',
+              maxRows: ARRAY_SIDE_MAX,
+              maxCols: ARRAY_SIDE_MAX,
+              mode: 'build-dims',
+              rows: a,
+              cols: b,
+              orientationMatters: true,
+              sprite,
+              gridShown: t.representation === 'tiles',
+            },
+            answer: {
+              kind: 'state',
+              checker: 'array.dims',
+              target: { rows: a, cols: b, orientationMatters: true },
+            },
+          };
+          break;
+        }
         const split = asStr(params.mode, 'read') === 'split';
         const rows = split ? o : a;
         const cols = split ? f : b;
@@ -524,6 +682,7 @@ export const mulFacts: GeneratorDef = {
             format: 'number-pad',
             stimulus: picture(
               t.representation ?? 'symbols',
+              plan,
               groups,
               perGroup,
               sprite,
@@ -541,6 +700,25 @@ export const mulFacts: GeneratorDef = {
             values.length === 1
               ? { kind: 'number', value: values[0] as number }
               : { kind: 'numbers', values: [...values], ordered: true },
+        };
+        break;
+      }
+      case 'numeral-pick': {
+        const value = plan.values[0] as number;
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'numeral-pick',
+            stimulus: { kind: 'expression', expr: { tokens: plan.tokens } },
+            options: pickSet(params, plan).map((n) => ({
+              id: numberOptionId(n),
+              label: String(n),
+            })),
+            layout: 'row',
+          },
+          answer: { kind: 'choice', id: numberOptionId(value) },
         };
         break;
       }
@@ -577,6 +755,51 @@ export const mulFacts: GeneratorDef = {
         : ({ op: 'answer', args: { value: plan.values[i] as number } } as const);
     if (asStr(out.params.form, 'fact') === 'turn-around') {
       return [say('gen.mul.facts.turn', { a, b }, type(0))];
+    }
+    if (w.format === 'array-build' && w.mode === 'build-dims') {
+      // a × ? = r: a rows, then the same number in each row until there are r.
+      return [
+        say(
+          'gen.mul.facts.make-rows',
+          { a, r: result },
+          { op: 'drag-rect', args: { rows: a, cols: b } },
+        ),
+      ];
+    }
+    if (plan.op === '÷' || plan.unknown !== 'result' || w.format === 'numeral-pick') {
+      const value = plan.values[0] as number;
+      const last =
+        w.format === 'numeral-pick'
+          ? ({ op: 'tap', args: { id: numberOptionId(value) } } as const)
+          : type(0);
+      const d = plan.rows;
+      const q = plan.perRow;
+      if (plan.op === '÷' && plan.unknown === 'factor') {
+        // r ÷ ? = q: q times what makes r?
+        return [
+          say('gen.mul.facts.think-divisor', { q, r: result }),
+          say('gen.mul.facts.is', { a: q, b: d, result }, last),
+        ];
+      }
+      if (plan.op === '÷' && plan.unknown === 'dividend') {
+        return [say('gen.mul.facts.is', { a: q, b: d, result }, last)];
+      }
+      if (plan.op === '÷') {
+        // r ÷ d = ?: d times what makes r? d times q is r, so r ÷ d is q.
+        return [
+          say('gen.mul.facts.think-times', { n: d, r: result }),
+          say('gen.mul.facts.so-divide', { d, q, r: result }, last),
+        ];
+      }
+      if (plan.unknown === 'factor') {
+        const first = asStr(out.params.at, 'second') === 'first';
+        return [
+          say('gen.mul.facts.think-times', { n: first ? b : a, r: result }),
+          say('gen.mul.facts.is', { a, b, result }, last),
+        ];
+      }
+      // A product picked from its neighbours.
+      return [say('gen.mul.facts.is', { a, b, result }, last)];
     }
     if (plan.pair) {
       // Three factors: the easy pair first (a product of ten when one is there), then the rest.
@@ -694,6 +917,41 @@ export const mulFacts: GeneratorDef = {
   },
 };
 
+/** The most equal parts a number-pad bar model draws (fit at 960 × 600, K02 slice 3c). */
+export const BAR_PARTS_MAX = 6;
+/** Numeral-pick × facts: the neighbour grid's base factors stay in this range (2–9 asked). */
+export const PICK_FACTOR_MIN = 2;
+export const PICK_FACTOR_MAX = 9;
+/** Numeral-pick ÷ facts: four quotients in a row, q0 … q0 + 3, inside 1–10. */
+const PICK_QUOTIENTS = 4;
+
+/** The base of a pick item's option set: × the grid's low corner (x0, y0); ÷ the lowest quotient. */
+function pickBase(p: ParamValues, plan: FactPlan): { x0: number; y0: number } {
+  const corner = asNum(p.corner);
+  if (plan.op === '÷') return { x0: plan.perRow - corner, y0: 0 };
+  return { x0: plan.a - (corner & 1), y0: plan.b - ((corner >> 1) & 1) };
+}
+
+/**
+ * Whether a pick item's option set is whole: × the four facts x0·y0, x0·(y0 + 1), (x0 + 1)·y0,
+ * (x0 + 1)·(y0 + 1) with base factors 2–8 and x0 ≠ y0 (so the four products differ), the asked
+ * fact one of them; ÷ four quotients in a row inside 1–10. Every option is then the key of some
+ * draw, since `corner` is drawn uniformly (the option set never points at its key).
+ */
+function pickOk(p: ParamValues, plan: FactPlan): boolean {
+  const { x0, y0 } = pickBase(p, plan);
+  if (plan.op === '÷') return x0 >= 1 && x0 + PICK_QUOTIENTS - 1 <= FACTOR_MAX;
+  const ok = (v: number) => v >= PICK_FACTOR_MIN && v + 1 <= PICK_FACTOR_MAX;
+  return ok(x0) && ok(y0) && x0 !== y0;
+}
+
+/** The options of a pick item, smallest first. */
+export function pickSet(p: ParamValues, plan: FactPlan): number[] {
+  const { x0, y0 } = pickBase(p, plan);
+  if (plan.op === '÷') return Array.from({ length: PICK_QUOTIENTS }, (_, k) => x0 + k);
+  return [x0 * y0, x0 * (y0 + 1), (x0 + 1) * y0, (x0 + 1) * (y0 + 1)].sort((m, n) => m - n);
+}
+
 /** Where a split item's solution draws its line: after 5 columns, or down the middle. */
 const splitAt = (plan: FactPlan): number => (plan.strategy === 'double' ? plan.f / 2 : 5);
 
@@ -704,6 +962,7 @@ function blankIndex(tokens: ExpressionToken[], id: string): number {
 /** The picture a number-pad item shows; none for symbols. */
 function picture(
   rep: string,
+  plan: FactPlan,
   a: number,
   b: number,
   sprite: string,
@@ -715,6 +974,16 @@ function picture(
       return { kind: 'array', rows: a, cols: b, sprite: sp };
     case 'groups':
       return { kind: 'groups', groups: a, perGroup: b, sprite: sp };
+    case 'bar-model':
+      // a equal parts of b: the product asked (the whole is "?"), or the size of each part asked
+      // ("?" in every part, the whole told). Never the number of parts.
+      return plan.unknown === 'result' && plan.op === '×'
+        ? { kind: 'bar-model', parts: Array.from({ length: a }, () => b), whole: '?' }
+        : {
+            kind: 'bar-model',
+            parts: Array.from({ length: a }, () => '?' as const),
+            whole: plan.result,
+          };
     case 'number-line': {
       const { n, by } = line;
       return {
