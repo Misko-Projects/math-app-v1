@@ -262,6 +262,8 @@
    * The thin warm edge of a light felt piece (cream, sand) that cannot hold 3:1 on paper alone:
    * only as dark as 3:1 needs (#9f7d56, 3.15:1 on paper; tokens.test.ts).
    */
+  /* A small felt piece's lift (base-ten pieces, counters on a mat): the sprites' drop-shadow, as a box shadow. */
+  --shadow-piece: 1px 2px 2.5px -0.5px rgb(74 42 18 / 0.4);
   --felt-edge: color-mix(in srgb, var(--color-wood-deep) 65%, var(--color-sand-deep));
 }
 

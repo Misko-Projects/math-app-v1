@@ -34,6 +34,15 @@ export function fitCell(
  * Draws a laid-out object set (layout.ts): sprites at their cells, ten-frame outlines behind them.
  * Static by default (one `img` with `label`); pass `renderObject` to make objects interactive.
  */
+/** Whether an object's centre lies in the frame cell whose top-left is (`cx`, `cy`), in cells. */
+export function cellFilled(objects: readonly PlacedObject[], cx: number, cy: number): boolean {
+  return objects.some((o) => {
+    const x = o.x + o.scale / 2;
+    const y = o.y + o.scale / 2;
+    return x >= cx && x < cx + 1 && y >= cy && y < cy + 1;
+  });
+}
+
 export function ObjectSetView({
   layout,
   cell,
@@ -75,8 +84,17 @@ export function ObjectSetView({
           >
             {kind === 'grid'
               ? Array.from({ length: f.cols * f.rows }, (_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: frame cells are positional
-                  <span key={i} className="ni-objects__cell" />
+                  <span
+                    // biome-ignore lint/suspicious/noArrayIndexKey: frame cells are positional
+                    key={i}
+                    className="ni-objects__cell"
+                    // A cell an object covers draws no stitch under it (kit.css).
+                    data-filled={
+                      cellFilled(layout.objects, f.x + (i % f.cols), f.y + Math.floor(i / f.cols))
+                        ? 'true'
+                        : undefined
+                    }
+                  />
                 ))
               : null}
           </div>

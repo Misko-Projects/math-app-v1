@@ -263,7 +263,9 @@
   /*
    * Denim felt (the kit's base-ten look): 3.8:1 on paper and every piece 2 px or more from the
    * next, so no outline; the border is the piece's own felt and keeps its width. The unit lines
-   * stay plain 1.5 px sky-light thread (--line, 3.6:1 on denim), at every unit size down to 6 px.
+   * stay plain sky-light thread (--line, 3.6:1 on denim): 1.5 px on a rod, where units are counted,
+   * 1 px on a flat, read as a whole. At the smallest unit (6 px) a rod still shows ten bands 4.5 px
+   * apart and a flat a 10 × 10 grid of 5 px squares.
    */
   border: var(--bw) solid var(--color-sea);
   border-radius: 3px;
@@ -271,7 +273,7 @@
   background-image: var(--felt-grain);
   background-size: var(--felt-grain-size);
   background-blend-mode: soft-light;
-  box-shadow: var(--shadow-ledge);
+  box-shadow: var(--shadow-piece);
 }
 .ni-btb__art--ones {
   width: var(--u);
@@ -296,8 +298,8 @@
   width: calc(var(--u) * 10);
   height: calc(var(--u) * 10);
   background-image:
-    linear-gradient(to right, var(--line) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px),
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px),
     var(--felt-grain);
   background-size:
     var(--u) var(--u),

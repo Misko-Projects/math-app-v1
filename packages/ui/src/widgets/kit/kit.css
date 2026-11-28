@@ -91,8 +91,8 @@
 /*
  * A cell: a cream felt square inset in the mat, so the mat shows between cells (cream on denim
  * 4.25:1: the rows of five read clearer than the old 1.5 px line). The inset is a transparent
- * border, so the cell box is unchanged. Cells 48 px and up carry a running stitch; smaller cells,
- * and every dot picture (a subitising flash), stay plain.
+ * border, so the cell box is unchanged. An empty cell 64 px and up carries a running stitch; smaller
+ * cells, a cell an object covers, and every dot picture (a subitising flash) stay plain.
  */
 .ni-objects__cell {
   position: relative;
@@ -105,11 +105,12 @@
   content: "";
   position: absolute;
   inset: clamp(3px, calc(var(--cell, 56px) * 0.06), 5px);
-  /* 0 px below a 48 px cell, the stitch width from 48 px up. */
-  border: clamp(0px, calc((var(--cell, 56px) - 47px) * 100), var(--stitch-width)) dashed
+  /* 0 px below a 64 px cell, the stitch width from 64 px up. */
+  border: clamp(0px, calc((var(--cell, 56px) - 63px) * 100), var(--stitch-width)) dashed
     var(--color-sand-deep);
   border-radius: clamp(3px, calc(var(--cell, 56px) * 0.12), 10px);
 }
+.ni-objects__cell[data-filled="true"]::before,
 .ni-stimulus[data-kind="dots"] .ni-objects__cell::before {
   content: none;
 }
@@ -421,12 +422,18 @@
   border: 3px solid var(--color-sea);
   border-radius: 3px;
   background-color: var(--color-sea);
+  --lw: 1.5px;
   background-image:
-    linear-gradient(to right, var(--color-sky-light) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, var(--color-sky-light) 1.5px, transparent 1.5px),
+    linear-gradient(to right, var(--color-sky-light) var(--lw), transparent var(--lw)),
+    linear-gradient(to bottom, var(--color-sky-light) var(--lw), transparent var(--lw)),
     var(--felt-grain);
   background-blend-mode: normal, normal, soft-light;
-  box-shadow: var(--shadow-ledge);
+  box-shadow: var(--shadow-piece);
+}
+/* A hundred (and a thousand's face) is read as a whole: 1 px lines; a rod's units, counted, 1.5 px. */
+.ni-baseten__block--flat,
+.ni-baseten__block--cube {
+  --lw: 1px;
 }
 /*
  * A thousands cube: a flat with a top face and a side face, so it never reads as 100. The faces
@@ -476,7 +483,7 @@
     var(--felt-grain) 0 0 / var(--felt-grain-size),
     var(--color-sea);
   background-blend-mode: soft-light;
-  box-shadow: var(--shadow-ledge);
+  box-shadow: var(--shadow-piece);
 }
 
 /* ---------- pick cards and numeral tray ---------- */
