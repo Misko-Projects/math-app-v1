@@ -113,10 +113,13 @@
   box-sizing: border-box;
   pointer-events: none;
 }
-/* A pebbling's mat: a soft sand blanket in front of it. */
+/* A pebbling's mat: a soft sand felt blanket in front of it (the felt grain, slice 4b). */
 .ni-esw__zone[data-kind="pebbling"] {
   border-radius: var(--radius-pebble);
-  background: var(--color-sand);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sand);
+  background-blend-mode: soft-light;
   box-shadow:
     inset 0 0 0 3px var(--color-sand-deep),
     inset 0 -8px 0 var(--color-sand-shadow),
