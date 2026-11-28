@@ -18,12 +18,14 @@ import {
   describeCoins,
   FitPicture,
   FracNumeral,
+  type FrameOutline,
   fractionLabel,
   fractionWords,
   LINE_BARE_PAD,
   naturalPictureSize,
   numberLineHeight,
   type ObjectLayout,
+  type PlacedObject,
   spriteNameKey,
   stepsBetween,
   useAlive,
@@ -78,6 +80,71 @@ const drawsAsNumeral = (label: string | undefined) =>
   isNumeral(label) || (label !== undefined && /^(\d+¢|\$\d+(\.\d\d)?)$/.test(label));
 
 // ---------- layout ----------
+
+/**
+ * The counted bar on a card (05 §11, 06 §4): a counted thing ≥ 22 px each way. A counter in a
+ * ten-frame cell is read by the frame's rows of five, so it holds 20 px; a set drawn with sizes
+ * that vary on purpose (compare.sets conflict: compare by number, not size) holds 16 px for its
+ * smaller things. The fit check reads the same rule from the item.
+ */
+export const BAR_COUNTED = 22;
+export function countedBarOf(spec: StimulusSpec | undefined): number {
+  if (!spec) return BAR_COUNTED;
+  if (spec.kind === 'ten-frame') return 20;
+  if (spec.kind === 'dots' && spec.arrangement.includes('frame')) return 20;
+  if (spec.kind === 'objects') {
+    if (spec.set.layout === 'ten-frame' || spec.set.layout === 'double-ten-frame') return 20;
+    if (spec.set.sizeVaries) return 16;
+  }
+  return BAR_COUNTED;
+}
+
+/** Above and below a picture on an untagged card in a legible plan (the card's 8 px edge and 2). */
+const PIC_PAD_Y_TIGHT = 10;
+
+/** The bar strip's frame (fractionShapes `bar`): 520 × 104, its parts 500 px across, 84 tall. */
+const STRIP_FRAME = { w: 520, h: 104, partsW: 500, partsH: 84 };
+
+/**
+ * Groups on tight plates: each group in at most two rows, its plate hugging it, plates closer
+ * together, left to right in the same order (the first group stays on the left). Objects keep
+ * their order and index.
+ */
+export function tightPlates(layout: ObjectLayout): ObjectLayout {
+  const plates = (layout.frames ?? []).filter((f) => f.kind === 'plate');
+  if (plates.length === 0) return layout;
+  const step = 1.05;
+  const inset = 0.14;
+  const gap = 0.35;
+  const moved = new Map<PlacedObject, PlacedObject>();
+  const frames: FrameOutline[] = [];
+  let x0 = 0;
+  let tallest = 0;
+  for (const f of plates) {
+    const inside = layout.objects.filter((o) => o.x >= f.x - 0.01 && o.x < f.x + f.cols);
+    const cols = Math.max(1, Math.ceil(inside.length / 2));
+    const rows = inside.length > 1 ? 2 : 1;
+    const w = (cols - 1) * step + 1 + 2 * inset;
+    const h = (rows - 1) * step + 1 + 2 * inset;
+    inside.forEach((o, i) => {
+      moved.set(o, {
+        ...o,
+        x: x0 + inset + (i % cols) * step,
+        y: inset + Math.floor(i / cols) * step,
+      });
+    });
+    frames.push({ ...f, x: x0, y: 0, cols: w, rows: h });
+    x0 += w + gap;
+    tallest = Math.max(tallest, h);
+  }
+  return {
+    ...layout,
+    objects: layout.objects.map((o) => moved.get(o) ?? o),
+    frames,
+    width: Math.max(1, x0 - gap),
+    height: Math.max(1, tallest),
+  };
+}
 
 /**
  * Between cards (≥ the 12 px target gap, 06 §4). The invite ring on a card or slot is drawn over
@@ -279,6 +346,11 @@ interface Shape {
    * tallest card (number-path cards: the widest tick pitch).
    */
   score?: (p: Plan, size: { w: number; h: number }) => number;
+  /**
+   * With `score`: the room held for the guide's hand under a tray card may be given up for a plan
+   * that scores at least this much more (counted pictures under their bar); otherwise it is kept.
+   */
+  handOptional?: number;
 }
 
 function sizeOf(s: Shape, p: Plan) {
@@ -330,6 +402,7 @@ function planLayout(s: Shape, room: WidgetRoom | null): Plan {
   };
   if (s.score) {
     const score = s.score;
+    let held: { plan: Plan; score: number } | null = null;
     for (const withHand of [true, false]) {
       let top: Plan | null = null;
       let topScore = Number.NEGATIVE_INFINITY;
@@ -354,7 +427,17 @@ function planLayout(s: Shape, room: WidgetRoom | null): Plan {
           }
         }
       }
-      if (top) return top;
+      if (!s.handOptional) {
+        if (top) return top;
+        continue;
+      }
+      // Room for the guide's hand is given up only for a clearly better plan.
+      if (withHand) {
+        held = top ? { plan: top, score: topScore } : null;
+        continue;
+      }
+      if (top && (!held || topScore > held.score + s.handOptional)) return top;
+      if (held) return held.plan;
     }
   }
   for (const withHand of [true, false]) {
@@ -777,6 +860,8 @@ export function OrderWidget({
   );
   /** The picture box of an h-tall card (its width is the card's less PIC_PAD each side). */
   const picHeight = (h: number) => h - (tagRow ? TAG_PAD_Y + TAG_PAD_BOTTOM + TAG_H : 2 * PIC_PAD);
+  /** A legible plan's picture box: 10 px from an untagged card's top and bottom (sides keep 16). */
+  const picHeightTight = (h: number) => (tagRow ? picHeight(h) : h - 2 * PIC_PAD_Y_TIGHT);
   // Picture cards are all one size: as wide as the widest picture wants for the card's height (at
   // most 2.4 × the height); a number line takes what width there is (its height is fixed).
   const aspect = Math.min(
@@ -883,25 +968,6 @@ export function OrderWidget({
   // Every card keeps its picture at every size: a number-path card is the path (CMP.06's hint
   // points at it), drawn with every unit tick and its numeral, as wide as the row allows.
   const pictures = hasPictures;
-  const plan = planFor(pictures);
-  const picW = plan.w - cardInset - fracSideW;
-  const picH = picHeight(plan.h);
-  /**
-   * A card's path: drawn to the card's scale with every unit tick when they are ≥ 8 px apart;
-   * otherwise a compact path (`CardPath`) in fixed screen-px ink, its numeral beside it.
-   */
-  const compactLine = (spec: Extract<StimulusSpec, { kind: 'number-line' }>) => {
-    const every = spec.ticksEvery;
-    if (every === null || every <= 0) return false;
-    const span = spec.max - spec.min;
-    const scale = Math.min(1, picH / numberLineHeight(spec, true));
-    const pitch = ((picW - 2 * LINE_BARE_PAD * scale) * every) / Math.max(every, span);
-    return pitch < MIN_TICK_PITCH;
-  };
-  /** The numeral beside a compact path: as wide as the longest label at 32 px (none: no room). */
-  const labelled = config.items.some((it) => it.label !== undefined);
-  const sideTagW = labelled ? Math.ceil(longest * 0.62 * SIDE_TAG_PX) + 2 : 0;
-  const compactW = Math.max(40, plan.w - 2 * PIC_PAD - (labelled ? sideTagW + SIDE_TAG_GAP : 0));
   // A plain line of more than five objects may wrap into two rows of reading order (as tap-count
   // wraps lines) when that draws every card bigger, unless the set's look is the point (spread
   // versus bunched, drawn big: compare.sets conflict items keep their pictures as given).
@@ -919,12 +985,122 @@ export function OrderWidget({
         ? wrapLine(layout, 5)
         : layout;
     });
-  const cellOf = (layouts: (ObjectLayout | null)[]) =>
-    Math.min(...layouts.map((l) => (l ? cellToFit(l, picW, picH) : Number.POSITIVE_INFINITY)));
   const flatLayouts = cardLayouts(false);
   const wrappedLayouts = lookMatters ? flatLayouts : cardLayouts(true);
+  // The ways to draw every card's counted picture (one way for all cards: size is never a cue).
+  // Beyond the plain and wrapped ones, two only a legible plan takes: a double ten-frame's two
+  // frames side by side, and groups on tight plates of at most two rows (left group first).
+  const legibleVariants = [
+    flatLayouts,
+    ...(lookMatters ? [] : [wrappedLayouts]),
+    ...(cardPics.some((s) => s?.kind === 'ten-frame' && s.frames === 2)
+      ? [cardPics.map((spec) => (spec ? countLayout(spec, false) : null))]
+      : []),
+    ...(flatLayouts.some((l) => l?.frames?.some((f) => f.kind === 'plate'))
+      ? [flatLayouts.map((l) => (l ? tightPlates(l) : null))]
+      : []),
+  ];
+  const cardBars = config.items.map((it) => countedBarOf(it.stimulus));
+  /** The least share of its bar any card's counted thing reaches with `layouts` under a plan. */
+  const countedShare = (
+    p: Pick<Plan, 'w' | 'h'>,
+    layouts: (ObjectLayout | null)[],
+    tight: boolean,
+  ) => {
+    const w = p.w - cardInset - fracSideW;
+    const h = tight ? picHeightTight(p.h) : picHeight(p.h);
+    const cell = Math.min(
+      ...layouts.map((l) => (l ? cellToFit(l, w, h) : Number.POSITIVE_INFINITY)),
+    );
+    let share = Number.POSITIVE_INFINITY;
+    layouts.forEach((l, i) => {
+      for (const o of l?.objects ?? []) {
+        share = Math.min(share, (cell * o.scale) / (cardBars[i] ?? BAR_COUNTED));
+      }
+    });
+    for (const spec of cardPics) {
+      // A strip's parts (FitPicture scales the bar frame: 500 px of parts inside 520 × 104).
+      if (spec?.kind === 'fraction' && spec.shape === 'bar') {
+        const s = Math.min(w / STRIP_FRAME.w, h / STRIP_FRAME.h, 4);
+        const part = Math.min(STRIP_FRAME.partsH, STRIP_FRAME.partsW / spec.parts);
+        share = Math.min(share, (s * part) / BAR_COUNTED);
+      }
+    }
+    return share;
+  };
+  const legibleShare = (p: Pick<Plan, 'w' | 'h'>) =>
+    Math.max(...legibleVariants.map((v) => countedShare(p, v, true)));
+  const plan0 = planFor(pictures);
+  // What the plan above draws (plain or wrapped, the larger: the wrap rule below).
+  const share0 = Math.max(
+    countedShare(plan0, flatLayouts, false),
+    countedShare(plan0, wrappedLayouts, false),
+  );
+  // Under the counted bar (05 §11): the plan that draws the counted things largest, with cards up
+  // to 3.4 × as wide as tall, Check below the tray, the picture 10 px from the card's top and
+  // bottom (not 16) and, only for a clearly larger draw, no room held for the guide's hand; then,
+  // among plans that reach the bar, the one that covers the most of the room. A card set that
+  // holds the bar keeps the plan above, so no screen that held it changes.
+  const plan =
+    !pictures || lines.length > 0 || !(share0 < 1 - 0.5 / BAR_COUNTED)
+      ? plan0
+      : (() => {
+          const wide = cardWidth(true);
+          const p = planLayout(
+            {
+              n,
+              tray: n - fixedIds.size,
+              width: (h) => {
+                const r = wide(h);
+                return { min: r.min, max: Math.max(r.max, Math.round(3.4 * h)) };
+              },
+              target,
+              maxH: Math.max(Math.round(Math.max(target * 2.2, 150)), 300),
+              compactGain: 12,
+              score: (q, size) =>
+                Math.min(1, legibleShare(q)) * 1e7 +
+                size.w * size.h * (q.chrome === 'compact' ? 1 : 1.15),
+              // 5 % more of the bar (the coverage term stays under 1e6).
+              handOptional: 5e5,
+              check: checkSize ?? {
+                w: TARGET_PX[ageMode].big + 8,
+                h: TARGET_PX[ageMode].big + 6,
+              },
+            },
+            room,
+          );
+          return legibleShare(p) > share0 ? p : plan0;
+        })();
+  const legiblePlan = plan !== plan0;
+  const picW = plan.w - cardInset - fracSideW;
+  const picH = legiblePlan ? picHeightTight(plan.h) : picHeight(plan.h);
+  /**
+   * A card's path: drawn to the card's scale with every unit tick when they are ≥ 8 px apart;
+   * otherwise a compact path (`CardPath`) in fixed screen-px ink, its numeral beside it.
+   */
+  const compactLine = (spec: Extract<StimulusSpec, { kind: 'number-line' }>) => {
+    const every = spec.ticksEvery;
+    if (every === null || every <= 0) return false;
+    const span = spec.max - spec.min;
+    const scale = Math.min(1, picH / numberLineHeight(spec, true));
+    const pitch = ((picW - 2 * LINE_BARE_PAD * scale) * every) / Math.max(every, span);
+    return pitch < MIN_TICK_PITCH;
+  };
+  /** The numeral beside a compact path: as wide as the longest label at 32 px (none: no room). */
+  const labelled = config.items.some((it) => it.label !== undefined);
+  const sideTagW = labelled ? Math.ceil(longest * 0.62 * SIDE_TAG_PX) + 2 : 0;
+  const compactW = Math.max(40, plan.w - 2 * PIC_PAD - (labelled ? sideTagW + SIDE_TAG_GAP : 0));
+  const cellOf = (layouts: (ObjectLayout | null)[]) =>
+    Math.min(...layouts.map((l) => (l ? cellToFit(l, picW, picH) : Number.POSITIVE_INFINITY)));
   const wrap = !lookMatters && cellOf(wrappedLayouts) > cellOf(flatLayouts);
-  const layouts = wrap ? wrappedLayouts : flatLayouts;
+  // A legible plan draws the way that reaches the most of the bar (the first of equals).
+  const layouts = legiblePlan
+    ? legibleVariants.reduce((a, b) =>
+        countedShare(plan, b, true) > countedShare(plan, a, true) ? b : a,
+      )
+    : wrap
+      ? wrappedLayouts
+      : flatLayouts;
   // Countable pictures share one cell, so a picture's size is never a cue its count doesn't give.
   const sharedCell = cellOf(layouts);
   const layoutOf = new Map(config.items.map((it, i) => [it.id, layouts[i] ?? undefined]));
