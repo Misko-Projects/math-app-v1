@@ -112,6 +112,19 @@
   margin: -2px 0 0 -2px;
   padding: 3px;
 }
+/* A bare symbol (a row tight to the counted bar): no frame, the sprite fills its box. */
+.ni-chart__symbol[data-bare="true"] {
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+.ni-chart__symbol[data-bare="true"] > .ni-chart__symbolart {
+  margin: 0;
+  padding: 0;
+}
+.ni-chart__symbol[data-bare="true"][data-part] {
+  border-right: 4px dashed var(--color-ink);
+}
 .ni-chart__symbol[data-counted="true"]::after {
   content: "";
   position: absolute;

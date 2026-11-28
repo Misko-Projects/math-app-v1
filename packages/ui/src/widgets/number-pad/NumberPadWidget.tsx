@@ -53,6 +53,9 @@ const MIN_PICTURE_H = 96;
 const BAR_NUMERAL = 32;
 const BAR_BOX = 64;
 const BAR_COUNTED = 22;
+/** A base-ten rod counted as a piece: ≥ 9 px wide, ≥ 6 px from the next rod in its row. */
+const BAR_ROD = 9;
+const BAR_ROD_GAP = 6;
 /** Text steps a legible layout may take: one more than TEXT_STEPS, to 32 px (number-pad.css). */
 const TEXT_STEPS_LEGIBLE = 4;
 /** The least a picture beside the sentence is given (one-row pad, `beside`). */
@@ -101,6 +104,8 @@ function legibilityMiss(
   box: { w: number; h: number } | null,
   /** False for an estimation picture: its dots are drawn not to be counted. */
   counted: boolean,
+  /** Base-ten pieces counted as pieces (`piecesCounted`). */
+  pieces = false,
 ): 'hard' | 'soft' | null {
   if (text && text.offsetWidth > 0) {
     const scale = text.getBoundingClientRect().width / text.offsetWidth;
@@ -119,7 +124,7 @@ function legibilityMiss(
     const r = parts.getBoundingClientRect();
     if (r.width > box.w + 1 || r.height > box.h + 1) return 'hard';
   }
-  return counted && smallestSprite(ask) < BAR_COUNTED - 0.5 ? 'soft' : null;
+  return counted && smallestSprite(ask, pieces) < BAR_COUNTED - 0.5 ? 'soft' : null;
 }
 
 /**
@@ -133,15 +138,49 @@ function isEstimatePicture(spec: ConfigFor<'number-pad'>['stimulus']): boolean {
   return spec.kind === 'objects' && spec.set.layout === 'scatter' && spec.set.count > 20;
 }
 
-/** The smallest counted thing drawn in the question (px), Infinity without one. */
-function smallestSprite(ask: HTMLElement): number {
+/**
+ * The smallest counted thing drawn in the question (px), Infinity without one. Base-ten rods
+ * counted as pieces (`pieces`) count by their share of the rod bars, in counted px (a rod at
+ * BAR_ROD wide, BAR_ROD_GAP from the next, counts as BAR_COUNTED), so the modes compare as one.
+ */
+function smallestSprite(ask: HTMLElement, pieces = false): number {
   let px = Number.POSITIVE_INFINITY;
   for (const s of ask.querySelectorAll<SVGElement>('.ni-sprite')) {
     const r = s.getBoundingClientRect();
     if (r.width > 0) px = Math.min(px, r.width, r.height);
   }
+  if (!pieces) return px;
+  let prev: DOMRect | null = null;
+  for (const s of ask.querySelectorAll<HTMLElement>('.ni-baseten__block--rod')) {
+    const r = s.getBoundingClientRect();
+    if (r.width <= 0) continue;
+    px = Math.min(px, (r.width * BAR_COUNTED) / BAR_ROD);
+    if (prev && Math.abs(prev.top - r.top) < 2) {
+      px = Math.min(px, ((r.left - prev.right) * BAR_COUNTED) / BAR_ROD_GAP);
+    }
+    prev = r;
+  }
   return px;
 }
+
+/**
+ * A scaled picture drawn from the natural size it has now (`Scaled` measures it after a change of
+ * content: until then its box is the old picture's at the new scale).
+ */
+function scaledSettled(el: HTMLElement): boolean {
+  const inner = el.firstElementChild as HTMLElement | null;
+  if (!inner || el.style.width === '') return false;
+  const s = Number.parseFloat(/scale\(([^)]+)\)/.exec(inner.style.transform)?.[1] ?? '1');
+  return (
+    Math.abs(Number.parseFloat(el.style.width) - inner.offsetWidth * s) < 1 &&
+    Math.abs(Number.parseFloat(el.style.height) - inner.offsetHeight * s) < 1
+  );
+}
+
+/** Base-ten pieces the child counts as pieces: no number in the sentence gives the count. */
+const piecesCounted = (config: Config) =>
+  config.stimulus.kind === 'base-ten' &&
+  !(config.expression?.tokens ?? []).some((tok) => tok.t === 'num');
 
 const UNIT_PREFIX: Partial<Record<NonNullable<Config['unit']>, string>> = { dollars: '$' };
 const UNIT_SUFFIX: Partial<Record<NonNullable<Config['unit']>, string>> = {
@@ -199,8 +238,25 @@ export function NumberPadWidget({
     final: boolean;
     w: number;
     h: number;
+    /** The soft misses judged in this room, `mode:px;…` (counted px). */
+    seen?: string;
+    /** Counted pieces: the largest action size the modes were judged with (`judgedBtn`). */
+    btn?: { w: number; h: number };
   }>({ mode: 'fit', best: null, final: false, w: room.w, h: room.h });
-  const sameRoom = askTier.w === room.w && askTier.h === room.h;
+  const pieces = piecesCounted(config);
+  // Counted pieces are compared across modes, and the one-row pad's box is planned from the
+  // action's size, which only grows once a larger cue has been seen: a new size is a new room, so
+  // every mode is judged again with the size it will be drawn with.
+  const fitsJudged = (b?: { w: number; h: number }) =>
+    !pieces || (b !== undefined && button.w <= b.w && button.h <= b.h);
+  const sameRoom = askTier.w === room.w && askTier.h === room.h && fitsJudged(askTier.btn);
+  // The size to keep with a judgement: never smaller than one already judged in this room.
+  const judgedBtn = pieces
+    ? {
+        w: Math.max(button.w, sameRoom ? (askTier.btn?.w ?? 0) : 0),
+        h: Math.max(button.h, sameRoom ? (askTier.btn?.h ?? 0) : 0),
+      }
+    : undefined;
   const mode: AskMode = sameRoom ? askTier.mode : 'fit';
   const legible = mode !== 'fit';
   const rowed = (mode === 'row' || mode === 'beside') && rowPlan !== null;
@@ -281,27 +337,52 @@ export function NumberPadWidget({
       return;
     }
     const text = textRef.current;
+    // Counted pieces are compared across modes, so each mode is judged only as finally drawn: the
+    // picture scaled from its present size, and its box planned from the text's present size.
+    if (pieces) {
+      if ([...ask.querySelectorAll<HTMLElement>('.ni-scaled')].some((el) => !scaledSettled(el))) {
+        return;
+      }
+      if (text && (text.offsetWidth !== textSize.w || text.offsetHeight !== textSize.h)) return;
+    }
     const overW = text ? text.offsetWidth > textMaxW + 0.5 : false;
     if (overW && (textStep < maxSteps || (legible && expression && !brk))) return;
     const pictureBox = legible ? askBox : null;
     const miss =
       legible && overW
         ? 'hard'
-        : legibilityMiss(ask, text, partsRef.current, pictureBox, !isEstimatePicture(stimulus));
+        : legibilityMiss(
+            ask,
+            text,
+            partsRef.current,
+            pictureBox,
+            !isEstimatePicture(stimulus),
+            pieces,
+          );
     if (miss === null) {
-      if (legible) setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h });
+      if (legible)
+        setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h, btn: judgedBtn });
       return;
     }
     const order: AskMode[] = rowPlan ? ['fit', 'keep', 'row', 'beside'] : ['fit', 'keep'];
     const best = sameRoom ? askTier.best : null;
     // A miss only on a counted thing: the mode that draws it largest is kept for the end.
-    const px = miss === 'soft' ? smallestSprite(ask) : 0;
+    const px = miss === 'soft' ? smallestSprite(ask, pieces) : 0;
     const nextBest = miss === 'soft' && (!best || px > best.px) ? { mode, px } : best;
+    const seen = `${(sameRoom && askTier.seen) || ''}${miss === 'soft' ? `${mode}:${px.toFixed(2)};` : ''}`;
     const next = order[order.indexOf(mode) + 1];
     setAskTier(
       next
-        ? { mode: next, best: nextBest, final: false, w: room.w, h: room.h }
-        : { mode: nextBest?.mode ?? 'fit', best: nextBest, final: true, w: room.w, h: room.h },
+        ? { mode: next, best: nextBest, final: false, w: room.w, h: room.h, seen, btn: judgedBtn }
+        : {
+            mode: nextBest?.mode ?? 'fit',
+            best: nextBest,
+            final: true,
+            w: room.w,
+            h: room.h,
+            seen,
+            btn: judgedBtn,
+          },
     );
   };
   // Judged once the layout has been still for two frames: a picture measures its own box after
@@ -561,6 +642,8 @@ export function NumberPadWidget({
           spec={stimulus}
           maxWidth={Math.max(MIN_PICTURE_H, pictureBox.w)}
           maxHeight={Math.max(MIN_PICTURE_H, pictureBox.h)}
+          // Counted pieces beside the answer: flats in rows of four, the rods under them.
+          baseTenRows={pieces && beside}
         />
       </Scaled>
     );
@@ -599,6 +682,9 @@ export function NumberPadWidget({
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
       data-layout={plan.stacked && !rowed ? 'stack' : 'side'}
+      // Counted base-ten pieces: what each mode drew them at (counted px), so a check can hold
+      // the chosen one to the largest.
+      data-judged={pieces && askTier.final && sameRoom ? askTier.seen : undefined}
       data-check={rowed ? 'beside' : plan.check}
       data-pad={rowed ? 'row' : undefined}
       data-ask={mode}

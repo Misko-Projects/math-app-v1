@@ -71,6 +71,8 @@ export interface StimulusViewProps {
   /** Accessible name; defaults to the generic "picture" label. */
   label?: string;
   className?: string;
+  /** Base-ten blocks in rows (`BaseTenView` `rows`): flats in rows of four, the rods under them. */
+  baseTenRows?: boolean;
 }
 
 export function StimulusView({
@@ -82,6 +84,7 @@ export function StimulusView({
   shapeUnitPx,
   label,
   className,
+  baseTenRows = false,
 }: StimulusViewProps) {
   const t = useNarrationText();
   const name = label ?? t('ui.widget.picture');
@@ -216,6 +219,7 @@ export function StimulusView({
             ones={spec.ones}
             thousands={spec.thousands ?? 0}
             label={name}
+            rows={baseTenRows}
           />
         </div>
       );
@@ -839,12 +843,14 @@ export function BaseTenView({
   tens,
   ones,
   label,
+  rows = false,
 }: {
   thousands: number;
   hundreds: number;
   tens: number;
   ones: number;
   label?: string;
+  rows?: boolean;
 }) {
   const unit = 14;
   const items: ReactNode[] = [];
@@ -871,17 +877,44 @@ export function BaseTenView({
   });
   // The ones column is as wide as its cubes (two across, one, or none), so the drawn picture is
   // exactly the box that gets centred: a lone one never leaves an empty half-column beside it.
+  const onesColumn =
+    ones > 0 ? (
+      <span className="ni-baseten__ones" style={{ width: baseTenOnesWidth(ones) }}>
+        {groupIndexes(ones).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: unit cubes are positional
+          <span key={i} className="ni-baseten__unit" style={{ width: unit, height: unit }} />
+        ))}
+      </span>
+    ) : null;
+  const big = thousands + hundreds;
+  // In rows (a counted picture that one row would draw too small, number-pad): the cubes and
+  // flats in rows of four, the rods and ones in a row under them, so the picture is about half
+  // as wide and every piece is drawn larger in the same box.
+  if (rows && big > 0 && tens + ones > 0) {
+    const perRow = Math.min(BASE_TEN_ROW, big);
+    return (
+      <div className="ni-baseten" data-rows="true" {...pictureProps(label)}>
+        <span
+          className="ni-baseten__row"
+          style={{ width: perRow * unit * 10 + (perRow - 1) * BASE_TEN_GAP + (thousands ? 18 : 0) }}
+        >
+          {items.slice(0, big)}
+        </span>
+        <span className="ni-baseten__row">
+          {items.slice(big)}
+          {onesColumn}
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="ni-baseten" {...pictureProps(label)}>
       {items}
-      {ones > 0 ? (
-        <span className="ni-baseten__ones" style={{ width: baseTenOnesWidth(ones) }}>
-          {groupIndexes(ones).map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: unit cubes are positional
-            <span key={i} className="ni-baseten__unit" style={{ width: unit, height: unit }} />
-          ))}
-        </span>
-      ) : null}
+      {onesColumn}
     </div>
   );
 }
+
+/** Flats (and cubes) a row in `BaseTenView`'s rows, and the 10 px between pieces (kit.css). */
+const BASE_TEN_ROW = 4;
+const BASE_TEN_GAP = 10;
