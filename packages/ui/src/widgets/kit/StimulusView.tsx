@@ -14,7 +14,7 @@ import { describeGridParts, GridPartsView } from './GridPartsView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
-import { ShapeSetView } from './ShapeView';
+import { type ShapeFelt, ShapeSetView } from './ShapeView';
 import { ObjectSprite } from './sprites';
 import { STIMULUS_KINDS } from './stimulusKinds';
 import './kit.css';
@@ -68,6 +68,8 @@ export interface StimulusViewProps {
   renderBlank?: (id: string) => ReactNode;
   /** Shapes: px per shape unit, so several pictures share one scale (default: fit the box). */
   shapeUnitPx?: number;
+  /** Shapes: the felt treatment shared by every shape on screen (`shapeSetFelt`). */
+  shapeFelt?: ShapeFelt;
   /** Accessible name; defaults to the generic "picture" label. */
   label?: string;
   className?: string;
@@ -82,6 +84,7 @@ export function StimulusView({
   minCell,
   renderBlank,
   shapeUnitPx,
+  shapeFelt,
   label,
   className,
   baseTenRows = false,
@@ -311,6 +314,7 @@ export function StimulusView({
             maxWidth={maxWidth}
             maxHeight={maxHeight}
             unitPx={shapeUnitPx}
+            setFelt={shapeFelt}
             label={name}
           />
         </div>

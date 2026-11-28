@@ -225,10 +225,69 @@ const COLOR: Record<string, { fill: string; line: string; thread: string }> = {
 export const shapeColor = (name: string) =>
   COLOR[name] ?? (COLOR.tan as { fill: string; line: string; thread: string });
 
-/** A felt shape gets its inset stitch and grain from this drawn size up (CSS px across). */
+/**
+ * How the shapes of ONE screen are dressed: every shape the same, decided by the smallest, so the
+ * decoration never adds a cue that lines up with an answer. Grain when the smallest shape is at
+ * least SHAPE_GRAIN_MIN_PX in its smaller dimension; the stitch only when every shape carries a
+ * clean inset (SHAPE_STITCH_MIN_PX across, and the stitched inside still SHAPE_STITCH_ROOM_PX
+ * across). Open figures and solids carry neither, so a set with one of them is flat.
+ */
+export interface ShapeFelt {
+  grain: boolean;
+  stitch: boolean;
+}
+export const SHAPE_GRAIN_MIN_PX = 48;
 export const SHAPE_STITCH_MIN_PX = 64;
+export const SHAPE_STITCH_ROOM_PX = 32;
 /** The stitch's inset from the edge, CSS px (the theme's --stitch-inset). */
 const STITCH_INSET_PX = 5;
+const FLAT: ShapeFelt = { grain: false, stitch: false };
+
+/** The smaller dimension of a card's flat shape in design units, and of its stitched inside; null for open figures and solids. */
+function feltMeasure(
+  card: Pick<ShapeCard, 'shape' | 'scale'>,
+  unit: number,
+): { across: number; inner: number } | null {
+  const g = shapeGeometry(card.shape);
+  const k = card.scale;
+  const d = STITCH_INSET_PX / unit;
+  switch (g.type) {
+    case 'circle':
+      return { across: 2 * g.r * k, inner: 2 * (g.r * k - d) };
+    case 'ellipse': {
+      const r = Math.min(g.rx, g.ry) * k;
+      return { across: 2 * r, inner: 2 * (r - d) };
+    }
+    case 'polygon': {
+      const pts = g.points.map(([x, y]) => [x * k, y * k] as Pt);
+      const span = (q: Pt[]) =>
+        Math.min(
+          Math.max(...q.map((p) => p[0])) - Math.min(...q.map((p) => p[0])),
+          Math.max(...q.map((p) => p[1])) - Math.min(...q.map((p) => p[1])),
+        );
+      const inner = insetPolygon(pts, d);
+      return { across: span(pts), inner: inner ? span(inner) : 0 };
+    }
+    default:
+      return null;
+  }
+}
+
+/** The one treatment for a set of shapes drawn at `unit` CSS px per design unit. */
+export function shapeSetFelt(
+  shapes: readonly Pick<ShapeCard, 'shape' | 'scale'>[],
+  unit: number,
+): ShapeFelt {
+  if (shapes.length === 0) return FLAT;
+  const m = shapes.map((s) => feltMeasure(s, unit));
+  if (m.some((x) => x === null)) return FLAT;
+  const across = Math.min(...m.map((x) => (x as { across: number }).across)) * unit;
+  const inner = Math.min(...m.map((x) => (x as { inner: number }).inner)) * unit;
+  return {
+    grain: across >= SHAPE_GRAIN_MIN_PX,
+    stitch: across >= SHAPE_STITCH_MIN_PX && inner >= SHAPE_STITCH_ROOM_PX,
+  };
+}
 
 /**
  * A true inset of a simple polygon by `d` (each side moved inward by exactly `d`, corners where
@@ -556,6 +615,8 @@ export interface ShapeViewProps {
   /** Accessible name; decorative (aria-hidden) without one. */
   label?: string;
   className?: string;
+  /** The treatment of the whole set on screen (`shapeSetFelt`); a shape alone decides its own. */
+  setFelt?: ShapeFelt;
 }
 
 export function ShapeView({
@@ -567,6 +628,7 @@ export function ShapeView({
   upto,
   label,
   className,
+  setFelt,
 }: ShapeViewProps) {
   const e = extent ?? shapeExtent(card);
   const tight = unitPx === undefined ? null : shapeBox(card);
@@ -587,15 +649,21 @@ export function ShapeView({
   const unit = tight ? px : size / (2 * e);
   const d = STITCH_INSET_PX / unit;
   const grainId = useGrainId('ni-shape-grain');
-  /** The felt layers over a flat shape from SHAPE_STITCH_MIN_PX up: grain, then the inset stitch. */
-  const felt = (minPx: number, shape: React.ReactElement, stitch: React.ReactElement | null) =>
-    minPx * unit >= SHAPE_STITCH_MIN_PX ? (
-      <g className="ni-shape__felt" aria-hidden="true" data-felt="stitched">
-        <GrainDefs id={grainId} />
-        <g className="ni-shape__grain" fill={`url(#${grainId})`}>
-          {shape}
-        </g>
-        {stitch ? (
+  // The set's one treatment (a shape alone is a set of one).
+  const dress = setFelt ?? shapeSetFelt([card], unit);
+  /** The felt layers over a flat shape: grain, then the inset stitch, as the set's treatment says. */
+  const felt = (shape: React.ReactElement, stitch: React.ReactElement | null) =>
+    dress.grain || dress.stitch ? (
+      <g className="ni-shape__felt" data-felt={dress.stitch ? 'stitched' : 'grain'}>
+        {dress.grain ? (
+          <>
+            <GrainDefs id={grainId} />
+            <g className="ni-shape__grain" fill={`url(#${grainId})`}>
+              {shape}
+            </g>
+          </>
+        ) : null}
+        {dress.stitch && stitch ? (
           <g className="ni-shape__stitch" stroke={c.thread}>
             {stitch}
           </g>
@@ -615,11 +683,7 @@ export function ShapeView({
             fill={c.fill}
             stroke={c.line}
           />
-          {felt(
-            2 * g.r * k,
-            <circle cx={0} cy={0} r={g.r * k} />,
-            <circle cx={0} cy={0} r={g.r * k - d} />,
-          )}
+          {felt(<circle cx={0} cy={0} r={g.r * k} />, <circle cx={0} cy={0} r={g.r * k - d} />)}
         </>
       );
       break;
@@ -636,7 +700,6 @@ export function ShapeView({
             stroke={c.line}
           />
           {felt(
-            2 * Math.min(g.rx, g.ry) * k,
             <ellipse cx={0} cy={0} rx={g.rx * k} ry={g.ry * k} />,
             <ellipse cx={0} cy={0} rx={g.rx * k - d} ry={g.ry * k - d} />,
           )}
@@ -645,23 +708,12 @@ export function ShapeView({
       break;
     case 'polygon': {
       const pts = scalePts(g.points);
-      const xs = pts.map((p) => p[0]);
-      const ys = pts.map((p) => p[1]);
-      const across = Math.min(
-        Math.max(...xs) - Math.min(...xs),
-        Math.max(...ys) - Math.min(...ys),
-      );
-      const inner = insetPolygon(pts, d);
+      const inner = dress.stitch ? insetPolygon(pts, d) : null;
       const list = (q: Pt[]) => q.map((p) => p.join(',')).join(' ');
       body = (
         <>
-          <polygon
-            className="ni-shape__fill"
-            points={list(pts)}
-            fill={c.fill}
-            stroke={c.line}
-          />
-          {felt(across, <polygon points={list(pts)} />, inner ? <polygon points={list(inner)} /> : null)}
+          <polygon className="ni-shape__fill" points={list(pts)} fill={c.fill} stroke={c.line} />
+          {felt(<polygon points={list(pts)} />, inner ? <polygon points={list(inner)} /> : null)}
           <Marks points={pts} mark={mark} open={false} upto={upto} />
         </>
       );
@@ -744,18 +796,22 @@ export function ShapeSetView({
   maxHeight = 240,
   unitPx,
   label,
+  setFelt,
 }: {
   shapes: readonly ShapeCard[];
   maxWidth?: number;
   maxHeight?: number;
   unitPx?: number;
   label?: string;
+  /** The treatment of every shape on screen; by default this set's own (`shapeSetFelt`). */
+  setFelt?: ShapeFelt;
 }) {
   const unit = unitPx ?? shapeSetUnit(shapes, maxWidth, maxHeight);
+  const dress = setFelt ?? shapeSetFelt(shapes, unit);
   return (
     <div className="ni-shapes" style={{ gap: SET_GAP }} {...pictureProps(label)}>
       {shapes.map((s) => (
-        <ShapeView key={s.id} card={s} unitPx={unit} />
+        <ShapeView key={s.id} card={s} unitPx={unit} setFelt={dress} />
       ))}
     </div>
   );

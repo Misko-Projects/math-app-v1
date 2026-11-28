@@ -13,6 +13,7 @@ import {
   Scaled,
   type Size,
   StimulusView,
+  shapeSetFelt,
   shapeSetUnit,
   useActionSize,
   useAlive,
@@ -252,6 +253,19 @@ export function NumeralPickWidget({
     ),
   ];
   const shapeUnitPx = shapeUnits.length > 0 ? Math.min(...shapeUnits) : undefined;
+  // Every shape on the screen (question and choices) is dressed the same, by the smallest of them.
+  const shapeFelt =
+    shapeUnitPx === undefined
+      ? undefined
+      : shapeSetFelt(
+          [
+            ...(stimulus.kind === 'shape' ? stimulus.shapes : []),
+            ...config.options.flatMap((o) =>
+              o.stimulus?.kind === 'shape' ? o.stimulus.shapes : [],
+            ),
+          ],
+          shapeUnitPx,
+        );
   // Numeral and word cards share one width, sized for the longest label (Baloo 2 numerals ≈ 30 px
   // a digit at 48 px; Andika words ≈ 18 px a letter at 32 px). Picture cards keep their own size.
   const longestNumeral = Math.max(
@@ -281,6 +295,7 @@ export function NumeralPickWidget({
               maxWidth={pictureBox.width}
               maxHeight={pictureBox.height}
               shapeUnitPx={shapeUnitPx}
+              shapeFelt={shapeFelt}
             />
           </Scaled>
           {plan.check === 'top' ? check : null}
@@ -322,6 +337,7 @@ export function NumeralPickWidget({
                         maxHeight={CHOICE_BOX.height}
                         minCell={22}
                         shapeUnitPx={shapeUnitPx}
+                        shapeFelt={shapeFelt}
                         label={name}
                       />
                     ) : variant === 'numeral' ? (

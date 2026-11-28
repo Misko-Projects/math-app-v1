@@ -7,11 +7,9 @@ import './clock.css';
 
 /** The cream felt face's radius, inside the denim rim (r 98), outside the counted-five dots' centres. */
 const FACE_R = 93;
-/** The rim's running stitch, midway across the rim. */
-const STITCH_R = 95.5;
 
 /**
- * The clock (U05 #14), a cream felt face in a stitched denim rim: 60 minute ticks (every
+ * The clock (U05 #14), a cream felt face in a solid denim felt rim: 60 minute ticks (every
  * fifth one long), the numbers 1–12, and two geared hands drawn from ONE time `t` (minutes after
  * 12:00), so they can never disagree: the minute hand at 6° a minute, the hour hand at 30° an hour
  * plus 0.5° a minute (at 3:30 exactly halfway between 3 and 4). The hands differ by length, width
@@ -175,16 +173,15 @@ export function ClockFace({
       {...pictureProps(label)}
       focusable="false"
     >
-      {/* Felt & Stitch (slice 4b): a denim felt rim with its grain and a cream running stitch
-          round a cream felt face, lifted a little. The rim lies outside the minute ticks (r 86),
-          so the stitch never meets a tick or the long hand's tip (r 76). No glass shine. */}
+      {/* Felt & Stitch (slice 4b): a solid denim felt rim with its grain round a cream felt face,
+          lifted a little. Nothing dashed or repeated sits on the rim: just outside the 60 minute
+          ticks it would read as a second ring of marks (look check). No glass shine. */}
       <g className="ni-clock__case">
         <circle r={CLOCK.r + 4} fill={paint('sea')} />
         <circle r={CLOCK.r + 4} fill={`url(#${grain})`} className="ni-clock__grain" />
         <circle r={FACE_R} fill={paint('cloud')} />
       </g>
       <GrainDefs id={grain} />
-      <circle r={STITCH_R} className="ni-clock__stitch" />
       {sweep ? <path d={sweep} className="ni-clock__sweep" /> : null}
       <g className="ni-clock__ticks">
         {ticks.map((k) => (

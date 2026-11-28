@@ -20,6 +20,7 @@ import {
   ShapeView,
   shapeBox,
   shapeExtent,
+  shapeSetFelt,
   spriteNameKey,
   useAlive,
   useDemoPause,
@@ -303,6 +304,9 @@ export function ShapeSortWidget({
     },
   });
 
+  // Felt (slice 4b): every shape card drawn at one size is dressed the same, decided by the
+  // smallest shape among ALL the cards, so grain or a stitch never singles out a card.
+  const shapeCards = config.cards.flatMap((c) => (isShape(c.card) ? [c.card] : []));
   const face = (c: Card, size: number) => {
     const h = highlight?.id === c.id ? highlight : null;
     if (isShape(c.card)) {
@@ -313,6 +317,7 @@ export function ShapeSortWidget({
           size={size}
           mark={h?.mark ?? null}
           upto={h?.upto}
+          setFelt={shapeSetFelt(shapeCards, size / (2 * extent))}
         />
       );
     }

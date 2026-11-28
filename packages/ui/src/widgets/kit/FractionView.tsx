@@ -177,7 +177,7 @@ export function WholeBase({ frame, ghost = false }: { frame: ShapeFrame; ghost?:
 export function WholeGrain({ frame }: { frame: ShapeFrame }) {
   const id = useGrainId('ni-frac-grain');
   return (
-    <g className="ni-fraction__grain" aria-hidden="true">
+    <g className="ni-fraction__grain">
       <GrainDefs id={id} />
       {frame.kind === 'circle' ? (
         <circle cx={frame.cx} cy={frame.cy} r={frame.rim} fill={`url(#${id})`} />
