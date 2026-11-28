@@ -212,8 +212,7 @@
 }
 .ni-btt__piece--tens {
   background-image:
-    linear-gradient(to bottom, var(--color-sky-light) 1.5px, transparent 1.5px),
-    var(--felt-grain);
+    linear-gradient(to bottom, var(--color-sky-light) 1.5px, transparent 1.5px), var(--felt-grain);
   background-size:
     100% var(--u),
     var(--felt-grain-size);
@@ -223,8 +222,7 @@
   border-radius: 4px;
   background-image:
     linear-gradient(to right, var(--color-sky-light) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-sky-light) 1px, transparent 1px),
-    var(--felt-grain);
+    linear-gradient(to bottom, var(--color-sky-light) 1px, transparent 1px), var(--felt-grain);
   background-size:
     var(--u) var(--u),
     var(--u) var(--u),
@@ -247,8 +245,7 @@
 /* A rod lying down in the nest: its unit lines run across. */
 .ni-btt__piece--tens[data-lying="true"] {
   background-image:
-    linear-gradient(to right, var(--color-sky-light) 1.5px, transparent 1.5px),
-    var(--felt-grain);
+    linear-gradient(to right, var(--color-sky-light) 1.5px, transparent 1.5px), var(--felt-grain);
   background-size:
     var(--u) 100%,
     var(--felt-grain-size);

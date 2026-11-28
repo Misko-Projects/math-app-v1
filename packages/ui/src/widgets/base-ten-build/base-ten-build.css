@@ -283,8 +283,7 @@
   width: var(--u);
   height: calc(var(--u) * 10);
   background-image:
-    linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px),
-    var(--felt-grain);
+    linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px), var(--felt-grain);
   background-size:
     100% var(--u),
     var(--felt-grain-size);
@@ -299,8 +298,7 @@
   height: calc(var(--u) * 10);
   background-image:
     linear-gradient(to right, var(--line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--line) 1px, transparent 1px),
-    var(--felt-grain);
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px), var(--felt-grain);
   background-size:
     var(--u) var(--u),
     var(--u) var(--u),

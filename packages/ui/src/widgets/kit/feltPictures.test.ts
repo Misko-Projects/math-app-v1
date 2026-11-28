@@ -34,7 +34,11 @@ describe('Felt & Stitch widget pictures (slice 4a): every mark that carries mean
     ['number-line mark and pointer on paper (no outline)', PALETTE.coral, PALETTE.paper],
     ['jump arc on paper', PALETTE['coral-deep'], PALETTE.paper],
     ['base-ten piece on paper (no outline)', PALETTE.sea, PALETTE.paper],
-    ['base-ten unit line on denim (rods 1.5 px, flats 1 px, from a 6 px unit)', PALETTE['sky-light'], PALETTE.sea],
+    [
+      'base-ten unit line on denim (rods 1.5 px, flats 1 px, from a 6 px unit)',
+      PALETTE['sky-light'],
+      PALETTE.sea,
+    ],
     ['counted base-ten unit line on mustard', PALETTE['ink-soft'], PALETTE.sunshine],
     ['number-bond ring on paper', PALETTE.sea, PALETTE.paper],
     ['number-bond ring on its cream face', PALETTE.sea, PALETTE.cloud],
@@ -42,7 +46,11 @@ describe('Felt & Stitch widget pictures (slice 4a): every mark that carries mean
     ['hundred-chart grid line on a cream cell', PALETTE.sea, PALETTE.cloud],
     ['order direction arrow on paper', PALETTE['sea-deep'], PALETTE.paper],
     ['raft log edge on paper', PALETTE['wood-deep'], PALETTE.paper],
-    ['light felt edge (plate, die tile, stepping stone, chart key) on paper', mix('wood-deep', 65, 'sand-deep'), PALETTE.paper],
+    [
+      'light felt edge (plate, die tile, stepping stone, chart key) on paper',
+      mix('wood-deep', 65, 'sand-deep'),
+      PALETTE.paper,
+    ],
     ['ruler edge on paper', mix('sunshine-deep', 75, 'wood-deep'), PALETTE.paper],
   ])('%s', (_what, fg, bg) => {
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(3);
