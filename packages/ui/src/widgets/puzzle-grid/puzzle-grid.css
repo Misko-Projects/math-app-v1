@@ -52,7 +52,9 @@
   justify-content: center;
   box-sizing: border-box;
   padding: 0;
-  border: 3px solid var(--color-ink);
+  /* Felt & Stitch (slice 4b): a given cell is pebble felt with the warm felt edge (3.28:1 on
+     paper), every given cell alike; a blank keeps its dashed ink edge, a filled one its navy. */
+  border: 3px solid var(--felt-edge);
   border-radius: 14px;
   background: var(--color-pebble);
   color: var(--color-ink);
@@ -69,6 +71,7 @@
 }
 .ni-pz__cell[data-kind="empty"] {
   border-style: dashed;
+  border-color: var(--color-ink);
   background: var(--color-paper);
 }
 .ni-pz__cell[data-kind="filled"] {
@@ -133,19 +136,23 @@
 .ni-pz__outline {
   fill: var(--color-paper);
 }
+/* Felt pieces (slice 4b): flat felt with a same-hue edge only as dark as 3:1 on paper needs
+   (shallows → sea 3.80, sunshine → its deep mix 3.43); no stitch or lift where pieces meet. */
 .ni-pz__piece {
-  stroke: var(--color-ink);
   stroke-width: 3px;
 }
 .ni-pz__piece--square {
   fill: var(--color-shallows);
+  stroke: var(--color-sea);
 }
 .ni-pz__piece--rectangle {
   fill: var(--color-sunshine);
+  stroke: color-mix(in srgb, var(--color-sunshine-deep) 60%, var(--color-wood-deep));
 }
 /* Half a rectangle: it still needs the box beside it. */
 .ni-pz__piece--half {
   fill: var(--color-sunshine-light);
+  stroke: color-mix(in srgb, var(--color-sunshine-deep) 60%, var(--color-wood-deep));
   stroke-dasharray: 7 6;
 }
 
