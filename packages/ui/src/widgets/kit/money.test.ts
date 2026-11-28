@@ -5,7 +5,7 @@ import {
   TRAY_PIECES_MAX,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
-import { pairRatio } from '../../art/core/contrast';
+import { contrastRatio, type Lighting, litColor, type PaletteColor } from '../../tokens/tokens';
 import { COIN_CENTS, COIN_CONTRAST_PAIRS, coinPx, moneyNameKey, moneyText } from './CoinArt';
 import { coinsCentsOf, pictureQuarterPx } from './CoinsView';
 import {
@@ -17,6 +17,21 @@ import {
   pileWidth,
 } from './moneyLayout';
 import { applyBoxKey, padBoxValue } from './PadEntry';
+
+/** An sRGB colour-mix of two lit palette colours, as the browser computes it. */
+function mixHex(a: PaletteColor, pct: number, b: PaletteColor, l: Lighting): string {
+  const ch = (hex: string, i: number) => Number.parseInt(hex.slice(1 + 2 * i, 3 + 2 * i), 16);
+  const [ha, hb] = [litColor(a, l), litColor(b, l)];
+  const out = [0, 1, 2].map((i) => Math.round((ch(ha, i) * pct + ch(hb, i) * (100 - pct)) / 100));
+  return `#${out.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** A money pair's ratio in the felt palette the money art is drawn in (slice 4b). */
+function feltRatio(p: (typeof COIN_CONTRAST_PAIRS)[number], l: Lighting): number {
+  const fg = typeof p.fg === 'string' ? litColor(p.fg, l) : mixHex(p.fg.a, p.fg.pct, p.fg.b, l);
+  const bg = typeof p.bg === 'string' ? litColor(p.bg, l) : mixHex(p.bg.a, p.bg.pct, p.bg.b, l);
+  return contrastRatio(fg, bg);
+}
 
 describe('coin art (U05 #14)', () => {
   it('draws the coins at true relative sizes: dime < penny < nickel < quarter', () => {
@@ -56,7 +71,7 @@ describe('coin art (U05 #14)', () => {
   for (const p of COIN_CONTRAST_PAIRS) {
     for (const l of ['day', 'sunset'] as const) {
       it(`${p.use} (${l}) ≥ ${p.min}:1`, () => {
-        expect(pairRatio(p, l)).toBeGreaterThanOrEqual(p.min);
+        expect(feltRatio(p, l)).toBeGreaterThanOrEqual(p.min);
       });
     }
   }

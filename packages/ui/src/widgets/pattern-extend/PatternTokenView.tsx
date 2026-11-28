@@ -13,12 +13,21 @@ import { ObjectSprite, spriteNameKey } from '../kit';
 
 const isShape = (sprite: string): boolean => (PATTERN_SHAPES as readonly string[]).includes(sprite);
 
-/** Fill and outline per pattern colour (palette tokens; outlines ≥ 3:1 on paper). */
-const COLORS: Record<string, { fill: PaletteColor; line: PaletteColor }> = {
-  red: { fill: 'coral', line: 'coral-deep' },
-  blue: { fill: 'sea-deep', line: 'sea-dark' },
-  yellow: { fill: 'sunshine', line: 'wood-deep' },
+/**
+ * Felt fill and edge per pattern colour (Felt & Stitch, slice 4b), as the kit's shape cards: a felt
+ * that holds 3:1 on paper (coral 3.48, sea-deep 5.72) is edged in its own colour (no line drawn);
+ * a light felt gets a same-hue edge only as dark as 3:1 needs (yellow 3.43, plain pebble 3.28).
+ * Every token of a row is drawn the same way: flat felt, no stitch or grain that could single one out.
+ */
+const COLORS: Record<string, { fill: PaletteColor; line: string }> = {
+  red: { fill: 'coral', line: 'var(--color-coral)' },
+  blue: { fill: 'sea-deep', line: 'var(--color-sea-deep)' },
+  yellow: {
+    fill: 'sunshine',
+    line: 'color-mix(in srgb, var(--color-sunshine-deep) 60%, var(--color-wood-deep))',
+  },
 };
+const PLAIN = { fill: 'pebble', line: 'var(--felt-edge)' } as const;
 
 const polygon = (n: number, r = 26, rot = -90): string =>
   Array.from({ length: n }, (_, k) => {
@@ -42,7 +51,7 @@ const SHAPES: Record<string, (p: ShapeProps) => ReactElement> = {
 };
 
 export function ShapeArt({ kind, color }: { kind: string; color?: string }) {
-  const c = COLORS[color ?? ''] ?? { fill: 'pebble', line: 'ink-soft' };
+  const c = COLORS[color ?? ''] ?? PLAIN;
   const draw = SHAPES[kind] ?? SHAPES.circle;
   return (
     <svg
@@ -55,7 +64,7 @@ export function ShapeArt({ kind, color }: { kind: string; color?: string }) {
       data-shape={kind}
       data-color={color}
     >
-      {draw?.({ fill: `var(--color-${c.fill})`, stroke: `var(--color-${c.line})` })}
+      {draw?.({ fill: `var(--color-${c.fill})`, stroke: c.line })}
     </svg>
   );
 }

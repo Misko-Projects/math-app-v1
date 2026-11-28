@@ -109,6 +109,7 @@ export {
   fractionWords,
   gridCellPath,
   WholeBase,
+  WholeGrain,
   WholeOutline,
 } from './FractionView';
 export {
@@ -252,6 +253,7 @@ export {
   PIECE_SIDE,
   regularPolygon,
   type ShapeBox,
+  type ShapeFelt,
   type ShapeGeometry,
   type ShapeMark,
   ShapeSetView,
@@ -261,6 +263,7 @@ export {
   shapeColor,
   shapeExtent,
   shapeGeometry,
+  shapeSetFelt,
   shapeSetUnit,
   squareCorners,
 } from './ShapeView';

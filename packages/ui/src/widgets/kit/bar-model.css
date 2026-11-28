@@ -1,4 +1,9 @@
-/* The bar model (BarModelView, barModel.ts). Sizes are barModel.ts's constants. */
+/*
+ * The bar model (BarModelView, barModel.ts). Sizes are barModel.ts's constants. Felt & Stitch
+ * (slice 4b): the parts are flat felt with the grain (no stitch, no lift: a length carries the
+ * maths, so nothing may add a line along a part or blur its end); the lines between parts stay
+ * plain and sharp, in warm ink-soft (≥ 4.7:1 on every part colour), the same 3 px as before.
+ */
 .ni-bar {
   position: relative;
   flex: none;
@@ -10,7 +15,7 @@
   align-items: center;
   justify-content: center;
   height: 56px;
-  border: 3px solid var(--color-ink);
+  border: 3px solid var(--color-ink-soft);
   margin-left: -1.5px;
   border-radius: 6px;
   color: var(--color-ink);
@@ -19,14 +24,20 @@
   font-weight: 800;
   line-height: 1;
 }
+.ni-bar__piece[data-tone] {
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--bar-felt);
+  background-blend-mode: soft-light;
+}
 .ni-bar__piece[data-tone="0"] {
-  background: var(--color-sky-light);
+  --bar-felt: var(--color-sky-light);
 }
 .ni-bar__piece[data-tone="1"] {
-  background: var(--color-sunshine-light);
+  --bar-felt: var(--color-sunshine-light);
 }
 .ni-bar__piece[data-tone="2"] {
-  background: var(--color-leaf-light);
+  --bar-felt: var(--color-leaf-light);
 }
 .ni-bar__piece[data-kind="unknown"] {
   border-style: dashed;

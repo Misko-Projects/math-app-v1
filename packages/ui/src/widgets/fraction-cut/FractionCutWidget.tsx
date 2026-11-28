@@ -47,6 +47,7 @@ import {
   useInviteHand,
   useSubmitGuard,
   WholeBase,
+  WholeGrain,
   WholeOutline,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -1116,6 +1117,7 @@ export function FractionCutWidget({
               );
             })}
           </g>
+          {isCut ? null : <WholeGrain frame={frame} />}
           {frame.kind === 'circle' && state.radii.length === 1 ? (
             // One radius is a slit in a whole circle: drawn as the cut it is, so the child sees
             // where the knife went (and where to touch to take it back).

@@ -1,4 +1,10 @@
-/* Shape cards (ShapeView): exact shapes in the card colour, outlined in its shade. */
+/*
+ * Shape cards (ShapeView): exact shapes in felt (Felt & Stitch, slice 4b). A felt that holds 3:1
+ * on its card has no outline (its edge is its own colour); a light felt has a thin same-hue edge
+ * only as dark as 3:1 needs (ShapeView COLOR). From 64 px across a shape gets the felt grain and a
+ * running stitch that is a true inset of its own outline, 5 px in, so it never sits on a side or
+ * a corner a child counts. No lift: a shadow would draw a second edge beside the sides.
+ */
 
 .ni-shapes {
   display: flex;
@@ -13,6 +19,20 @@
 }
 .ni-shape__fill {
   stroke-width: 3.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.ni-shape__felt {
+  pointer-events: none;
+}
+.ni-shape__grain {
+  mix-blend-mode: soft-light;
+}
+.ni-shape__stitch > * {
+  fill: none;
+  stroke-width: 2px;
+  stroke-dasharray: 6px 4px;
+  stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }

@@ -356,7 +356,7 @@ export function FillOutline({
                 data-rot={p.rot}
                 points={pts(corners, toPx)}
                 fill={c.fill}
-                stroke={c.line}
+                stroke={c.seam}
               />
             );
           })}
@@ -448,7 +448,7 @@ export function FillOutline({
                       className="ni-scomp__piece"
                       points={shape.map(([x, y]) => `${x * k},${-y * k}`).join(' ')}
                       fill={c.fill}
-                      stroke={c.line}
+                      stroke={c.seam}
                     />
                   </svg>
                 </span>

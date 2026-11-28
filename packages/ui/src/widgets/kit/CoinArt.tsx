@@ -1,10 +1,10 @@
 import type { CoinKind, NarrationKey } from '@number-island/shared';
-import { useId, useMemo } from 'react';
-import { Shine } from '../../art/characters/parts';
+import { useMemo } from 'react';
 import { COIN_LOOK } from '../../art/characters/pebbling';
 import { paint } from '../../art/core/paint';
 import { useSpeech } from '../../preferences/UiProvider';
 import type { PaletteColor } from '../../tokens/tokens';
+import { GrainDefs, useGrainId } from './feltSvg';
 import './money.css';
 
 /**
@@ -21,9 +21,11 @@ import './money.css';
  *
  * Every coin is drawn at one scale (`quarterPx` is the quarter's diameter), so the sizes compare
  * truly. The penny is painted `wood`, not the Coin Clam's `sun`: next to the silver coins `sun`
- * reads as orange or gold, `wood` as copper. Silver coins are outlined in `ink-soft` (not their
- * fill's `pebble-deep` shade) so the coin's edge stays ≥ 3:1 on the paper and sand the widgets
- * draw them on (06 §7). Values are never printed on a coin: tapping speaks them.
+ * reads as orange or gold, `wood` as copper. Felt & Stitch (slice 4b): the coins are felt discs in
+ * the felt palette, each with a thin same-hue edge only as dark as 3:1 on paper and sand needs
+ * (06 §7), lifted a little, no gloss; the face picture and the reeding are plain thread. Small
+ * coins (a dime under 48 px) show their face picture only, no rim ring or reeding. Values are
+ * never printed on a coin: tapping speaks them.
  */
 
 export type MoneyPiece = CoinKind | 'dollar';
@@ -43,18 +45,45 @@ const VALUE_OF: Readonly<Record<CoinKind, 1 | 5 | 10 | 25>> = {
 };
 
 interface CoinPaint {
-  face: PaletteColor;
-  edge: PaletteColor;
+  /** The felt body (a CSS colour). */
+  face: string;
+  /** The thin same-hue edge (a CSS colour): only as dark as 3:1 on paper and sand needs. */
+  edge: string;
   mark: PaletteColor;
 }
 
-/** Face, outline and mark colours (contrast rows in `COIN_CONTRAST_PAIRS`). */
+/**
+ * The silver coins' edge (Felt & Stitch, slice 4b): pebble felt cannot hold 3:1 on paper alone,
+ * so its own darker shade, mixed just far enough towards ink-soft (3.3:1 on sand, 3.9:1 on paper).
+ */
+export const SILVER_EDGE_MIX = { a: 'pebble-deep', pct: 60, b: 'ink-soft' } as const;
+const SILVER_EDGE = `color-mix(in srgb, var(--color-${SILVER_EDGE_MIX.a}) ${SILVER_EDGE_MIX.pct}%, var(--color-${SILVER_EDGE_MIX.b}))`;
+/**
+ * The silver felt body: pebble a step deeper (towards pebble-deep), so a silver coin separates
+ * from the cream coin mat; still much lighter than the copper (1.63:1), and its ink-soft face
+ * picture holds 5.40:1 (evidence review).
+ */
+export const SILVER_FACE_MIX = { a: 'pebble', pct: 80, b: 'pebble-deep' } as const;
+const SILVER_FACE = `color-mix(in srgb, var(--color-${SILVER_FACE_MIX.a}) ${SILVER_FACE_MIX.pct}%, var(--color-${SILVER_FACE_MIX.b}))`;
+
+/**
+ * Face, edge and mark colours in felt (contrast rows in `COIN_CONTRAST_PAIRS`): copper is wood
+ * felt, silver is pebble felt, which is much lighter (1.88:1), so the two metals differ in
+ * lightness, not only in hue. Face pictures and reeding are plain ink-soft thread.
+ */
 export const COIN_PAINT: Readonly<Record<CoinKind, CoinPaint>> = {
-  penny: { face: 'wood', edge: 'wood-deep', mark: 'ink' },
-  nickel: { face: 'pebble', edge: 'ink-soft', mark: 'ink-soft' },
-  dime: { face: 'pebble', edge: 'ink-soft', mark: 'ink-soft' },
-  quarter: { face: 'pebble', edge: 'ink-soft', mark: 'ink-soft' },
+  penny: { face: 'var(--color-wood)', edge: 'var(--color-wood-deep)', mark: 'ink-soft' },
+  nickel: { face: SILVER_FACE, edge: SILVER_EDGE, mark: 'ink-soft' },
+  dime: { face: SILVER_FACE, edge: SILVER_EDGE, mark: 'ink-soft' },
+  quarter: { face: SILVER_FACE, edge: SILVER_EDGE, mark: 'ink-soft' },
 };
+
+/**
+ * The coins' size tier, for every coin drawn at one scale (so a row of coins is dressed alike):
+ * when the smallest coin (the dime) is under this many px across, a coin shows one cue besides
+ * its size, its face picture, and no rim ring or reeding, which turn to noise that small.
+ */
+export const COIN_DETAIL_MIN_PX = 48;
 
 /** The radius of each coin in art units (`COIN_LOOK`: the quarter is 44). */
 export const coinRadius = (kind: CoinKind): number => COIN_LOOK[VALUE_OF[kind]].r;
@@ -117,9 +146,10 @@ export function CoinArt({ kind, quarterPx, className }: CoinArtProps) {
   const unit = quarterPx / (2 * QUARTER_R);
   // 2 units round the rim for its stroke, 7 below it for the contact shadow.
   const box = r + 2;
+  const detailed = coinPx('dime', quarterPx) >= COIN_DETAIL_MIN_PX;
   const ridgeCount = Math.round(r * 1.25);
   const ridges =
-    look.rim === 'reeded'
+    detailed && look.rim === 'reeded'
       ? Array.from({ length: ridgeCount }, (_, i) => {
           const deg = (i / ridgeCount) * 360;
           const [x0, y0] = polar(r - 1.8, deg);
@@ -138,24 +168,20 @@ export function CoinArt({ kind, quarterPx, className }: CoinArtProps) {
       data-coin={kind}
       data-rim={look.rim}
       data-diameter={(2 * r * unit).toFixed(2)}
+      data-detail={detailed ? 'rim' : 'face'}
     >
-      <ellipse cx={1.5} cy={r + 3} rx={r * 0.86} ry={3.5} fill={paint('ink')} opacity={0.16} />
-      <circle r={r} fill={paint(p.face)} stroke={paint(p.edge)} strokeWidth={3} />
-      {ridges ? (
-        <path d={ridges} stroke={paint(p.mark)} strokeWidth={1.7} strokeLinecap="round" />
-      ) : (
-        <circle r={r - 4.5} fill="none" stroke={paint(p.mark)} strokeWidth={2.2} />
-      )}
-      <circle
-        r={r - 9}
-        fill="none"
-        stroke={paint(p.mark)}
-        strokeWidth={1.4}
-        strokeDasharray={kind === 'penny' ? undefined : '1.5 3'}
-        opacity={0.75}
-      />
+      {/* A felt disc with its thin same-hue edge, lifted a little (no grey ground shadow, no gloss). */}
+      <g className="ni-coin-art__disc">
+        <circle r={r} fill={p.face} stroke={p.edge} strokeWidth={2} />
+      </g>
+      {detailed ? (
+        ridges ? (
+          <path d={ridges} stroke={paint(p.mark)} strokeWidth={1.7} strokeLinecap="round" />
+        ) : (
+          <circle r={r - 4.5} fill="none" stroke={paint(p.mark)} strokeWidth={2.2} />
+        )
+      ) : null}
       <CoinFace kind={kind} r={r} mark={p.mark} />
-      <Shine x={0} y={0} rx={r} opacity={0.45} />
     </svg>
   );
 }
@@ -232,7 +258,7 @@ export interface BillArtProps {
 
 /** A dollar bill: green paper, a lace border, a shell and a star seal and the value. Decorative. */
 export function BillArt({ dollars, height, plain = false, className }: BillArtProps) {
-  const clip = `ni-bill-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const grain = useGrainId('ni-bill-grain');
   return (
     <svg
       className={['ni-bill-art', className].filter(Boolean).join(' ')}
@@ -243,24 +269,21 @@ export function BillArt({ dollars, height, plain = false, className }: BillArtPr
       focusable="false"
       data-bill={dollars}
     >
-      <defs>
-        <clipPath id={clip}>
-          <rect x="2" y="2" width="231" height="96" rx="9" />
-        </clipPath>
-      </defs>
-      <rect x="5" y="7" width="231" height="96" rx="9" fill={paint('ink')} opacity={0.16} />
-      <rect x="2" y="2" width="231" height="96" rx="9" fill={paint('leaf-light')} />
-      <g clipPath={`url(#${clip})`} opacity={0.35}>
-        {Array.from({ length: 9 }, (_, i) => (
-          <path
-            // biome-ignore lint/suspicious/noArrayIndexKey: background lace lines are positional
-            key={i}
-            d={`M${-20 + i * 32} 100Q${-4 + i * 32} 50 ${-20 + i * 32} 0`}
-            fill="none"
-            stroke={paint('leaf-deep')}
-            strokeWidth={1.4}
-          />
-        ))}
+      {/* Felt & Stitch (slice 4b): a sage felt note with the grain, its own deep shade as the
+          edge (5.53:1 on paper), a running stitch inside the edge, lifted a
+          little; no grey ground shadow, no lace. */}
+      <GrainDefs id={grain} />
+      <g className="ni-bill-art__note">
+        <rect
+          x="2"
+          y="2"
+          width="231"
+          height="96"
+          rx="9"
+          fill={paint('leaf-light')}
+          stroke={paint('leaf-deep')}
+          strokeWidth={2.5}
+        />
       </g>
       <rect
         x="2"
@@ -268,9 +291,8 @@ export function BillArt({ dollars, height, plain = false, className }: BillArtPr
         width="231"
         height="96"
         rx="9"
-        fill="none"
-        stroke={paint('leaf-deep')}
-        strokeWidth={3}
+        fill={`url(#${grain})`}
+        style={{ mixBlendMode: 'soft-light' }}
       />
       <rect
         x="11"
@@ -285,7 +307,7 @@ export function BillArt({ dollars, height, plain = false, className }: BillArtPr
       />
       {/* Seals: a shell on the left, a star on the right. */}
       <g transform="translate(46 50)">
-        <circle r="19" fill={paint('leaf')} stroke={paint('leaf-deep')} strokeWidth={2.5} />
+        <circle r="19" fill={paint('leaf-deep')} />
         <path
           d="M-9 4Q-9 -9 0 -10Q9 -9 9 4ZM0 4V-9M-4.5 4V-7M4.5 4V-7"
           fill="none"
@@ -296,7 +318,7 @@ export function BillArt({ dollars, height, plain = false, className }: BillArtPr
         />
       </g>
       <g transform="translate(189 50)">
-        <circle r="19" fill={paint('leaf')} stroke={paint('leaf-deep')} strokeWidth={2.5} />
+        <circle r="19" fill={paint('leaf-deep')} />
         <path
           d="M0 -10L2.8 -3L10 -3L4.2 1.6L6.4 9L0 4.6L-6.4 9L-4.2 1.6L-10 -3L-2.8 -3Z"
           fill="none"
@@ -332,27 +354,28 @@ export function BillArt({ dollars, height, plain = false, className }: BillArtPr
 }
 
 /**
- * Every meaningful mark the money art draws, against what it sits on (06 §7). kit.test.ts checks
- * each by day and at sunset.
+ * Every meaningful mark the money art draws, against what it sits on (06 §7), in the felt palette
+ * the money art is drawn in (slice 4b). money.test.ts checks each by day and at sunset. `fg` is a
+ * palette colour or the silver edge's mix.
  */
 export const COIN_CONTRAST_PAIRS = [
-  { use: 'Penny face picture and rim (ink on copper)', fg: 'ink', bg: 'wood', min: 3 },
+  { use: 'Penny face picture and rim (ink-soft on copper)', fg: 'ink-soft', bg: 'wood', min: 3 },
   {
     use: 'Silver coin picture and reeding (ink-soft on silver)',
     fg: 'ink-soft',
-    bg: 'pebble',
+    bg: SILVER_FACE_MIX,
     min: 3,
   },
   { use: 'Penny edge on the paper board', fg: 'wood-deep', bg: 'paper', min: 3 },
   { use: 'Penny edge on sand', fg: 'wood-deep', bg: 'sand', min: 3 },
-  { use: 'Silver coin edge on the paper board', fg: 'ink-soft', bg: 'paper', min: 3 },
-  { use: 'Silver coin edge on sand', fg: 'ink-soft', bg: 'sand', min: 3 },
+  { use: 'Silver coin edge on the paper board', fg: SILVER_EDGE_MIX, bg: 'paper', min: 3 },
+  { use: 'Silver coin edge on sand', fg: SILVER_EDGE_MIX, bg: 'sand', min: 3 },
   { use: 'Bill edge on the paper board', fg: 'leaf-deep', bg: 'paper', min: 3 },
   { use: 'Bill value numeral (ink on its paper oval)', fg: 'ink', bg: 'paper', min: 4.5 },
-  { use: 'Bill seal picture (paper on leaf)', fg: 'paper', bg: 'leaf', min: 3 },
+  { use: 'Bill seal picture (paper on leaf-deep)', fg: 'paper', bg: 'leaf-deep', min: 3 },
 ] as const satisfies readonly {
   use: string;
-  fg: PaletteColor;
-  bg: PaletteColor;
+  fg: PaletteColor | typeof SILVER_EDGE_MIX;
+  bg: PaletteColor | typeof SILVER_FACE_MIX;
   min: 3 | 4.5;
 }[];

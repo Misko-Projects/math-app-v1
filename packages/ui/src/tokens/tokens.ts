@@ -101,8 +101,8 @@ export type PaletteColor = keyof typeof PALETTE;
 
 /**
  * The pre-felt palette. Scenes and characters are still drawn for it, so theme.css pins these
- * values on their SVG roots (`.ni-art`, `.ni-coin-art`) until each is redrawn in felt. Sprites are
- * felt (slice 3) and take PALETTE.
+ * values on their SVG roots (`.ni-art`) until each is redrawn in felt. Sprites and coins are
+ * felt (slices 3 and 4b) and take PALETTE.
  */
 export const LEGACY_ART_PALETTE = {
   sea: '#2a9d8f',

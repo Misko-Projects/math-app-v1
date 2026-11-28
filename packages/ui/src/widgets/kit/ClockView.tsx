@@ -1,12 +1,15 @@
 import { clockText, hourAngle, minuteAngle, onFace, timeOf } from '@number-island/engine';
 import type { ReactNode } from 'react';
-import { Shine } from '../../art/characters/parts';
 import { paint } from '../../art/core/paint';
 import { pictureProps } from './a11y';
+import { GrainDefs, useGrainId } from './feltSvg';
 import './clock.css';
 
+/** The cream felt face's radius, inside the denim rim (r 98), outside the counted-five dots' centres. */
+const FACE_R = 93;
+
 /**
- * The clock (U05 #14), after the art kit's Clockfish face: a paper face, 60 minute ticks (every
+ * The clock (U05 #14), a cream felt face in a solid denim felt rim: 60 minute ticks (every
  * fifth one long), the numbers 1–12, and two geared hands drawn from ONE time `t` (minutes after
  * 12:00), so they can never disagree: the minute hand at 6° a minute, the hour hand at 30° an hour
  * plus 0.5° a minute (at 3:30 exactly halfway between 3 and 4). The hands differ by length, width
@@ -134,6 +137,7 @@ export function ClockFace({
   className,
   children,
 }: ClockFaceProps) {
+  const grain = useGrainId('ni-clock-grain');
   const ticks = Array.from({ length: 60 }, (_, i) => {
     const major = i % 5 === 0;
     const a = polarPoint(CLOCK.tickOuter - (major ? 11 : 6), i * 6);
@@ -169,19 +173,15 @@ export function ClockFace({
       {...pictureProps(label)}
       focusable="false"
     >
-      <ellipse cx="3" cy="99" rx="78" ry="6" fill={paint('ink')} opacity={0.14} />
-      <circle r={CLOCK.r + 4} fill={paint('sea-deep')} />
-      <circle r={CLOCK.r} fill={paint('paper')} stroke={paint('sea-dark')} strokeWidth={3} />
-      <circle
-        r={CLOCK.r - 4}
-        fill="none"
-        stroke={paint('sand-deep')}
-        strokeWidth={2}
-        opacity={0.6}
-      />
-      {/* The glass shine sits on the face, UNDER the ticks, numbers and hands: drawn on top it
-          paled the numbers it crosses (10 and 11). */}
-      <Shine x={0} y={0} rx={CLOCK.r - 6} opacity={0.3} />
+      {/* Felt & Stitch (slice 4b): a solid denim felt rim with its grain round a cream felt face,
+          lifted a little. Nothing dashed or repeated sits on the rim: just outside the 60 minute
+          ticks it would read as a second ring of marks (look check). No glass shine. */}
+      <g className="ni-clock__case">
+        <circle r={CLOCK.r + 4} fill={paint('sea')} />
+        <circle r={CLOCK.r + 4} fill={`url(#${grain})`} className="ni-clock__grain" />
+        <circle r={FACE_R} fill={paint('cloud')} />
+      </g>
+      <GrainDefs id={grain} />
       {sweep ? <path d={sweep} className="ni-clock__sweep" /> : null}
       <g className="ni-clock__ticks">
         {ticks.map((k) => (

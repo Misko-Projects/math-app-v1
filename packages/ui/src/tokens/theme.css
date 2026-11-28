@@ -277,11 +277,10 @@
 /*
  * Legacy art palette. Scenes and characters were drawn for the pre-felt palette and are redrawn
  * in felt in later slices; until then their SVG roots keep these values, so the palette change
- * recolours controls and widgets, not pictures. Sprites (.ni-sprite) are felt and take the felt
- * palette. Mirrored as LEGACY_ART_PALETTE in tokens.ts.
+ * recolours controls and widgets, not pictures. Sprites (.ni-sprite) and coins (.ni-coin-art,
+ * slice 4b) are felt and take the felt palette. Mirrored as LEGACY_ART_PALETTE in tokens.ts.
  */
-.ni-art,
-.ni-coin-art {
+.ni-art {
   --color-sea: #2a9d8f;
   --color-sea-deep: #1f7a8c;
   --color-sea-dark: #17606e;

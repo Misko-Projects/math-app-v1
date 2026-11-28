@@ -1,6 +1,6 @@
 import type { ChartSpec } from '@number-island/shared';
 import { type CSSProperties, type ReactNode, useLayoutEffect, useState } from 'react';
-import { outline, paint } from '../../art/core/paint';
+import { paint } from '../../art/core/paint';
 import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
 import { CATEGORY_MARKS, type PaletteColor } from '../../tokens/tokens';
 import { pictureProps } from './a11y';
@@ -73,6 +73,17 @@ export interface ChartViewProps {
  * apart by colour alone.
  */
 const BAR_FILLS: readonly PaletteColor[] = CATEGORY_MARKS.map((m) => m.fill);
+
+/**
+ * The same-hue edge of a bar whose felt cannot hold 3:1 on its lane (sand) alone, only as dark as
+ * 3:1 needs (sunshine 3.20, sky → sea 3.27, leaf-light 3.3+); none for sea-deep (4.91), coral-deep
+ * (4.53) and ink (9.83), whose own colour is their edge. feltPictures.test.ts holds the numbers.
+ */
+export const BAR_EDGE: Partial<Record<PaletteColor, string>> = {
+  sunshine: 'color-mix(in srgb, var(--color-sunshine-deep) 45%, var(--color-wood-deep))',
+  sky: 'var(--color-sea)',
+  'leaf-light': 'color-mix(in srgb, var(--color-leaf-deep) 60%, var(--color-leaf))',
+};
 
 /** A natural box for a chart inside `maxWidth` × `maxHeight` (small charts stay small). */
 export function chartBox(
@@ -250,21 +261,37 @@ export function ChartView({
         )}
         {g.slots.map((s) => {
           const fill = BAR_FILLS[s.index % BAR_FILLS.length] as PaletteColor;
+          const edge = BAR_EDGE[fill];
+          // Felt & Stitch (slice 4b): a flat felt bar whose end is exactly at its value (no
+          // stroke outside it, no stitch, no lift). A light felt's same-hue edge is drawn INSIDE
+          // the bar, so it never lengthens it.
           return s.bar && s.value > 0 ? (
-            <rect
-              key={`bar-${s.id}`}
-              className="ni-chart__bar"
-              data-slot={s.id}
-              data-value={s.value}
-              x={s.bar.x}
-              y={s.bar.y}
-              width={s.bar.w}
-              height={s.bar.h}
-              rx={4}
-              fill={paint(fill)}
-              stroke={outline(fill)}
-              strokeWidth={3}
-            />
+            <g key={`bar-${s.id}`}>
+              <rect
+                className="ni-chart__bar"
+                data-slot={s.id}
+                data-value={s.value}
+                x={s.bar.x}
+                y={s.bar.y}
+                width={s.bar.w}
+                height={s.bar.h}
+                rx={2}
+                fill={paint(fill)}
+              />
+              {edge && s.bar.w > 2 && s.bar.h > 2 ? (
+                <rect
+                  className="ni-chart__baredge"
+                  x={s.bar.x + 1}
+                  y={s.bar.y + 1}
+                  width={s.bar.w - 2}
+                  height={s.bar.h - 2}
+                  rx={1.5}
+                  fill="none"
+                  stroke={edge}
+                  strokeWidth={2}
+                />
+              ) : null}
+            </g>
           ) : null;
         })}
         {readLine

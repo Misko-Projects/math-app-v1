@@ -1,6 +1,7 @@
 import { fractionPicture, type PictureShape } from '@number-island/engine';
 import type { ReactNode } from 'react';
 import { pictureProps } from './a11y';
+import { GrainDefs, useGrainId } from './feltSvg';
 import {
   cutPaths,
   fitScale,
@@ -15,7 +16,7 @@ import './fraction.css';
  * A fraction picture (03 §5.1 `{ kind: 'fraction', shape, parts, shaded, equalParts }`): a whole
  * cut into `parts` parts, the first `shaded` of them filled. Equal parts are exactly equal (the
  * engine's geometry, mapped linearly); with `equalParts: false` they are visibly unequal and there
- * are still `parts` of them. Filled and empty parts differ by fill AND outline (solid vs dashed),
+ * are still `parts` of them. Filled and empty parts differ by fill AND edge (solid vs dashed),
  * as the Half-Crab's FractionShell draws them, so the picture never relies on colour alone
  * (06 §7). The cuts are two-tone lines (dark with a light core), so they show between two filled
  * parts too. The picture has no numerals: grade 1 names fractions in words (FRA.yaml).
@@ -73,6 +74,7 @@ export function FractionView({
       >
         <WholeBase frame={frame} />
         <FractionParts geoms={geoms} filled={(i) => i < filled} counting={counting} />
+        <WholeGrain frame={frame} />
         <CutLines paths={cutPaths(frame, picture)} />
         {overlay ? <Overlay frame={frame} a={overlay.a} b={overlay.b} /> : null}
         <WholeOutline frame={frame} />
@@ -164,6 +166,24 @@ export function WholeBase({ frame, ghost = false }: { frame: ShapeFrame; ghost?:
       <rect className="ni-fraction__bed" x={frame.x} y={frame.y} width={frame.w} height={frame.h} />
       {frame.shape === 'loaf' ? <LoafScores frame={frame} /> : null}
       {frame.cells ? <GridCells frame={frame} /> : null}
+    </g>
+  );
+}
+
+/**
+ * The felt grain over the whole (plate and parts), under the cuts: one soft-light layer per
+ * picture, never one per part (raster cost). Decoration only; it catches no press.
+ */
+export function WholeGrain({ frame }: { frame: ShapeFrame }) {
+  const id = useGrainId('ni-frac-grain');
+  return (
+    <g className="ni-fraction__grain">
+      <GrainDefs id={id} />
+      {frame.kind === 'circle' ? (
+        <circle cx={frame.cx} cy={frame.cy} r={frame.rim} fill={`url(#${id})`} />
+      ) : (
+        <path d={frame.outline} fill={`url(#${id})`} />
+      )}
     </g>
   );
 }

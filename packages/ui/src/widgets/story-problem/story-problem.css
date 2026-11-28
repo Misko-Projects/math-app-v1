@@ -125,7 +125,11 @@
   flex: none;
   box-sizing: border-box;
   border-radius: var(--radius-card);
-  background: var(--color-paper);
+  /* Felt & Stitch (slice 4b): a linen felt mat (grain over paper), as the 4a mats. */
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
 }
 .ni-story__grid {
   position: relative;
@@ -161,9 +165,10 @@
   background: var(--color-ink-soft);
   opacity: 0.45;
 }
-/* ... or a ten-frame's cell: ink lines, the cells of a frame joined, the two frames apart. */
+/* ... or a ten-frame's cell: plain ink-soft lines (≥ 7:1), the cells of a frame joined, the two
+   frames apart. */
 .ni-story__counters[data-frames="true"] .ni-story__place {
-  border: 2px solid var(--color-ink);
+  border: 2px solid var(--color-ink-soft);
   margin: -1px;
   background: var(--color-cloud);
 }
@@ -203,10 +208,15 @@
   width: 100%;
   height: 64px;
   box-sizing: border-box;
-  border: 3px solid var(--color-ink);
+  /* Felt (slice 4b): a cream felt strip with the grain; edges and part lines plain ink-soft, as
+     the bar model (no stitch along a part). */
+  border: 3px solid var(--color-ink-soft);
   border-radius: 12px;
   overflow: hidden;
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
 }
 .ni-story__part {
   display: flex;
@@ -221,7 +231,7 @@
   color: var(--color-ink);
 }
 .ni-story__part + .ni-story__part {
-  border-left: 3px solid var(--color-ink);
+  border-left: 3px solid var(--color-ink-soft);
 }
 
 /* ---------- the answer step ---------- */

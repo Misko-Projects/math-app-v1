@@ -59,12 +59,14 @@
 .ni-atw__cell {
   fill: var(--color-sand);
 }
-/* A tile: it fills its square; its face is drawn inside. */
+/* A tile: it fills its square; its face is drawn inside. Felt & Stitch (slice 4b): a denim felt
+   tile (sea, 3.27:1 on the sand squares) with a lighter denim face, no ink outline, no stitch (a
+   stitch inside a tile would read as one more grid line); every tile alike. */
 .ni-atw__tile {
-  fill: var(--color-sea-deep);
+  fill: var(--color-sea);
 }
 .ni-atw__face {
-  fill: var(--color-sky-light);
+  fill: var(--color-shallows);
 }
 .ni-atw__gridline {
   stroke: var(--color-wood-deep);

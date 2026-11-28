@@ -1,7 +1,11 @@
 /*
  * Fraction pictures (U05, #14): FractionView and the fraction widgets. Palette tokens only.
- * Filled parts: sea-deep fill, solid sea-dark outline. Empty parts: cloud, dashed ink-soft
- * outline (as the Half-Crab's FractionShell). Cuts: a dark line with a light core.
+ * Felt & Stitch (slice 4b): the whole lies on a sand felt plate (grain over the whole, no ink
+ * outline; the plate's edge is the thin warm felt edge, 3.28:1 on paper). Filled parts: denim
+ * felt, no outline (sea holds 3.80:1 on paper, 3.27:1 on the sand plate). Empty parts: cream felt
+ * with a dashed wood-deep edge on the part's own outline (3.75:1 on sand, 4.88:1 on cream), never
+ * an inset stitch that could be counted as a cut. Filled and empty differ in lightness (4.25:1)
+ * and in edge (solid vs dashed). Cuts stay plain and sharp: a dark line with a light core.
  */
 
 .ni-fraction {
@@ -16,8 +20,12 @@
 }
 
 .ni-fraction__rim {
-  fill: var(--color-paper);
+  fill: var(--color-sand);
   stroke: none;
+}
+.ni-fraction__grain {
+  mix-blend-mode: soft-light;
+  pointer-events: none;
 }
 .ni-fraction__base[data-shape="loaf"] .ni-fraction__rim {
   fill: var(--color-wood);
@@ -41,8 +49,8 @@
 }
 .ni-fraction__outline {
   fill: none;
-  stroke: var(--color-ink-soft);
-  stroke-width: 3.5;
+  stroke: var(--felt-edge);
+  stroke-width: 2.5;
   stroke-linejoin: round;
 }
 .ni-fraction__base[data-shape="loaf"] ~ .ni-fraction__outline,
@@ -68,7 +76,7 @@
 }
 .ni-fraction__part[data-fraction="empty"] {
   fill: var(--color-cloud);
-  stroke: var(--color-ink-soft);
+  stroke: var(--color-wood-deep);
   stroke-width: 2.5;
   stroke-dasharray: 6 5;
 }
@@ -78,8 +86,8 @@
   fill: var(--color-horizon);
 }
 .ni-fraction__part[data-fraction="filled"] {
-  fill: var(--color-sea-deep);
-  stroke: var(--color-sea-dark);
+  fill: var(--color-sea);
+  stroke: var(--color-sea);
   stroke-width: 2.5;
 }
 .ni-fraction__part[data-counting="true"] {

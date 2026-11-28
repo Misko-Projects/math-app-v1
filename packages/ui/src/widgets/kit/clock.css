@@ -5,6 +5,14 @@
   flex: none;
   overflow: visible;
 }
+/* Felt & Stitch (slice 4b): the rim and face lift a little (in face units, so it scales with the
+   clock); the hands, ticks and numbers are not lifted, so no mark gets a second edge. */
+.ni-clock__case {
+  filter: drop-shadow(1px 2.5px 2px rgb(74 42 18 / 0.32));
+}
+.ni-clock__grain {
+  mix-blend-mode: soft-light;
+}
 .ni-clock__numerals text {
   fill: var(--color-ink);
   font-family: var(--font-display);
@@ -32,9 +40,11 @@
 .ni-digital {
   display: inline-flex;
   padding: 6px;
-  border: 3px solid var(--color-ink);
+  /* A wood felt case (slice 4b): its own darker shade as the edge (4.36:1 on paper), the grain. */
+  border: 3px solid var(--color-wood-deep);
   border-radius: var(--radius-pebble);
-  background: var(--color-sand-deep);
+  background: var(--felt-grain) 0 0 / var(--felt-grain-size) var(--color-wood);
+  background-blend-mode: soft-light;
   box-shadow: var(--shadow-soft);
 }
 .ni-digital__screen {
