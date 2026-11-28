@@ -381,6 +381,17 @@
   display: inline-flex;
   align-items: center;
 }
+/* A sentence on two rows (number-pad, the legibility bars): one equation, rows start at the left. */
+.ni-expr[data-rows] {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+.ni-expr__row {
+  display: flex;
+  align-items: center;
+  column-gap: inherit;
+}
 .ni-expr__num,
 .ni-expr__var {
   padding-top: 0.12em;

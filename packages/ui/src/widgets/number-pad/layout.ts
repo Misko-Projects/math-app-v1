@@ -1,4 +1,4 @@
-import type { AgeMode } from '../../tokens/tokens';
+import { type AgeMode, MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
 import { PAD_KEYS_CHOICES, type PadKeysChoice, padKeysSize, type Size } from '../kit';
 
 /**
@@ -44,6 +44,75 @@ export function padControlsSize(c: PadControls, button: Size, ageMode: AgeMode):
 export const PAD_CONTROLS: readonly PadControls[] = PAD_KEYS_CHOICES.flatMap((keys) =>
   (['under', 'beside'] as const).map((check) => ({ ...keys, check })),
 );
+
+/** A compact key's ledge (kit.css `.ni-pad__key` margin). */
+const KEY_LEDGE = 4;
+
+/** The one-row pad's keys (1–9, 0, ⌫, and a decimal key when a blank takes one). */
+export function padRowSize(ageMode: AgeMode, allowDecimal: boolean): Size {
+  const k = MIN_TARGET_PX[ageMode];
+  const n = allowDecimal ? 12 : 11;
+  return { w: n * k + (n - 1) * TARGET_GAP_PX, h: k + KEY_LEDGE };
+}
+
+/**
+ * The one-row pad layout (06 §1, the legibility bars): the keys in one row under the question and
+ * Check beside the question, so the question gets the room's whole width. Only for g1-up keys
+ * (a K row of 80 px keys is wider than the smallest landscape area) and wide rooms; null when the
+ * row does not fit.
+ */
+export function planPadRow(
+  room: Size,
+  button: Size,
+  ageMode: AgeMode,
+  allowDecimal: boolean,
+): { ask: Size; keys: Size } | null {
+  if (ageMode !== 'g1-up' || room.w < STACK_BELOW_W) return null;
+  const keys = padRowSize(ageMode, allowDecimal);
+  const ask = { w: room.w - button.w - ASK_GAP, h: room.h - keys.h - ASK_GAP };
+  if (keys.w > room.w || ask.w < MIN_ASK.w || ask.h < MIN_ASK.h) return null;
+  return { ask, keys };
+}
+
+/** Where a sentence too wide for one row breaks (`planBreak`). */
+export interface SentenceBreak {
+  /** The token the second row starts with: always an "=". */
+  at: number;
+  /** The second row's indent, so its "=" sits under the first row's first "=" (0 without one). */
+  indent: number;
+  /** The wider row's width. */
+  w: number;
+}
+
+/**
+ * Two rows for a sentence that is too wide at its smallest numerals (the legibility bars): it
+ * breaks only before an "=" (never inside a fraction or between a number and its unit, which are
+ * one token each), the second row indented so it reads as the same equation. Picks the break with
+ * the narrowest wider row; null when no break fits `maxW`.
+ *
+ * `widths`: each token's drawn width; `gap`: between tokens; `isEq`: the token is "=".
+ */
+export function planBreak(
+  widths: readonly number[],
+  isEq: readonly boolean[],
+  gap: number,
+  maxW: number,
+): SentenceBreak | null {
+  const span = (from: number, to: number) => {
+    let w = 0;
+    for (let i = from; i < to; i += 1) w += widths[i] ?? 0;
+    return w + Math.max(0, to - from - 1) * gap;
+  };
+  let best: SentenceBreak | null = null;
+  for (let at = 1; at < widths.length; at += 1) {
+    if (!isEq[at]) continue;
+    const firstEq = isEq.findIndex((eq, i) => eq && i < at);
+    const indent = firstEq > 0 ? span(0, firstEq) + gap : 0;
+    const w = Math.max(span(0, at), indent + span(at, widths.length));
+    if (w <= maxW && (!best || w < best.w)) best = { at, indent, w };
+  }
+  return best;
+}
 
 /** `button`: the Check button as drawn (kit `useActionSize`). */
 export function planPad(room: Size, button: Size, ageMode: AgeMode): PadPlan {

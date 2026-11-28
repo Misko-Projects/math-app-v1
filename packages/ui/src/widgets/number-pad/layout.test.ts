@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { MIN_TARGET_PX, TARGET_GAP_PX, TARGET_PX } from '../../tokens/tokens';
 import { PAD_KEYS_CHOICES, padKeysSize } from '../kit/padKeys';
-import { ASK_GAP, MIN_ASK, PAD_CONTROLS, padControlsSize, planPad, STACK_BELOW_W } from './layout';
+import {
+  ASK_GAP,
+  MIN_ASK,
+  PAD_CONTROLS,
+  padControlsSize,
+  padRowSize,
+  planBreak,
+  planPad,
+  planPadRow,
+  STACK_BELOW_W,
+} from './layout';
 
 /** The smallest widget area (906 × 373) inside its card, and the pier's own areas (#12). */
 const ROOMS = {
@@ -98,5 +108,40 @@ describe('planPad', () => {
     expect(plan.fits).toBe(false);
     expect(plan).toMatchObject({ shape: '4x3', compact: true, check: 'beside' });
     expect(plan.ask.w).toBeGreaterThanOrEqual(MIN_ASK.w);
+  });
+});
+
+describe('the one-row pad (legibility bars)', () => {
+  it('is 11 keys of 64 px, 12 px apart, and leaves the question the room less Check', () => {
+    expect(padRowSize('g1-up', false)).toEqual({ w: 11 * 64 + 10 * 12, h: 68 });
+    expect(padRowSize('g1-up', true).w).toBe(12 * 64 + 11 * 12);
+    const row = planPadRow(ROOMS.pierG1960, { w: 84, h: 72 }, 'g1-up', false);
+    expect(row?.keys.w).toBeLessThanOrEqual(ROOMS.pierG1960.w);
+    expect(row?.ask).toEqual({ w: 858 - 84 - ASK_GAP, h: 358 - 68 - ASK_GAP });
+  });
+
+  it('never for K keys, portrait rooms, or a row wider than the room', () => {
+    expect(planPadRow(ROOMS.pierK960, BUTTON.k, 'k', false)).toBeNull();
+    expect(planPadRow(ROOMS.portrait, BUTTON['g1-up'], 'g1-up', false)).toBeNull();
+    expect(planPadRow({ w: 860, h: 358 }, BUTTON['g1-up'], 'g1-up', true)).toBeNull();
+  });
+});
+
+describe('a sentence on two rows (legibility bars)', () => {
+  // 10 × 8 = 10 × 4 + 10 × 4 = □ + □ = □
+  const W = [36, 20, 18, 20, 36, 20, 18, 20, 36, 20, 18, 20, 64, 20, 64, 20, 64];
+  const EQ = W.map((_, i) => i === 3 || i === 11 || i === 15);
+
+  it('breaks only before an "=", the narrowest wider row, indented under the first "="', () => {
+    const b = planBreak(W, EQ, 16, 520);
+    expect(b?.at).toBe(11);
+    expect(EQ[b?.at ?? 0]).toBe(true);
+    expect(b?.indent).toBe(36 + 20 + 18 + 3 * 16);
+    expect(b?.w).toBeLessThanOrEqual(520);
+  });
+
+  it('null when no row fits, or with no "=" to break before', () => {
+    expect(planBreak(W, EQ, 16, 200)).toBeNull();
+    expect(planBreak([64, 40, 64], [false, false, false], 16, 100)).toBeNull();
   });
 });

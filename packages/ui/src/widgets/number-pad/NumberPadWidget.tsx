@@ -22,7 +22,7 @@ import {
   useWidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
-import { planPad } from './layout';
+import { ASK_GAP, MIN_ASK, planBreak, planPad, planPadRow } from './layout';
 import './number-pad.css';
 
 /**
@@ -49,20 +49,85 @@ const TEXT_STEPS = 3;
 /** The least a picture is given before the whole question is scaled instead. */
 const MIN_PICTURE_H = 96;
 
-/** The element's own height (layout px, before any transform), kept up to date. */
-function useOwnHeight(ref: React.RefObject<HTMLElement | null>): number {
-  const [h, setH] = useState(0);
+/** The legibility bars (05 §11, 06 §4): numerals in the sentence, the answer box, a counted thing. */
+const BAR_NUMERAL = 32;
+const BAR_BOX = 64;
+const BAR_COUNTED = 22;
+/** Text steps a legible layout may take: one more than TEXT_STEPS, to 32 px (number-pad.css). */
+const TEXT_STEPS_LEGIBLE = 4;
+/** The least a picture beside the sentence is given (one-row pad, `beside`). */
+const BESIDE_PICTURE_MIN = 160;
+
+/**
+ * How the question is laid out. `fit`: the question scaled as one block to the room, as it always
+ * was. Where that draws the sentence, the answer box or a counted thing under the bars, the widget
+ * steps on: `keep` (only the picture scales; the sentence steps to 32 px, then breaks before an
+ * "="), `row` (the same with the keys in one row under the question, Check beside it), `beside`
+ * (the one-row pad with the picture beside the sentence).
+ */
+type AskMode = 'fit' | 'keep' | 'row' | 'beside';
+
+/** The element's own size (layout px, before any transform), kept up to date. */
+function useOwnSize(
+  ref: React.RefObject<HTMLElement | null>,
+  /** A new element to observe: the layout drew it again. */
+  key: string,
+): { w: number; h: number } {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` names a new element to observe
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setH(el.offsetHeight);
+    const measure = () =>
+      setSize((was) =>
+        was.w === el.offsetWidth && was.h === el.offsetHeight
+          ? was
+          : { w: el.offsetWidth, h: el.offsetHeight },
+      );
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ref]);
-  return h;
+  }, [ref, key]);
+  return size;
+}
+
+/** Under the bars in the question as drawn: a hard miss (the sentence or a box), else a soft one. */
+function legibilityMiss(
+  ask: HTMLElement,
+  text: HTMLElement | null,
+  parts: HTMLElement | null,
+  box: { w: number; h: number } | null,
+): 'hard' | 'soft' | null {
+  if (text && text.offsetWidth > 0) {
+    const scale = text.getBoundingClientRect().width / text.offsetWidth;
+    for (const el of text.querySelectorAll<HTMLElement>(
+      '.ni-expr__num, .ni-expr__frac > span, .ni-npw__blank, .ni-npw__unit',
+    )) {
+      const px = Number.parseFloat(getComputedStyle(el).fontSize) * scale;
+      if (px < BAR_NUMERAL - 0.5) return 'hard';
+    }
+  }
+  for (const b of ask.querySelectorAll<HTMLElement>('.ni-npw__blank')) {
+    const r = b.getBoundingClientRect();
+    if (r.height > 0 && Math.min(r.width, r.height) < BAR_BOX - 0.5) return 'hard';
+  }
+  if (box && parts) {
+    const r = parts.getBoundingClientRect();
+    if (r.width > box.w + 1 || r.height > box.h + 1) return 'hard';
+  }
+  return smallestSprite(ask) < BAR_COUNTED - 0.5 ? 'soft' : null;
+}
+
+/** The smallest counted thing drawn in the question (px), Infinity without one. */
+function smallestSprite(ask: HTMLElement): number {
+  let px = Number.POSITIVE_INFINITY;
+  for (const s of ask.querySelectorAll<SVGElement>('.ni-sprite')) {
+    const r = s.getBoundingClientRect();
+    if (r.width > 0) px = Math.min(px, r.width, r.height);
+  }
+  return px;
 }
 
 const UNIT_PREFIX: Partial<Record<NonNullable<Config['unit']>, string>> = { dollars: '$' };
@@ -108,19 +173,124 @@ export function NumberPadWidget({
   const button = useActionSize(actRef, unzoomed, ageMode);
   const room = roomBox(useWidgetRoom(rootRef));
   const plan = planPad(room, button, ageMode);
-  const textH = useOwnHeight(textRef);
+  const askRef = useRef<HTMLDivElement | null>(null);
+  const partsRef = useRef<HTMLDivElement | null>(null);
+  const allowDecimal = blanks.some((b) => b.allowDecimal);
+  const rowPlan = planPadRow(room, button, ageMode, allowDecimal);
+  // The question's layout (AskMode), chosen again for every room: `fit` until it is measured under
+  // the bars, then the next mode; `best`: of the modes that missed only on a counted thing, the one
+  // that draws it largest (kept when every mode misses).
+  const [askTier, setAskTier] = useState<{
+    mode: AskMode;
+    best: { mode: AskMode; px: number } | null;
+    final: boolean;
+    w: number;
+    h: number;
+  }>({ mode: 'fit', best: null, final: false, w: room.w, h: room.h });
+  const sameRoom = askTier.w === room.w && askTier.h === room.h;
+  const mode: AskMode = sameRoom ? askTier.mode : 'fit';
+  const legible = mode !== 'fit';
+  const rowed = (mode === 'row' || mode === 'beside') && rowPlan !== null;
+  const beside = mode === 'beside' && rowed;
+  const askBox = rowed && rowPlan ? rowPlan.ask : plan.ask;
+  const textMaxW = beside ? Math.max(MIN_ASK.w, askBox.w - BESIDE_PICTURE_MIN - ASK_GAP) : askBox.w;
+  const maxSteps = legible ? TEXT_STEPS_LEGIBLE : TEXT_STEPS;
+  const textSize = useOwnSize(textRef, mode);
+  const textH = textSize.h;
+  const tierKey = `${room.w}x${room.h}:${mode}`;
   // The text's numerals step down while the text is wider than the question's box (a new room
   // starts from the full size): the blanks keep their target size, only the numerals shrink.
-  const [textTier, setTextTier] = useState({ step: 0, w: room.w, h: room.h });
-  const textStep = textTier.w === room.w && textTier.h === room.h ? textTier.step : 0;
+  const [textTier, setTextTier] = useState({ step: 0, key: tierKey });
+  const textStep = textTier.key === tierKey ? textTier.step : 0;
+  // A sentence still too wide at 32 px: two rows (`planBreak`), or none fits (`at` -1).
+  const [breakTier, setBreakTier] = useState<{ at: number; indent: number; key: string } | null>(
+    null,
+  );
+  const brk = breakTier?.key === tierKey ? breakTier : null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: measured after every layout of the text
   useLayoutEffect(() => {
     const el = textRef.current;
-    if (!el || textStep >= TEXT_STEPS) return;
-    if (el.offsetWidth > plan.ask.w + 0.5) {
-      setTextTier({ step: textStep + 1, w: room.w, h: room.h });
+    if (!el || el.offsetWidth <= textMaxW + 0.5) return;
+    if (textStep < maxSteps) {
+      setTextTier({ step: textStep + 1, key: tierKey });
+      return;
     }
-  }, [textStep, plan.ask.w, room.w, room.h, textH]);
+    const exprEl = el.querySelector<HTMLElement>('.ni-npw__expr .ni-expr');
+    if (!legible || brk || !exprEl) return;
+    const tokens = [...exprEl.querySelectorAll<HTMLElement>(':scope > .ni-expr__token')];
+    const chrome = el.offsetWidth - exprEl.offsetWidth;
+    const b = planBreak(
+      tokens.map((t) => t.offsetWidth),
+      tokens.map((t) => t.dataset.eq === 'true'),
+      Number.parseFloat(getComputedStyle(exprEl).columnGap) || 0,
+      textMaxW - chrome,
+    );
+    setBreakTier(
+      b ? { at: b.at, indent: b.indent, key: tierKey } : { at: -1, indent: 0, key: tierKey },
+    );
+  }, [textStep, maxSteps, textMaxW, tierKey, legible, brk, textSize.w, textH]);
+
+  // Whether the layout drawn now holds the bars; if not, the next mode (see AskMode).
+  const judge = useRef<() => void>(() => {});
+  judge.current = () => {
+    const ask = askRef.current;
+    if (!ask || (sameRoom && askTier.final)) return;
+    if (ask.getBoundingClientRect().width < 1) return;
+    // Not settled yet: a picture not measured, or the text still stepping or breaking.
+    if ([...ask.querySelectorAll<HTMLElement>('.ni-scaled')].some((el) => el.style.width === '')) {
+      return;
+    }
+    const text = textRef.current;
+    const overW = text ? text.offsetWidth > textMaxW + 0.5 : false;
+    if (overW && (textStep < maxSteps || (legible && expression && !brk))) return;
+    const pictureBox = legible ? askBox : null;
+    const miss =
+      legible && overW ? 'hard' : legibilityMiss(ask, text, partsRef.current, pictureBox);
+    if (miss === null) {
+      if (legible) setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h });
+      return;
+    }
+    const order: AskMode[] = rowPlan ? ['fit', 'keep', 'row', 'beside'] : ['fit', 'keep'];
+    const best = sameRoom ? askTier.best : null;
+    // A miss only on a counted thing: the mode that draws it largest is kept for the end.
+    const px = miss === 'soft' ? smallestSprite(ask) : 0;
+    const nextBest = miss === 'soft' && (!best || px > best.px) ? { mode, px } : best;
+    const next = order[order.indexOf(mode) + 1];
+    setAskTier(
+      next
+        ? { mode: next, best: nextBest, final: false, w: room.w, h: room.h }
+        : { mode: nextBest?.mode ?? 'fit', best: nextBest, final: true, w: room.w, h: room.h },
+    );
+  };
+  // Judged once the layout has been still for two frames: a picture measures its own box after
+  // its first frame, and a first frame drawn small is not the layout a child sees. `data-judging`
+  // says a judgement is pending (the fit check waits for it before it measures).
+  const judgeFrame = useRef(0);
+  const scheduleJudge = useRef(() => {
+    cancelAnimationFrame(judgeFrame.current);
+    if (rootRef.current) rootRef.current.dataset.judging = 'true';
+    judgeFrame.current = requestAnimationFrame(() => {
+      judgeFrame.current = requestAnimationFrame(() => {
+        if (rootRef.current) delete rootRef.current.dataset.judging;
+        judge.current();
+      });
+    });
+  });
+  useLayoutEffect(() => scheduleJudge.current());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new mode draws new parts to observe
+  useLayoutEffect(() => {
+    const ask = askRef.current;
+    if (!ask || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => scheduleJudge.current());
+    ro.observe(ask);
+    for (const el of ask.querySelectorAll('.ni-npw__parts, .ni-npw__stimulus, .ni-npw__text')) {
+      ro.observe(el);
+    }
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(judgeFrame.current);
+    };
+  }, [mode]);
 
   const interactive = !disabled && !demoBusy;
   const values = texts.map(padValue);
@@ -323,6 +493,62 @@ export function NumberPadWidget({
     MIN_PICTURE_H,
     Math.min(expression ? 220 : 300, plan.ask.h - (hasText ? textH + ASK_PART_GAP : 0)),
   );
+  // A legible layout: the picture alone is scaled, into what the sentence leaves of the box.
+  const pictureBox = beside
+    ? { w: askBox.w - (hasText ? textSize.w + ASK_GAP : 0), h: askBox.h }
+    : { w: askBox.w, h: askBox.h - (hasText ? textH + ASK_PART_GAP : 0) };
+  const picture =
+    stimulus.kind === 'none' ? null : !legible ? (
+      <StimulusView
+        spec={stimulus}
+        maxWidth={Math.min(640, plan.ask.w)}
+        maxHeight={pictureH}
+        renderBlank={expressionInStimulus ? renderBlank : undefined}
+      />
+    ) : expressionInStimulus ? (
+      // A sentence given as the stimulus is the sentence: never scaled.
+      <StimulusView
+        spec={stimulus}
+        maxWidth={askBox.w}
+        maxHeight={askBox.h}
+        renderBlank={renderBlank}
+      />
+    ) : (
+      <Scaled maxWidth={Math.max(1, pictureBox.w)} maxHeight={Math.max(1, pictureBox.h)}>
+        <StimulusView
+          spec={stimulus}
+          maxWidth={Math.max(MIN_PICTURE_H, pictureBox.w)}
+          maxHeight={Math.max(MIN_PICTURE_H, pictureBox.h)}
+        />
+      </Scaled>
+    );
+  const parts = (
+    <div ref={partsRef} className="ni-npw__parts" data-beside={beside ? 'true' : undefined}>
+      {picture ? (
+        <div
+          className={highlight === 'stimulus' ? 'ni-invite ni-npw__stimulus' : 'ni-npw__stimulus'}
+        >
+          {picture}
+        </div>
+      ) : null}
+      {hasText ? (
+        <div ref={textRef} className="ni-npw__text" data-text={textStep || undefined}>
+          {expression ? (
+            <div className="ni-npw__expr">
+              <ExpressionView
+                expr={expression}
+                renderBlank={renderBlank}
+                breakAt={brk && brk.at > 0 ? brk : undefined}
+              />
+            </div>
+          ) : null}
+          {looseBlanks.length > 0 ? (
+            <div className="ni-npw__answers">{looseBlanks.map((b) => renderBlank(b.id))}</div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 
   return (
     <div
@@ -330,56 +556,35 @@ export function NumberPadWidget({
       className="ni-npw"
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
-      data-layout={plan.stacked ? 'stack' : 'side'}
-      data-check={plan.check}
+      data-layout={plan.stacked && !rowed ? 'stack' : 'side'}
+      data-check={rowed ? 'beside' : plan.check}
+      data-pad={rowed ? 'row' : undefined}
+      data-ask={mode}
       style={handRootStyle}
     >
-      <div className="ni-npw__ask" style={{ maxWidth: plan.ask.w, maxHeight: plan.ask.h }}>
-        <Scaled maxWidth={plan.ask.w} maxHeight={plan.ask.h}>
-          <div className="ni-npw__parts">
-            {stimulus.kind !== 'none' ? (
-              <div
-                className={
-                  highlight === 'stimulus' ? 'ni-invite ni-npw__stimulus' : 'ni-npw__stimulus'
-                }
-              >
-                <StimulusView
-                  spec={stimulus}
-                  maxWidth={Math.min(640, plan.ask.w)}
-                  maxHeight={pictureH}
-                  renderBlank={expressionInStimulus ? renderBlank : undefined}
-                />
-              </div>
-            ) : null}
-            {hasText ? (
-              <div ref={textRef} className="ni-npw__text" data-text={textStep || undefined}>
-                {expression ? (
-                  <div className="ni-npw__expr">
-                    <ExpressionView expr={expression} renderBlank={renderBlank} />
-                  </div>
-                ) : null}
-                {looseBlanks.length > 0 ? (
-                  <div className="ni-npw__answers">{looseBlanks.map((b) => renderBlank(b.id))}</div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </Scaled>
+      <div ref={askRef} className="ni-npw__ask" style={{ maxWidth: askBox.w, maxHeight: askBox.h }}>
+        {legible ? (
+          parts
+        ) : (
+          <Scaled maxWidth={plan.ask.w} maxHeight={plan.ask.h}>
+            {parts}
+          </Scaled>
+        )}
       </div>
       <div ref={actRef} className="ni-npw__controls">
         <NumberPadKeys
           onKey={onKey}
           onEnter={submit}
-          allowDecimal={blanks.some((b) => b.allowDecimal)}
+          allowDecimal={allowDecimal}
           disabled={!interactive}
           highlighted={pressedKey}
-          shape={plan.shape}
-          compact={plan.compact}
+          shape={rowed ? 'row' : plan.shape}
+          compact={rowed || plan.compact}
         />
         <CheckButton
           onPress={submit}
           disabled={!interactive || !complete}
-          compact={plan.check === 'beside'}
+          compact={rowed || plan.check === 'beside'}
         />
       </div>
       {inviteHand}

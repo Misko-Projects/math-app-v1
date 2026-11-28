@@ -50,8 +50,11 @@ import {
   FIT_VIEWPORTS,
   type FitViewport,
   fitAllowance,
+  LEGIBILITY_BARS,
+  LEGIBILITY_EXCEPTIONS,
   LESSON_FIT_EXCEPTIONS,
   LESSON_OPS_NOT_SHOWN,
+  type LegibilityBar,
 } from './pierFitAllowlist';
 import { pierPlayable } from './pierRequest';
 
@@ -232,7 +235,10 @@ async function measure(templateId: string): Promise<string[]> {
     await frame();
     const stage = document.querySelector<HTMLElement>('[data-testid="pier-stage"]');
     const widget = stage?.querySelector<HTMLElement>('.ni-widget');
-    if (!stage || !widget || widget.querySelector('.ni-widget__loading')) continue;
+    // Loading, or a widget still choosing its layout (number-pad `data-judging`): not yet.
+    if (!stage || !widget || widget.querySelector('.ni-widget__loading, [data-judging]')) {
+      continue;
+    }
     const r = widget.firstElementChild?.getBoundingClientRect();
     const now = [stage.scrollHeight, stage.scrollWidth, r?.width, r?.height, r?.top].join();
     same = now === last ? same + 1 : 0;
@@ -304,6 +310,95 @@ function cardMisfits(card: HTMLElement): string[] {
   return found;
 }
 
+/**
+ * An estimation item: a scattered picture of more than 20 things (counting draws at most 20), or
+ * one whose answer is a range (number-pad, dot-flash) or a pick on a number line (numeral-pick).
+ * Its dots are drawn not to be counted, so `counted` does not apply.
+ */
+function isEstimate(item: GeneratedItem): boolean {
+  const w = item.widget;
+  const pic = 'stimulus' in w ? w.stimulus : undefined;
+  const many =
+    pic?.kind === 'dots'
+      ? pic.arrangement === 'scatter' && pic.groups.reduce((a, b) => a + b, 0)
+      : pic?.kind === 'objects' && pic.set.layout === 'scatter' && pic.set.count;
+  if (many === false || many === undefined || many === 0) return false;
+  const ranged = item.answer.kind === 'number' && (item.answer.tolerance ?? 0) > 0;
+  const onLine =
+    w.format === 'numeral-pick' && w.options.every((o) => o.stimulus?.kind === 'number-line');
+  return many > 20 || ranged || (w.format === 'dot-flash' && w.estimate !== undefined) || onLine;
+}
+
+interface LegibilityMiss {
+  bar: LegibilityBar;
+  px: number;
+  what: string;
+}
+
+/**
+ * The legibility bars (`LEGIBILITY_BARS`) on the screen as drawn, the smallest miss of each. By
+ * role: numerals only in the sentence a child completes and on answer controls that carry a number
+ * (a story's read-aloud lines are text, not numerals); targets only among controls a pointer can
+ * hit (an invisible keyboard proxy with no pointer events is not one; an output a child does not
+ * tap is not a control).
+ */
+function legibilityMisses(stage: HTMLElement, item: GeneratedItem): LegibilityMiss[] {
+  const widget = stage.querySelector<HTMLElement>('.ni-widget');
+  if (!widget) return [];
+  const worst = new Map<LegibilityBar, LegibilityMiss>();
+  const note = (bar: LegibilityBar, px: number, what: string) => {
+    const was = worst.get(bar);
+    if (px < LEGIBILITY_BARS[bar] - 0.5 && (!was || px < was.px)) {
+      worst.set(bar, { bar, px: Math.round(px * 10) / 10, what });
+    }
+  };
+  const scaleOf = (el: HTMLElement) =>
+    el.offsetWidth > 0 ? el.getBoundingClientRect().width / el.offsetWidth : 1;
+  const fontPx = (el: HTMLElement) =>
+    Number.parseFloat(getComputedStyle(el).fontSize) * scaleOf(el);
+  const answers = '.ni-npw__text, .ni-npw__blank, .ni-pad__key, .ni-ord__card';
+  const walker = document.createTreeWalker(widget, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const el = n.parentElement;
+    if (!el || !/\d/.test(n.textContent ?? '') || !el.closest(answers)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    note(
+      'numeral',
+      fontPx(el),
+      el.getAttribute('class')?.split(' ')[0] || el.tagName.toLowerCase(),
+    );
+  }
+  for (const box of widget.querySelectorAll<HTMLElement>('.ni-npw__blank')) {
+    const r = box.getBoundingClientRect();
+    if (r.height < 1) continue;
+    // The numeral typed into a box, empty or not.
+    note('numeral', fontPx(box), 'ni-npw__blank');
+    note('box', Math.min(r.width, r.height), 'ni-npw__blank');
+  }
+  for (const el of widget.querySelectorAll<HTMLElement>(CONTROLS)) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 1 || r.height <= 1) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden') continue;
+    if (cs.pointerEvents === 'none' && Number.parseFloat(cs.opacity) === 0) continue;
+    note('target', Math.min(r.width, r.height), el.getAttribute('class')?.split(' ')[0] ?? '');
+  }
+  if (!isEstimate(item)) {
+    for (const el of widget.querySelectorAll<SVGElement>('.ni-sprite, [data-part]')) {
+      const r = el.getBoundingClientRect();
+      if (r.width <= 1 || r.height <= 1) continue;
+      note('counted', Math.min(r.width, r.height), el.getAttribute('data-sprite') ?? 'part');
+    }
+  }
+  return [...worst.values()];
+}
+
+const legibilityException = (templateId: string, bar: LegibilityBar, viewport: FitViewport) =>
+  LEGIBILITY_EXCEPTIONS.find(
+    (e) => e.template === templateId && e.bar === bar && e.at === viewport,
+  );
+
 describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: FitViewport) => {
   it('nothing taller or wider than the workshop area, no control outside it', async () => {
     const [width, height] = viewport.split('x').map(Number) as [number, number];
@@ -315,6 +410,30 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
     const failing: string[] = [];
     const fitsAgain: string[] = [];
     let allowed = 0;
+    // The legibility bars on the same screens (LEGIBILITY_BARS; the list only shrinks).
+    const underBars: string[] = [];
+    const holdsAgain: string[] = [];
+    const checkBars = (templateId: string, seed: number, item: GeneratedItem) => {
+      const stage = document.querySelector<HTMLElement>('[data-testid="pier-stage"]');
+      if (!stage) return;
+      const misses = legibilityMisses(stage, item);
+      for (const m of misses) {
+        const e = legibilityException(templateId, m.bar, viewport);
+        if (!e?.seeds.includes(seed)) {
+          underBars.push(`${templateId} seed ${seed}: ${m.bar} ${m.px} px (${m.what})`);
+        } else if (m.px < e.floorPx) {
+          underBars.push(
+            `${templateId} seed ${seed}: ${m.bar} ${m.px} px, under its floor ${e.floorPx}`,
+          );
+        }
+      }
+      for (const e of LEGIBILITY_EXCEPTIONS) {
+        if (e.template !== templateId || e.at !== viewport || !e.seeds.includes(seed)) continue;
+        if (!misses.some((m) => m.bar === e.bar)) {
+          holdsAgain.push(`${templateId} seed ${seed} holds the ${e.bar} bar`);
+        }
+      }
+    };
     for (const template of templates) {
       if (ONLY && !ONLY.includes(template.format)) continue;
       const allowance = fitAllowance(template, viewport);
@@ -326,8 +445,10 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
       for (const seed of SEEDS) {
         // A seed known not to fit is checked below, in every run.
         if (knownMisfit(template.id, seed, viewport)) continue;
-        show(engine.generateItem(template, seed), ageModeOf(template));
+        const item = engine.generateItem(template, seed);
+        show(item, ageModeOf(template));
         const misfit = await measure(template.id);
+        if (!misfit.includes(FALLBACK)) checkBars(template.id, seed, item);
         if (misfit.length > 0) found.push(...(SEEDS.length > 1 ? [`seed ${seed}`] : []), ...misfit);
       }
       if (SHOTS.includes(template.id)) {
@@ -362,11 +483,32 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
         knownSeeds += 1;
       }
     }
+    // The listed legibility seeds this run did not play: every run plays them.
+    for (const e of LEGIBILITY_EXCEPTIONS) {
+      const template = content.store.graph.templates[e.template];
+      if (e.at !== viewport || !template) continue;
+      if (ONLY && !ONLY.includes(template.format)) continue;
+      for (const seed of e.seeds) {
+        if (SEEDS.includes(seed)) continue;
+        const item = engine.generateItem(template, seed);
+        show(item, ageModeOf(template));
+        await measure(template.id);
+        checkBars(template.id, seed, item);
+      }
+    }
     console.info(
       `pier fit at ${viewport}: ${templates.length} templates, ${failing.length} do not fit, ${allowed} on the allowlist, ${knownSeeds} other seeds known not to fit`,
     );
     expect(failing, 'templates that do not fit the workshop area').toEqual([]);
     expect(fitsAgain, 'allowlisted templates that fit: remove them from the list').toEqual([]);
+    expect(
+      [...new Set(underBars)],
+      'screens under the legibility bars (LEGIBILITY_BARS, LEGIBILITY_EXCEPTIONS)',
+    ).toEqual([]);
+    expect(
+      [...new Set(holdsAgain)],
+      'listed legibility seeds that hold their bar: remove them from LEGIBILITY_EXCEPTIONS',
+    ).toEqual([]);
   });
 });
 

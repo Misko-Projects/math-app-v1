@@ -270,6 +270,7 @@ export {
   ExpressionView,
   FingersView,
   HandArt,
+  isEqToken,
   NumberBondView,
   RekenrekView,
   StimulusView,
