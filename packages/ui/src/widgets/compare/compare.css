@@ -96,9 +96,13 @@
 }
 .ni-cmp__tray--static {
   padding: 16px;
+  /* A linen felt mat (grain over paper, the felt lift); the border keeps its width. */
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
-  background: var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
   box-shadow: var(--shadow-soft);
 }
 /* An operand side (symbol, true-false, same-or-not): a button that only speaks; no ledge. */

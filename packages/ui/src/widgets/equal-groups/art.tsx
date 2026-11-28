@@ -1,11 +1,13 @@
 import type { SpriteId } from '@number-island/shared';
-import type { ReactElement } from 'react';
+import { type ReactElement, useId } from 'react';
+import grainUrl from '../../tokens/felt-grain.webp';
 import { ObjectSprite } from '../kit';
 import { CHROME, type ChromeEdges } from './layout';
 
 /**
- * Equal-groups art (05 §11): cozy flat vector islands in the token palette, 3 px outlines in the
- * fill's darker shade, one soft highlight and a contact shadow. Containers are drawn at their real
+ * Equal-groups art (05 §11, Felt & Stitch): felt containers in the token palette, a thin edge in
+ * the fill's darker shade, the felt grain on the raft's logs and the plate, a running stitch where
+ * the old art had a gloss highlight, and a contact shadow. Containers are drawn at their real
  * pixel size (no stretching), so rims, ropes and handles keep their shape at every size. All art
  * is decorative (aria-hidden); the controls around it carry the names.
  */
@@ -15,11 +17,17 @@ export type ContainerKind = 'raft' | 'basket' | 'plate' | 'nest';
 interface Box {
   w: number;
   h: number;
+  /** The id of the felt grain pattern (ContainerArt's defs); none draws no grain. */
+  grain?: string;
   /** The rim round the contents (layout.ts `chromeAt`): thinner for small sprites. */
   chrome?: ChromeEdges;
 }
 
+/** The bucket icon's gloss (an icon, not a felt picture). */
 const HIGHLIGHT = 'rgb(255 255 255 / 0.55)';
+
+/** The felt grain over a shape: the same geometry, filled with the grain, blended soft-light. */
+const GRAIN_STYLE = { mixBlendMode: 'soft-light' } as const;
 
 /** The light floor the contents sit on: inside the rim, CHROME minus an 8 px margin. */
 function floor({ w, h, chrome = CHROME }: Box) {
@@ -32,7 +40,25 @@ function floor({ w, h, chrome = CHROME }: Box) {
   };
 }
 
-function Raft({ w, h, chrome }: Box) {
+/** A running stitch set in 5 px from a rounded rectangle's edge. */
+function Stitch(b: { x: number; y: number; w: number; h: number; r: number; color: string }) {
+  return (
+    <rect
+      x={b.x + 5}
+      y={b.y + 5}
+      width={Math.max(0, b.w - 10)}
+      height={Math.max(0, b.h - 10)}
+      rx={Math.max(0, b.r - 5)}
+      fill="none"
+      stroke={b.color}
+      strokeWidth="2"
+      strokeDasharray="6 5"
+      strokeLinecap="round"
+    />
+  );
+}
+
+function Raft({ w, h, chrome, grain }: Box) {
   const f = floor({ w, h, chrome });
   // Logs run top to bottom; two rope lashings cross them.
   const logW = 30;
@@ -52,19 +78,24 @@ function Raft({ w, h, chrome }: Box) {
       />
       {Array.from({ length: logs }, (_, i) => {
         const x = 4 + i * step;
+        const log = {
+          x: x + 1,
+          y: top + (i % 2) * 3,
+          width: step - 2,
+          height: bottom - top - (i % 2) * 3,
+          rx: Math.min(12, step / 2 - 1),
+        };
         return (
-          <rect
-            // biome-ignore lint/suspicious/noArrayIndexKey: logs are positional
-            key={i}
-            x={x + 1}
-            y={top + (i % 2) * 3}
-            width={step - 2}
-            height={bottom - top - (i % 2) * 3}
-            rx={Math.min(12, step / 2 - 1)}
-            fill="var(--color-wood)"
-            stroke="var(--color-wood-deep)"
-            strokeWidth="3"
-          />
+          // biome-ignore lint/suspicious/noArrayIndexKey: logs are positional
+          <g key={i}>
+            <rect
+              {...log}
+              fill="var(--color-wood)"
+              stroke="var(--color-wood-deep)"
+              strokeWidth="2"
+            />
+            {grain ? <rect {...log} fill={`url(#${grain})`} style={GRAIN_STYLE} /> : null}
+          </g>
         );
       })}
       <rect
@@ -75,14 +106,20 @@ function Raft({ w, h, chrome }: Box) {
         rx={16}
         fill="var(--color-sand)"
         stroke="var(--color-wood-deep)"
-        strokeWidth="3"
+        strokeWidth="2"
       />
-      <path
-        d={`M${f.x + 14} ${f.y + 6}h${Math.max(0, f.w * 0.3)}`}
-        stroke={HIGHLIGHT}
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
+      {grain ? (
+        <rect
+          x={f.x}
+          y={f.y}
+          width={f.w}
+          height={f.h}
+          rx={16}
+          fill={`url(#${grain})`}
+          style={GRAIN_STYLE}
+        />
+      ) : null}
+      <Stitch x={f.x} y={f.y} w={f.w} h={f.h} r={16} color="var(--color-sand-deep)" />
       {[f.y - 2, f.y + f.h + 2].map((y) => (
         <g key={y}>
           <path
@@ -159,12 +196,7 @@ function Basket({ w, h, chrome }: Box) {
         stroke="var(--color-sun-deep)"
         strokeWidth="3"
       />
-      <path
-        d={`M${f.x + 16} ${f.y + 7}h${Math.max(0, f.w * 0.28)}`}
-        stroke="var(--color-sunshine-light)"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
+      <Stitch x={f.x} y={f.y} w={f.w} h={f.h} r={18} color="var(--color-sunshine)" />
       <rect
         x={4}
         y={bodyTop - 4}
@@ -179,7 +211,7 @@ function Basket({ w, h, chrome }: Box) {
   );
 }
 
-function Plate({ w, h, chrome }: Box) {
+function Plate({ w, h, chrome, grain }: Box) {
   const f = floor({ w, h, chrome });
   const r = Math.min(h, w) / 2.4;
   return (
@@ -191,9 +223,20 @@ function Plate({ w, h, chrome }: Box) {
         height={h - 14}
         rx={r}
         fill="var(--color-cloud)"
-        stroke="var(--color-sea-deep)"
-        strokeWidth="3"
+        stroke="var(--felt-edge)"
+        strokeWidth="2"
       />
+      {grain ? (
+        <rect
+          x={4}
+          y={4}
+          width={w - 8}
+          height={h - 14}
+          rx={r}
+          fill={`url(#${grain})`}
+          style={GRAIN_STYLE}
+        />
+      ) : null}
       <rect
         x={f.x - 2}
         y={f.y - 2}
@@ -217,12 +260,6 @@ function Plate({ w, h, chrome }: Box) {
         strokeLinecap="round"
         opacity="0.8"
       />
-      <path
-        d={`M${r * 0.7} 12h${Math.max(0, w * 0.22)}`}
-        stroke="var(--color-sky-light)"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
     </>
   );
 }
@@ -237,14 +274,16 @@ function Nest({ w, h, chrome }: Box) {
   const twigs = Math.max(14, Math.round((w + h) / 14));
   return (
     <>
-      <ellipse
-        cx={cx}
-        cy={cy}
-        rx={rx}
-        ry={ry}
+      {/* A stadium, never an oval: the box is wider than it is tall. */}
+      <rect
+        x={cx - rx}
+        y={cy - ry}
+        width={2 * rx}
+        height={2 * ry}
+        rx={Math.min(rx, ry)}
         fill="var(--color-wood)"
         stroke="var(--color-wood-deep)"
-        strokeWidth="3"
+        strokeWidth="2"
       />
       {Array.from({ length: twigs }, (_, i) => {
         const a = (i / twigs) * Math.PI * 2;
@@ -273,11 +312,13 @@ function Nest({ w, h, chrome }: Box) {
         stroke="var(--color-wood-deep)"
         strokeWidth="3"
       />
-      <path
-        d={`M${f.x + 18} ${f.y + 7}h${Math.max(0, f.w * 0.25)}`}
-        stroke={HIGHLIGHT}
-        strokeWidth="4"
-        strokeLinecap="round"
+      <Stitch
+        x={f.x}
+        y={f.y}
+        w={f.w}
+        h={f.h}
+        r={Math.min(f.h / 2, 40)}
+        color="var(--color-sand-deep)"
       />
     </>
   );
@@ -305,6 +346,7 @@ export function ContainerArt({
   ghost?: boolean;
 }) {
   const Draw = CONTAINERS[kind];
+  const grain = `ni-eg-grain${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <svg
       className="ni-egw__art"
@@ -329,7 +371,14 @@ export function ContainerArt({
           strokeLinecap="round"
         />
       ) : (
-        <Draw w={w} h={h} chrome={chrome} />
+        <>
+          <defs>
+            <pattern id={grain} width={192} height={192} patternUnits="userSpaceOnUse">
+              <image href={grainUrl} width={192} height={192} />
+            </pattern>
+          </defs>
+          <Draw w={w} h={h} chrome={chrome} grain={grain} />
+        </>
       )}
     </svg>
   );

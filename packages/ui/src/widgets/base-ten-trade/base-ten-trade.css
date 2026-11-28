@@ -191,8 +191,11 @@
 }
 
 /*
- * One base-ten piece. Concrete: teal blocks with their unit grid, a highlight and a contact shadow
- * (05 §11). Pictorial: an ink drawing on paper, the "quick pictures" children draw.
+ * One base-ten piece. Concrete: denim felt blocks (the kit's base-ten look). They lie on the wood
+ * mat, where denim alone is 1.7:1, so the border is a same-hue sea-dark edge (3.9:1 on wood), the
+ * width unchanged; plain sky-light unit lines (3.6:1 on denim; 1.5 px
+ * on a rod, 1 px on a flat) and the piece lift. Pictorial: an ink drawing on paper, the "quick
+ * pictures" children draw.
  */
 .ni-btt__piece {
   position: absolute;
@@ -201,22 +204,31 @@
   pointer-events: none;
   border: 2px solid var(--color-sea-dark);
   border-radius: 3px;
-  background-color: var(--color-shallows);
+  background-color: var(--color-sea);
+  background-image: var(--felt-grain);
+  background-size: var(--felt-grain-size);
+  background-blend-mode: soft-light;
   background-origin: border-box;
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 0.55),
-    var(--shadow-ledge-pressed);
+  box-shadow: var(--shadow-piece);
 }
 .ni-btt__piece--tens {
-  background-image: linear-gradient(to bottom, rgb(23 96 110 / 0.55) 1.5px, transparent 1.5px);
-  background-size: 100% var(--u);
+  background-image:
+    linear-gradient(to bottom, var(--color-sky-light) 1.5px, transparent 1.5px), var(--felt-grain);
+  background-size:
+    100% var(--u),
+    var(--felt-grain-size);
+  background-blend-mode: normal, soft-light;
 }
 .ni-btt__piece--hundreds {
   border-radius: 4px;
   background-image:
-    linear-gradient(to right, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px);
-  background-size: var(--u) var(--u);
+    linear-gradient(to right, var(--color-sky-light) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-sky-light) 1px, transparent 1px), var(--felt-grain);
+  background-size:
+    var(--u) var(--u),
+    var(--u) var(--u),
+    var(--felt-grain-size);
+  background-blend-mode: normal, normal, soft-light;
 }
 [data-tier="pictorial"] .ni-btt__piece {
   border-color: var(--color-ink);
@@ -233,8 +245,11 @@
 }
 /* A rod lying down in the nest: its unit lines run across. */
 .ni-btt__piece--tens[data-lying="true"] {
-  background-image: linear-gradient(to right, rgb(23 96 110 / 0.55) 1.5px, transparent 1.5px);
-  background-size: var(--u) 100%;
+  background-image:
+    linear-gradient(to right, var(--color-sky-light) 1.5px, transparent 1.5px), var(--felt-grain);
+  background-size:
+    var(--u) 100%,
+    var(--felt-grain-size);
 }
 [data-tier="pictorial"] .ni-btt__piece--tens[data-lying="true"] {
   background-image: linear-gradient(to right, rgb(38 70 83 / 0.5) 1.5px, transparent 1.5px);

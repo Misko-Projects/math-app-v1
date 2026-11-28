@@ -232,6 +232,13 @@ export function NumberLineView({
         y1={lineY}
         y2={lineY}
       />
+      <line
+        className="ni-numberline__stitch"
+        x1={pad - 16}
+        x2={width - pad + 16}
+        y1={lineY}
+        y2={lineY}
+      />
       <path
         className="ni-numberline__cap"
         d={`M${pad - 30} ${lineY}l12 -9v18z M${width - pad + 30} ${lineY}l-12 -9v18z`}

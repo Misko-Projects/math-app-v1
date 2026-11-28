@@ -121,8 +121,9 @@
   overflow: visible;
   pointer-events: none;
 }
+/* The legs: plain wood-deep thread (4.4:1 on paper), so which parts make the whole stays clear. */
 .ni-bondw__legs line {
-  stroke: var(--color-ink);
+  stroke: var(--color-wood-deep);
   stroke-width: 5;
   stroke-linecap: round;
 }
@@ -134,9 +135,13 @@
   margin: 0;
   padding: 0.1em 0 0;
   appearance: none;
-  border: 4px solid var(--color-ink);
+  /* A cream felt disc in a denim ring (3.8:1 on paper, 4.25:1 on cream), the ring as wide as before. */
+  border: 4px solid var(--color-sea);
   border-radius: 50%;
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: var(--bond-font, 48px);
@@ -155,11 +160,13 @@ span.ni-bondw__circle {
 }
 .ni-bondw__circle[data-blank="true"] {
   border-style: dashed;
-  background: var(--color-sky-light);
+  border-color: var(--color-sea-deep);
+  background-color: var(--color-sky-light);
 }
 .ni-bondw__circle[data-blank="true"]:not([data-empty="true"]) {
   border-style: solid;
-  background: var(--color-sunshine-light);
+  border-color: var(--color-sea);
+  background-color: var(--color-sunshine-light);
 }
 /*
  * The blank being filled: a heavier ink ring and a lift (never the teal invite ring), and a caret
@@ -168,6 +175,7 @@ span.ni-bondw__circle {
 .ni-bondw__circle[data-state="active"] {
   border-width: 6px;
   border-style: solid;
+  border-color: var(--color-ink);
   box-shadow:
     0 0 0 4px var(--color-cloud),
     0 0 0 7px var(--color-ink),
@@ -217,7 +225,10 @@ span.ni-bondw__circle {
   padding: 12px;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
-  background: var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
 }
 .ni-bondw__mini-bond {
   display: block;
@@ -244,10 +255,14 @@ span.ni-bondw__circle {
   box-sizing: border-box;
   /* plan.ts POOL_EDGES less the border: roomy (13) where it fits, else tight (8). */
   padding: calc(var(--pool-pad, 8px) * var(--bond-s));
-  border: calc(3px * var(--bond-s)) solid var(--color-ink);
+  /* A cream felt mat with a denim edge (6.4:1 on cream): the part's counters sit on it. */
+  border: calc(3px * var(--bond-s)) solid var(--color-sea);
   border-radius: calc(var(--radius-card) * var(--bond-s));
-  background: var(--color-paper);
-  box-shadow: var(--shadow-soft);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
 }
 .ni-bondw__pad {
   position: absolute;
@@ -298,9 +313,12 @@ span.ni-bondw__circle {
   margin: 0;
   padding: 0.08em 0 0;
   appearance: none;
-  border: calc(4px * var(--bond-s)) solid var(--color-ink);
+  border: calc(4px * var(--bond-s)) solid var(--color-sea);
   border-radius: 50%;
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: calc(2rem * var(--bond-s));
@@ -311,21 +329,23 @@ button.ni-bondw__badge {
   font-size: calc(2.5rem * var(--bond-s));
   cursor: pointer;
   touch-action: manipulation;
-  box-shadow: 0 calc(5px * var(--bond-s)) 0 rgb(38 70 83 / 0.16);
+  box-shadow: var(--shadow-ledge);
 }
 button.ni-bondw__badge:disabled {
   cursor: default;
 }
 .ni-bondw__badge[data-blank="true"][data-empty="true"] {
   border-style: dashed;
-  background: var(--color-sky-light);
+  border-color: var(--color-sea-deep);
+  background-color: var(--color-sky-light);
 }
 .ni-bondw__badge[data-blank="true"]:not([data-empty="true"]) {
-  background: var(--color-sunshine-light);
+  background-color: var(--color-sunshine-light);
 }
 .ni-bondw__badge[data-state="active"] {
   border-width: calc(5px * var(--bond-s));
   border-style: solid;
+  border-color: var(--color-ink);
 }
 .ni-bondw__badge:focus-visible {
   outline: 4px solid var(--color-ink);

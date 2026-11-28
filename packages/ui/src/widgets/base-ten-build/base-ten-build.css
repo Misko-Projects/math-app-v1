@@ -9,7 +9,7 @@
 
 .ni-btb {
   --pile: calc(var(--target-min) * 1.25);
-  --line: rgb(23 96 110 / 0.55);
+  --line: var(--color-sky-light);
 
   position: relative;
   display: grid;
@@ -260,12 +260,20 @@
   display: block;
   flex: none;
   box-sizing: border-box;
-  border: var(--bw) solid var(--color-sea-dark);
+  /*
+   * Denim felt (the kit's base-ten look). The board is light wood (sand-shadow), where denim alone
+   * is 2.75:1, so the border is a same-hue sea-deep edge (4.1:1 there), the width unchanged. The unit lines
+   * stay plain sky-light thread (--line, 3.6:1 on denim): 1.5 px on a rod, where units are counted,
+   * 1 px on a flat, read as a whole. At the smallest unit (6 px) a rod still shows ten bands 4.5 px
+   * apart and a flat a 10 × 10 grid of 5 px squares.
+   */
+  border: var(--bw) solid var(--color-sea-deep);
   border-radius: 3px;
-  background-color: var(--color-shallows);
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 0.35),
-    var(--shadow-ledge-pressed);
+  background-color: var(--color-sea);
+  background-image: var(--felt-grain);
+  background-size: var(--felt-grain-size);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-piece);
 }
 .ni-btb__art--ones {
   width: var(--u);
@@ -274,19 +282,32 @@
 .ni-btb__art--tens {
   width: var(--u);
   height: calc(var(--u) * 10);
-  background-image: linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px);
-  background-size: 100% var(--u);
-  background-position: 0 calc(var(--bw) * -1);
+  background-image:
+    linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px), var(--felt-grain);
+  background-size:
+    100% var(--u),
+    var(--felt-grain-size);
+  background-position:
+    0 calc(var(--bw) * -1),
+    0 0;
+  background-blend-mode: normal, soft-light;
 }
 .ni-btb__art--hundreds,
 .ni-btb__art--thousands {
   width: calc(var(--u) * 10);
   height: calc(var(--u) * 10);
   background-image:
-    linear-gradient(to right, var(--line) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px);
-  background-size: var(--u) var(--u);
-  background-position: calc(var(--bw) * -1) calc(var(--bw) * -1);
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px), var(--felt-grain);
+  background-size:
+    var(--u) var(--u),
+    var(--u) var(--u),
+    var(--felt-grain-size);
+  background-position:
+    calc(var(--bw) * -1) calc(var(--bw) * -1),
+    calc(var(--bw) * -1) calc(var(--bw) * -1),
+    0 0;
+  background-blend-mode: normal, normal, soft-light;
 }
 /* A thousands cube: a flat with a top and a side face (bordered boxes, so it never reads as 100). */
 .ni-btb__art--thousands {
@@ -298,7 +319,7 @@
   content: "";
   position: absolute;
   box-sizing: border-box;
-  border: var(--bw) solid var(--color-sea-dark);
+  border: var(--bw) solid var(--color-sea);
   background-color: var(--color-shallows);
 }
 .ni-btb__art--thousands::before {
@@ -314,14 +335,17 @@
   left: 100%;
   width: var(--d);
   height: calc(100% + 2 * var(--bw));
-  background-color: var(--color-sea);
+  background-color: var(--color-sea-deep);
   transform: skewY(-45deg);
   transform-origin: top left;
 }
+/* Counted (a demo's count): mustard felt; its unit lines turn ink-soft (3.9:1 on mustard). */
 .ni-btb__piece[data-counted="true"] .ni-btb__art,
 .ni-btb__piece[data-counted="true"] .ni-btb__art::before,
 .ni-btb__piece[data-counted="true"] .ni-btb__art::after {
-  background-color: var(--color-sunshine-light);
+  --line: var(--color-ink-soft);
+  border-color: var(--color-sunshine);
+  background-color: var(--color-sunshine);
 }
 
 /* ---------- trade buttons (in the gutters) ---------- */

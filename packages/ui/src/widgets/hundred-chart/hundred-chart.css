@@ -77,14 +77,22 @@
   padding: 0;
   border-radius: 12px;
 }
-/* A picture chart is one grid: shared ink lines on cloud cells, like the chart on the wall. */
+/*
+ * A picture chart is one grid, like the chart on the wall: cream felt cells on a denim felt board
+ * (the frame), parted by plain denim grid lines (4.25:1 on cream; the board 3.8:1 on paper, so no
+ * outline). Grain and lift are the board's only: none per cell (raster cost, felt4a task 0).
+ */
 .ni-hc__chart[data-cells="type"] {
   /* The frame sits outside the ten columns (the global border-box would eat 6 px of them). */
   box-sizing: content-box;
-  border: 3px solid var(--color-ink);
+  border: 3px solid var(--color-sea);
   border-radius: 14px;
   overflow: hidden;
-  background: var(--color-ink-soft);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sea);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
 }
 .ni-hc__cell {
   position: relative;
@@ -96,7 +104,8 @@
   margin: 0;
   padding: 0;
   appearance: none;
-  border: 2px solid var(--color-ink-soft);
+  /* A cream felt key: the thin warm edge only as dark as 3:1 on paper needs (--felt-edge). */
+  border: 2px solid var(--felt-edge);
   border-radius: 12px;
   background: var(--color-cloud);
   color: var(--color-ink);
@@ -113,7 +122,7 @@ button.ni-hc__cell:disabled {
 .ni-hc__chart[data-cells="type"] .ni-hc__cell {
   border: 0;
   border-radius: 0;
-  box-shadow: inset -1px -1px 0 var(--color-ink-soft);
+  box-shadow: inset -1px -1px 0 var(--color-sea);
 }
 .ni-hc__cell:focus-visible {
   z-index: 1;

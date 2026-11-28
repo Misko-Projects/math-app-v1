@@ -103,9 +103,13 @@
   opacity: 0.6;
 }
 
+/*
+ * A mustard felt ruler: its same-hue edge only as dark as 3:1 on paper needs (#af7c21, 3.17:1;
+ * sunshine-deep alone is 2.9:1). Ticks and numerals stay plain ink.
+ */
 .ni-ruler__body {
   fill: var(--color-sunshine-light);
-  stroke: var(--color-sunshine-deep);
+  stroke: color-mix(in srgb, var(--color-sunshine-deep) 75%, var(--color-wood-deep));
   stroke-width: 3px;
 }
 .ni-ruler__tick {
@@ -123,9 +127,9 @@
   font-weight: 700;
 }
 .ni-ruler__mark {
+  /* A terracotta felt pointer, no ink outline (3.9:1 on the ruler, 5.3:1 on paper). */
   fill: var(--color-coral-deep);
-  stroke: var(--color-ink);
-  stroke-width: 2px;
+  stroke: none;
 }
 
 /* A laid string: a 6 px cord with clear end beads (evidence review). */

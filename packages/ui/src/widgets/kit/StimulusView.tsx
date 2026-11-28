@@ -841,7 +841,12 @@ export function BaseTenView({
         // biome-ignore lint/suspicious/noArrayIndexKey: blocks are positional
         key={`b${i}`}
         className={`ni-baseten__block ni-baseten__block--${b}`}
-        style={{ width: size.w, height: size.h, backgroundSize: `${unit}px ${unit}px` }}
+        style={{
+          width: size.w,
+          height: size.h,
+          // The two unit-line layers repeat every unit; the felt grain keeps its own tile.
+          backgroundSize: `${unit}px ${unit}px, ${unit}px ${unit}px, var(--felt-grain-size)`,
+        }}
       />,
     );
   });

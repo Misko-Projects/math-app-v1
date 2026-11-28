@@ -392,11 +392,13 @@
   max-width: 100%;
   margin-top: auto;
 }
+/* The kit's base-ten look in small: denim felt, no outline, plain sky-light unit lines (3.6:1). */
 .ni-efw__glyph {
   box-sizing: border-box;
-  border: 2px solid var(--color-sea-dark);
+  border: 2px solid var(--color-sea);
   border-radius: 2px;
-  background: var(--color-shallows);
+  background: var(--color-sea);
+  box-shadow: var(--shadow-piece);
 }
 /*
  * Ones: legible unit cubes (rounded squares with a light top face, like the base-ten art), in
@@ -413,7 +415,6 @@
   width: var(--ef-unit);
   height: var(--ef-unit);
   border-radius: 3px;
-  box-shadow: inset 0 3px 0 rgb(255 255 255 / 0.55);
 }
 .ni-efw__glyph[data-place="1"] {
   width: 8px;
@@ -423,8 +424,8 @@
   width: 20px;
   height: 20px;
   background-image:
-    linear-gradient(to right, rgb(23 96 110 / 0.5) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(23 96 110 / 0.5) 1px, transparent 1px);
+    linear-gradient(to right, var(--color-sky-light) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-sky-light) 1px, transparent 1px);
   background-size: 4px 4px;
 }
 /* A thousands cube: a flat with a side and top edge, so it never reads as 100. */
@@ -434,7 +435,7 @@
   margin: 4px 4px 0 0;
   box-shadow:
     2px -2px 0 var(--color-shallows),
-    4px -4px 0 var(--color-sea-dark);
+    4px -4px 0 var(--color-sea-deep);
 }
 /*
  * Stacked like arrow cards: each card shrinks to its digits and the digits open up into place

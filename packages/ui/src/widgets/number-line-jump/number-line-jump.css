@@ -102,9 +102,16 @@
   margin: 0 0 6px;
   padding: 0;
   appearance: none;
-  border: 3px solid var(--color-ink);
+  /*
+   * A felt pebble: grain over pebble felt, a cream running stitch, and the thin warm edge only as
+   * dark as 3:1 on paper needs (--felt-edge, 3.15:1), the same width as before.
+   */
+  border: 3px solid var(--felt-edge);
   border-radius: 46% 54% 50% 50% / 54% 48% 52% 46%;
-  background: var(--color-pebble);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-pebble);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   touch-action: manipulation;
@@ -112,6 +119,14 @@
 }
 button.ni-nlj__stone {
   cursor: pointer;
+}
+.ni-nlj__stone::after {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed var(--color-cloud);
+  border-radius: inherit;
+  pointer-events: none;
 }
 button.ni-nlj__stone:disabled {
   cursor: default;
@@ -131,9 +146,10 @@ button.ni-nlj__stone:disabled {
 .ni-nlj__stones[data-tappable="false"] .ni-nlj__stonenum {
   font-size: 2rem;
 }
-/* The start stone: sunshine sand and a little flag (shape, not colour alone). */
+/* The start stone: mustard felt and a little flag (shape, not colour alone). */
 .ni-nlj__stone[data-start="true"] {
-  background: var(--color-sunshine-light);
+  border-color: var(--color-sunshine-deep);
+  background-color: var(--color-sunshine-light);
 }
 .ni-nlj__stone[data-start="true"]::before {
   content: "";
@@ -145,7 +161,8 @@ button.ni-nlj__stone:disabled {
   border-left: 16px solid var(--color-coral);
   border-top: 9px solid transparent;
   border-bottom: 9px solid transparent;
-  filter: drop-shadow(-3px 0 0 var(--color-ink));
+  /* A terracotta felt pennant (3.5:1 on paper): no ink outline, the felt lift. */
+  filter: drop-shadow(1px 1.5px 1px rgb(74 42 18 / 0.35));
 }
 /* The stone the hopper stands on: a thick ink ring (inside, so it never reaches a neighbour). */
 .ni-nlj__stone[data-here="true"] {
@@ -251,9 +268,13 @@ button.ni-nlj__stone:disabled {
   margin: 0 0 6px;
   padding: 6px 0 0;
   appearance: none;
-  border: 3px solid var(--color-ink);
+  /* A felt card, as the order cards: navy edge, grain over cream, the felt lift. */
+  border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   box-shadow: var(--shadow-ledge), var(--shadow-highlight);
   cursor: pointer;
@@ -305,7 +326,7 @@ button.ni-nlj__stone:disabled {
   font-variant-numeric: tabular-nums;
 }
 .ni-nlj__undo {
-  background: var(--color-sand);
+  background-color: var(--color-sand);
 }
 .ni-nlj__undoicon {
   display: block;
