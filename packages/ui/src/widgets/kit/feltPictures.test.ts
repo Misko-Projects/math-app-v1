@@ -50,12 +50,13 @@ describe('Felt & Stitch widget pictures (slice 4a): the shipped styles draw thes
     );
   });
 
-  it('draws base-ten unit lines in sky-light on denim: 1.5 px on rods, 1 px on flats', () => {
+  it('draws base-ten unit lines in sky-light on denim: 1.5 px in the (scaled) kit picture, 1 px on build flats', () => {
     const block = rule(kit, '.ni-baseten__block');
     expect(block['background-color']).toBe('var(--color-sea)');
     expect(block['--lw']).toBe('1.5px');
     expect(block['background-image']).toContain('var(--color-sky-light) var(--lw)');
-    expect(rule(kit, '.ni-baseten__block--flat, .ni-baseten__block--cube')['--lw']).toBe('1px');
+    // The kit picture is scaled down as a whole: its flats keep 1.5 px, or their grid vanishes (R2).
+    expect(kit).not.toMatch(/\.ni-baseten__block--flat[^{]*\{[^}]*--lw/);
     expect(rule(build, '.ni-btb')['--line']).toBe('var(--color-sky-light)');
     expect(rule(build, '.ni-btb__art--tens')['background-image']).toContain('var(--line) 1.5px');
     expect(

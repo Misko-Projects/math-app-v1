@@ -423,7 +423,8 @@
 /*
  * Denim felt pieces (3.8:1 on paper, so no outline: the border is the piece's own felt and keeps
  * its width). The unit lines stay plain and sharp: 1.5 px sky-light thread, 3.6:1 on denim (the
- * old lines were about 2:1). The grain tile goes under them and costs no raster time (felt4a spike).
+ * old lines were about 2:1), on flats too: this picture is scaled down as a whole (FitPicture), and a
+ * 1 px line vanishes there, taking the hundred's grid with it. The grain costs no raster time.
  */
 .ni-baseten__block {
   box-sizing: border-box;
@@ -437,11 +438,6 @@
     var(--felt-grain);
   background-blend-mode: normal, normal, soft-light;
   box-shadow: var(--shadow-piece);
-}
-/* A hundred (and a thousand's face) is read as a whole: 1 px lines; a rod's units, counted, 1.5 px. */
-.ni-baseten__block--flat,
-.ni-baseten__block--cube {
-  --lw: 1px;
 }
 /*
  * A thousands cube: a flat with a top face and a side face, so it never reads as 100. The faces
