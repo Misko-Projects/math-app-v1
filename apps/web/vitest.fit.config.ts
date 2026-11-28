@@ -17,7 +17,9 @@ export default defineProject({
     name: 'web-fit',
     include: ['src/**/*.browser.test.tsx'],
     // One test renders every template at one viewport; CI runners are slower than local machines.
-    testTimeout: 300_000,
+    // Four seeds took about 230 s a viewport in CI before number-pad chose its layout after two
+    // still frames (the legibility bars), which adds about 50 s.
+    testTimeout: 450_000,
     browser: {
       enabled: true,
       headless: true,

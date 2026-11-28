@@ -744,9 +744,12 @@ function money(cents: number, style: 'cents' | 'dollars'): string {
 export function ExpressionView({
   expr,
   renderBlank,
+  breakAt,
 }: {
   expr: ExpressionSpec;
   renderBlank?: (id: string) => ReactNode;
+  /** Two rows, the second starting at this token and indented (number-pad `planBreak`). */
+  breakAt?: { at: number; indent: number };
 }) {
   const t = useNarrationText();
   const token = (tok: ExpressionToken, i: number): ReactNode => {
@@ -797,17 +800,33 @@ export function ExpressionView({
         return <span className="ni-expr__op">{tok.v}</span>;
     }
   };
+  const tokenEl = (tok: ExpressionToken, i: number) => (
+    <span key={i} className="ni-expr__token" data-t={tok.t} data-eq={isEqToken(tok) || undefined}>
+      {token(tok, i)}
+    </span>
+  );
+  if (breakAt && breakAt.at > 0 && breakAt.at < expr.tokens.length) {
+    // Two rows of one equation: token indices (and the blank ids built from them) stay the same.
+    return (
+      <div className="ni-expr" data-tokens={expr.tokens.length} data-rows="2">
+        <div className="ni-expr__row">
+          {expr.tokens.slice(0, breakAt.at).map((tok, i) => tokenEl(tok, i))}
+        </div>
+        <div className="ni-expr__row" style={{ paddingLeft: breakAt.indent }}>
+          {expr.tokens.slice(breakAt.at).map((tok, i) => tokenEl(tok, i + breakAt.at))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="ni-expr" data-tokens={expr.tokens.length}>
-      {expr.tokens.map((tok, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: tokens are positional
-        <span key={i} className="ni-expr__token" data-t={tok.t}>
-          {token(tok, i)}
-        </span>
-      ))}
+      {expr.tokens.map(tokenEl)}
     </div>
   );
 }
+
+/** An "=" in a sentence: where a sentence too wide for one row may break (number-pad). */
+export const isEqToken = (tok: ExpressionToken): boolean => tok.t === 'rel' && tok.v === '=';
 
 // ---------- base ten (simple picture; base-ten widgets live in U04) ----------
 

@@ -116,3 +116,42 @@
 .ni-npw[data-check="beside"] .ni-npw__controls {
   flex-direction: row;
 }
+
+/*
+ * The legibility bars (NumberPadWidget `AskMode`): where the scaled question would draw the sentence
+ * or the answer box under them. One more step for the text (32 px, 05 §11), the picture beside the
+ * sentence, and the keys in one row under the question with Check beside it.
+ */
+.ni-npw__text[data-text="4"] .ni-expr,
+.ni-npw__text[data-text="4"] .ni-npw__blank {
+  font-size: 32px;
+}
+.ni-npw__parts[data-beside] {
+  flex-direction: row;
+  gap: 24px;
+}
+.ni-npw[data-pad="row"] {
+  display: grid;
+  grid-template-areas: "ask check" "keys keys";
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+}
+.ni-npw[data-pad="row"] .ni-npw__ask {
+  grid-area: ask;
+}
+.ni-npw[data-pad="row"] .ni-npw__controls {
+  display: contents;
+}
+.ni-npw[data-pad="row"] .ni-npw__controls > :first-child {
+  grid-area: keys;
+  justify-self: center;
+}
+.ni-npw[data-pad="row"] .ni-npw__controls > :last-child {
+  grid-area: check;
+}
+/* A legible layout measures the sentence on one row: it steps down, then breaks only before an "=". */
+.ni-npw:not([data-ask="fit"]) .ni-npw__text .ni-expr {
+  flex-wrap: nowrap;
+}

@@ -70,6 +70,12 @@ type SlotId = `slot-${number}`;
 const slotId = (k: number): SlotId => `slot-${k}`;
 const slotIndex = (id: SlotId) => Number(id.slice(5));
 const isNumeral = (label: string | undefined) => label !== undefined && /^-?\d+$/.test(label);
+/**
+ * Drawn as a numeral, at 32 px or more (05 §11): a whole number or an amount of money ("88¢",
+ * "$1.25"). Only how the card draws it: what the card says stays with `isNumeral`.
+ */
+const drawsAsNumeral = (label: string | undefined) =>
+  isNumeral(label) || (label !== undefined && /^(\d+¢|\$\d+(\.\d\d)?)$/.test(label));
 
 // ---------- layout ----------
 
@@ -756,7 +762,7 @@ export function OrderWidget({
     }),
   );
   const words =
-    !hasPictures && !fractions && config.items.some((it) => it.label && !isNumeral(it.label));
+    !hasPictures && !fractions && config.items.some((it) => it.label && !drawsAsNumeral(it.label));
   // The room a fraction takes at its strip's left: its widest number (46 px type) and the gap.
   const fracSideW = fracSide ? Math.ceil(longest * 0.62 * FRAC_PX) + 4 + FRAC_SIDE_GAP : 0;
   /** Inside a card: its 5 px padding and 3 px border each side (a strip card fills it). */
@@ -1012,7 +1018,7 @@ export function OrderWidget({
     if (fractionLabel(it.label)) {
       return <span className="ni-ord__frac ni-invite-glyph">{fracGlyph(it.label)}</span>;
     }
-    return it.label !== undefined && !isNumeral(it.label) ? (
+    return it.label !== undefined && !drawsAsNumeral(it.label) ? (
       <span className="ni-ord__word ni-invite-glyph">{it.label}</span>
     ) : (
       <span className="ni-ord__numeral ni-invite-glyph">{it.label ?? it.value}</span>

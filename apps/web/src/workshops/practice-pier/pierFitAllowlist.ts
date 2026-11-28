@@ -57,6 +57,135 @@ export interface FitSeedException {
  */
 export const FIT_SEED_EXCEPTIONS: readonly FitSeedException[] = [];
 
+/**
+ * The legibility bars (05 §11, 06 §4), checked on every screen the fit check draws:
+ * - `numeral`: a numeral in the sentence a child completes (number-pad's text) or on an answer
+ *   control that carries a number (number-pad's boxes and keys, order cards), ≥ 32 px as drawn;
+ * - `box`: number-pad's answer box, ≥ 64 px each way;
+ * - `target`: any control in the widget, ≥ 64 px each way;
+ * - `counted`: a sprite or a fraction part, ≥ 22 px each way.
+ */
+export type LegibilityBar = 'numeral' | 'box' | 'target' | 'counted';
+
+export const LEGIBILITY_BARS: Readonly<Record<LegibilityBar, number>> = {
+  numeral: 32,
+  box: 64,
+  target: 64,
+  counted: 22,
+};
+
+export interface LegibilityException {
+  template: TemplateId;
+  bar: LegibilityBar;
+  at: FitViewport;
+  /** The seeds that draw under the bar; every job plays them, and fails when one holds it. */
+  seeds: readonly number[];
+  /** The least it was measured at: drawing it smaller fails too (the list only shrinks). */
+  floorPx: number;
+  reason: string;
+}
+
+const PAD_ARRAY =
+  "A multiplication strategy's array beside a two-row sentence on the one-row pad (number-pad `beside`/`row`, the largest it is drawn in any layout at 960 × 600); fix: a second step for the picture.";
+const ORDER_CARD =
+  'Counters on an order card of 64 px; fix: two card rows when the counters would draw under 22 px.';
+
+/**
+ * The screens that keep under a bar, each bounded. A miss not listed fails, a listed miss drawn
+ * under its floor fails, and a listed seed that holds its bar fails (remove it).
+ */
+export const LEGIBILITY_EXCEPTIONS: readonly LegibilityException[] = [
+  {
+    template: 'MUL.07.t1',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [2, 4, 6],
+    floorPx: 17,
+    reason: PAD_ARRAY,
+  },
+  {
+    template: 'MUL.14.t2',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [2, 3, 4, 5, 7],
+    floorPx: 15,
+    reason: PAD_ARRAY,
+  },
+  {
+    template: 'MUL.15.t2',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [1],
+    floorPx: 20,
+    reason: PAD_ARRAY,
+  },
+  {
+    template: 'CPS.06.t2',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [3, 4, 5, 7, 8],
+    floorPx: 10,
+    reason: ORDER_CARD,
+  },
+  {
+    template: 'CPS.06.t2',
+    bar: 'counted',
+    at: '1280x800',
+    seeds: [4],
+    floorPx: 19,
+    reason: ORDER_CARD,
+  },
+  {
+    template: 'CMP.07.t3',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    floorPx: 13,
+    reason: ORDER_CARD,
+  },
+  {
+    template: 'CMP.05.t4',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [5, 7],
+    floorPx: 15,
+    reason: ORDER_CARD,
+  },
+  {
+    template: 'CMP.01.t5',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [9],
+    floorPx: 16,
+    reason: ORDER_CARD,
+  },
+  {
+    template: 'FRA.08.t3',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [1, 3, 6, 7, 9],
+    floorPx: 18,
+    reason: 'Fraction parts on an order card; fix: larger cards (order widget).',
+  },
+  {
+    template: 'DAT.02.t1',
+    bar: 'counted',
+    at: '960x600',
+    seeds: [1, 4, 5, 7, 8],
+    floorPx: 13,
+    reason:
+      'Picture-graph icons in a full row (bar-graph-read); fix: fewer icons a row, taller rows.',
+  },
+  {
+    template: 'FRA.07.t2',
+    bar: 'target',
+    at: '960x600',
+    seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    floorPx: 45,
+    reason: 'A share piece to drag (equal-share) of 46 px; fix: pieces of 64 px.',
+  },
+];
+
 const registered = new Set<ItemFormat>(registeredFormats());
 
 export type FitAllowance = { kind: 'no-widget' } | { kind: 'misfit'; reason: string };
