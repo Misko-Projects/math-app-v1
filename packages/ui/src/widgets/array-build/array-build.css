@@ -32,9 +32,14 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  border: 2px solid var(--color-sand-deep);
+  /* A linen felt mat: grain over paper, the thin warm edge only as dark as 3:1 needs. */
+  border: 2px solid var(--felt-edge);
   border-radius: 12px;
-  background: var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
@@ -64,10 +69,14 @@
   position: absolute;
   left: 0;
   top: 0;
-  /* Drawn round the cells, in the board's frame: it never covers a sprite. */
-  outline: 3px solid var(--color-ink);
+  /*
+   * Drawn round the cells, in the board's frame: it never covers a sprite. A cream felt piece with
+   * a denim edge (3.8:1 on the paper mat), the edge as wide as before.
+   */
+  outline: 3px solid var(--color-sea);
   border-radius: 8px;
   background: var(--color-cloud);
+  box-shadow: var(--shadow-piece);
 }
 /* Demo counting: the rows counted so far. */
 .ni-abw__lit {
@@ -110,9 +119,13 @@
 }
 .ni-abw__way {
   padding: 0 10px;
-  border: 2px solid var(--color-ink);
+  /* A felt card, as the order cards: navy edge, grain over cream. */
+  border: 2px solid var(--color-sea-dark);
   border-radius: 10px;
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: var(--text-numeral);
