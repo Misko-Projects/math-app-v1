@@ -39,13 +39,19 @@
   gap: var(--target-gap);
   max-width: 100%;
   padding: 12px 16px;
+  /* Felt & Stitch (slice 4b): a linen felt mat (grain over paper, the felt lift), border kept. */
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
-  background: var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
   box-shadow: var(--shadow-soft);
 }
 .ni-pattern__rows[data-row="new"] {
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
   border-style: dashed;
 }
 /* The new row of a translation: the two strips and the pieces fit the smallest area. */
@@ -98,9 +104,10 @@
   height: calc(var(--cell) - 22px);
   pointer-events: none;
 }
-/* Number tokens: a white tile with an ink outline, numerals ≥ 32 px. */
+/* Number tokens: a cream felt tile with the warm felt edge (3.28:1 on paper), every tile alike,
+   numerals ≥ 32 px in plain ink. The child's own answer keeps its ink edge (a blank). */
 .ni-pattern__cell[data-family="n"] {
-  border-color: var(--color-ink);
+  border-color: var(--felt-edge);
   background: var(--color-cloud);
 }
 .ni-pattern__numeral {
@@ -260,7 +267,7 @@
   font-size: 28px;
 }
 
-/* Coloured shapes: a 3.5 px outline in the fill's darker shade (≥ 3:1), rounded joins. */
+/* Felt shapes: a 3.5 px edge in their own colour, or a same-hue shade where 3:1 needs one. */
 .ni-pattern__shape [stroke] {
   stroke-width: 3.5;
   stroke-linejoin: round;
