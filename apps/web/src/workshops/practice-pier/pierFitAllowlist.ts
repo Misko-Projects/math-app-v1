@@ -94,7 +94,7 @@ export interface LegibilityException {
 }
 
 const PAD_PIECES =
-  'Several flats and ten or more rods beside the answer box (number-pad `beside`, flats in rows of four, rods under them): the question is 266 px tall at 960 × 600, so rods stay under 9 px; follow-up: a taller picture step for counted pieces.';
+  'Seven or eight flats and ten rods at 960 × 600: the pad picks the layout that draws the rods widest (one row under the question, or flats in rows of four with the rods under them, beside the answer box), and the question is 266 px tall, so rods stay under 9 px; follow-up: a taller picture step for counted pieces.';
 const ORDER_PIECES =
   'Tens rods on three order cards with no numeral: a card is about 100 px tall at 960 × 600; follow-up: base-ten order cards drawn to the rod bar.';
 
@@ -108,15 +108,15 @@ export const LEGIBILITY_EXCEPTIONS: readonly LegibilityException[] = [
     bar: 'rod',
     at: '960x600',
     seeds: [6, 7],
-    floorPx: 5.4,
+    floorPx: 7.7,
     reason: PAD_PIECES,
   },
   {
     template: 'PV.04.t5',
     bar: 'rodGap',
     at: '960x600',
-    seeds: [6, 7],
-    floorPx: 3.8,
+    seeds: [7],
+    floorPx: 5.5,
     reason: PAD_PIECES,
   },
   {
