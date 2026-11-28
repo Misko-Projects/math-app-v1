@@ -110,15 +110,31 @@
   min-width: 0;
   margin: 0;
   padding: calc(14px * var(--tf-s));
-  border: calc(4px * var(--tf-s)) solid var(--color-ink);
+  /* A denim felt mat (Felt & Stitch, the kit's ten-frame): a hue unlike both counters, 3.8:1 on paper. */
+  border: calc(4px * var(--tf-s)) solid var(--color-sea);
   border-radius: calc(18px * var(--tf-s));
-  background: var(--color-paper);
-  box-shadow: var(--shadow-soft);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sea);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
+}
+/* The mat's running stitch, in its padding (cream thread on denim). */
+.ni-tf__frame:not([data-skin="shell"])::before {
+  content: "";
+  position: absolute;
+  inset: calc(4px * var(--tf-s));
+  border: var(--stitch-width) dashed var(--color-sky-light);
+  border-radius: calc(13px * var(--tf-s));
+  pointer-events: none;
 }
 .ni-tf__frames[data-chrome="tight"] .ni-tf__frame {
   padding: calc(6px * var(--tf-s));
   border-width: calc(2px * var(--tf-s));
   border-radius: calc(14px * var(--tf-s));
+}
+.ni-tf__frames[data-chrome="tight"] .ni-tf__frame::before {
+  content: none;
 }
 .ni-tf__cells {
   position: relative;
@@ -128,12 +144,22 @@
   grid-template-rows: repeat(var(--tf-rows, 2), var(--tf-cell));
   gap: calc(var(--target-gap) * var(--tf-s));
 }
-/* A cell: a round well, as make-set's slots. */
+/*
+ * A cell: a cream felt square with a running stitch, on the mat (cream on denim 4.25:1, so the two
+ * rows of five stand apart with no outline). The square keeps its box; only its corners round.
+ */
 .ni-tf__cell {
   position: relative;
-  border-radius: 50%;
-  background: rgb(38 70 83 / 0.08);
-  box-shadow: inset 0 calc(3px * var(--tf-s)) 0 rgb(38 70 83 / 0.14);
+  border-radius: 20%;
+  background: var(--color-cloud);
+}
+.ni-tf__cell::before {
+  content: "";
+  position: absolute;
+  inset: calc(5px * var(--tf-s));
+  border: var(--stitch-width) dashed var(--color-sand-deep);
+  border-radius: 14%;
+  pointer-events: none;
 }
 .ni-tf__pad,
 .ni-tf__placed,
@@ -195,6 +221,9 @@
     inset 0 0 0 3px var(--color-sun-deep),
     inset 0 5px 0 rgb(38 70 83 / 0.12);
 }
+.ni-tf__frame[data-skin="shell"] .ni-tf__cell::before {
+  content: none;
+}
 
 /* ---------- the small frame (paged): brings the other frame to the front ---------- */
 
@@ -210,10 +239,14 @@
   margin: 0;
   padding: calc(6px * var(--tf-s));
   appearance: none;
-  border: calc(3px * var(--tf-s)) solid var(--color-ink);
+  /* A cream felt card with a denim edge (6.4:1 on cream); its "10" tag is ink on cream. */
+  border: calc(3px * var(--tf-s)) solid var(--color-sea);
   border-radius: calc(14px * var(--tf-s));
-  background: var(--color-paper);
-  box-shadow: var(--shadow-soft);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -222,8 +255,8 @@
 }
 .ni-tf__mini-cell {
   position: relative;
-  border-radius: 50%;
-  background: rgb(38 70 83 / 0.1);
+  border-radius: 20%;
+  background: var(--color-sky);
 }
 /*
  * A counter in the small frame fills its cell: the felt counter's disc is 47 of its 64 units
@@ -274,9 +307,14 @@
   grid-template-rows: repeat(var(--tf-rows, 2), var(--tf-view));
   gap: 4px;
   padding: 4px;
-  border: 3px solid var(--color-ink);
+  /* The answer step's picture: the same denim felt mat and cream cells, smaller. */
+  border: 3px solid var(--color-sea);
   border-radius: 12px;
-  background: var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sea);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
 }
 .ni-tf__vframe[data-skin="shell"] {
   border-color: var(--color-sun-deep);
@@ -284,8 +322,8 @@
 }
 .ni-tf__vcell {
   display: grid;
-  border-radius: 50%;
-  background: rgb(38 70 83 / 0.08);
+  border-radius: 20%;
+  background: var(--color-cloud);
 }
 
 /* ---------- the counter tray ---------- */
@@ -355,10 +393,13 @@
   box-shadow: 0 0 0 6px rgb(42 157 143 / 0.45);
 }
 /* The generators' hint `highlight {target: 'empty-cells'}`: every empty cell glows. */
+/* On the denim mat a teal halo would vanish: the cell turns light mustard with a mustard halo. */
 .ni-tf__cell[data-lit="true"] {
-  box-shadow:
-    0 0 0 6px rgb(42 157 143 / 0.5),
-    inset 0 3px 0 rgb(38 70 83 / 0.14);
+  background: var(--color-sunshine-light);
+  box-shadow: 0 0 0 6px rgb(240 203 120 / 0.85);
+}
+.ni-tf__cell[data-lit="true"]::before {
+  border-color: var(--color-sunshine-deep);
 }
 .ni-tf__lit {
   box-shadow: 0 0 0 8px rgb(42 157 143 / 0.35);

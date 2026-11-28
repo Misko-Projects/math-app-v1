@@ -75,27 +75,74 @@
   position: absolute;
   display: grid;
   box-sizing: border-box;
-  border: 4px solid var(--color-ink);
+  /*
+   * A felt mat: denim, a hue unlike both counters (terracotta, mustard). The border is the mat's
+   * own felt, so the box is unchanged; denim on paper is 3.8:1, so no outline.
+   */
+  border: 4px solid var(--color-sea);
   border-radius: 10px;
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sea);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
   overflow: hidden;
 }
+/*
+ * A cell: a cream felt square inset in the mat, so the mat shows between cells (cream on denim
+ * 4.25:1: the rows of five read clearer than the old 1.5 px line). The inset is a transparent
+ * border, so the cell box is unchanged. Cells 48 px and up carry a running stitch; smaller cells,
+ * and every dot picture (a subitising flash), stay plain.
+ */
 .ni-objects__cell {
-  box-shadow: inset 0 0 0 1.5px var(--color-ink-soft);
+  position: relative;
+  box-sizing: border-box;
+  border: clamp(2px, calc(var(--cell, 56px) * 0.05), 4px) solid transparent;
+  border-radius: clamp(5px, calc(var(--cell, 56px) * 0.18), 14px);
+  background: var(--color-cloud) padding-box;
 }
-/* A die tile: a rounded white square with an ink outline and a soft ledge. */
+.ni-objects__cell::before {
+  content: "";
+  position: absolute;
+  inset: clamp(3px, calc(var(--cell, 56px) * 0.06), 5px);
+  /* 0 px below a 48 px cell, the stitch width from 48 px up. */
+  border: clamp(0px, calc((var(--cell, 56px) - 47px) * 100), var(--stitch-width)) dashed
+    var(--color-sand-deep);
+  border-radius: clamp(3px, calc(var(--cell, 56px) * 0.12), 10px);
+}
+.ni-stimulus[data-kind="dots"] .ni-objects__cell::before {
+  content: none;
+}
+/* A die tile: a cream felt square; its thin warm edge is only as dark as 3:1 on paper needs. */
 .ni-objects__frame[data-kind="die"] {
   display: block;
-  border-width: 3px;
+  border: 3px solid var(--felt-edge);
   border-radius: 18%;
-  box-shadow: var(--shadow-ledge);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
 }
-/* An equal-groups plate: a round sand dish. */
+/*
+ * An equal-groups plate: a sand felt dish with a cream stitched rim and the thin warm edge. A pill
+ * radius, so a plate for one or four is round and a plate for two is a stadium, never an oval.
+ */
 .ni-objects__frame[data-kind="plate"] {
   display: block;
-  border: 3px solid var(--color-sand-deep);
-  border-radius: 50%;
-  background: var(--color-horizon);
+  overflow: visible;
+  border: 3px solid var(--felt-edge);
+  border-radius: var(--radius-pill);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sand);
+  background-blend-mode: soft-light;
+}
+.ni-objects__frame[data-kind="plate"]::before {
+  content: "";
+  position: absolute;
+  inset: var(--stitch-inset);
+  border: var(--stitch-width) dashed var(--color-cloud);
+  border-radius: var(--radius-pill);
 }
 /*
  * Felt sprites (felt-sprites.tsx). The lift is a drop-shadow on the drawing (`.ni-felt-lift`), in
@@ -177,13 +224,26 @@
   max-width: none;
   overflow: visible;
 }
+/*
+ * The line is a denim felt ribbon (3.8:1 on paper) with a cream running stitch; its end arrows are
+ * denim felt too. The ribbon is 7 px, so even the shortest tick (8 px each way, tick rhythm) reaches
+ * clear of it on both sides. Ticks and numerals stay plain ink (11.45:1 on paper), drawn over it.
+ */
 .ni-numberline__axis {
-  stroke: var(--color-ink);
-  stroke-width: 5;
+  stroke: var(--color-sea);
+  stroke-width: 7;
   stroke-linecap: round;
 }
+.ni-numberline__stitch {
+  stroke: var(--color-sky-light);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
 .ni-numberline__cap {
-  fill: var(--color-ink);
+  fill: var(--color-sea);
+  stroke: var(--color-sea);
+  stroke-width: 3;
+  stroke-linejoin: round;
 }
 .ni-numberline__tick {
   stroke: var(--color-ink);
@@ -196,16 +256,15 @@
   font-family: var(--font-display);
   font-weight: 800;
 }
+/* Marks and pointers: terracotta felt, no outline (3.5:1 on paper). A pointer's tip marks the value. */
 .ni-numberline__mark circle {
   fill: var(--color-coral);
-  stroke: var(--color-ink);
-  stroke-width: 3;
+  filter: drop-shadow(1px 1.5px 1px rgb(74 42 18 / 0.35));
 }
 .ni-numberline__pointer {
   fill: var(--color-coral);
-  stroke: var(--color-ink);
-  stroke-width: 3;
-  stroke-linejoin: round;
+  stroke: none;
+  filter: drop-shadow(1px 1.5px 1px rgb(74 42 18 / 0.35));
 }
 .ni-numberline__jump {
   fill: none;
@@ -352,14 +411,22 @@
   align-items: flex-end;
   gap: 10px;
 }
+/*
+ * Denim felt pieces (3.8:1 on paper, so no outline: the border is the piece's own felt and keeps
+ * its width). The unit lines stay plain and sharp: 1.5 px sky-light thread, 3.6:1 on denim (the
+ * old lines were about 2:1). The grain tile goes under them and costs no raster time (felt4a spike).
+ */
 .ni-baseten__block {
   box-sizing: border-box;
-  border: 3px solid var(--color-sea-dark);
+  border: 3px solid var(--color-sea);
   border-radius: 3px;
-  background-color: var(--color-shallows);
+  background-color: var(--color-sea);
   background-image:
-    linear-gradient(to right, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px);
+    linear-gradient(to right, var(--color-sky-light) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, var(--color-sky-light) 1.5px, transparent 1.5px),
+    var(--felt-grain);
+  background-blend-mode: normal, normal, soft-light;
+  box-shadow: var(--shadow-ledge);
 }
 /*
  * A thousands cube: a flat with a top face and a side face, so it never reads as 100. The faces
@@ -374,8 +441,12 @@
   content: "";
   position: absolute;
   box-sizing: border-box;
-  border: 3px solid var(--color-sea-dark);
+  /* The faces are felt too: a lighter top, a deeper side, each edged in the front's denim. */
+  border: 3px solid var(--color-sea);
   background: var(--color-shallows);
+}
+.ni-baseten__block--cube::after {
+  background: var(--color-sea-deep);
 }
 .ni-baseten__block--cube::before {
   left: -3px;
@@ -400,9 +471,12 @@
 }
 .ni-baseten__unit {
   box-sizing: border-box;
-  border: 3px solid var(--color-sea-dark);
   border-radius: 3px;
-  background: var(--color-shallows);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sea);
+  background-blend-mode: soft-light;
+  box-shadow: var(--shadow-ledge);
 }
 
 /* ---------- pick cards and numeral tray ---------- */

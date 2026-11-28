@@ -258,6 +258,11 @@
   --stitch-inset: 5px;
   /* Pressed (the soft squish): an inner shadow all round, the border unchanged. */
   --shadow-felt-pressed: inset 0 0 8px 1px rgb(42 22 8 / 0.38);
+  /*
+   * The thin warm edge of a light felt piece (cream, sand) that cannot hold 3:1 on paper alone:
+   * only as dark as 3:1 needs (#9f7d56, 3.15:1 on paper; tokens.test.ts).
+   */
+  --felt-edge: color-mix(in srgb, var(--color-wood-deep) 65%, var(--color-sand-deep));
 }
 
 [data-age-mode="k"] {

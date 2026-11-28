@@ -209,13 +209,12 @@ button.ni-tapc__obj:focus-visible {
   box-sizing: content-box;
   margin: -12px;
   padding: 8px;
-  background: var(--color-sand);
 }
+/* The kit's cream felt cell (cream on the denim mat 4.25:1, no outline); the margin is its inset. */
 .ni-tapc[data-cells="targets"] .ni-objects__cell {
   margin: 6px;
+  border: 0;
   border-radius: 16px;
-  background: var(--color-cloud);
-  box-shadow: inset 0 0 0 3px var(--color-ink-soft);
 }
 /* The object counted last: an ink dot in a sunshine ring, under the running count's column. */
 .ni-tapc__dot[data-latest="true"] {
