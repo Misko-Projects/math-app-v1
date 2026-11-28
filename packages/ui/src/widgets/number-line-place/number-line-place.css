@@ -260,9 +260,13 @@
   min-width: var(--target-min);
   height: var(--target-min);
   padding: 0 14px;
-  border: 3px solid var(--color-ink);
+  /* A mustard felt sign with a navy edge, as the Check button (the border keeps its width). */
+  border: 3px solid var(--color-sea-dark);
   border-radius: var(--radius-pebble);
-  background: var(--color-sunshine);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-sunshine);
+  background-blend-mode: soft-light;
   box-shadow: var(--shadow-ledge), var(--shadow-highlight);
 }
 .ni-nlp__shell {
@@ -271,7 +275,8 @@
   right: -10px;
   width: 22px;
   height: 22px;
-  border: 3px solid var(--color-ink);
+  /* A terracotta felt shell: a same-hue edge, no ink. */
+  border: 3px solid var(--color-coral-deep);
   border-radius: 50% 50% 50% 8px;
   background: var(--color-coral);
 }
