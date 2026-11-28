@@ -4,7 +4,7 @@
 
 const INK = 'var(--color-ink)';
 
-/** The post the beam rests on. */
+/** The post the beam rests on: wood felt in its own deep shade (4.36:1 on paper), as the beam. */
 export function StandArt() {
   return (
     <svg
@@ -20,8 +20,8 @@ export function StandArt() {
     >
       <path
         d="M20 2 37 37H3Z"
-        fill="var(--color-pebble)"
-        stroke={INK}
+        fill="var(--color-wood)"
+        stroke="var(--color-wood-deep)"
         strokeWidth="3"
         vectorEffect="non-scaling-stroke"
       />
