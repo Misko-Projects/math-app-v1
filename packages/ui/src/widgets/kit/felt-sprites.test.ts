@@ -89,7 +89,7 @@ describe('crab faces', () => {
   /** Everything but the face group and the per-render grain id. */
   const body = (svg: string) =>
     svg
-      .replace(/<g class="ni-felt-md" data-face="\d+">.*?<\/g><\/g><\/svg>$/, '')
+      .replace(/<g class="ni-felt-lg" data-face="\d+">.*?<\/g><\/g><\/svg>$/, '')
       .replace(/ni-grain[a-zA-Z0-9]+/g, 'G')
       .replace(/data-variant="\d+"/, '');
 
