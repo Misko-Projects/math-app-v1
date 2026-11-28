@@ -201,29 +201,56 @@ export function shapeBox(card: Pick<ShapeCard, 'shape' | 'scale' | 'rotationDeg'
  * tan 3.28 on paper). feltPictures.test.ts holds these numbers.
  */
 const CREAM_THREAD = 'color-mix(in srgb, var(--color-cloud) 75%, transparent)';
-const COLOR: Record<string, { fill: string; line: string; thread: string }> = {
-  red: { fill: 'var(--color-coral)', line: 'var(--color-coral)', thread: CREAM_THREAD },
-  blue: { fill: 'var(--color-sea)', line: 'var(--color-sea)', thread: CREAM_THREAD },
+type ShapePaint = { fill: string; line: string; thread: string; seam: string };
+/**
+ * `seam`: the edge of a piece that sits edge to edge with others (shape-compose), where the line
+ * between two pieces is the maths (how many pieces): the fill's own darker shade, never ink.
+ */
+const COLOR: Record<string, ShapePaint> = {
+  red: {
+    fill: 'var(--color-coral)',
+    line: 'var(--color-coral)',
+    thread: CREAM_THREAD,
+    seam: 'var(--color-coral-deep)',
+  },
+  blue: {
+    fill: 'var(--color-sea)',
+    line: 'var(--color-sea)',
+    thread: CREAM_THREAD,
+    seam: 'var(--color-sea-dark)',
+  },
   yellow: {
     fill: 'var(--color-sunshine)',
     line: 'color-mix(in srgb, var(--color-sunshine-deep) 60%, var(--color-wood-deep))',
     thread: 'var(--color-sunshine-light)',
+    seam: 'var(--color-sunshine-deep)',
   },
   green: {
     fill: 'var(--color-leaf)',
     line: 'color-mix(in srgb, var(--color-leaf-deep) 50%, var(--color-leaf))',
     thread: 'var(--color-leaf-light)',
+    seam: 'var(--color-leaf-dark)',
   },
   orange: {
     fill: 'var(--color-sun)',
     line: 'color-mix(in srgb, var(--color-sun-deep) 70%, var(--color-coral-deep))',
     thread: CREAM_THREAD,
+    seam: 'var(--color-sun-deep)',
   },
-  purple: { fill: 'var(--color-sea-deep)', line: 'var(--color-sea-deep)', thread: CREAM_THREAD },
-  tan: { fill: 'var(--color-sand-deep)', line: 'var(--felt-edge)', thread: 'var(--color-sand)' },
+  purple: {
+    fill: 'var(--color-sea-deep)',
+    line: 'var(--color-sea-deep)',
+    thread: CREAM_THREAD,
+    seam: 'var(--color-sea-dark)',
+  },
+  tan: {
+    fill: 'var(--color-sand-deep)',
+    line: 'var(--felt-edge)',
+    thread: 'var(--color-sand)',
+    seam: 'var(--color-wood-deep)',
+  },
 };
-export const shapeColor = (name: string) =>
-  COLOR[name] ?? (COLOR.tan as { fill: string; line: string; thread: string });
+export const shapeColor = (name: string): ShapePaint => COLOR[name] ?? (COLOR.tan as ShapePaint);
 
 /**
  * How the shapes of ONE screen are dressed: every shape the same, decided by the smallest, so the
