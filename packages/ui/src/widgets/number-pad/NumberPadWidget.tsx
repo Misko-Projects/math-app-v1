@@ -163,6 +163,20 @@ function smallestSprite(ask: HTMLElement, pieces = false): number {
   return px;
 }
 
+/**
+ * A scaled picture drawn from the natural size it has now (`Scaled` measures it after a change of
+ * content: until then its box is the old picture's at the new scale).
+ */
+function scaledSettled(el: HTMLElement): boolean {
+  const inner = el.firstElementChild as HTMLElement | null;
+  if (!inner || el.style.width === '') return false;
+  const s = Number.parseFloat(/scale\(([^)]+)\)/.exec(inner.style.transform)?.[1] ?? '1');
+  return (
+    Math.abs(Number.parseFloat(el.style.width) - inner.offsetWidth * s) < 1 &&
+    Math.abs(Number.parseFloat(el.style.height) - inner.offsetHeight * s) < 1
+  );
+}
+
 /** Base-ten pieces the child counts as pieces: no number in the sentence gives the count. */
 const piecesCounted = (config: Config) =>
   config.stimulus.kind === 'base-ten' &&
@@ -224,11 +238,19 @@ export function NumberPadWidget({
     final: boolean;
     w: number;
     h: number;
+    /** The soft misses judged in this room, `mode:px;…` (counted px). */
+    seen?: string;
+    /** Counted pieces: the action size the modes were judged with (`btnKey`). */
+    btn?: string;
   }>({ mode: 'fit', best: null, final: false, w: room.w, h: room.h });
-  const sameRoom = askTier.w === room.w && askTier.h === room.h;
+  const pieces = piecesCounted(config);
+  // Counted pieces are compared across modes, and the one-row pad's box is planned from the
+  // action's size, which only grows once a larger cue has been seen: a new size is a new room, so
+  // every mode is judged again with the size it will be drawn with.
+  const btnKey = pieces ? `${button.w}x${button.h}` : '';
+  const sameRoom = askTier.w === room.w && askTier.h === room.h && (askTier.btn ?? '') === btnKey;
   const mode: AskMode = sameRoom ? askTier.mode : 'fit';
   const legible = mode !== 'fit';
-  const pieces = piecesCounted(config);
   const rowed = (mode === 'row' || mode === 'beside') && rowPlan !== null;
   const beside = mode === 'beside' && rowed;
   const askBox = rowed && rowPlan ? rowPlan.ask : plan.ask;
@@ -307,6 +329,14 @@ export function NumberPadWidget({
       return;
     }
     const text = textRef.current;
+    // Counted pieces are compared across modes, so each mode is judged only as finally drawn: the
+    // picture scaled from its present size, and its box planned from the text's present size.
+    if (pieces) {
+      if ([...ask.querySelectorAll<HTMLElement>('.ni-scaled')].some((el) => !scaledSettled(el))) {
+        return;
+      }
+      if (text && (text.offsetWidth !== textSize.w || text.offsetHeight !== textSize.h)) return;
+    }
     const overW = text ? text.offsetWidth > textMaxW + 0.5 : false;
     if (overW && (textStep < maxSteps || (legible && expression && !brk))) return;
     const pictureBox = legible ? askBox : null;
@@ -322,7 +352,7 @@ export function NumberPadWidget({
             pieces,
           );
     if (miss === null) {
-      if (legible) setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h });
+      if (legible) setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h, btn: btnKey });
       return;
     }
     const order: AskMode[] = rowPlan ? ['fit', 'keep', 'row', 'beside'] : ['fit', 'keep'];
@@ -330,11 +360,20 @@ export function NumberPadWidget({
     // A miss only on a counted thing: the mode that draws it largest is kept for the end.
     const px = miss === 'soft' ? smallestSprite(ask, pieces) : 0;
     const nextBest = miss === 'soft' && (!best || px > best.px) ? { mode, px } : best;
+    const seen = `${(sameRoom && askTier.seen) || ''}${miss === 'soft' ? `${mode}:${px.toFixed(2)};` : ''}`;
     const next = order[order.indexOf(mode) + 1];
     setAskTier(
       next
-        ? { mode: next, best: nextBest, final: false, w: room.w, h: room.h }
-        : { mode: nextBest?.mode ?? 'fit', best: nextBest, final: true, w: room.w, h: room.h },
+        ? { mode: next, best: nextBest, final: false, w: room.w, h: room.h, seen, btn: btnKey }
+        : {
+            mode: nextBest?.mode ?? 'fit',
+            best: nextBest,
+            final: true,
+            w: room.w,
+            h: room.h,
+            seen,
+            btn: btnKey,
+          },
     );
   };
   // Judged once the layout has been still for two frames: a picture measures its own box after
@@ -634,6 +673,9 @@ export function NumberPadWidget({
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
       data-layout={plan.stacked && !rowed ? 'stack' : 'side'}
+      // Counted base-ten pieces: what each mode drew them at (counted px), so a check can hold
+      // the chosen one to the largest.
+      data-judged={pieces && askTier.final && sameRoom ? askTier.seen : undefined}
       data-check={rowed ? 'beside' : plan.check}
       data-pad={rowed ? 'row' : undefined}
       data-ask={mode}

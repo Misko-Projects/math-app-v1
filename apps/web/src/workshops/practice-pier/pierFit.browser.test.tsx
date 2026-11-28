@@ -388,6 +388,35 @@ function piecesCounted(item: GeneratedItem): boolean {
   );
 }
 
+/**
+ * Counted base-ten pieces on a number-pad screen are drawn in the layout that draws them largest:
+ * the pad publishes what each layout it judged drew them at (`data-judged`, counted px: a rod at
+ * 9 px wide and 6 px from the next counts as 22), and the drawn picture must be the best of them.
+ * Null when it is (or nothing was judged).
+ */
+function piecesBelowBest(stage: HTMLElement, item: GeneratedItem): string | null {
+  if (item.widget.format !== 'number-pad' || !piecesCounted(item)) return null;
+  const judged = stage.querySelector<HTMLElement>('[data-judged]')?.dataset.judged;
+  if (!judged) return null;
+  const best = Math.max(...judged.split(';').filter(Boolean).map((s) => Number(s.split(':')[1])));
+  const rods = [...stage.querySelectorAll<HTMLElement>('.ni-baseten__block--rod')]
+    .map((e) => e.getBoundingClientRect())
+    .filter((r) => r.width > 0.5);
+  let drawn = Number.POSITIVE_INFINITY;
+  rods.forEach((r, i) => {
+    drawn = Math.min(drawn, (r.width * LEGIBILITY_BARS.counted) / LEGIBILITY_BARS.rod);
+    const prev = rods[i - 1];
+    if (prev && Math.abs(prev.top - r.top) < 2) {
+      drawn = Math.min(
+        drawn,
+        ((r.left - prev.right) * LEGIBILITY_BARS.counted) / LEGIBILITY_BARS.rodGap,
+      );
+    }
+  });
+  if (!Number.isFinite(best) || !Number.isFinite(drawn) || drawn >= best - 0.5) return null;
+  return `base-ten pieces drawn at ${drawn.toFixed(1)} counted px, a judged layout drew them at ${best.toFixed(1)} (${judged})`;
+}
+
 interface LegibilityMiss {
   bar: LegibilityBar;
   px: number;
@@ -497,6 +526,8 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
       const stage = document.querySelector<HTMLElement>('[data-testid="pier-stage"]');
       if (!stage) return;
       const misses = legibilityMisses(stage, item);
+      const worse = piecesBelowBest(stage, item);
+      if (worse) underBars.push(`${templateId} seed ${seed}: ${worse}`);
       for (const m of misses) {
         const e = legibilityException(templateId, m.bar, viewport);
         if (!e?.seeds.includes(seed)) {
