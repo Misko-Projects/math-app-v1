@@ -57,4 +57,21 @@ describe('tightPlates', () => {
     // Object order and indexes are kept.
     expect(t.objects.map((o) => o.index)).toEqual(base.objects.map((o) => o.index));
   });
+
+  it('keeps a layout with distractors as it is (they stay off the plates)', () => {
+    const base = countLayout({
+      kind: 'objects',
+      set: {
+        count: 5,
+        sprite: 'shell',
+        layout: 'groups',
+        groups: [2, 3],
+        distractors: { count: 2, sprite: 'leaf' },
+        layoutSeed: 1,
+      },
+    });
+    if (!base) throw new Error('no layout');
+    expect(base.objects.some((o) => o.kind === 'distractor')).toBe(true);
+    expect(tightPlates(base)).toBe(base);
+  });
 });

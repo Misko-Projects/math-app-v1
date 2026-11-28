@@ -112,7 +112,8 @@ const STRIP_FRAME = { w: 520, h: 104, partsW: 500, partsH: 84 };
  */
 export function tightPlates(layout: ObjectLayout): ObjectLayout {
   const plates = (layout.frames ?? []).filter((f) => f.kind === 'plate');
-  if (plates.length === 0) return layout;
+  // Distractors sit in their own row under the plates: such a layout is kept as it is.
+  if (plates.length === 0 || layout.objects.some((o) => o.kind !== 'object')) return layout;
   const step = 1.05;
   const inset = 0.14;
   const gap = 0.35;
