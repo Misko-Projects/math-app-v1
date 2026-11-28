@@ -1396,7 +1396,7 @@ export function TapCountWidget({
             : { width: spriteSize, height: spriteSize }
         }
       >
-        <ObjectSprite sprite={o.sprite} tone={o.tone} />
+        <ObjectSprite sprite={o.sprite} tone={o.tone} variant={o.index} />
       </span>
     );
     const badge =

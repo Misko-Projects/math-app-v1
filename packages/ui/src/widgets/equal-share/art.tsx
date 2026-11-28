@@ -47,7 +47,6 @@ export function PebblingArt({ variant = 0 }: { variant?: number }) {
   const c = PEBBLING_TONES[variant % PEBBLING_TONES.length] ?? PEBBLING_TONES[0];
   return (
     <Svg viewBox="0 0 100 100">
-      <ellipse cx="50" cy="93" rx="32" ry="5" fill="rgb(38 70 83 / 0.18)" />
       {/* Feet. */}
       <ellipse cx="36" cy="88" rx="9" ry="5.5" fill={c.fill} stroke={c.line} strokeWidth="3" />
       <ellipse cx="64" cy="88" rx="9" ry="5.5" fill={c.fill} stroke={c.line} strokeWidth="3" />
@@ -98,7 +97,6 @@ export function PebblingArt({ variant = 0 }: { variant?: number }) {
 export function SeagullArt() {
   return (
     <Svg viewBox="0 0 100 116">
-      <ellipse cx="50" cy="111" rx="26" ry="4" fill="rgb(38 70 83 / 0.18)" />
       {/* The post, with a rope round it. */}
       <path
         d="M36 66h28v42c0 2-2 4-4 4H40c-2 0-4-2-4-4V66Z"

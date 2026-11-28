@@ -600,6 +600,10 @@ export const BehindConcrete: Story = {
     await expect(getComputedStyle(front).clipPath, 'the crate drawn whole over the fish').toBe(
       'none',
     );
+    // No grey oval under the concrete crate (Felt & Stitch: the lift, never a shadow shape).
+    for (const shadow of root.querySelectorAll('.ni-scomp__shadow')) {
+      await expect(getComputedStyle(shadow).display, 'no oval under a thing').toBe('none');
+    }
     const c = crate.getBoundingClientRect();
     const fr = front.getBoundingClientRect();
     for (const k of ['left', 'top', 'right', 'bottom'] as const) {
@@ -626,8 +630,10 @@ export const BehindConcrete: Story = {
     const fishBottom = inkBottom(item(root));
     const above = (rim - fishTop) / (fishBottom - fishTop);
     await expect(fishTop, 'the fish shows above the rim').toBeLessThan(rim);
-    await expect(above, 'fish above the rim').toBeGreaterThanOrEqual(0.35);
-    await expect(above, 'fish above the rim').toBeLessThanOrEqual(0.45);
+    // About half the fish peeks out. (The old 35–45 % band counted the grey oval under the old
+    // fish as part of it; its body showed 54 %. Felt sprites have no oval: Felt & Stitch slice 3.)
+    await expect(above, 'fish above the rim').toBeGreaterThanOrEqual(0.4);
+    await expect(above, 'fish above the rim').toBeLessThanOrEqual(0.65);
     // Below the rim the fish lies within the crate's box: all of it hidden by the crate.
     const f = (item(root).querySelector('svg') as SVGElement).getBoundingClientRect();
     await expect(f.left).toBeGreaterThanOrEqual(fr.left - 0.5);

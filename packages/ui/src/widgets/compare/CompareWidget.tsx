@@ -1314,7 +1314,7 @@ export function CompareWidget({
                     style={style}
                     aria-hidden="true"
                   >
-                    <ObjectSprite sprite={o.sprite} tone={o.tone} />
+                    <ObjectSprite sprite={o.sprite} tone={o.tone} variant={o.index} />
                   </span>
                 );
               }
@@ -1346,7 +1346,7 @@ export function CompareWidget({
                   disabled={!interactive}
                   onClick={() => tapObject(side, o.index, o.sprite)}
                 >
-                  <ObjectSprite sprite={o.sprite} tone={o.tone} />
+                  <ObjectSprite sprite={o.sprite} tone={o.tone} variant={o.index} />
                 </button>
               );
             }}

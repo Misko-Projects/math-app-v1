@@ -3,9 +3,9 @@ import type { ReactElement } from 'react';
 /**
  * Object sprites for the measurement and geometry lessons (U05): food and island things,
  * containers and tools, solid-shaped objects (GEO.07 sorts them by solid) and heavy or light
- * things (MEA.15/MEA.16). Same style as `sprites.tsx`: a 64 × 64 box, cozy flat vector, a 3 px
- * outline in the fill's darker shade with round joins, one soft highlight top-left and a contact
- * shadow. All original art, painted only with palette tokens.
+ * things (MEA.15/MEA.16). A 64 × 64 box, flat shapes in the felt palette, a 3 px outline in the
+ * fill's darker shade with round joins and one cream running stitch top-left; no shadow shape
+ * (the lift is kit.css's). All original art, painted only with palette tokens.
  *
  * Solids read by their faces: spheres get a shaded crescent, cylinders elliptical ends, cones a
  * curved base, cubes and prisms three faces in light, base and dark shades of one hue.
@@ -90,10 +90,16 @@ const tint = (tone: Tone, a: Pair, b: Pair = SEA_B) => {
   }
 };
 
-const SHADOW = <ellipse cx="32" cy="57" rx="20" ry="4.5" fill="rgb(38 70 83 / 0.18)" />;
-
+/** A cream running stitch (Felt & Stitch) where these drawings had a gloss line. */
 const HIGHLIGHT = (d: string) => (
-  <path d={d} stroke="#fff" strokeWidth="3.5" strokeLinecap="round" opacity="0.7" fill="none" />
+  <path
+    d={d}
+    stroke="var(--color-paper)"
+    strokeWidth="2"
+    strokeDasharray="3.4 2.8"
+    strokeLinecap="round"
+    fill="none"
+  />
 );
 
 /** Props for a filled shape outlined in its shade. */
@@ -296,7 +302,6 @@ const bun: MeasureDraw = (tone) => {
   const body = 'M7 46c0-14 11-25 25-25s25 11 25 25c0 4-3 7-8 7H15c-5 0-8-3-8-7Z';
   return (
     <>
-      {SHADOW}
       <path d={body} fill={c.fill} />
       <path d="M7 46c8 3 42 3 50 0 0 4-3 7-8 7H15c-5 0-8-3-8-7Z" fill={c.line} opacity="0.25" />
       <path d="M18 37l8-8M29 33l9-9M41 35l7-7" {...stroked(v('sunshine-light'), 3)} />
@@ -310,7 +315,6 @@ const orange: MeasureDraw = (tone) => {
   const c = tint(tone, SUN);
   return (
     <>
-      {SHADOW}
       <circle cx="32" cy="33" r="21" fill={c.fill} />
       <path d={SPHERE_SHADE} fill={c.line} opacity="0.3" />
       <g fill={c.line} opacity="0.45">
@@ -336,7 +340,6 @@ const bucket: MeasureDraw = (tone) => {
   const c = tint(tone, SUNSHINE);
   return (
     <>
-      {SHADOW}
       <path d="M14 22C14 3 50 3 50 22" {...stroked(v('ink-soft'), 3)} />
       <path d="M12 24h40l-5 29H17Z" {...painted(c)} />
       <path d="M42 24H52L47 53H39Z" fill={c.line} opacity="0.2" />
@@ -353,7 +356,6 @@ const barrel: MeasureDraw = (tone) => {
   const body = 'M15 9C10 24 10 39 15 53c3 2 31 2 34 0 5-14 5-29 0-44Z';
   return (
     <>
-      {SHADOW}
       <path d={body} fill={c.fill} />
       <path
         d="M41 10C44 25 44 39 41 54c3 0 6-.3 8-1 5-14 5-29 0-44Z"
@@ -381,7 +383,6 @@ const tub: MeasureDraw = (tone) => {
   // A wide wash tub: two side handles, ribbed sides and water inside.
   return (
     <>
-      {SHADOW}
       <path d="M9 27c-5 0-5 8 0 8M55 27c5 0 5 8 0 8" {...stroked(c.line, 3)} />
       <path d="M7 22L13 49C15 54 49 54 51 49L57 22Z" {...painted(c)} />
       <path d="M44 22H57L51 49C50 51 48 52 45 52.5Z" fill={c.line} opacity="0.2" />
@@ -405,7 +406,6 @@ const jug: MeasureDraw = (tone) => {
   const c = tint(tone, CORAL);
   return (
     <>
-      {SHADOW}
       {tube('M40 14c10-1 15 7 12 16', c, 4.5)}
       <path d="M25 9l-8-3c0 5 3 8 8 9Z" {...painted(c)} />
       <path
@@ -423,7 +423,6 @@ const sack: MeasureDraw = (tone) => {
   const c = tint(tone, CARD);
   return (
     <>
-      {SHADOW}
       <path d="M23 26L19 10c4 2 8-1 13 1 5-2 9 1 13-1l-4 16Z" {...painted(c)} />
       <path
         d="M21 25C10 29 6 38 6 46c0 5 4 8 10 8h32c6 0 10-3 10-8 0-8-4-17-15-21Z"
@@ -451,7 +450,6 @@ const pallet: MeasureDraw = (tone) => {
   // A low flat pallet: slatted deck, three blocks, a bottom board; the right end in shade.
   return (
     <>
-      {SHADOW}
       <path d="M16 40H26V48H16ZM34 40H44V48H34Z" fill={c.line} opacity="0.45" />
       {face('M8 48H52V53H8Z', c)}
       {face('M8 40H16V48H8Z', c)}
@@ -471,8 +469,7 @@ const lantern: MeasureDraw = (tone) => {
   const c = tint(tone, CORAL);
   return (
     <>
-      {SHADOW}
-      <circle cx="32" cy="32" r="19" fill={v('sunshine-light')} opacity="0.45" />
+      <circle cx="32" cy="32" r="20.5" fill={v('sunshine-light')} opacity="0.45" />
       <circle cx="32" cy="8" r="4.5" {...stroked(c.line, 3)} />
       <path d="M17 21H47L40 12H24Z" {...painted(c)} />
       <rect
@@ -498,7 +495,6 @@ const book: MeasureDraw = (tone) => {
   // A closed book lying flat: cover on top, boards and page block on the front and side.
   return (
     <>
-      {SHADOW}
       {face('M6 36H48V50H6Z', c)}
       <path d="M7.5 38.5H48V47H7.5Z" fill={v('paper')} stroke={c.line} strokeWidth="2" />
       <path d="M10 41h36M10 44h36" {...stroked(v('sand-deep'), 1.5)} />
@@ -524,7 +520,6 @@ const box: MeasureDraw = (tone) => {
   // A closed cardboard box: front, side and taped top, a rectangular prism.
   return (
     <>
-      {SHADOW}
       {face('M6 28H44V54H6Z', c)}
       {face('M44 28L58 16V42L44 54Z', c, -0.28)}
       {face('M6 28L20 16H58L44 28Z', c, 0.3)}
@@ -540,7 +535,6 @@ const tent: MeasureDraw = (tone) => {
   // A pyramid tent: square base, two triangular faces meeting at the pole, a half-open door.
   return (
     <>
-      {SHADOW}
       <path d="M31 7V2.5" {...stroked(v('ink-soft'), 2.5)} />
       <path d="M31 2.5l7 2.5-7 2.5Z" {...painted(CORAL, 1.5)} />
       {face('M31 7L36 54L58 45Z', c, -0.3)}
@@ -565,7 +559,6 @@ const roofTop: MeasureDraw = (tone) => {
   // A pyramid roof cap: two tiled triangular faces to a point, an eave board and a finial.
   return (
     <>
-      {SHADOW}
       {face('M6 44L34 51V55L6 48Z', WOOD)}
       {face('M34 51L58 42V46L34 55Z', WOOD, -0.3)}
       {face('M32 8L34 51L58 42Z', c, -0.3)}
@@ -583,7 +576,6 @@ const can: MeasureDraw = (tone) => {
   // A tin can (cylinder): elliptical lid, curved base, a label band wrapping round it.
   return (
     <>
-      {SHADOW}
       <path d="M12 14V48A20 6 0 0 0 52 48V14Z" {...painted(PEBBLE)} />
       <path d="M12 20A20 6 0 0 0 52 20V42A20 6 0 0 1 12 42Z" {...painted(label, 2.5)} />
       <path d="M12 31A20 6 0 0 0 52 31" {...stroked(v('cloud'), 2.5, 0.7)} />
@@ -600,7 +592,6 @@ const drum: MeasureDraw = (tone) => {
   // A drum (cylinder): white drumhead on top, hoops at both ends, zigzag cords between.
   return (
     <>
-      {SHADOW}
       <path d="M8 18V44A24 8 0 0 0 56 44V18Z" {...painted(c)} />
       <path d="M44 18H56V44A24 8 0 0 1 44 50.9Z" fill={c.line} opacity="0.22" />
       <path d="M10 26L17 46L24 27.5L32 48.5L40 27.5L47 46L54 26" {...stroked(v('cloud'), 2.2)} />
@@ -617,7 +608,6 @@ const partyHat: MeasureDraw = (tone) => {
   // A cone: straight sides to a point, a curved round base.
   return (
     <>
-      {SHADOW}
       <path d="M32 7L13 47A19 5 0 0 0 51 47Z" fill={c.fill} />
       <path d="M32 7L51 47A19 5 0 0 1 41 51.4Z" fill={c.line} opacity="0.25" />
       <g fill={v('coral')}>
@@ -640,7 +630,6 @@ const iceCream: MeasureDraw = (tone) => {
   // A wafer cone (pointed, round top) holding a scoop with a drippy edge.
   return (
     <>
-      {SHADOW}
       <path d="M15 30L32 56L49 30Z" fill={wafer.fill} />
       <path d="M32 30H49L32 56Z" fill={wafer.line} opacity="0.2" />
       <path
@@ -664,7 +653,6 @@ const dice: MeasureDraw = (tone) => {
   // A die as a cube: three faces showing 1, 5 and 3.
   return (
     <>
-      {SHADOW}
       {face(cube.left, c, -0.08)}
       {face(cube.right, c, -0.22)}
       {face(cube.top, c, 0.15)}
@@ -682,7 +670,6 @@ const block: MeasureDraw = (tone) => {
   // A toy building block (cube) with raised panels, a star and a heart.
   return (
     <>
-      {SHADOW}
       {face(cube.left, c)}
       {face(cube.right, c, -0.28)}
       {face(cube.top, c, 0.3)}
@@ -701,7 +688,6 @@ const ball: MeasureDraw = (tone) => {
   // A beach ball (sphere): coloured panels from pole to pole and a shaded crescent.
   return (
     <>
-      {SHADOW}
       <circle cx="32" cy="33" r="21" fill={v('cloud')} />
       <path d="M32 12A21 21 0 0 0 32 54C18 44 18 22 32 12Z" fill={c.fill} />
       <path d="M32 12A21 21 0 0 1 32 54C46 44 46 22 32 12Z" fill={v('sunshine')} />
@@ -723,7 +709,6 @@ const vine: MeasureDraw = (tone) => {
   const stem = pair('leaf-deep', 'leaf-dark');
   return (
     <>
-      {SHADOW}
       {tube(VINE_D, stem, 3)}
       <path d="M58 30c3-3 2-8-2-8s-4 5-1 5" {...stroked(v('leaf-dark'), 2)} />
       <path d="M22 34c-3-3-1-7 2-6" {...stroked(v('leaf-dark'), 2)} />
@@ -747,7 +732,6 @@ const pencil: MeasureDraw = (tone) => {
   // A pencil lying across the box: painted body, bare wood cone, dark tip, pink eraser.
   return (
     <>
-      {SHADOW}
       <g transform="rotate(-20 32 34)">
         <path d="M14 29H44V39H14Z" {...painted(c)} />
         <path d="M14 34H44" {...stroked(c.line, 1.5, 0.5)} />
@@ -766,7 +750,6 @@ const shoe: MeasureDraw = (tone) => {
   // A sneaker side on: toe to the right, laces on top, a pale sole.
   return (
     <>
-      {SHADOW}
       <path
         d="M8 47V26A4 4 0 0 1 12 22H22A4 4 0 0 1 26 26V30C34 31 42 34 50 38A8 8 0 0 1 56 45V47Z"
         {...painted(c)}
@@ -783,7 +766,6 @@ const door: MeasureDraw = (tone) => {
   // A front door, tall and narrow, standing on the ground: two panels and a round knob.
   return (
     <>
-      {SHADOW}
       <path d="M17 4H47V56H17Z" {...painted(c)} />
       <path d="M22 9H42V27H22Z" {...stroked(c.line, 2.5, 0.6)} />
       <path d="M22 32H42V51H22Z" {...stroked(c.line, 2.5, 0.6)} />
@@ -798,7 +780,6 @@ const table: MeasureDraw = (tone) => {
   // A kitchen table: a wide top on four legs (two seen), standing on the ground.
   return (
     <>
-      {SHADOW}
       <path d="M12 26V55M52 26V55" {...stroked(c.line, 5)} />
       <path d="M12 26V55M52 26V55" {...stroked(c.fill, 2)} />
       <path d="M4 20H60V27H4Z" {...painted(c)} />

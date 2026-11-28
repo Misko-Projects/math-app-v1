@@ -226,15 +226,15 @@
   background: rgb(38 70 83 / 0.1);
 }
 /*
- * A counter in the small frame fills its cell: the sprite's disc is 42 of its 64 units (its 3-unit
- * outline goes round that), so the sprite is drawn 64/42 of the cell and centred on it: a 40 px
- * cell shows a counter 40 px across, its outline in the gap.
+ * A counter in the small frame fills its cell: the felt counter's disc is 47 of its 64 units
+ * (felt-sprites.tsx), so the sprite is drawn 64/47 of the cell and centred on it: a 40 px cell
+ * shows a counter 40 px across, and the gap between cells stays clear.
  */
 .ni-tf__mini-cell > .ni-sprite {
   position: absolute;
-  inset: calc(var(--tf-mini) * -11 / 42);
-  width: calc(var(--tf-mini) * 64 / 42);
-  height: calc(var(--tf-mini) * 64 / 42);
+  inset: calc(var(--tf-mini) * -8.5 / 47);
+  width: calc(var(--tf-mini) * 64 / 47);
+  height: calc(var(--tf-mini) * 64 / 47);
 }
 /* A full ten-frame as a token is a ten: its "10" tag beside the cells (numeral ≥ 32 px). */
 .ni-tf__mini[data-ten="true"] {

@@ -98,7 +98,7 @@ export function ObjectSetView({
             data-group={o.group}
             data-marked={o.marked ? 'true' : undefined}
           >
-            <ObjectSprite sprite={o.sprite} tone={o.tone} />
+            <ObjectSprite sprite={o.sprite} tone={o.tone} variant={o.index} />
           </span>
         );
       })}

@@ -1605,10 +1605,12 @@ export const Jar: Story = {
     await expectTargetGaps(heap(root));
     await expectTargetGaps(inside(root));
     await expectEvenHeap(pileArea(root));
-    // Every firefly's outline reaches 3:1 against the sand heap (06 §7: icons ≥ 3:1).
-    const body = heap(root)[0]?.querySelector('ellipse:nth-of-type(4)') as SVGElement;
+    // Every firefly's silhouette reaches 3:1 against the sand heap (06 §7: icons ≥ 3:1): its felt
+    // body (the last piece) holds it by its colour.
+    const pieces = heap(root)[0]?.querySelectorAll('[data-felt-piece] > path:first-child') ?? [];
+    const body = pieces[pieces.length - 1] as SVGElement;
     const sand = getComputedStyle(pileArea(root)).backgroundColor;
-    await expect(contrast(getComputedStyle(body).stroke, sand)).toBeGreaterThanOrEqual(3);
+    await expect(contrast(getComputedStyle(body).fill, sand)).toBeGreaterThanOrEqual(3);
   },
 };
 

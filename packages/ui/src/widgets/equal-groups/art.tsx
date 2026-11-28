@@ -19,7 +19,6 @@ interface Box {
   chrome?: ChromeEdges;
 }
 
-const SHADOW = 'rgb(38 70 83 / 0.16)';
 const HIGHLIGHT = 'rgb(255 255 255 / 0.55)';
 
 /** The light floor the contents sit on: inside the rim, CHROME minus an 8 px margin. */
@@ -114,7 +113,6 @@ function Basket({ w, h, chrome }: Box) {
   const weaveRows = Math.max(2, Math.floor((bottom - bodyTop) / 16));
   return (
     <>
-      <ellipse cx={w / 2} cy={h - 5} rx={w / 2 - 14} ry={5} fill={SHADOW} />
       <path
         d={`M${w * 0.22} ${bodyTop + 2}C${w * 0.24} 2 ${w * 0.76} 2 ${w * 0.78} ${bodyTop + 2}`}
         stroke="var(--color-wood-deep)"
@@ -186,7 +184,6 @@ function Plate({ w, h, chrome }: Box) {
   const r = Math.min(h, w) / 2.4;
   return (
     <>
-      <rect x={10} y={h - 18} width={w - 20} height={12} rx={6} fill={SHADOW} />
       <rect
         x={4}
         y={4}
@@ -240,7 +237,6 @@ function Nest({ w, h, chrome }: Box) {
   const twigs = Math.max(14, Math.round((w + h) / 14));
   return (
     <>
-      <ellipse cx={cx} cy={h - 6} rx={w / 2 - 12} ry={5} fill={SHADOW} />
       <ellipse
         cx={cx}
         cy={cy}
@@ -420,7 +416,6 @@ export function BucketArt() {
       aria-hidden="true"
       focusable="false"
     >
-      <ellipse cx="60" cy="94" rx="40" ry="5" fill={SHADOW} />
       <path
         d="M22 34C22 6 98 6 98 34"
         stroke="var(--color-ink-soft)"

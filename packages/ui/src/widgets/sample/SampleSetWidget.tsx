@@ -47,7 +47,6 @@ interface Flight {
 function Pebble({ tone }: { tone: (typeof PEBBLE_TONES)[number] }) {
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true" focusable="false">
-      <ellipse cx="32" cy="54" rx="20" ry="5" fill="rgb(38 70 83 / 0.18)" />
       <path
         d="M10 34c0-12 9.5-22 23-22 12 0 21 8 21 20 0 11-9 19-22 19S10 45 10 34Z"
         className={`ni-pebble ni-pebble--${tone}`}

@@ -97,8 +97,58 @@
   border-radius: 50%;
   background: var(--color-horizon);
 }
+/*
+ * Felt sprites (felt-sprites.tsx). The lift is a drop-shadow on the drawing (`.ni-felt-lift`), in
+ * the sprite's own units (64 a side), so it grows with the sprite: about 3 px down at 80 px, as
+ * the mockup's crabs, and a hair at 20 px. Never a shape under the sprite.
+ * Detail by the sprite's own drawn width: the svg is the query container (its size never depends
+ * on what it draws). Without container queries the base rules hold at every size: the silhouette
+ * tier with its edge, a whole sprite, not a half-styled one.
+ */
 .ni-sprite {
   display: block;
+  container-type: inline-size;
+}
+.ni-sprite .ni-felt-lift {
+  filter: drop-shadow(1px 2.8px 2.2px rgb(74 42 18 / 0.4));
+}
+.ni-sprite .ni-felt-md,
+.ni-sprite .ni-felt-lg {
+  display: none;
+}
+.ni-sprite .ni-felt-edge {
+  stroke-width: 3px;
+}
+@container (min-width: 32px) {
+  .ni-sprite .ni-felt-md {
+    display: inline;
+  }
+}
+@container (min-width: 48px) {
+  .ni-sprite .ni-felt-lg {
+    display: inline;
+  }
+  .ni-sprite .ni-felt-sm {
+    display: none;
+  }
+  /* A felt colour that holds 3:1 alone has no edge; one that cannot keeps a thin one. */
+  .ni-sprite .ni-felt-edge {
+    stroke-width: 0;
+  }
+  .ni-sprite .ni-felt-edge--keep {
+    stroke-width: 1.6px;
+  }
+}
+/* The fallback, forced (the "no container queries" story and test). */
+.ni-felt-nocq .ni-sprite .ni-felt-md,
+.ni-felt-nocq .ni-sprite .ni-felt-lg {
+  display: none;
+}
+.ni-felt-nocq .ni-sprite .ni-felt-sm:not(.ni-felt-md) {
+  display: inline;
+}
+.ni-felt-nocq .ni-sprite .ni-felt-edge {
+  stroke-width: 3px;
 }
 /* The one object a question singles out (ordinals): an ink ring, not only its tone (06 §7). */
 .ni-objects__item[data-marked="true"]::before {

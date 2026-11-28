@@ -55,7 +55,6 @@ export function ShapeArt({ kind, color }: { kind: string; color?: string }) {
       data-shape={kind}
       data-color={color}
     >
-      <ellipse cx="32" cy="60" rx="20" ry="3" fill="rgb(38 70 83 / 0.16)" />
       {draw?.({ fill: `var(--color-${c.fill})`, stroke: `var(--color-${c.line})` })}
     </svg>
   );
