@@ -419,6 +419,7 @@ export function ChartView({
                 key={k}
                 className="ni-chart__symbol"
                 data-part={b.part < 1 ? b.part : undefined}
+                data-bare={b.bare ? 'true' : undefined}
                 data-counted={counted?.id === s.id && k < counted.n ? 'true' : undefined}
                 style={{ ...at(b), width: b.w * b.part }}
               >

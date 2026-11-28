@@ -7,6 +7,7 @@ import {
   labelStride,
   MARK_MIN_PX,
   NUMERAL_PX,
+  SYMBOL_FRAME_PX,
   tallyLength,
   tallyStrokes,
 } from './chartLayout';
@@ -178,6 +179,39 @@ describe('picture graphs: exactly value / scale symbols', () => {
     for (let k = 0; k < 2; k += 1) {
       expect(new Set(xs.map((row) => row[k])).size).toBe(1);
     }
+  });
+
+  // The counted bar (05 §11): a sprite ≥ 22 px. A framed symbol's sprite is 6 px less than its box.
+  it.each([440, 470, 520, 600])(
+    'a narrow row (%i px) keeps its sprites ≥ 22 px: one bare row if it can, else rows of five',
+    (width) => {
+      const g = chartGeometry(
+        chart({ kind: 'picture', orientation: 'horizontal', categories: cats(5, 10, 1) }),
+        { width, height: 290, nameWidth: 120 },
+      );
+      for (const s of g.slots) {
+        const boxes = s.symbols ?? [];
+        expect(boxes).toHaveLength(s.value);
+        for (const b of boxes) {
+          const sprite = b.bare ? b.w : b.w - SYMBOL_FRAME_PX;
+          expect(sprite).toBeGreaterThanOrEqual(21.5);
+          expect(b.x + b.w).toBeLessThanOrEqual(g.plot.x + g.plot.w + 0.5);
+        }
+      }
+      // Every row is drawn the same way (all bare, or all in rows of five).
+      const bare = g.slots.flatMap((s) => (s.symbols ?? []).map((b) => b.bare === true));
+      expect(new Set(bare).size).toBeLessThanOrEqual(1);
+    },
+  );
+
+  it('a row with room keeps its framed symbols in one line, as before', () => {
+    const g = chartGeometry(
+      chart({ kind: 'picture', orientation: 'horizontal', categories: cats(5, 10, 1) }),
+      { width: 900, height: 320 },
+    );
+    const row = g.slots[1]?.symbols ?? [];
+    expect(row.every((b) => !b.bare && b.y === row[0]?.y)).toBe(true);
+    expect((row[0]?.w ?? 0) - SYMBOL_FRAME_PX).toBeGreaterThanOrEqual(22);
   });
 });
 

@@ -33,7 +33,14 @@ export type Segment = [x1: number, y1: number, x2: number, y2: number];
 export interface SymbolBox extends Box {
   /** 1 for a whole symbol; less for the part of one (drawn as its left part). */
   part: number;
+  /** Drawn with no frame round it (the sprite fills the box): a row tight to the counted bar. */
+  bare?: boolean;
 }
+
+/** A picture-graph symbol's frame: its 2 px border and 3 px padding, so the sprite is 6 px less. */
+export const SYMBOL_FRAME_PX = 6;
+/** The counted bar (05 §11): a picture-graph sprite ≥ 22 px each way. */
+const COUNTED_PX = 22;
 
 export interface SlotGeometry extends ChartSlot {
   index: number;
@@ -352,10 +359,35 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const barTop = chart.kind === 'bar' ? axis.top : top;
     const unit = plot.w / barTop;
     const toPos = (v: number) => plot.x + v * unit;
-    const sym = Math.max(
+    let sym = Math.max(
       MARK_MIN_PX,
       Math.min(rowH - 14, 64, (plot.w - (symCols - 1) * sgap) / symCols),
     );
+    // A picture graph is read by the length of each row. Where its framed symbols would draw the
+    // sprite under the counted bar: one row of bare symbols 3 px apart if that holds the bar, else
+    // every row in rows of five (framed), when that draws them larger.
+    let symGap = sgap;
+    let perLine = symCols;
+    let bare = false;
+    if (chart.kind === 'picture' && sym - SYMBOL_FRAME_PX < COUNTED_PX - 0.5) {
+      const tight = Math.min(rowH - 14, 64, (plot.w - (symCols - 1) * 3) / symCols);
+      const fiveLines = Math.ceil(symCols / 5);
+      const fives = Math.min(
+        (rowH - 14 - (fiveLines - 1) * sgap) / fiveLines,
+        64,
+        (plot.w - 4 * sgap) / 5,
+      );
+      if (tight >= COUNTED_PX) {
+        sym = tight;
+        symGap = 3;
+        bare = true;
+      } else if (symCols > 5 && fives > sym) {
+        sym = fives;
+        perLine = 5;
+      }
+    }
+    const lines = Math.ceil(symCols / perLine);
+    const linesH = lines * sym + (lines - 1) * symGap;
     const groupsMax = Math.max(1, Math.ceil(top / 5));
     const strokeFit = (plot.w - 12) / (0.32 * (4 * groupsMax + 1.7 * (groupsMax - 1) + 1));
     const stroke = Math.min(rowH * 0.64, 56, strokeFit);
@@ -376,11 +408,12 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
         case 'picture': {
           const { whole, part } = symbolParts(v, scale);
           const boxes: SymbolBox[] = Array.from({ length: whole + (part > 0 ? 1 : 0) }, (_, k) => ({
-            x: plot.x + k * (sym + sgap),
-            y: y + (rowH - sym) / 2,
+            x: plot.x + (k % perLine) * (sym + symGap),
+            y: y + (rowH - linesH) / 2 + Math.floor(k / perLine) * (sym + symGap),
             w: sym,
             h: sym,
             part: k < whole ? 1 : part,
+            ...(bare ? { bare } : {}),
           }));
           return { ...base, symbols: boxes };
         }
