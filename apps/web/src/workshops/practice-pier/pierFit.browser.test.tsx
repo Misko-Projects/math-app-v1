@@ -398,7 +398,12 @@ function piecesBelowBest(stage: HTMLElement, item: GeneratedItem): string | null
   if (item.widget.format !== 'number-pad' || !piecesCounted(item)) return null;
   const judged = stage.querySelector<HTMLElement>('[data-judged]')?.dataset.judged;
   if (!judged) return null;
-  const best = Math.max(...judged.split(';').filter(Boolean).map((s) => Number(s.split(':')[1])));
+  const best = Math.max(
+    ...judged
+      .split(';')
+      .filter(Boolean)
+      .map((s) => Number(s.split(':')[1])),
+  );
   const rods = [...stage.querySelectorAll<HTMLElement>('.ni-baseten__block--rod')]
     .map((e) => e.getBoundingClientRect())
     .filter((r) => r.width > 0.5);

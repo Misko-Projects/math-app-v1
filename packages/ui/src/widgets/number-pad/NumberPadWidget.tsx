@@ -240,15 +240,23 @@ export function NumberPadWidget({
     h: number;
     /** The soft misses judged in this room, `mode:px;…` (counted px). */
     seen?: string;
-    /** Counted pieces: the action size the modes were judged with (`btnKey`). */
-    btn?: string;
+    /** Counted pieces: the largest action size the modes were judged with (`judgedBtn`). */
+    btn?: { w: number; h: number };
   }>({ mode: 'fit', best: null, final: false, w: room.w, h: room.h });
   const pieces = piecesCounted(config);
   // Counted pieces are compared across modes, and the one-row pad's box is planned from the
   // action's size, which only grows once a larger cue has been seen: a new size is a new room, so
   // every mode is judged again with the size it will be drawn with.
-  const btnKey = pieces ? `${button.w}x${button.h}` : '';
-  const sameRoom = askTier.w === room.w && askTier.h === room.h && (askTier.btn ?? '') === btnKey;
+  const fitsJudged = (b?: { w: number; h: number }) =>
+    !pieces || (b !== undefined && button.w <= b.w && button.h <= b.h);
+  const sameRoom = askTier.w === room.w && askTier.h === room.h && fitsJudged(askTier.btn);
+  // The size to keep with a judgement: never smaller than one already judged in this room.
+  const judgedBtn = pieces
+    ? {
+        w: Math.max(button.w, sameRoom ? (askTier.btn?.w ?? 0) : 0),
+        h: Math.max(button.h, sameRoom ? (askTier.btn?.h ?? 0) : 0),
+      }
+    : undefined;
   const mode: AskMode = sameRoom ? askTier.mode : 'fit';
   const legible = mode !== 'fit';
   const rowed = (mode === 'row' || mode === 'beside') && rowPlan !== null;
@@ -352,7 +360,8 @@ export function NumberPadWidget({
             pieces,
           );
     if (miss === null) {
-      if (legible) setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h, btn: btnKey });
+      if (legible)
+        setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h, btn: judgedBtn });
       return;
     }
     const order: AskMode[] = rowPlan ? ['fit', 'keep', 'row', 'beside'] : ['fit', 'keep'];
@@ -364,7 +373,7 @@ export function NumberPadWidget({
     const next = order[order.indexOf(mode) + 1];
     setAskTier(
       next
-        ? { mode: next, best: nextBest, final: false, w: room.w, h: room.h, seen, btn: btnKey }
+        ? { mode: next, best: nextBest, final: false, w: room.w, h: room.h, seen, btn: judgedBtn }
         : {
             mode: nextBest?.mode ?? 'fit',
             best: nextBest,
@@ -372,7 +381,7 @@ export function NumberPadWidget({
             w: room.w,
             h: room.h,
             seen,
-            btn: btnKey,
+            btn: judgedBtn,
           },
     );
   };
