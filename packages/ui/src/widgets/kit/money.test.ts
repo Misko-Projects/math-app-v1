@@ -29,7 +29,8 @@ function mixHex(a: PaletteColor, pct: number, b: PaletteColor, l: Lighting): str
 /** A money pair's ratio in the felt palette the money art is drawn in (slice 4b). */
 function feltRatio(p: (typeof COIN_CONTRAST_PAIRS)[number], l: Lighting): number {
   const fg = typeof p.fg === 'string' ? litColor(p.fg, l) : mixHex(p.fg.a, p.fg.pct, p.fg.b, l);
-  return contrastRatio(fg, litColor(p.bg, l));
+  const bg = typeof p.bg === 'string' ? litColor(p.bg, l) : mixHex(p.bg.a, p.bg.pct, p.bg.b, l);
+  return contrastRatio(fg, bg);
 }
 
 describe('coin art (U05 #14)', () => {

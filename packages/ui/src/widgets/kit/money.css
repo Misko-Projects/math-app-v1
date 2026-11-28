@@ -14,11 +14,12 @@
   flex: none;
   overflow: visible;
 }
-/* Felt & Stitch (slice 4b): a coin's disc and a bill's note lift a little (art units); the face
-   picture and the reeding are not lifted, so no mark gets a second edge. */
+/* Felt & Stitch (slice 4b): a coin's disc and a bill's note take the sprites' small felt lift
+   (art units, on the disc's group only); the face picture and the reeding are not lifted, so no
+   mark gets a second edge. */
 .ni-coin-art__disc,
 .ni-bill-art__note {
-  filter: drop-shadow(0.8px 1.6px 1.4px rgb(74 42 18 / 0.34));
+  filter: drop-shadow(1px 2.8px 2.2px rgb(74 42 18 / 0.4));
 }
 
 /* ---------- the money board (kit/MoneyBoard.tsx): purse above, tray below ---------- */

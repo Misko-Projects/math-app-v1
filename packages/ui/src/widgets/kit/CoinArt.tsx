@@ -45,7 +45,8 @@ const VALUE_OF: Readonly<Record<CoinKind, 1 | 5 | 10 | 25>> = {
 };
 
 interface CoinPaint {
-  face: PaletteColor;
+  /** The felt body (a CSS colour). */
+  face: string;
   /** The thin same-hue edge (a CSS colour): only as dark as 3:1 on paper and sand needs. */
   edge: string;
   mark: PaletteColor;
@@ -57,6 +58,13 @@ interface CoinPaint {
  */
 export const SILVER_EDGE_MIX = { a: 'pebble-deep', pct: 60, b: 'ink-soft' } as const;
 const SILVER_EDGE = `color-mix(in srgb, var(--color-${SILVER_EDGE_MIX.a}) ${SILVER_EDGE_MIX.pct}%, var(--color-${SILVER_EDGE_MIX.b}))`;
+/**
+ * The silver felt body: pebble a step deeper (towards pebble-deep), so a silver coin separates
+ * from the cream coin mat; still much lighter than the copper (1.63:1), and its ink-soft face
+ * picture holds 5.40:1 (evidence review).
+ */
+export const SILVER_FACE_MIX = { a: 'pebble', pct: 80, b: 'pebble-deep' } as const;
+const SILVER_FACE = `color-mix(in srgb, var(--color-${SILVER_FACE_MIX.a}) ${SILVER_FACE_MIX.pct}%, var(--color-${SILVER_FACE_MIX.b}))`;
 
 /**
  * Face, edge and mark colours in felt (contrast rows in `COIN_CONTRAST_PAIRS`): copper is wood
@@ -64,10 +72,10 @@ const SILVER_EDGE = `color-mix(in srgb, var(--color-${SILVER_EDGE_MIX.a}) ${SILV
  * lightness, not only in hue. Face pictures and reeding are plain ink-soft thread.
  */
 export const COIN_PAINT: Readonly<Record<CoinKind, CoinPaint>> = {
-  penny: { face: 'wood', edge: 'var(--color-wood-deep)', mark: 'ink-soft' },
-  nickel: { face: 'pebble', edge: SILVER_EDGE, mark: 'ink-soft' },
-  dime: { face: 'pebble', edge: SILVER_EDGE, mark: 'ink-soft' },
-  quarter: { face: 'pebble', edge: SILVER_EDGE, mark: 'ink-soft' },
+  penny: { face: 'var(--color-wood)', edge: 'var(--color-wood-deep)', mark: 'ink-soft' },
+  nickel: { face: SILVER_FACE, edge: SILVER_EDGE, mark: 'ink-soft' },
+  dime: { face: SILVER_FACE, edge: SILVER_EDGE, mark: 'ink-soft' },
+  quarter: { face: SILVER_FACE, edge: SILVER_EDGE, mark: 'ink-soft' },
 };
 
 /**
@@ -163,13 +171,9 @@ export function CoinArt({ kind, quarterPx, className }: CoinArtProps) {
       data-detail={detailed ? 'rim' : 'face'}
     >
       {/* A felt disc with its thin same-hue edge, lifted a little (no grey ground shadow, no gloss). */}
-      <circle
-        className="ni-coin-art__disc"
-        r={r}
-        fill={paint(p.face)}
-        stroke={p.edge}
-        strokeWidth={2}
-      />
+      <g className="ni-coin-art__disc">
+        <circle r={r} fill={p.face} stroke={p.edge} strokeWidth={2} />
+      </g>
       {detailed ? (
         ridges ? (
           <path d={ridges} stroke={paint(p.mark)} strokeWidth={1.7} strokeLinecap="round" />
@@ -359,7 +363,7 @@ export const COIN_CONTRAST_PAIRS = [
   {
     use: 'Silver coin picture and reeding (ink-soft on silver)',
     fg: 'ink-soft',
-    bg: 'pebble',
+    bg: SILVER_FACE_MIX,
     min: 3,
   },
   { use: 'Penny edge on the paper board', fg: 'wood-deep', bg: 'paper', min: 3 },
@@ -372,6 +376,6 @@ export const COIN_CONTRAST_PAIRS = [
 ] as const satisfies readonly {
   use: string;
   fg: PaletteColor | typeof SILVER_EDGE_MIX;
-  bg: PaletteColor;
+  bg: PaletteColor | typeof SILVER_FACE_MIX;
   min: 3 | 4.5;
 }[];
