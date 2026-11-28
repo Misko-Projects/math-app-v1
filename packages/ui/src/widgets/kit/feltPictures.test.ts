@@ -68,6 +68,7 @@ describe('Felt & Stitch widget pictures (slice 4a): the shipped styles draw thes
     expect(rule(build, '.ni-btb__art').border).toBe('var(--bw) solid var(--color-sea-deep)');
     expect(rule(trade, '.ni-btt__piece').border).toBe('2px solid var(--color-sea-dark)');
     expect(rule(trade, '.ni-btt__mat').background).toBe('var(--color-wood)');
+    expect(rule(build, '.ni-btb__board')['background-color']).toBe('var(--color-sand-shadow)');
     expect(contrastRatio(PALETTE['sea-deep'], PALETTE['sand-shadow'])).toBeGreaterThanOrEqual(3);
     expect(contrastRatio(PALETTE['sea-dark'], PALETTE.wood)).toBeGreaterThanOrEqual(3);
   });
@@ -75,10 +76,12 @@ describe('Felt & Stitch widget pictures (slice 4a): the shipped styles draw thes
   it('draws the ten-frame drop rings in ink inside the cream cell, never on the denim mat (review R1)', () => {
     const armed = rule(tf, '.ni-tf__pad.ni-drop-target[data-armed="true"]');
     expect(armed['outline-color']).toBe('var(--color-ink)');
-    expect(armed['outline-offset']).toMatch(/^calc\(-\d+px/);
+    // Inset deeper than the ring is wide, clear of the 5 px stitch: the whole ring is on cream.
+    expect(armed['outline-offset']).toBe('calc(-9px * var(--tf-s))');
     const over = rule(tf, '.ni-tf__pad.ni-drop-target[data-over="true"]');
     expect(over.outline).toBe('5px solid var(--color-ink)');
-    expect(over['outline-offset']).toMatch(/^calc\(-\d+px/);
+    expect(over['outline-offset']).toBe('calc(-10px * var(--tf-s))');
+    expect(over['box-shadow']).toBe('none');
     expect(rule(tf, '.ni-tf__cell').background).toBe('var(--color-cloud)');
     expect(contrastRatio(PALETTE.ink, PALETTE.cloud)).toBeGreaterThanOrEqual(3);
   });
