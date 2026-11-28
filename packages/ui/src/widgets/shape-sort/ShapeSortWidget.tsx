@@ -304,9 +304,11 @@ export function ShapeSortWidget({
     },
   });
 
-  // Felt (slice 4b): every shape card drawn at one size is dressed the same, decided by the
-  // smallest shape among ALL the cards, so grain or a stitch never singles out a card.
+  // Felt (slice 4b): every shape card on the screen is dressed the same, decided by the smallest
+  // shape among ALL the cards at the smallest size any card is drawn (tray or bin, set below once
+  // the sort layout is known), so grain or a stitch never singles out a card (review R1).
   const shapeCards = config.cards.flatMap((c) => (isShape(c.card) ? [c.card] : []));
+  let feltUnit: number | null = null;
   const face = (c: Card, size: number) => {
     const h = highlight?.id === c.id ? highlight : null;
     if (isShape(c.card)) {
@@ -317,7 +319,7 @@ export function ShapeSortWidget({
           size={size}
           mark={h?.mark ?? null}
           upto={h?.upto}
-          setFelt={shapeSetFelt(shapeCards, size / (2 * extent))}
+          setFelt={shapeSetFelt(shapeCards, feltUnit ?? size / (2 * extent))}
         />
       );
     }
@@ -436,6 +438,10 @@ export function ShapeSortWidget({
     handRoom: trayInvited ? TRAY_HAND_ROOM : 0,
   });
   const outer = sizes.full;
+  // The smallest card face this layout draws (cardButton's sizes), for the one felt treatment.
+  const faceOf = (cardOuter: number) =>
+    cardOuter < outer ? cardOuter - SMALL_CARD_FRAME : cardOuter - 16;
+  feltUnit = Math.min(faceOf(sizes.tray), faceOf(sizes.bin), faceOf(outer)) / (2 * extent);
   /**
    * A bin's picture (05: K content must not rely on reading), where the config gives it
    * (`binPictureCard`); otherwise the bin shows its name, and says it when tapped.

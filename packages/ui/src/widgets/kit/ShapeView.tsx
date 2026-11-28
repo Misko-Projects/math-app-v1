@@ -536,9 +536,13 @@ function Marks({
 
 // ---------- solids ----------
 
-/** A solid in oblique view: faces in one hue, the top lighter and the side darker (token tints). */
-function Solid({ kind, c }: { kind: SolidKind; c: { fill: string; line: string } }) {
-  const face = { fill: c.fill, stroke: c.line, strokeWidth: 3, strokeLinejoin: 'round' as const };
+/**
+ * A solid in oblique view: faces in one hue, the top lighter and the side darker (token tints).
+ * The edges between faces are maths (a child counts faces), so they are drawn in the fill's own
+ * darker shade (`seam`), never in the fill itself, whatever the flat-shape felt rule (review R1).
+ */
+function Solid({ kind, c }: { kind: SolidKind; c: { fill: string; seam: string } }) {
+  const face = { fill: c.fill, stroke: c.seam, strokeWidth: 3, strokeLinejoin: 'round' as const };
   switch (kind) {
     case 'cube':
     case 'rect-prism': {

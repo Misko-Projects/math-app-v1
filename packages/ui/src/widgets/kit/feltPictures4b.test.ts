@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, PALETTE, type PaletteColor } from '../../tokens/tokens';
 import { BAR_EDGE } from './ChartView';
-import { insetPolygon, shapeColor, shapeSetFelt } from './ShapeView';
+import { insetPolygon, ShapeView, shapeColor, shapeSetFelt } from './ShapeView';
 
 /** The hex a CSS colour in `var(--color-x)` or `color-mix(in srgb, var(--color-a) N%, var(--color-b))` form resolves to. */
 function resolve(css: string): string {
@@ -82,6 +84,23 @@ describe('Felt & Stitch widget pictures (slice 4b): every edge that carries mean
 });
 
 describe('Felt shapes: one treatment per screen, a true inset stitch', () => {
+  it.each(['red', 'blue', 'yellow', 'green', 'orange', 'purple', 'tan'])(
+    'draws the edges between a %s solid’s faces in its darker shade, never in the fill (review R1)',
+    (color) => {
+      const c = shapeColor(color);
+      expect(c.seam).not.toBe(c.fill);
+      const svg = renderToStaticMarkup(
+        createElement(ShapeView, {
+          card: { shape: 'cube', color, scale: 1, rotationDeg: 0 },
+          size: 120,
+        }),
+      );
+      const strokes = [...svg.matchAll(/<path fill="[^"]*" stroke="([^"]*)"/g)].map((m) => m[1]);
+      expect(strokes.length).toBeGreaterThanOrEqual(3);
+      for (const s of strokes) expect(s).toBe(c.seam);
+    },
+  );
+
   it('insets every side of a polygon by exactly d, also at an acute corner', () => {
     const tri: [number, number][] = [
       [0, -40],

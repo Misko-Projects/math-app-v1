@@ -663,9 +663,22 @@ export const StressSevenLandscapeMinK: Story = {
       'k',
       present(sortControls(root)),
     );
+    // Felt (slice 4b, review R1): every shape card on the screen, in the tray or in a bin, is
+    // dressed the same, whatever size each place draws it at.
+    const dress = () =>
+      new Set(
+        [...root.querySelectorAll('svg.ni-shape')].map(
+          (s) => s.querySelector('.ni-shape__felt')?.getAttribute('data-felt') ?? 'flat',
+        ),
+      );
     for (let i = 0; i < 7; i += 1) {
       await userEvent.click(cardEl(root, `c${i}`));
       await userEvent.click(pad(root, i % 2 === 0 ? 'b0' : 'b1'));
+      if (i === 2) {
+        await settle(root);
+        await expect(root.querySelectorAll('svg.ni-shape').length).toBeGreaterThan(3);
+        await expect(dress().size).toBe(1);
+      }
     }
     await waitFor(() => expect(inBin(root, 'tray')).toEqual([]));
     await settle(root);
