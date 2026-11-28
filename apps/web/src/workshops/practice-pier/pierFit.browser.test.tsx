@@ -356,7 +356,9 @@ function legibilityMisses(stage: HTMLElement, item: GeneratedItem): LegibilityMi
     el.offsetWidth > 0 ? el.getBoundingClientRect().width / el.offsetWidth : 1;
   const fontPx = (el: HTMLElement) =>
     Number.parseFloat(getComputedStyle(el).fontSize) * scaleOf(el);
-  const answers = '.ni-npw__text, .ni-npw__blank, .ni-pad__key, .ni-ord__card';
+  // The sentence: number-pad's text, or its stimulus when that is the sentence (`frac.line`).
+  const answers =
+    '.ni-npw__text, .ni-npw__stimulus .ni-expr, .ni-npw__blank, .ni-pad__key, .ni-ord__card';
   const walker = document.createTreeWalker(widget, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     const el = n.parentElement;

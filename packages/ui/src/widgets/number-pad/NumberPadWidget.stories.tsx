@@ -434,6 +434,84 @@ export const LandscapeMinG1: Story = {
   },
 };
 
+/** A strategy sentence too wide for one row at 32 px beside the pad (MUL.14.t2's shape). */
+const halveDouble: ConfigFor<'number-pad'> = {
+  format: 'number-pad',
+  stimulus: { kind: 'none' },
+  expression: {
+    tokens: [
+      { t: 'num', v: 10 },
+      { t: 'op', v: '×' },
+      { t: 'num', v: 8 },
+      { t: 'rel', v: '=' },
+      { t: 'num', v: 10 },
+      { t: 'op', v: '×' },
+      { t: 'num', v: 4 },
+      { t: 'op', v: '+' },
+      { t: 'num', v: 10 },
+      { t: 'op', v: '×' },
+      { t: 'num', v: 4 },
+      { t: 'rel', v: '=' },
+      { t: 'blank', id: 'a' },
+      { t: 'op', v: '+' },
+      { t: 'blank', id: 'b' },
+      { t: 'rel', v: '=' },
+      { t: 'blank', id: 'c' },
+    ],
+  },
+  blanks: [
+    { id: 'a', maxDigits: 2 },
+    { id: 'b', maxDigits: 2 },
+    { id: 'c', maxDigits: 2 },
+  ],
+  unit: null,
+};
+
+const settledAsk = async (root: HTMLElement) =>
+  waitFor(
+    () => {
+      expect(root.dataset.ask).not.toBe('fit');
+      expect(root.dataset.judging).toBeUndefined();
+    },
+    { timeout: 4000 },
+  );
+
+/**
+ * The legibility bars at the smallest area: the sentence never shrinks under 32 px or its boxes
+ * under 64 px; it breaks before an "=" instead. A resize draws the boxes again, and the box that
+ * had the focus keeps it (Tab then goes on in reading order).
+ */
+export const LegibleSentenceKeepsFocus: Story = {
+  args: { config: halveDouble, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settledAsk(root);
+    const boxes = () => [...root.querySelectorAll<HTMLElement>('button[data-blank]')];
+    for (const box of boxes()) {
+      const r = box.getBoundingClientRect();
+      await expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(63.5);
+    }
+    for (const num of root.querySelectorAll<HTMLElement>('.ni-expr__num')) {
+      const scale = num.getBoundingClientRect().width / num.offsetWidth;
+      await expect(
+        Number.parseFloat(getComputedStyle(num).fontSize) * scale,
+      ).toBeGreaterThanOrEqual(31.5);
+    }
+    const second = root.querySelectorAll<HTMLElement>('.ni-expr__row')[1];
+    await expect(second?.querySelector('.ni-expr__token')).toHaveAttribute('data-eq', 'true');
+    boxes()[0]?.focus();
+    // Another room: the layout is chosen again from the start.
+    const area = canvasElement.querySelector<HTMLElement>('.story-widget-area');
+    if (area) area.style.width = `${area.offsetWidth + 40}px`;
+    await waitFor(() => expect(root.dataset.ask).toBe('fit'), { timeout: 2000 }).catch(() => {});
+    await settledAsk(root);
+    await expect(document.activeElement).toHaveAttribute('data-blank', 'a');
+    await userEvent.tab();
+    await expect(document.activeElement).toHaveAttribute('data-blank', 'b');
+  },
+};
+
 /** The tablet area (1226 × 493) in K: the 3 × 4 pad of big keys, Check beside it. */
 export const TabletK: Story = {
   globals: { ageMode: 'k' },

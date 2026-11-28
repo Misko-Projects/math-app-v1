@@ -99,6 +99,8 @@ function legibilityMiss(
   text: HTMLElement | null,
   parts: HTMLElement | null,
   box: { w: number; h: number } | null,
+  /** False for an estimation picture: its dots are drawn not to be counted. */
+  counted: boolean,
 ): 'hard' | 'soft' | null {
   if (text && text.offsetWidth > 0) {
     const scale = text.getBoundingClientRect().width / text.offsetWidth;
@@ -117,7 +119,18 @@ function legibilityMiss(
     const r = parts.getBoundingClientRect();
     if (r.width > box.w + 1 || r.height > box.h + 1) return 'hard';
   }
-  return smallestSprite(ask) < BAR_COUNTED - 0.5 ? 'soft' : null;
+  return counted && smallestSprite(ask) < BAR_COUNTED - 0.5 ? 'soft' : null;
+}
+
+/**
+ * A picture to estimate, not to count: a scattered set of more than 20 (counting draws at most 20;
+ * CMP.13 draws 20–200). Its dots never move the layout on (the fit check's `isEstimate` agrees).
+ */
+function isEstimatePicture(spec: ConfigFor<'number-pad'>['stimulus']): boolean {
+  if (spec.kind === 'dots') {
+    return spec.arrangement === 'scatter' && spec.groups.reduce((a, b) => a + b, 0) > 20;
+  }
+  return spec.kind === 'objects' && spec.set.layout === 'scatter' && spec.set.count > 20;
 }
 
 /** The smallest counted thing drawn in the question (px), Infinity without one. */
@@ -230,6 +243,33 @@ export function NumberPadWidget({
     );
   }, [textStep, maxSteps, textMaxW, tierKey, legible, brk, textSize.w, textH]);
 
+  // The answer box that has the focus, read before this render commits: a new layout draws the
+  // boxes again (another wrapper, a sentence on two rows), and the focus goes back to the box with
+  // the same id, so a keyboard or screen-reader user keeps their place across a resize.
+  const focusedBlank = useRef<string | null>(null);
+  if (typeof document !== 'undefined') {
+    const a = document.activeElement;
+    if (a instanceof HTMLElement && a.dataset.blank !== undefined && rootRef.current?.contains(a)) {
+      focusedBlank.current = a.dataset.blank;
+    }
+  }
+  useLayoutEffect(() => {
+    const id = focusedBlank.current;
+    focusedBlank.current = null;
+    const root = rootRef.current;
+    // Only when the focus was lost with the old box (it fell back to the page), never taken.
+    if (
+      id === null ||
+      !root ||
+      (document.activeElement && document.activeElement !== document.body)
+    ) {
+      return;
+    }
+    [...root.querySelectorAll<HTMLElement>('button[data-blank]')]
+      .find((el) => el.dataset.blank === id)
+      ?.focus({ preventScroll: true });
+  });
+
   // Whether the layout drawn now holds the bars; if not, the next mode (see AskMode).
   const judge = useRef<() => void>(() => {});
   judge.current = () => {
@@ -245,7 +285,9 @@ export function NumberPadWidget({
     if (overW && (textStep < maxSteps || (legible && expression && !brk))) return;
     const pictureBox = legible ? askBox : null;
     const miss =
-      legible && overW ? 'hard' : legibilityMiss(ask, text, partsRef.current, pictureBox);
+      legible && overW
+        ? 'hard'
+        : legibilityMiss(ask, text, partsRef.current, pictureBox, !isEstimatePicture(stimulus));
     if (miss === null) {
       if (legible) setAskTier({ ...askTier, mode, final: true, w: room.w, h: room.h });
       return;
