@@ -109,6 +109,7 @@ export {
   fractionWords,
   gridCellPath,
   WholeBase,
+  WholeGrain,
   WholeOutline,
 } from './FractionView';
 export {

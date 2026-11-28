@@ -38,15 +38,21 @@
   overflow: visible;
 }
 
+/*
+ * Felt & Stitch (slice 4b): the line is a denim felt ribbon (sea, 3.80:1 on paper) as the kit
+ * number line; ticks, numerals and fraction bars stay plain ink. The strip is a cream felt whole
+ * with the thin warm felt edge (3.28:1 on paper, 3.67:1 on cream), no inset stitch (it would read
+ * as one more division).
+ */
 .ni-fline__axis {
-  stroke: var(--color-ink);
+  stroke: var(--color-sea);
   stroke-width: 6;
   stroke-linecap: round;
 }
 .ni-fline__strip {
   fill: var(--color-cloud);
-  stroke: var(--color-ink-soft);
-  stroke-width: 3.5;
+  stroke: var(--felt-edge);
+  stroke-width: 2.5;
 }
 .ni-fline__ruler {
   fill: var(--color-sunshine-light);
