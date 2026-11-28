@@ -261,13 +261,13 @@
   flex: none;
   box-sizing: border-box;
   /*
-   * Denim felt (the kit's base-ten look): 3.8:1 on paper and every piece 2 px or more from the
-   * next, so no outline; the border is the piece's own felt and keeps its width. The unit lines
+   * Denim felt (the kit's base-ten look). The board is light wood (sand-shadow), where denim alone
+   * is 2.75:1, so the border is a same-hue sea-deep edge (4.1:1 there), the width unchanged. The unit lines
    * stay plain sky-light thread (--line, 3.6:1 on denim): 1.5 px on a rod, where units are counted,
    * 1 px on a flat, read as a whole. At the smallest unit (6 px) a rod still shows ten bands 4.5 px
    * apart and a flat a 10 × 10 grid of 5 px squares.
    */
-  border: var(--bw) solid var(--color-sea);
+  border: var(--bw) solid var(--color-sea-deep);
   border-radius: 3px;
   background-color: var(--color-sea);
   background-image: var(--felt-grain);

@@ -17,13 +17,79 @@ const theme = readFileSync(
   'utf8',
 );
 
-describe('Felt & Stitch widget pictures (slice 4a): every mark that carries meaning ≥ 3:1', () => {
+const css = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8');
+
+/** The declarations of the rule whose selector list is exactly `selector` (whitespace-normalised). */
+function rule(sheet: string, selector: string): Record<string, string> {
+  const norm = (s: string) =>
+    s
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  for (const m of sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (norm(m[1] ?? '') !== selector) continue;
+    const out: Record<string, string> = {};
+    for (const d of norm(m[2] ?? '').split(';')) {
+      const i = d.indexOf(':');
+      if (i > 0) out[d.slice(0, i).trim()] = d.slice(i + 1).trim();
+    }
+    return out;
+  }
+  throw new Error(`no rule ${selector}`);
+}
+
+describe('Felt & Stitch widget pictures (slice 4a): the shipped styles draw these colours', () => {
+  const kit = css('./kit.css');
+  const build = css('../base-ten-build/base-ten-build.css');
+  const trade = css('../base-ten-trade/base-ten-trade.css');
+  const tf = css('../tenframe-fill/tenframe-fill.css');
+
   it('keeps the light felt edge as the theme defines it', () => {
     expect(theme).toContain(
       '--felt-edge: color-mix(in srgb, var(--color-wood-deep) 65%, var(--color-sand-deep));',
     );
   });
 
+  it('draws base-ten unit lines in sky-light on denim: 1.5 px on rods, 1 px on flats', () => {
+    const block = rule(kit, '.ni-baseten__block');
+    expect(block['background-color']).toBe('var(--color-sea)');
+    expect(block['--lw']).toBe('1.5px');
+    expect(block['background-image']).toContain('var(--color-sky-light) var(--lw)');
+    expect(rule(kit, '.ni-baseten__block--flat, .ni-baseten__block--cube')['--lw']).toBe('1px');
+    expect(rule(build, '.ni-btb')['--line']).toBe('var(--color-sky-light)');
+    expect(rule(build, '.ni-btb__art--tens')['background-image']).toContain('var(--line) 1.5px');
+    expect(
+      rule(build, '.ni-btb__art--hundreds, .ni-btb__art--thousands')['background-image'],
+    ).toContain('var(--line) 1px');
+  });
+
+  it('edges base-ten pieces that lie on wood in a darker denim (review R1)', () => {
+    expect(rule(build, '.ni-btb__art').border).toBe('var(--bw) solid var(--color-sea-deep)');
+    expect(rule(trade, '.ni-btt__piece').border).toBe('2px solid var(--color-sea-dark)');
+    expect(rule(trade, '.ni-btt__mat').background).toBe('var(--color-wood)');
+    expect(contrastRatio(PALETTE['sea-deep'], PALETTE['sand-shadow'])).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(PALETTE['sea-dark'], PALETTE.wood)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('draws the ten-frame drop rings in ink inside the cream cell, never on the denim mat (review R1)', () => {
+    const armed = rule(tf, '.ni-tf__pad.ni-drop-target[data-armed="true"]');
+    expect(armed['outline-color']).toBe('var(--color-ink)');
+    expect(armed['outline-offset']).toMatch(/^calc\(-\d+px/);
+    const over = rule(tf, '.ni-tf__pad.ni-drop-target[data-over="true"]');
+    expect(over.outline).toBe('5px solid var(--color-ink)');
+    expect(over['outline-offset']).toMatch(/^calc\(-\d+px/);
+    expect(rule(tf, '.ni-tf__cell').background).toBe('var(--color-cloud)');
+    expect(contrastRatio(PALETTE.ink, PALETTE.cloud)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('draws the number line as a denim ribbon with plain ink ticks', () => {
+    expect(rule(kit, '.ni-numberline__axis').stroke).toBe('var(--color-sea)');
+    expect(rule(kit, '.ni-numberline__tick').stroke).toBe('var(--color-ink)');
+    expect(rule(kit, '.ni-objects__frame').background).toContain('var(--color-sea)');
+  });
+});
+
+describe('Felt & Stitch widget pictures (slice 4a): every mark that carries meaning ≥ 3:1', () => {
   it.each([
     // [what, foreground, background]
     ['ten-frame mat on paper (no outline)', PALETTE.sea, PALETTE.paper],

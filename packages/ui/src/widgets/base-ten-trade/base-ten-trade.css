@@ -191,8 +191,9 @@
 }
 
 /*
- * One base-ten piece. Concrete: denim felt blocks (the kit's base-ten look: 3.8:1 on paper, no
- * outline, the border is the piece's own felt), plain sky-light unit lines (3.6:1 on denim; 1.5 px
+ * One base-ten piece. Concrete: denim felt blocks (the kit's base-ten look). They lie on the wood
+ * mat, where denim alone is 1.7:1, so the border is a same-hue sea-dark edge (3.9:1 on wood), the
+ * width unchanged; plain sky-light unit lines (3.6:1 on denim; 1.5 px
  * on a rod, 1 px on a flat) and the piece lift. Pictorial: an ink drawing on paper, the "quick
  * pictures" children draw.
  */
@@ -201,7 +202,7 @@
   box-sizing: border-box;
   /* A press lands on the item, tray group or column the piece belongs to. */
   pointer-events: none;
-  border: 2px solid var(--color-sea);
+  border: 2px solid var(--color-sea-dark);
   border-radius: 3px;
   background-color: var(--color-sea);
   background-image: var(--felt-grain);

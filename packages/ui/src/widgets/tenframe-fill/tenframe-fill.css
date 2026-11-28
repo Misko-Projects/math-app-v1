@@ -163,6 +163,20 @@
   border-radius: 14%;
   pointer-events: none;
 }
+/*
+ * The drop rings (primitives.css .ni-drop-target: armed dashed, drag-over solid) are drawn inside
+ * the cream cell, in ink (12.8:1 on cream), clear of the stitch: outside the cell they would sit on
+ * the denim mat, where the shared sea-deep ring is 1.5:1.
+ */
+.ni-tf__pad.ni-drop-target[data-armed="true"] {
+  outline-color: var(--color-ink);
+  outline-offset: calc(-9px * var(--tf-s));
+}
+.ni-tf__pad.ni-drop-target[data-over="true"] {
+  outline: 5px solid var(--color-ink);
+  outline-offset: calc(-10px * var(--tf-s));
+  box-shadow: none;
+}
 /* Never under a placed counter, which covers most of the cell. */
 .ni-tf__cell:has(.ni-tf__placed)::before {
   content: none;
