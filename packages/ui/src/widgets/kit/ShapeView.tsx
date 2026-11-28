@@ -1,6 +1,7 @@
 import { PIECE_CORNERS } from '@number-island/engine';
 import type { ShapeCard, ShapeKind } from '@number-island/shared';
 import { pictureProps } from './a11y';
+import { GrainDefs, useGrainId } from './feltSvg';
 import './shapes.css';
 
 /**
@@ -191,18 +192,85 @@ export function shapeBox(card: Pick<ShapeCard, 'shape' | 'scale' | 'rotationDeg'
 
 // ---------- colours ----------
 
-/** Card colour names (generators/geo/shapes.ts COLORS plus `tan`) → a palette fill and its shade. */
-const COLOR: Record<string, { fill: string; line: string }> = {
-  red: { fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' },
-  blue: { fill: 'var(--color-sea)', line: 'var(--color-sea-dark)' },
-  yellow: { fill: 'var(--color-sunshine)', line: 'var(--color-sunshine-deep)' },
-  green: { fill: 'var(--color-leaf)', line: 'var(--color-leaf-dark)' },
-  orange: { fill: 'var(--color-sun)', line: 'var(--color-sun-deep)' },
-  purple: { fill: 'var(--color-sea-deep)', line: 'var(--color-sea-dark)' },
-  tan: { fill: 'var(--color-sand-deep)', line: 'var(--color-wood-deep)' },
+/**
+ * Card colour names (generators/geo/shapes.ts COLORS plus `tan`) → a felt fill, its edge and the
+ * thread of its stitch (Felt & Stitch, slice 4b). No dark outlines: a felt that holds 3:1 on the
+ * paper and horizon cards (coral 3.48/3.25, sea 3.80/3.56, sea-deep 5.72) is edged in its own
+ * colour, so its silhouette is unchanged and no line is drawn; a light felt gets a same-hue edge
+ * only as dark as 3:1 needs on both cards (yellow 3.43/3.21, green 3.74/3.50, orange 3.66/3.43,
+ * tan 3.28 on paper). feltPictures.test.ts holds these numbers.
+ */
+const CREAM_THREAD = 'color-mix(in srgb, var(--color-cloud) 75%, transparent)';
+const COLOR: Record<string, { fill: string; line: string; thread: string }> = {
+  red: { fill: 'var(--color-coral)', line: 'var(--color-coral)', thread: CREAM_THREAD },
+  blue: { fill: 'var(--color-sea)', line: 'var(--color-sea)', thread: CREAM_THREAD },
+  yellow: {
+    fill: 'var(--color-sunshine)',
+    line: 'color-mix(in srgb, var(--color-sunshine-deep) 60%, var(--color-wood-deep))',
+    thread: 'var(--color-sunshine-light)',
+  },
+  green: {
+    fill: 'var(--color-leaf)',
+    line: 'color-mix(in srgb, var(--color-leaf-deep) 50%, var(--color-leaf))',
+    thread: 'var(--color-leaf-light)',
+  },
+  orange: {
+    fill: 'var(--color-sun)',
+    line: 'color-mix(in srgb, var(--color-sun-deep) 70%, var(--color-coral-deep))',
+    thread: CREAM_THREAD,
+  },
+  purple: { fill: 'var(--color-sea-deep)', line: 'var(--color-sea-deep)', thread: CREAM_THREAD },
+  tan: { fill: 'var(--color-sand-deep)', line: 'var(--felt-edge)', thread: 'var(--color-sand)' },
 };
 export const shapeColor = (name: string) =>
-  COLOR[name] ?? (COLOR.tan as { fill: string; line: string });
+  COLOR[name] ?? (COLOR.tan as { fill: string; line: string; thread: string });
+
+/** A felt shape gets its inset stitch and grain from this drawn size up (CSS px across). */
+export const SHAPE_STITCH_MIN_PX = 64;
+/** The stitch's inset from the edge, CSS px (the theme's --stitch-inset). */
+const STITCH_INSET_PX = 5;
+
+/**
+ * A true inset of a simple polygon by `d` (each side moved inward by exactly `d`, corners where
+ * the moved sides meet), so the stitch runs parallel to every side at the same distance, also at
+ * acute corners. Null when the polygon is too small to hold it.
+ */
+export function insetPolygon(points: readonly Pt[], d: number): Pt[] | null {
+  const n = points.length;
+  if (n < 3) return null;
+  let area = 0;
+  for (let i = 0; i < n; i += 1) {
+    const [x0, y0] = points[i] as Pt;
+    const [x1, y1] = points[(i + 1) % n] as Pt;
+    area += x0 * y1 - x1 * y0;
+  }
+  // The inside lies left of every side when the signed area is positive, right when negative.
+  const s = area > 0 ? 1 : -1;
+  const lines = points.map((p, i) => {
+    const q = points[(i + 1) % n] as Pt;
+    const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+    const nx = (-(q[1] - p[1]) / len) * s;
+    const ny = ((q[0] - p[0]) / len) * s;
+    return { p: [p[0] + nx * d, p[1] + ny * d] as Pt, v: [q[0] - p[0], q[1] - p[1]] as Pt };
+  });
+  const out: Pt[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const a = lines[(i + n - 1) % n] as { p: Pt; v: Pt };
+    const b = lines[i] as { p: Pt; v: Pt };
+    const den = a.v[0] * b.v[1] - a.v[1] * b.v[0];
+    if (Math.abs(den) < 1e-9) return null;
+    const t = ((b.p[0] - a.p[0]) * b.v[1] - (b.p[1] - a.p[1]) * b.v[0]) / den;
+    out.push([round(a.p[0] + a.v[0] * t), round(a.p[1] + a.v[1] * t)]);
+  }
+  // Every side keeps its direction: a side that flipped means the shape is too small for the inset.
+  for (let i = 0; i < n; i += 1) {
+    const p = out[i] as Pt;
+    const q = out[(i + 1) % n] as Pt;
+    const v = (lines[i] as { v: Pt }).v;
+    if ((q[0] - p[0]) * v[0] + (q[1] - p[1]) * v[1] <= 0) return null;
+  }
+  return out;
+}
 
 // ---------- attribute marks ----------
 
@@ -515,43 +583,85 @@ export function ShapeView({
   const rotation = g.type === 'solid' ? 0 : card.rotationDeg;
   const k = card.scale;
   const scalePts = (pts: Pt[]): Pt[] => pts.map(([x, y]) => [round(x * k), round(y * k)]);
+  // CSS px per design unit, and the stitch inset in design units.
+  const unit = tight ? px : size / (2 * e);
+  const d = STITCH_INSET_PX / unit;
+  const grainId = useGrainId('ni-shape-grain');
+  /** The felt layers over a flat shape from SHAPE_STITCH_MIN_PX up: grain, then the inset stitch. */
+  const felt = (minPx: number, shape: React.ReactElement, stitch: React.ReactElement | null) =>
+    minPx * unit >= SHAPE_STITCH_MIN_PX ? (
+      <g className="ni-shape__felt" aria-hidden="true" data-felt="stitched">
+        <GrainDefs id={grainId} />
+        <g className="ni-shape__grain" fill={`url(#${grainId})`}>
+          {shape}
+        </g>
+        {stitch ? (
+          <g className="ni-shape__stitch" stroke={c.thread}>
+            {stitch}
+          </g>
+        ) : null}
+      </g>
+    ) : null;
   let body: React.ReactNode;
   switch (g.type) {
     case 'circle':
       body = (
-        <circle
-          className="ni-shape__fill"
-          cx={0}
-          cy={0}
-          r={g.r * k}
-          fill={c.fill}
-          stroke={c.line}
-        />
+        <>
+          <circle
+            className="ni-shape__fill"
+            cx={0}
+            cy={0}
+            r={g.r * k}
+            fill={c.fill}
+            stroke={c.line}
+          />
+          {felt(
+            2 * g.r * k,
+            <circle cx={0} cy={0} r={g.r * k} />,
+            <circle cx={0} cy={0} r={g.r * k - d} />,
+          )}
+        </>
       );
       break;
     case 'ellipse':
       body = (
-        <ellipse
-          className="ni-shape__fill"
-          cx={0}
-          cy={0}
-          rx={g.rx * k}
-          ry={g.ry * k}
-          fill={c.fill}
-          stroke={c.line}
-        />
+        <>
+          <ellipse
+            className="ni-shape__fill"
+            cx={0}
+            cy={0}
+            rx={g.rx * k}
+            ry={g.ry * k}
+            fill={c.fill}
+            stroke={c.line}
+          />
+          {felt(
+            2 * Math.min(g.rx, g.ry) * k,
+            <ellipse cx={0} cy={0} rx={g.rx * k} ry={g.ry * k} />,
+            <ellipse cx={0} cy={0} rx={g.rx * k - d} ry={g.ry * k - d} />,
+          )}
+        </>
       );
       break;
     case 'polygon': {
       const pts = scalePts(g.points);
+      const xs = pts.map((p) => p[0]);
+      const ys = pts.map((p) => p[1]);
+      const across = Math.min(
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+      );
+      const inner = insetPolygon(pts, d);
+      const list = (q: Pt[]) => q.map((p) => p.join(',')).join(' ');
       body = (
         <>
           <polygon
             className="ni-shape__fill"
-            points={pts.map((p) => p.join(',')).join(' ')}
+            points={list(pts)}
             fill={c.fill}
             stroke={c.line}
           />
+          {felt(across, <polygon points={list(pts)} />, inner ? <polygon points={list(inner)} /> : null)}
           <Marks points={pts} mark={mark} open={false} upto={upto} />
         </>
       );
