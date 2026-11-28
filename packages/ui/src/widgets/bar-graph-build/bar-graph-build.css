@@ -32,9 +32,13 @@
 }
 .ni-bgb__board {
   box-sizing: border-box;
+  /* A linen felt mat (grain over paper, the felt lift), as the order board; border width kept. */
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
-  background: var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
   box-shadow: var(--shadow-soft);
 }
 .ni-bgb__board {
@@ -44,7 +48,10 @@
 }
 /* The data board (what to count) is white; the child's graph is on paper, and each is labelled. */
 .ni-bgb__data .ni-bgb__board {
-  background: var(--color-cloud);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-cloud);
+  background-blend-mode: soft-light;
 }
 .ni-bgb__title {
   display: block;

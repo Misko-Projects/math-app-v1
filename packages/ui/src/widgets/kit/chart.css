@@ -1,7 +1,10 @@
 /*
  * ChartView (U05 #14): picture graphs, bar graphs, line plots, tally charts and tables. Tokens
  * only. Marks are ink (≥ 4.5:1 on paper); gridlines and lanes are decorative. A category is never
- * told apart by colour alone: every one shows its sprite and name.
+ * told apart by colour alone: every one shows its sprite and name. Felt & Stitch (slice 4b): bars
+ * are flat felt ending exactly at their value (no outline outside, no stitch, no lift); a light
+ * felt has a same-hue edge inside the bar; tiles, key and table cells take the warm felt edge
+ * (3.67:1 on cream) in place of ink. Axis, ticks, numerals, tallies and marks stay plain ink.
  */
 
 .ni-stimulus[data-kind="chart"] {
@@ -81,7 +84,7 @@
 }
 .ni-chart__tablecell {
   fill: var(--color-cloud);
-  stroke: var(--color-sand-deep);
+  stroke: var(--felt-edge);
   stroke-width: 3;
 }
 
@@ -91,7 +94,7 @@
   display: block;
   box-sizing: border-box;
   overflow: hidden;
-  border: 2px solid var(--color-sand-deep);
+  border: 2px solid var(--felt-edge);
   border-radius: 10px;
   background: var(--color-cloud);
   pointer-events: none;
@@ -150,7 +153,7 @@
   width: 40px;
   height: 40px;
   padding: 2px;
-  border: 3px solid var(--color-ink);
+  border: 3px solid var(--felt-edge);
   border-radius: 12px;
   background: var(--color-cloud);
 }

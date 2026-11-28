@@ -30,9 +30,13 @@
 }
 .ni-bgr__board {
   box-sizing: border-box;
+  /* A linen felt mat (grain over paper, the felt lift), as the order board; border width kept. */
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
-  background: var(--color-paper);
+  background:
+    var(--felt-grain) 0 0 / var(--felt-grain-size),
+    var(--color-paper);
+  background-blend-mode: soft-light;
   box-shadow: var(--shadow-soft);
 }
 .ni-bgr__answer {
