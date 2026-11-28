@@ -329,6 +329,65 @@ function isEstimate(item: GeneratedItem): boolean {
   return many > 20 || ranged || (w.format === 'dot-flash' && w.estimate !== undefined) || onLine;
 }
 
+/**
+ * The counted bar of a thing on an order card, by the card's picture (05 §11): a counter in a
+ * ten-frame cell 20 px (a frame is read by its rows of five); a set whose sizes vary on purpose
+ * (compare.sets conflict: compare by number, not size) 16 px; anything else the counted bar.
+ */
+function cardCountedBar(item: GeneratedItem, el: Element): number {
+  const w = item.widget;
+  const id = el.closest('[data-card], [data-placed]');
+  if (w.format !== 'order' || !id) return LEGIBILITY_BARS.counted;
+  const cardId = id.getAttribute('data-card') ?? id.getAttribute('data-placed');
+  const spec = w.items.find((it) => it.id === cardId)?.stimulus;
+  if (spec?.kind === 'ten-frame') return 20;
+  if (spec?.kind === 'dots' && spec.arrangement.includes('frame')) return 20;
+  if (spec?.kind === 'objects') {
+    if (spec.set.layout === 'ten-frame' || spec.set.layout === 'double-ten-frame') return 20;
+    if (spec.set.sizeVaries) return 16;
+  }
+  return LEGIBILITY_BARS.counted;
+}
+
+/**
+ * An array beside a sentence that itself writes both its factors (a multiplication strategy,
+ * "7 × 6 = 5 × 6 + 2 × 6"): the array models the product, the count is in the sentence, so its
+ * dots are not counted things.
+ */
+function isFactorModel(item: GeneratedItem): boolean {
+  const w = item.widget;
+  if (w.format !== 'number-pad' || w.stimulus.kind !== 'array') return false;
+  const { rows, cols } = w.stimulus;
+  const toks = w.expression?.tokens ?? [];
+  return toks.some((t, i) => {
+    const a = toks[i - 1];
+    const b = toks[i + 1];
+    return (
+      t.t === 'op' &&
+      t.v === '×' &&
+      a?.t === 'num' &&
+      b?.t === 'num' &&
+      ((a.v === rows && b.v === cols) || (a.v === cols && b.v === rows))
+    );
+  });
+}
+
+/**
+ * Base-ten pieces the child counts as pieces: on a number-pad screen whose sentence writes no
+ * number, or on an order card with no numeral (a sentence or card numeral gives the count).
+ */
+function piecesCounted(item: GeneratedItem): boolean {
+  const w = item.widget;
+  if (w.format === 'number-pad') {
+    return (
+      w.stimulus.kind === 'base-ten' && !(w.expression?.tokens ?? []).some((t) => t.t === 'num')
+    );
+  }
+  return (
+    w.format === 'order' && w.items.some((it) => it.stimulus?.kind === 'base-ten' && !it.label)
+  );
+}
+
 interface LegibilityMiss {
   bar: LegibilityBar;
   px: number;
@@ -346,9 +405,9 @@ function legibilityMisses(stage: HTMLElement, item: GeneratedItem): LegibilityMi
   const widget = stage.querySelector<HTMLElement>('.ni-widget');
   if (!widget) return [];
   const worst = new Map<LegibilityBar, LegibilityMiss>();
-  const note = (bar: LegibilityBar, px: number, what: string) => {
+  const note = (bar: LegibilityBar, px: number, what: string, min = LEGIBILITY_BARS[bar]) => {
     const was = worst.get(bar);
-    if (px < LEGIBILITY_BARS[bar] - 0.5 && (!was || px < was.px)) {
+    if (px < min - 0.5 && (!was || px < was.px)) {
       worst.set(bar, { bar, px: Math.round(px * 10) / 10, what });
     }
   };
@@ -386,11 +445,30 @@ function legibilityMisses(stage: HTMLElement, item: GeneratedItem): LegibilityMi
     if (cs.pointerEvents === 'none' && Number.parseFloat(cs.opacity) === 0) continue;
     note('target', Math.min(r.width, r.height), el.getAttribute('class')?.split(' ')[0] ?? '');
   }
-  if (!isEstimate(item)) {
+  if (!isEstimate(item) && !isFactorModel(item)) {
     for (const el of widget.querySelectorAll<SVGElement>('.ni-sprite, [data-part]')) {
       const r = el.getBoundingClientRect();
       if (r.width <= 1 || r.height <= 1) continue;
-      note('counted', Math.min(r.width, r.height), el.getAttribute('data-sprite') ?? 'part');
+      const bar = cardCountedBar(item, el);
+      note(
+        'counted',
+        Math.min(r.width, r.height),
+        `${el.getAttribute('data-sprite') ?? 'part'}${bar === LEGIBILITY_BARS.counted ? '' : ` (bar ${bar})`}`,
+        bar,
+      );
+    }
+  }
+  // Base-ten pieces a child counts: rods, where no numeral gives the count.
+  if (piecesCounted(item)) {
+    for (const pic of widget.querySelectorAll<HTMLElement>('.ni-baseten')) {
+      const rods = [...pic.querySelectorAll<HTMLElement>('.ni-baseten__block--rod')]
+        .map((e) => e.getBoundingClientRect())
+        .filter((r) => r.width > 0.5);
+      rods.forEach((r, i) => {
+        note('rod', r.width, 'ni-baseten__block--rod');
+        const prev = rods[i - 1];
+        if (prev && Math.abs(prev.top - r.top) < 2) note('rodGap', r.left - prev.right, 'rod gap');
+      });
     }
   }
   return [...worst.values()];
